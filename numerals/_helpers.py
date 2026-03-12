@@ -130,6 +130,8 @@ def should_consume_abbreviation_dot(tokens: list[str], dot_index: int) -> bool:
     next_token = tokens[dot_index + 1]
     if "\n" in next_token or PARAGRAPH_BREAK_PLACEHOLDER in next_token:
         return False
+    if next_token in {",", ";", ":", ")", "]", "}", "»", '"', "”"}:
+        return True
     stripped_next = next_token.strip(PUNCT_STRIP)
     if not stripped_next:
         return False

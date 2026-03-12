@@ -35,12 +35,28 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         tokens = simple_tokenize("выписал чек на сумму 100 тыс. долл.")
         self.assertEqual(get_numeral_case(tokens, tokens.index("100")), "accs")
 
+    def test_money_amount_after_za_uses_accusative_case(self):
+        tokens = simple_tokenize("продал корову за 1000 долл.")
+        self.assertEqual(get_numeral_case(tokens, tokens.index("1000")), "accs")
+
     def test_normalize_amount_with_thousands_abbreviation_after_na_summu(self):
         self.assertEqual(
             normalize(
                 "Энди Бехтольшайм, заинтересовавшийся этим проектом, сразу же выписал чек на сумму 100 тыс. долл."
             ),
             "Энди Бехтольшайм, заинтересовавшийся этим проектом, сразу же выписал чек на сумму сто тысяч долларов",
+        )
+
+    def test_normalize_amount_with_dollar_abbreviation_before_comma(self):
+        self.assertEqual(
+            normalize("Например, я продал корову за 1000 долл., а потом ушёл."),
+            "Например, я продал корову за одну тысячу долларов, а потом ушёл.",
+        )
+
+    def test_normalize_amount_after_imet_uses_accusative_case(self):
+        self.assertEqual(
+            normalize("Мне лучше иметь 1000 долл., чем корову."),
+            "Мне лучше иметь одну тысячу долларов, чем корову.",
         )
 
     def test_dictionary_latinization_regressions_keep_current_duplicate_rule_behavior(self):
