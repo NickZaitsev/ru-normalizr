@@ -6,6 +6,9 @@ from .constants import KNOWN_ABBREVIATIONS
 from .preprocess_utils import PARAGRAPH_BREAK_PLACEHOLDER
 
 _LINE_SPLIT_PATTERN = re.compile(rf"(\n|{re.escape(PARAGRAPH_BREAK_PLACEHOLDER)})")
+_SENTENCE_START_PATTERN = re.compile(
+    r"((?<=[.!?…])(?:[\s\"'«»„“”()\[\]{}]*))([a-zA-Zа-яА-ЯёЁ])"
+)
 
 
 def normalize_first_word_caps(text: str, enabled: bool = True) -> str:
@@ -25,6 +28,21 @@ def normalize_first_word_caps(text: str, enabled: bool = True) -> str:
             if word not in KNOWN_ABBREVIATIONS and len(word) > 3 and has_following_alpha:
                 parts[idx] = match.group(1) + word.capitalize() + line[match.end() :]
 
+    return "".join(parts)
+
+
+def normalize_sentence_start_caps(text: str, enabled: bool = True) -> str:
+    if not enabled:
+        return text
+
+    def uppercase_sentence_start(match: re.Match[str]) -> str:
+        prefix = match.group(1)
+        letter = match.group(2)
+        return f"{prefix}{letter.upper()}"
+
+    parts = _LINE_SPLIT_PATTERN.split(text)
+    for idx in range(0, len(parts), 2):
+        parts[idx] = _SENTENCE_START_PATTERN.sub(uppercase_sentence_start, parts[idx])
     return "".join(parts)
 
 

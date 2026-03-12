@@ -212,6 +212,14 @@ class RuNormalizrApiTests(unittest.TestCase):
             "миротворцы и так далее. Эти шумы остались.",
         )
 
+    def test_normalize_capitalizes_sentence_start_after_numeric_expansion(self):
+        self.assertEqual(
+            normalize(
+                ". 90 серий этих суперрусских правдюков дают материал для 180 увлекательнейших статей."
+            ),
+            ". Девяносто серий этих суперрусских правдюков дают материал для сто восьмидесяти увлекательнейших статей.",
+        )
+
     def test_normalize_removes_decorative_separator_without_extra_punctuation(self):
         self.assertEqual(
             normalize(

@@ -5,7 +5,11 @@ from pathlib import Path
 
 from ._morph import get_morph
 from .abbreviations import expand_abbreviations
-from .caps import normalize_caps_lines, normalize_first_word_caps
+from .caps import (
+    normalize_caps_lines,
+    normalize_first_word_caps,
+    normalize_sentence_start_caps,
+)
 from .dates_time import normalize_dates_and_time
 from .dictionary import apply_dictionary_rules
 from .latinization import DEFAULT_DICTIONARIES_PATH, apply_latinization
@@ -243,6 +247,7 @@ class PipelineNormalizer:
         text = normalize_ascii_quote_pairs(text)
         text = normalize_punctuation_spacing(text)
         text = normalize_linebreaks(text, keep_paragraph_placeholders=True)
+        text = normalize_sentence_start_caps(text)
         return restore_paragraph_breaks(text)
 
     def _fix_glued_numbers(self, text: str) -> str:
