@@ -43,10 +43,31 @@ ru-normalizr = "ru_normalizr.__main__:main"
 
 [tool.setuptools]
 packages = ["ru_normalizr"]
-include-package-data = true
+include-package-data = false
 
 [tool.setuptools.package-dir]
 ru_normalizr = "."
 
 [tool.setuptools.package-data]
-ru_normalizr = ["py.typed", "dictionaries/*.dic", "LICENSE", "CHANGELOG.md", "VERSIONING.md", "PYPI_RELEASE_CHECKLIST.md", "requirements-dev.txt"]
+ru_normalizr = ["py.typed", "dictionaries/*.dic"]
+
+[tool.setuptools.exclude-package-data]
+ru_normalizr = [
+  "LICENSE",
+  "CHANGELOG.md",
+  "VERSIONING.md",
+  "PYPI_RELEASE_CHECKLIST.md",
+  "requirements-dev.txt",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = ["build", "dist", ".tmp_dist", "ru_normalizr.egg-info", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]

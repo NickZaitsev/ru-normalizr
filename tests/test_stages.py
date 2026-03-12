@@ -2,8 +2,8 @@ import unittest
 
 from ru_normalizr.abbreviations import expand_abbreviations
 from ru_normalizr.dates_time import normalize_dates_and_time
-from ru_normalizr.numerals import normalize_numerals
 from ru_normalizr.numbering import convert_bracketed_numbers
+from ru_normalizr.numerals import normalize_numerals
 from ru_normalizr.roman_numerals import normalize_roman
 from ru_normalizr.years import normalize_years
 

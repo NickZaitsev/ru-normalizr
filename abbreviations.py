@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from ._morph import get_morph
 from .abbreviation_rules import ABBREVIATION_PATTERNS
 from .constants import (
     ABBREV_DOTTED_PATTERN,
@@ -14,11 +15,10 @@ from .constants import (
     PERSON_INITIALS_SURNAME_PATTERN,
     PERSON_SURNAME_INITIALS_PATTERN,
     REAL_WORD_POS,
-    RUSSIAN_NAME_TOKEN,
     RU_LETTER_NAMES,
     RU_VOWELS,
+    RUSSIAN_NAME_TOKEN,
 )
-from ._morph import get_morph
 from .options import NormalizeOptions
 
 _ETC_ABBREVIATION_PATTERN = re.compile(

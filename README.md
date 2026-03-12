@@ -113,8 +113,9 @@ ru-normalizr --no-latinization "YouTube в 2024 г."
 
 ```bash
 py -3.12 -m pip install -r ./ru_normalizr/requirements-dev.txt
-py -3.12 -m pytest -q ru_normalizr/tests
-py -3.12 -m build ./ru_normalizr
+py -3.12 ./ru_normalizr/scripts/dev.py test
+py -3.12 ./ru_normalizr/scripts/dev.py lint
+py -3.12 ./ru_normalizr/scripts/dev.py build
 ```
 
 ## Release Notes
@@ -129,4 +130,13 @@ The package is self-contained inside `ru_normalizr/` and builds as a standalone 
 
 ```bash
 python -m pip wheel --no-deps ./ru_normalizr
+```
+
+For repeatable local workflows, use the helper script:
+
+```bash
+py -3.12 ./ru_normalizr/scripts/dev.py clean
+py -3.12 ./ru_normalizr/scripts/dev.py test
+py -3.12 ./ru_normalizr/scripts/dev.py lint
+py -3.12 ./ru_normalizr/scripts/dev.py build
 ```

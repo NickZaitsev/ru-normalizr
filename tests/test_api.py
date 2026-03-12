@@ -288,7 +288,7 @@ class RuNormalizrApiTests(unittest.TestCase):
         package_dir = Path(__import__("ru_normalizr").__file__).resolve().parent
 
         self.assertTrue((package_dir / "py.typed").exists())
-        self.assertTrue((package_dir / "pyproject.toml").exists())
+        self.assertTrue((package_dir / "dictionaries" / "65_ЛАТИНИЦА@.dic").exists())
 
     def test_stage_module_import_does_not_pull_speakerpy(self):
         completed = subprocess.run(
