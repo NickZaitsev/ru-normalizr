@@ -21,8 +21,9 @@ from .constants import (
 from ._morph import get_morph
 from .options import NormalizeOptions
 
-
-_ETC_ABBREVIATION_PATTERN = re.compile(r"(?<!\w)(?P<abbr>т\.?\s*[дп]\.)(?P<tail>\s*)(?!\w)", re.IGNORECASE)
+_ETC_ABBREVIATION_PATTERN = re.compile(
+    r"(?<!\w)(?P<abbr>т\.?\s*[дп]\.)(?P<tail>\s*)(?!\w)", re.IGNORECASE
+)
 
 
 def _expand_contextual_etc_abbreviations(text: str) -> str:
@@ -32,11 +33,13 @@ def _expand_contextual_etc_abbreviations(text: str) -> str:
         normalized_abbr = re.sub(r"\s+", "", raw_abbr).lower()
         expansion = "так далее" if "д" in normalized_abbr else "тому подобное"
 
-        rest = text[match.end():]
+        rest = text[match.end() :]
         next_char = rest[:1]
         stripped_rest = rest.lstrip()
         next_significant = stripped_rest[:1]
-        has_linebreak_before_next = "\n" in tail or ("\n" in rest and rest[: len(rest) - len(stripped_rest)] != "")
+        has_linebreak_before_next = "\n" in tail or (
+            "\n" in rest and rest[: len(rest) - len(stripped_rest)] != ""
+        )
 
         keep_terminal_dot = (
             not stripped_rest
@@ -44,7 +47,11 @@ def _expand_contextual_etc_abbreviations(text: str) -> str:
             or (next_significant and next_significant.isupper())
         )
 
-        if next_char in "\"»”)]}" and len(stripped_rest) > 1 and stripped_rest[1:2].isupper():
+        if (
+            next_char in '"»”)]}'
+            and len(stripped_rest) > 1
+            and stripped_rest[1:2].isupper()
+        ):
             keep_terminal_dot = True
 
         return f"{expansion}{'.' if keep_terminal_dot else ''}{tail}"
@@ -66,6 +73,7 @@ def expand_person_initials(text: str) -> str:
         if stripped[0] in ",;:":
             return False, ""
         import re
+
         if re.match(rf"^\s+{RUSSIAN_NAME_TOKEN}\s+[А-ЯЁ]\.\s*[А-ЯЁ]\.", tail):
             return False, ","
         if stripped[0].islower() or stripped[0].isdigit():
@@ -78,7 +86,11 @@ def expand_person_initials(text: str) -> str:
         i2 = initial_name(match.group("i2"))
         is_final, non_final_tail = choose_tail(match.end())
         if is_final:
-            terminal = "" if text[match.end():].lstrip().startswith((".", "!", "?", "…")) else "."
+            terminal = (
+                ""
+                if text[match.end() :].lstrip().startswith((".", "!", "?", "…"))
+                else "."
+            )
             return f"{surname} {i1} {i2}{terminal}"
         return f"{surname}, {i1}, {i2}{non_final_tail}"
 
@@ -88,7 +100,11 @@ def expand_person_initials(text: str) -> str:
         surname = match.group("surname")
         is_final, non_final_tail = choose_tail(match.end())
         if is_final:
-            terminal = "" if text[match.end():].lstrip().startswith((".", "!", "?", "…")) else "."
+            terminal = (
+                ""
+                if text[match.end() :].lstrip().startswith((".", "!", "?", "…"))
+                else "."
+            )
             return f"{i1} {i2} {surname}{terminal}"
         return f"{i1}, {i2}, {surname}{non_final_tail}"
 
@@ -107,7 +123,11 @@ def expand_letter_abbreviations(text: str) -> str:
         joined_key = "".join(letters_upper)
         if joined_key in KNOWN_ABBREVIATIONS:
             custom_reading = KNOWN_ABBREVIATIONS[joined_key]
-            return custom_reading + "." if custom_reading and tail_dot else custom_reading or token
+            return (
+                custom_reading + "."
+                if custom_reading and tail_dot
+                else custom_reading or token
+            )
 
         if all(char in RU_LETTER_NAMES for char in letters_upper):
             if not is_dotted:

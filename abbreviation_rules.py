@@ -82,9 +82,11 @@ def _compile_literal_rule(abbr: str) -> re.Pattern[str]:
 
 ABBREVIATION_PATTERNS = [
     (
-        re.compile(matcher.pattern, matcher.flags)
-        if isinstance(matcher, RegexRule)
-        else _compile_literal_rule(matcher),
+        (
+            re.compile(matcher.pattern, matcher.flags)
+            if isinstance(matcher, RegexRule)
+            else _compile_literal_rule(matcher)
+        ),
         replacement,
     )
     for matcher, replacement in ABBREVIATION_RULES.items()

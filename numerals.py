@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import functools
 import re
 
 import num2words
@@ -21,57 +20,209 @@ POST_NUMERAL_ABBREVIATION_PATTERNS = [
 ]
 
 GREEK_LETTERS = {
-    "α": "альфа", "β": "бета", "γ": "гамма", "δ": "дельта", "ε": "эпсилон", "ϵ": "эпсилон",
-    "ζ": "дзета", "η": "эта", "θ": "тета", "ϑ": "тета", "ι": "йота", "κ": "каппа",
-    "ϰ": "каппа", "λ": "лямбда", "μ": "мю", "µ": "мю", "ν": "ню", "ξ": "кси", "ο": "омикрон",
-    "π": "пи", "ϖ": "пи", "ρ": "ро", "ϱ": "ро", "σ": "сигма", "ς": "сигма", "τ": "тау",
-    "φ": "фи", "ϕ": "фи", "χ": "хи", "ψ": "пси", "ω": "омега", "Δ": "дельта", "Σ": "сигма",
-    "Ω": "омега", "Π": "пи", "Φ": "фи", "Γ": "гамма", "Λ": "лямбда", "Θ": "тета",
+    "α": "альфа",
+    "β": "бета",
+    "γ": "гамма",
+    "δ": "дельта",
+    "ε": "эпсилон",
+    "ϵ": "эпсилон",
+    "ζ": "дзета",
+    "η": "эта",
+    "θ": "тета",
+    "ϑ": "тета",
+    "ι": "йота",
+    "κ": "каппа",
+    "ϰ": "каппа",
+    "λ": "лямбда",
+    "μ": "мю",
+    "µ": "мю",
+    "ν": "ню",
+    "ξ": "кси",
+    "ο": "омикрон",
+    "π": "пи",
+    "ϖ": "пи",
+    "ρ": "ро",
+    "ϱ": "ро",
+    "σ": "сигма",
+    "ς": "сигма",
+    "τ": "тау",
+    "φ": "фи",
+    "ϕ": "фи",
+    "χ": "хи",
+    "ψ": "пси",
+    "ω": "омега",
+    "Δ": "дельта",
+    "Σ": "сигма",
+    "Ω": "омега",
+    "Π": "пи",
+    "Φ": "фи",
+    "Γ": "гамма",
+    "Λ": "лямбда",
+    "Θ": "тета",
 }
 
 MATH_SYMBOLS = {
-    "×": " умножить на ", "÷": " разделить на ", "±": " плюс-минус ", "∓": " минус-плюс ",
-    "≈": " приблизительно равно ", "≠": " не равно ", "≤": " меньше или равно ", "≥": " больше или равно ",
-    "∞": " бесконечность ", "√": " корень из ", "∑": " сумма ", "∏": " произведение ",
-    "∫": " интеграл ", "∂": " дель ", "∈": " принадлежит ", "∉": " не принадлежит ",
-    "∪": " объединение ", "∩": " пересечение ", "⇒": " следует ", "№": " номер ",
+    "×": " умножить на ",
+    "÷": " разделить на ",
+    "±": " плюс-минус ",
+    "∓": " минус-плюс ",
+    "≈": " приблизительно равно ",
+    "≠": " не равно ",
+    "≤": " меньше или равно ",
+    "≥": " больше или равно ",
+    "∞": " бесконечность ",
+    "√": " корень из ",
+    "∑": " сумма ",
+    "∏": " произведение ",
+    "∫": " интеграл ",
+    "∂": " дель ",
+    "∈": " принадлежит ",
+    "∉": " не принадлежит ",
+    "∪": " объединение ",
+    "∩": " пересечение ",
+    "⇒": " следует ",
+    "№": " номер ",
 }
 
 CURRENCY_STANDALONE = {
-    "$": "доллар", "€": "евро", "£": "фунт", "¥": "йена", "₽": "рубль", "₴": "гривна",
-    "₸": "тенге", "₺": "лира", "₹": "рупия", "¢": "цент",
+    "$": "доллар",
+    "€": "евро",
+    "£": "фунт",
+    "¥": "йена",
+    "₽": "рубль",
+    "₴": "гривна",
+    "₸": "тенге",
+    "₺": "лира",
+    "₹": "рупия",
+    "¢": "цент",
 }
 
 PREP_CASE = {
-    "в": "accs", "о": "loct", "об": "loct", "на": "accs", "из": "gent", "с": "gent", "к": "datv",
-    "по": "datv", "для": "gent", "без": "gent", "при": "loct", "между": "ablt", "до": "gent",
-    "от": "gent", "у": "gent", "во": "accs", "со": "gent", "ко": "datv", "обо": "loct",
-    "в течение": "gent", "течение": "gent", "в продолжение": "gent", "вследствие": "gent",
-    "свыше": "gent", "более": "gent", "менее": "gent", "около": "gent", "порядка": "gent",
-    "после": "gent", "против": "gent", "через": "accs", "среди": "gent", "вместо": "gent",
-    "возле": "gent", "вокруг": "gent", "вдоль": "gent", "внутри": "gent", "вне": "gent",
-    "ради": "gent", "благодаря": "datv", "вопреки": "datv", "согласно": "datv", "навстречу": "datv",
-    "старше": "gent", "моложе": "gent", "младше": "gent", "выше": "gent", "ниже": "gent",
-    "дольше": "gent", "короче": "gent",
+    "в": "accs",
+    "о": "loct",
+    "об": "loct",
+    "на": "accs",
+    "из": "gent",
+    "с": "gent",
+    "к": "datv",
+    "по": "datv",
+    "для": "gent",
+    "без": "gent",
+    "при": "loct",
+    "между": "ablt",
+    "до": "gent",
+    "от": "gent",
+    "у": "gent",
+    "во": "accs",
+    "со": "gent",
+    "ко": "datv",
+    "обо": "loct",
+    "в течение": "gent",
+    "течение": "gent",
+    "в продолжение": "gent",
+    "вследствие": "gent",
+    "свыше": "gent",
+    "более": "gent",
+    "менее": "gent",
+    "около": "gent",
+    "порядка": "gent",
+    "после": "gent",
+    "против": "gent",
+    "через": "accs",
+    "среди": "gent",
+    "вместо": "gent",
+    "возле": "gent",
+    "вокруг": "gent",
+    "вдоль": "gent",
+    "внутри": "gent",
+    "вне": "gent",
+    "ради": "gent",
+    "благодаря": "datv",
+    "вопреки": "datv",
+    "согласно": "datv",
+    "навстречу": "datv",
+    "старше": "gent",
+    "моложе": "gent",
+    "младше": "gent",
+    "выше": "gent",
+    "ниже": "gent",
+    "дольше": "gent",
+    "короче": "gent",
 }
 
 VERB_CASE = {
-    "обнаружить": "accs", "выявить": "accs", "показать": "accs", "считать": "accs", "оценить": "accs",
-    "избегать": "gent", "опасаться": "gent", "достичь": "gent", "достигать": "gent", "лишиться": "gent",
-    "верить": "datv", "доверять": "datv", "видеть": "accs", "наблюдать": "accs", "замечать": "accs",
-    "осознавать": "accs", "понимать": "accs", "изучать": "accs", "анализировать": "accs",
-    "рассматривать": "accs", "определять": "accs", "устанавливать": "accs", "формировать": "accs",
-    "использовать": "accs", "применять": "accs", "реализовывать": "accs", "разрабатывать": "accs",
-    "создавать": "accs", "включать": "accs", "получать": "accs", "не иметь": "gent", "избежать": "gent",
-    "достигнуть": "gent", "требовать": "gent", "ожидать": "gent", "бояться": "gent", "страшиться": "gent",
-    "лишать": "gent", "касаться": "gent", "относиться": "gent", "состоять": "gent", "дожидаться": "gent",
-    "избавиться": "gent", "помогать": "datv", "способствовать": "datv", "препятствовать": "datv",
-    "следовать": "datv", "соответствовать": "datv", "противоречить": "datv", "удивляться": "datv",
-    "радоваться": "datv", "завидовать": "datv", "угрожать": "datv", "рекомендовать": "datv",
-    "предлагать": "datv", "являться": "ablt", "считаться": "ablt", "обладать": "ablt",
-    "характеризоваться": "ablt", "отличаться": "ablt", "определяться": "ablt", "пользоваться": "ablt",
-    "управлять": "ablt", "владеть": "ablt", "говорить": "loct", "сообщать": "loct", "рассказывать": "loct",
-    "упоминать": "loct", "писать": "loct", "думать": "loct", "размышлять": "loct", "основываться": "loct",
+    "обнаружить": "accs",
+    "выявить": "accs",
+    "показать": "accs",
+    "считать": "accs",
+    "оценить": "accs",
+    "избегать": "gent",
+    "опасаться": "gent",
+    "достичь": "gent",
+    "достигать": "gent",
+    "лишиться": "gent",
+    "верить": "datv",
+    "доверять": "datv",
+    "видеть": "accs",
+    "наблюдать": "accs",
+    "замечать": "accs",
+    "осознавать": "accs",
+    "понимать": "accs",
+    "изучать": "accs",
+    "анализировать": "accs",
+    "рассматривать": "accs",
+    "определять": "accs",
+    "устанавливать": "accs",
+    "формировать": "accs",
+    "использовать": "accs",
+    "применять": "accs",
+    "реализовывать": "accs",
+    "разрабатывать": "accs",
+    "создавать": "accs",
+    "включать": "accs",
+    "получать": "accs",
+    "не иметь": "gent",
+    "избежать": "gent",
+    "достигнуть": "gent",
+    "требовать": "gent",
+    "ожидать": "gent",
+    "бояться": "gent",
+    "страшиться": "gent",
+    "лишать": "gent",
+    "касаться": "gent",
+    "относиться": "gent",
+    "состоять": "gent",
+    "дожидаться": "gent",
+    "избавиться": "gent",
+    "помогать": "datv",
+    "способствовать": "datv",
+    "препятствовать": "datv",
+    "следовать": "datv",
+    "соответствовать": "datv",
+    "противоречить": "datv",
+    "удивляться": "datv",
+    "радоваться": "datv",
+    "завидовать": "datv",
+    "угрожать": "datv",
+    "рекомендовать": "datv",
+    "предлагать": "datv",
+    "являться": "ablt",
+    "считаться": "ablt",
+    "обладать": "ablt",
+    "характеризоваться": "ablt",
+    "отличаться": "ablt",
+    "определяться": "ablt",
+    "пользоваться": "ablt",
+    "управлять": "ablt",
+    "владеть": "ablt",
+    "говорить": "loct",
+    "сообщать": "loct",
+    "рассказывать": "loct",
+    "упоминать": "loct",
+    "писать": "loct",
+    "думать": "loct",
+    "размышлять": "loct",
+    "основываться": "loct",
     "заключаться": "loct",
 }
 
@@ -288,17 +439,89 @@ NUMERIC_UNIT_RANGE_PATTERN = re.compile(
 )
 
 TIME_WORDS = {
-    "год": "masc", "года": "masc", "лет": "masc", "году": "masc", "годом": "masc", "годе": "masc", "годов": "masc", "годам": "masc", "годами": "masc", "годах": "masc",
-    "месяц": "masc", "месяца": "masc", "месяцев": "masc", "месяцу": "masc", "месяцем": "masc", "месяце": "masc", "месяцам": "masc", "месяцами": "masc", "месяцах": "masc",
-    "день": "masc", "дня": "masc", "дней": "masc", "дню": "masc", "днем": "masc", "днём": "masc", "дне": "masc", "дням": "masc", "днями": "masc", "днях": "masc",
-    "неделя": "femn", "недели": "femn", "недель": "femn", "неделе": "femn", "неделю": "femn", "неделей": "femn", "неделях": "femn", "неделям": "femn", "неделями": "femn",
-    "сутки": "plur", "суток": "plur", "суткам": "plur", "сутками": "plur", "сутках": "plur",
-    "час": "masc", "часа": "masc", "часов": "masc", "часу": "masc", "часом": "masc", "часе": "masc", "часам": "masc", "часами": "masc", "часах": "masc",
-    "минута": "femn", "минуты": "femn", "минут": "femn", "минуте": "femn", "минуту": "femn", "минутой": "femn", "минутам": "femn", "минутами": "femn", "минутах": "femn",
-    "секунда": "femn", "секунды": "femn", "секунд": "femn", "секунде": "femn", "секунду": "femn", "секундой": "femn", "секундам": "femn", "секундами": "femn", "секундах": "femn",
-    "век": "masc", "века": "masc", "веку": "masc", "веке": "masc", "веком": "masc", "веков": "masc",
-    "столетие": "neut", "столетия": "neut", "столетию": "neut", "столетии": "neut", "столетием": "neut",
+    "год": "masc",
+    "года": "masc",
+    "лет": "masc",
+    "году": "masc",
+    "годом": "masc",
+    "годе": "masc",
+    "годов": "masc",
+    "годам": "masc",
+    "годами": "masc",
+    "годах": "masc",
+    "месяц": "masc",
+    "месяца": "masc",
+    "месяцев": "masc",
+    "месяцу": "masc",
+    "месяцем": "masc",
+    "месяце": "masc",
+    "месяцам": "masc",
+    "месяцами": "masc",
+    "месяцах": "masc",
+    "день": "masc",
+    "дня": "masc",
+    "дней": "masc",
+    "дню": "masc",
+    "днем": "masc",
+    "днём": "masc",
+    "дне": "masc",
+    "дням": "masc",
+    "днями": "masc",
+    "днях": "masc",
+    "неделя": "femn",
+    "недели": "femn",
+    "недель": "femn",
+    "неделе": "femn",
+    "неделю": "femn",
+    "неделей": "femn",
+    "неделях": "femn",
+    "неделям": "femn",
+    "неделями": "femn",
+    "сутки": "plur",
+    "суток": "plur",
+    "суткам": "plur",
+    "сутками": "plur",
+    "сутках": "plur",
+    "час": "masc",
+    "часа": "masc",
+    "часов": "masc",
+    "часу": "masc",
+    "часом": "masc",
+    "часе": "masc",
+    "часам": "masc",
+    "часами": "masc",
+    "часах": "masc",
+    "минута": "femn",
+    "минуты": "femn",
+    "минут": "femn",
+    "минуте": "femn",
+    "минуту": "femn",
+    "минутой": "femn",
+    "минутам": "femn",
+    "минутами": "femn",
+    "минутах": "femn",
+    "секунда": "femn",
+    "секунды": "femn",
+    "секунд": "femn",
+    "секунде": "femn",
+    "секунду": "femn",
+    "секундой": "femn",
+    "секундам": "femn",
+    "секундами": "femn",
+    "секундах": "femn",
+    "век": "masc",
+    "века": "masc",
+    "веку": "masc",
+    "веке": "masc",
+    "веком": "masc",
+    "веков": "masc",
+    "столетие": "neut",
+    "столетия": "neut",
+    "столетию": "neut",
+    "столетии": "neut",
+    "столетием": "neut",
 }
+
 
 def simple_tokenize(text: str) -> list[str]:
     return re.findall(
@@ -311,7 +534,7 @@ def simple_tokenize(text: str) -> list[str]:
 def is_integer_token(token: str) -> bool:
     clean_token = token.strip('.,:;!"«»()[]{}')
     if clean_token.startswith(NEGATIVE_NUMBER_PLACEHOLDER):
-        clean_token = clean_token[len(NEGATIVE_NUMBER_PLACEHOLDER):]
+        clean_token = clean_token[len(NEGATIVE_NUMBER_PLACEHOLDER) :]
     return clean_token.isdigit()
 
 
@@ -319,14 +542,18 @@ def parse_integer_token(token: str) -> tuple[bool, str] | None:
     clean_token = token.strip('.,:;!"«»()[]{}')
     is_negative = clean_token.startswith(NEGATIVE_NUMBER_PLACEHOLDER)
     if is_negative:
-        clean_token = clean_token[len(NEGATIVE_NUMBER_PLACEHOLDER):]
+        clean_token = clean_token[len(NEGATIVE_NUMBER_PLACEHOLDER) :]
     if not clean_token.isdigit():
         return None
     return is_negative, clean_token
 
 
-def build_number_token(token: str, clean_token: str, replacement: str, is_negative: bool) -> str:
-    source = f"{NEGATIVE_NUMBER_PLACEHOLDER}{clean_token}" if is_negative else clean_token
+def build_number_token(
+    token: str, clean_token: str, replacement: str, is_negative: bool
+) -> str:
+    source = (
+        f"{NEGATIVE_NUMBER_PLACEHOLDER}{clean_token}" if is_negative else clean_token
+    )
     result = token.replace(source, replacement, 1)
     if is_negative:
         return f"минус {result}"
@@ -343,7 +570,12 @@ def safe_inflect(parsed_word, target_tags, fallback_word=None, pos_filter=None):
     except Exception:
         pass
     pos = parsed_word.tag.POS
-    if (pos_filter is None or pos in pos_filter) and "gent" in target_tags and "plur" in target_tags and pos in {"ADJF", "PRTF"}:
+    if (
+        (pos_filter is None or pos in pos_filter)
+        and "gent" in target_tags
+        and "plur" in target_tags
+        and pos in {"ADJF", "PRTF"}
+    ):
         heuristic_result = apply_genitive_plural_heuristic(parsed_word.word, pos)
         if heuristic_result != parsed_word.word:
             return heuristic_result
@@ -424,7 +656,14 @@ def inflect_numeral_string(num_str: str, case: str, gender: str | None = None) -
         value = int(num_str)
     except ValueError:
         return num_str
-    cases_map = {"nomn": "nominative", "gent": "genitive", "datv": "dative", "accs": "accusative", "ablt": "instrumental", "loct": "prepositional"}
+    cases_map = {
+        "nomn": "nominative",
+        "gent": "genitive",
+        "datv": "dative",
+        "accs": "accusative",
+        "ablt": "instrumental",
+        "loct": "prepositional",
+    }
     n2w_gender_map = {"masc": "masculine", "femn": "feminine", "neut": "neuter"}
     if case in cases_map:
         try:
@@ -443,7 +682,13 @@ def inflect_numeral_string(num_str: str, case: str, gender: str | None = None) -
     if case == "nomn" and gender is None:
         return " ".join(words)
     morph = get_morph()
-    magnitudes = {"тысяча": "femn", "миллион": "masc", "миллиард": "masc", "триллион": "masc", "биллион": "masc"}
+    magnitudes = {
+        "тысяча": "femn",
+        "миллион": "masc",
+        "миллиард": "masc",
+        "триллион": "masc",
+        "биллион": "masc",
+    }
 
     def get_magnitude_gender(word_str: str):
         return magnitudes.get(morph.parse(word_str)[0].normal_form)
@@ -488,9 +733,17 @@ def inflect_numeral_string(num_str: str, case: str, gender: str | None = None) -
 def get_target_tags_for_number(num, case, noun_gender=None):
     form = noun_number_form(num)
     if case == "nomn":
-        return {"nomn", "sing"} if form == "one" else {"gent", "sing"} if form == "few" else {"gent", "plur"}
+        return (
+            {"nomn", "sing"}
+            if form == "one"
+            else {"gent", "sing"} if form == "few" else {"gent", "plur"}
+        )
     if case == "accs":
-        return {"accs", "sing"} if form == "one" else {"gent", "sing"} if form == "few" else {"gent", "plur"}
+        return (
+            {"accs", "sing"}
+            if form == "one"
+            else {"gent", "sing"} if form == "few" else {"gent", "plur"}
+        )
     return {case, "sing"} if form == "one" else {case, "plur"}
 
 
@@ -523,7 +776,25 @@ def get_numeral_case(tokens, idx):
                 for j in range(idx + 1, min(len(tokens), idx + 4)):
                     p = morph.parse(tokens[j])[0]
                     word_norm = p.normal_form
-                    if word_norm in {"год", "месяц", "день", "век", "неделя", "январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"}:
+                    if word_norm in {
+                        "год",
+                        "месяц",
+                        "день",
+                        "век",
+                        "неделя",
+                        "январь",
+                        "февраль",
+                        "март",
+                        "апрель",
+                        "май",
+                        "июнь",
+                        "июль",
+                        "август",
+                        "сентябрь",
+                        "октябрь",
+                        "ноябрь",
+                        "декабрь",
+                    }:
                         if is_integer_token(tokens[idx]):
                             parsed_num = parse_integer_token(tokens[idx])
                             if parsed_num is None:
@@ -682,12 +953,35 @@ def normalize_cardinal_numerals(text: str) -> str:
                 lemma, u_gender, u_category, *u_suffix = unit_info
                 p_unit = morph.parse(lemma)[0]
                 multipliers = {"тысяча", "миллион", "миллиард", "триллион"}
-                currency_symbol_units = {"$", "€", "₽", "£", "¥", "₴", "₸", "₺", "₹", "¢", "₪", "₩", "₫", "₱", "₦"}
-                if u_category == "money" and next_token_lower in currency_symbol_units and i + 2 < len(tokens):
+                currency_symbol_units = {
+                    "$",
+                    "€",
+                    "₽",
+                    "£",
+                    "¥",
+                    "₴",
+                    "₸",
+                    "₺",
+                    "₹",
+                    "¢",
+                    "₪",
+                    "₩",
+                    "₫",
+                    "₱",
+                    "₦",
+                }
+                if (
+                    u_category == "money"
+                    and next_token_lower in currency_symbol_units
+                    and i + 2 < len(tokens)
+                ):
                     multiplier_token = tokens[i + 2]
                     multiplier_lower = multiplier_token.lower().strip('.,:;!"«»()[]{}')
                     p_multiplier = morph.parse(multiplier_lower)[0]
-                    if "NOUN" in p_multiplier.tag and p_multiplier.normal_form in multipliers:
+                    if (
+                        "NOUN" in p_multiplier.tag
+                        and p_multiplier.normal_form in multipliers
+                    ):
                         target_num_case = case
                         if case == "accs":
                             rem100 = val % 100
@@ -698,10 +992,18 @@ def normalize_cardinal_numerals(text: str) -> str:
                         num_words = build_number_token(
                             token,
                             clean_token,
-                            inflect_numeral_string(clean_token, target_num_case, multiplier_gender),
+                            inflect_numeral_string(
+                                clean_token, target_num_case, multiplier_gender
+                            ),
                             is_negative,
                         )
-                        result_tokens.extend([num_words, multiplier_token, safe_inflect(p_unit, {"gent", "plur"})])
+                        result_tokens.extend(
+                            [
+                                num_words,
+                                multiplier_token,
+                                safe_inflect(p_unit, {"gent", "plur"}),
+                            ]
+                        )
                         i += 4 if is_redundant_unit_token(i + 3, lemma) else 3
                         continue
 
@@ -717,14 +1019,28 @@ def normalize_cardinal_numerals(text: str) -> str:
                     inflect_numeral_string(clean_token, target_num_case, u_gender),
                     is_negative,
                 )
-                inflected_unit = safe_inflect(p_unit, get_target_tags_for_number(val, case, u_gender))
+                inflected_unit = safe_inflect(
+                    p_unit, get_target_tags_for_number(val, case, u_gender)
+                )
                 full_unit = inflected_unit + (f" {u_suffix[0]}" if u_suffix else "")
-                match_unit = re.search(re.escape(next_token_lower), noun_token, re.IGNORECASE)
+                match_unit = re.search(
+                    re.escape(next_token_lower), noun_token, re.IGNORECASE
+                )
                 if match_unit:
-                    full_unit = noun_token[: match_unit.start()] + full_unit + noun_token[match_unit.end() :]
+                    full_unit = (
+                        noun_token[: match_unit.start()]
+                        + full_unit
+                        + noun_token[match_unit.end() :]
+                    )
                 result_tokens.extend([num_words, full_unit])
-                step = 3 if next_token_lower.startswith("°") and len(next_token_lower) == 2 else 2
-                if i + step < len(tokens) and _should_consume_abbreviation_dot(tokens, i + step):
+                step = (
+                    3
+                    if next_token_lower.startswith("°") and len(next_token_lower) == 2
+                    else 2
+                )
+                if i + step < len(tokens) and _should_consume_abbreviation_dot(
+                    tokens, i + step
+                ):
                     step += 1
                 if is_redundant_unit_token(i + step, lemma):
                     step += 1
@@ -781,7 +1097,7 @@ def normalize_numeric_unit_ranges(text: str) -> str:
         if not unit_info:
             return match.group(0)
 
-        context = text[max(0, match.start() - 40):match.start()]
+        context = text[max(0, match.start() - 40) : match.start()]
         tokens_left = simple_tokenize(context)
         case = get_numeral_case(tokens_left + [left], len(tokens_left))
         lemma, u_gender, _, *u_suffix = unit_info
@@ -798,7 +1114,9 @@ def normalize_numeric_unit_ranges(text: str) -> str:
 
         right_value = int(right)
         p_unit = morph.parse(lemma)[0]
-        unit_words = safe_inflect(p_unit, get_target_tags_for_number(right_value, case, u_gender))
+        unit_words = safe_inflect(
+            p_unit, get_target_tags_for_number(right_value, case, u_gender)
+        )
         if u_suffix:
             unit_words += f" {u_suffix[0]}"
 
@@ -819,6 +1137,7 @@ def normalize_all_digits_everywhere(text: str) -> str:
             return num2words.num2words(int(match.group(0)), lang="ru")
         except Exception:
             return match.group(0)
+
     return re.sub(r"\d+", repl, text)
 
 
@@ -837,6 +1156,7 @@ def normalize_math_symbols(text: str) -> str:
 def normalize_standalone_currency(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
         return CURRENCY_STANDALONE[match.group(0)]
+
     return re.sub(r"(?<!\S)([$€£¥₽₴₸₺₹¢])(?!\S)", repl, text)
 
 
@@ -861,7 +1181,7 @@ def normalize_decimals(text: str) -> str:
         s = match.group("num").replace(",", ".")
         unit_raw = match.group("unit")
         start_pos = match.start()
-        context = text[max(0, start_pos - 40):start_pos]
+        context = text[max(0, start_pos - 40) : start_pos]
         tokens_left = simple_tokenize(context)
         case = get_numeral_case(tokens_left + [s], len(tokens_left))
         is_negative = s.startswith("-") or s.startswith(NEGATIVE_NUMBER_PLACEHOLDER)
@@ -885,11 +1205,19 @@ def normalize_decimals(text: str) -> str:
         morph = get_morph()
         int_words = inflect_numeral_string(int_part_s, case, gender="femn")
         p_cel = morph.parse("целая")[0]
-        tags_cel = {case, "femn", "sing"} if int_val % 10 == 1 and int_val % 100 != 11 else ({"gent", "plur"} if case in ["nomn", "accs"] else {case, "plur"})
+        tags_cel = (
+            {case, "femn", "sing"}
+            if int_val % 10 == 1 and int_val % 100 != 11
+            else ({"gent", "plur"} if case in ["nomn", "accs"] else {case, "plur"})
+        )
         cel_words = safe_inflect(p_cel, tags_cel)
         frac_words = inflect_numeral_string(frac_part_s, case, gender="femn")
         p_order = morph.parse(order_name_base)[0]
-        tags_order = {case, "femn", "sing"} if frac_val % 10 == 1 and frac_val % 100 != 11 else ({"gent", "plur"} if case in ["nomn", "accs"] else {case, "plur"})
+        tags_order = (
+            {case, "femn", "sing"}
+            if frac_val % 10 == 1 and frac_val % 100 != 11
+            else ({"gent", "plur"} if case in ["nomn", "accs"] else {case, "plur"})
+        )
         order_words = safe_inflect(p_order, tags_order)
         result = f"{int_words} {cel_words} {frac_words} {order_words}"
         if unit_raw:
@@ -922,9 +1250,17 @@ def normalize_decimals(text: str) -> str:
                 result += " " + unit_raw
                 if unit2_raw:
                     result += " " + unit2_raw
-            if unit2_dot and unit2_raw and _should_keep_decimal_unit_dot(text[match.end() :]):
+            if (
+                unit2_dot
+                and unit2_raw
+                and _should_keep_decimal_unit_dot(text[match.end() :])
+            ):
                 result += "."
-            elif unit_dot and not unit2_raw and _should_keep_decimal_unit_dot(text[match.end() :]):
+            elif (
+                unit_dot
+                and not unit2_raw
+                and _should_keep_decimal_unit_dot(text[match.end() :])
+            ):
                 result += "."
         if is_negative:
             result = "минус " + result
@@ -939,7 +1275,7 @@ def normalize_fractions(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
         num = int(match.group(1))
         denom = int(match.group(2))
-        context = text[max(0, match.start() - 10):match.start()].lower()
+        context = text[max(0, match.start() - 10) : match.start()].lower()
         case = "nomn"
         if re.search(r"\b(с|со|от|до|из|без|у)\s+$", context):
             case = "gent"
@@ -955,7 +1291,11 @@ def normalize_fractions(text: str) -> str:
             return match.group(0)
         morph = get_morph()
         if case != "nomn":
-            num_text = " ".join((p.inflect({case}).word if p.inflect({case}) else part) for part in num_text.split() for p in [morph.parse(part)[0]])
+            num_text = " ".join(
+                (p.inflect({case}).word if p.inflect({case}) else part)
+                for part in num_text.split()
+                for p in [morph.parse(part)[0]]
+            )
         last_num_word = num_text.split()[-1]
         p_last = morph.parse(last_num_word)[0]
         if num % 10 == 1 and num % 100 != 11:
@@ -977,7 +1317,11 @@ def normalize_fractions(text: str) -> str:
         words = denom_text.split()
         p = morph.parse(words[-1])[0]
         is_sing_1 = num % 10 == 1 and num % 100 != 11
-        inflected = p.inflect({case, "femn", "sing"} if is_sing_1 else ({"gent", "plur"} if case in ["nomn", "accs"] else {case, "plur"}))
+        inflected = p.inflect(
+            {case, "femn", "sing"}
+            if is_sing_1
+            else ({"gent", "plur"} if case in ["nomn", "accs"] else {case, "plur"})
+        )
         if inflected:
             words[-1] = inflected.word
         return f"{num_text} {' '.join(words)}"
@@ -997,7 +1341,25 @@ def normalize_hyphenated_words(text: str) -> str:
         cardinal_case_suffixes = {"ти", "ми", "х", "мя", "и"}
         if word_lower in ordinal_suffixes:
             return match.group(0)
-        if word_lower in {"ый", "ой", "й", "ого", "го", "ому", "ым", "ом", "му", "е", "х", "м", "ми"} and int(num_str) > 100:
+        if (
+            word_lower
+            in {
+                "ый",
+                "ой",
+                "й",
+                "ого",
+                "го",
+                "ому",
+                "ым",
+                "ом",
+                "му",
+                "е",
+                "х",
+                "м",
+                "ми",
+            }
+            and int(num_str) > 100
+        ):
             return match.group(0)
         try:
             int(num_str)
@@ -1010,11 +1372,13 @@ def normalize_hyphenated_words(text: str) -> str:
             case_from_suffix = "gent"
         elif word_lower in ("ми", "мя"):
             case_from_suffix = "ablt"
-        ctx_left = text[max(0, match.start() - 60):match.start()]
-        ctx_right = text[match.end():match.end() + 60]
+        ctx_left = text[max(0, match.start() - 60) : match.start()]
+        ctx_right = text[match.end() : match.end() + 60]
         tokens_left = simple_tokenize(ctx_left)
         tokens_right = simple_tokenize(ctx_right)
-        context_case = get_numeral_case(tokens_left + [num_str] + tokens_right, len(tokens_left))
+        context_case = get_numeral_case(
+            tokens_left + [num_str] + tokens_right, len(tokens_left)
+        )
         if case_from_suffix:
             case = case_from_suffix
         elif word_lower == "х":
@@ -1022,12 +1386,30 @@ def normalize_hyphenated_words(text: str) -> str:
         else:
             case = context_case
         p_word = morph.parse(word_lower)[0]
-        is_adj_like = "ADJF" in p_word.tag or word_lower.endswith(("дневный", "часовой", "минутный", "летний", "этажный", "тонный", "процентный", "кратный", "кратного", "кратном", "кратных"))
+        is_adj_like = "ADJF" in p_word.tag or word_lower.endswith(
+            (
+                "дневный",
+                "часовой",
+                "минутный",
+                "летний",
+                "этажный",
+                "тонный",
+                "процентный",
+                "кратный",
+                "кратного",
+                "кратном",
+                "кратных",
+            )
+        )
         target_case = "gent" if is_adj_like and case == "nomn" else case
         num_words = inflect_numeral_string(num_str, target_case)
         if word_lower in cardinal_case_suffixes:
             return num_words
-        return f"{num_words}{word}" if is_adj_like else (f"{num_words}" if len(word) <= 3 else f"{num_words} {word}")
+        return (
+            f"{num_words}{word}"
+            if is_adj_like
+            else (f"{num_words}" if len(word) <= 3 else f"{num_words} {word}")
+        )
 
     return pattern.sub(repl, text)
 
@@ -1045,17 +1427,19 @@ def normalize_ordinals(text: str) -> str:
             return match.group(0)
         gender = "masc"
         is_cardinal_suffix = suffix in ("ти", "ми")
-        ctx_left = text[max(0, match.start() - 60):match.start()]
-        ctx_right = text[match.end():match.end() + 60]
+        ctx_left = text[max(0, match.start() - 60) : match.start()]
+        ctx_right = text[match.end() : match.end() + 60]
         tokens_left = simple_tokenize(ctx_left)
         tokens_right = simple_tokenize(ctx_right)
-        case = get_numeral_case(tokens_left + [num_str] + tokens_right, len(tokens_left))
+        case = get_numeral_case(
+            tokens_left + [num_str] + tokens_right, len(tokens_left)
+        )
         if suffix in ("я", "яя"):
             gender = "femn"
         elif suffix in ("е", "ее"):
             gender = "neut"
         elif suffix == "й" and tokens_right:
-            p_next = morph.parse(tokens_right[0].strip('.,!?;:'))[0]
+            p_next = morph.parse(tokens_right[0].strip(".,!?;:"))[0]
             if "femn" in p_next.tag:
                 gender = "femn"
                 if case == "nomn":
@@ -1066,19 +1450,28 @@ def normalize_ordinals(text: str) -> str:
         elif suffix == "му":
             case_from_suffix = "datv"
         elif suffix == "й" and case == "nomn" and tokens_right:
-            p_next = morph.parse(tokens_right[0].strip('.,!?;:'))[0]
+            p_next = morph.parse(tokens_right[0].strip(".,!?;:"))[0]
             if "femn" in p_next.tag:
                 gender = "femn"
                 case_from_suffix = "gent"
         if suffix == "м":
             if tokens_right:
-                p_next = morph.parse(tokens_right[0].strip('.,!?;:'))[0]
+                p_next = morph.parse(tokens_right[0].strip(".,!?;:"))[0]
                 case_from_suffix = "loct" if "sing" in p_next.tag else "datv"
             else:
                 case_from_suffix = "loct"
         case = case_from_suffix or case
-        plural = suffix in ("х", "ми", "е", "м") and not (suffix == "м" and case == "loct")
-        cases_map = {"nomn": "nominative", "gent": "genitive", "datv": "dative", "accs": "accusative", "ablt": "instrumental", "loct": "prepositional"}
+        plural = suffix in ("х", "ми", "е", "м") and not (
+            suffix == "м" and case == "loct"
+        )
+        cases_map = {
+            "nomn": "nominative",
+            "gent": "genitive",
+            "datv": "dative",
+            "accs": "accusative",
+            "ablt": "instrumental",
+            "loct": "prepositional",
+        }
         gender_map = {"masc": "m", "femn": "f", "neut": "n"}
         if case in cases_map:
             try:
@@ -1093,7 +1486,9 @@ def normalize_ordinals(text: str) -> str:
             except Exception:
                 pass
         try:
-            ordinal = num2words.num2words(num, lang="ru", to="cardinal" if is_cardinal_suffix else "ordinal")
+            ordinal = num2words.num2words(
+                num, lang="ru", to="cardinal" if is_cardinal_suffix else "ordinal"
+            )
         except Exception:
             return match.group(0)
         words = ordinal.split()

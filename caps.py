@@ -21,7 +21,7 @@ def normalize_first_word_caps(text: str, enabled: bool = True) -> str:
         if match:
             word = match.group(2)
             if word not in KNOWN_ABBREVIATIONS and len(word) > 3:
-                parts[idx] = match.group(1) + word.capitalize() + line[match.end():]
+                parts[idx] = match.group(1) + word.capitalize() + line[match.end() :]
 
     return "".join(parts)
 
@@ -29,7 +29,11 @@ def normalize_first_word_caps(text: str, enabled: bool = True) -> str:
 def _is_caps_token(token: str) -> bool:
     """Check if a whitespace-split token is an all-caps non-abbreviation word."""
     letters_only = re.sub(r"[^a-zA-Zа-яА-ЯёЁ]", "", token)
-    return len(letters_only) >= 2 and letters_only.isupper() and letters_only not in KNOWN_ABBREVIATIONS
+    return (
+        len(letters_only) >= 2
+        and letters_only.isupper()
+        and letters_only not in KNOWN_ABBREVIATIONS
+    )
 
 
 def _normalize_inline_caps(line: str) -> str:
@@ -60,7 +64,9 @@ def _normalize_inline_caps(line: str) -> str:
                 for k in range(run_start, j):
                     if not tokens[k].isspace():
                         if first_word:
-                            tokens[k] = _lowercase_preserve_abbrevs(tokens[k]).capitalize()
+                            tokens[k] = _lowercase_preserve_abbrevs(
+                                tokens[k]
+                            ).capitalize()
                             first_word = False
                         else:
                             tokens[k] = _lowercase_preserve_abbrevs(tokens[k])
@@ -92,13 +98,17 @@ def _restore_known_abbreviations(original: str, lowered: str) -> str:
         upper_letters = letters.upper()
         is_known = upper_letters in KNOWN_ABBREVIATIONS
         is_short_abbrev = len(letters) <= 3
-        is_consonant_heavy = len(letters) == 4 and sum(1 for c in upper_letters if c in vowels) <= 1
+        is_consonant_heavy = (
+            len(letters) == 4 and sum(1 for c in upper_letters if c in vowels) <= 1
+        )
         if is_known or is_short_abbrev or is_consonant_heavy:
             low_tokens[i] = orig_tok
     return "".join(low_tokens)
 
 
-def normalize_caps_lines(text: str, enabled: bool = True, caps_threshold: float = 0.8, min_length: int = 10) -> str:
+def normalize_caps_lines(
+    text: str, enabled: bool = True, caps_threshold: float = 0.8, min_length: int = 10
+) -> str:
     if not enabled:
         return text
 
@@ -114,9 +124,13 @@ def normalize_caps_lines(text: str, enabled: bool = True, caps_threshold: float 
                 lowered = _restore_known_abbreviations(stripped, lowered)
                 for ci, ch in enumerate(lowered):
                     if ch.isalpha():
-                        lowered = lowered[:ci] + ch.upper() + lowered[ci + 1:]
+                        lowered = lowered[:ci] + ch.upper() + lowered[ci + 1 :]
                         break
-                parts[idx] = line[: len(line) - len(line.lstrip())] + lowered + line[len(line.rstrip()):]
+                parts[idx] = (
+                    line[: len(line) - len(line.lstrip())]
+                    + lowered
+                    + line[len(line.rstrip()) :]
+                )
                 continue
         parts[idx] = _normalize_inline_caps(line)
     return "".join(parts)

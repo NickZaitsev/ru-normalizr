@@ -19,7 +19,11 @@ class DictionaryNormalizer:
         exclude_files: list[str] | None = None,
         include_only_files: list[str] | None = None,
     ) -> None:
-        self.dictionaries_path = Path(dictionaries_path) if dictionaries_path else Path(__file__).resolve().parent / "dictionaries"
+        self.dictionaries_path = (
+            Path(dictionaries_path)
+            if dictionaries_path
+            else Path(__file__).resolve().parent / "dictionaries"
+        )
         self.exclude_files = set(exclude_files or [])
         self.include_only_files = set(include_only_files or [])
         self._file_rules: list[tuple[str, Any]] = []
@@ -34,12 +38,16 @@ class DictionaryNormalizer:
         if self.include_only_files:
             import hashlib
 
-            digest = hashlib.md5(",".join(sorted(self.include_only_files)).encode()).hexdigest()[:8]
+            digest = hashlib.md5(
+                ",".join(sorted(self.include_only_files)).encode()
+            ).hexdigest()[:8]
             base += f"_include_{digest}"
         elif self.exclude_files:
             import hashlib
 
-            digest = hashlib.md5(",".join(sorted(self.exclude_files)).encode()).hexdigest()[:8]
+            digest = hashlib.md5(
+                ",".join(sorted(self.exclude_files)).encode()
+            ).hexdigest()[:8]
             base += f"_exclude_{digest}"
         return self.dictionaries_path / f"{base}.pkl"
 
@@ -93,7 +101,10 @@ class DictionaryNormalizer:
                 chunks = self._load_dic_file(filepath)
                 if chunks:
                     self._file_rules.append(("dic", chunks))
-                    self._total_dic += sum(len(chunk[1]) if chunk[0] != "regex_batch" else len(chunk[1][1]) for chunk in chunks)
+                    self._total_dic += sum(
+                        len(chunk[1]) if chunk[0] != "regex_batch" else len(chunk[1][1])
+                        for chunk in chunks
+                    )
             except Exception as exc:
                 logger.error("Error loading %s: %s", filepath.name, exc)
 
@@ -108,7 +119,10 @@ class DictionaryNormalizer:
                 if len(current_simple) < 1000:
                     try:
                         keys = sorted(current_simple.keys(), key=len, reverse=True)
-                        pattern = re.compile(r"(?<!\w)(?:" + "|".join(map(re.escape, keys)) + r")(?!\w)", re.UNICODE | re.IGNORECASE)
+                        pattern = re.compile(
+                            r"(?<!\w)(?:" + "|".join(map(re.escape, keys)) + r")(?!\w)",
+                            re.UNICODE | re.IGNORECASE,
+                        )
                         chunks.append(("regex_batch", (pattern, current_simple)))
                     except Exception:
                         chunks.append(("simple", current_simple))
@@ -132,7 +146,9 @@ class DictionaryNormalizer:
                 if not source:
                     continue
 
-                is_simple = not source.startswith("$") and not any(char in r"*\[](){}^$.|+?" for char in source)
+                is_simple = not source.startswith("$") and not any(
+                    char in r"*\[](){}^$.|+?" for char in source
+                )
                 if is_simple:
                     if current_regex:
                         flush()
@@ -147,15 +163,24 @@ class DictionaryNormalizer:
                         source = source[1:]
                     if not source:
                         continue
-                    pattern_str, replacement = self._dic_pattern_to_regex(source, target, anchor_start)
-                    current_regex.append((re.compile(pattern_str, re.UNICODE | re.IGNORECASE), replacement))
+                    pattern_str, replacement = self._dic_pattern_to_regex(
+                        source, target, anchor_start
+                    )
+                    current_regex.append(
+                        (
+                            re.compile(pattern_str, re.UNICODE | re.IGNORECASE),
+                            replacement,
+                        )
+                    )
                 except re.error:
                     continue
 
         flush()
         return chunks
 
-    def _dic_pattern_to_regex(self, source: str, target: str, anchor_start: bool = False) -> tuple[str, str]:
+    def _dic_pattern_to_regex(
+        self, source: str, target: str, anchor_start: bool = False
+    ) -> tuple[str, str]:
         parts = source.split("*")
         regex_parts: list[str] = []
         replacement_parts = [target]
@@ -213,7 +238,10 @@ class DictionaryNormalizer:
                     text = self._apply_simple_chunk(text, chunk_data)
                 elif chunk_type == "regex_batch":
                     pattern, mapping = chunk_data
-                    text = pattern.sub(lambda match: mapping.get(match.group().lower(), match.group()), text)
+                    text = pattern.sub(
+                        lambda match: mapping.get(match.group().lower(), match.group()),
+                        text,
+                    )
                 else:
                     for pattern, replacement in chunk_data:
                         try:
@@ -238,7 +266,9 @@ class DictionaryNormalizer:
         return self._total_dic
 
 
-_normalizers: dict[tuple[str, tuple[str, ...], tuple[str, ...]], DictionaryNormalizer] = {}
+_normalizers: dict[
+    tuple[str, tuple[str, ...], tuple[str, ...]], DictionaryNormalizer
+] = {}
 _normalizers_lock = threading.Lock()
 
 
@@ -249,7 +279,11 @@ def get_dictionary_normalizer(
     include_only_files: list[str] | None = None,
 ) -> DictionaryNormalizer:
     key = (
-        str(Path(dictionaries_path) if dictionaries_path else Path(__file__).resolve().parent / "dictionaries"),
+        str(
+            Path(dictionaries_path)
+            if dictionaries_path
+            else Path(__file__).resolve().parent / "dictionaries"
+        ),
         tuple(sorted(exclude_files or [])),
         tuple(sorted(include_only_files or [])),
     )

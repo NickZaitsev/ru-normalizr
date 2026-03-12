@@ -43,10 +43,15 @@ def convert_line_numbering(text: str) -> str:
         return f"{match.group(1)}{converted}.{match.group(3)}"
 
     pattern = r"^([ \t]*)([IVXLCDM]+\.|[\d]+(?:\.[\d]+)*\.)([ \t]*)"
-    return "\n".join(re.sub(pattern, convert_numbering, line, flags=re.IGNORECASE) for line in text.split("\n"))
+    return "\n".join(
+        re.sub(pattern, convert_numbering, line, flags=re.IGNORECASE)
+        for line in text.split("\n")
+    )
 
 
-def convert_bracketed_numbers(text: str, options: NormalizeOptions | None = None) -> str:
+def convert_bracketed_numbers(
+    text: str, options: NormalizeOptions | None = None
+) -> str:
     active = options or NormalizeOptions()
     pattern = r"([(\[{])\s*([^()\[\]{}]+?)\*?\s*([)\]}])"
     pairs = {"(": ")", "[": "]", "{": "}"}

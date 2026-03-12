@@ -29,7 +29,9 @@ class RuNormalizrApiTests(unittest.TestCase):
         )
 
     def test_options_can_disable_first_word_decap(self):
-        options = NormalizeOptions(enable_caps_normalization=False, enable_first_word_decap=False)
+        options = NormalizeOptions(
+            enable_caps_normalization=False, enable_first_word_decap=False
+        )
 
         self.assertEqual(normalize("ПРИВЕТ мир", options), "ПРИВЕТ мир")
 
@@ -38,7 +40,9 @@ class RuNormalizrApiTests(unittest.TestCase):
 
     def test_preprocess_text_inserts_legacy_dot_before_uppercase_line(self):
         self.assertEqual(
-            preprocess_text("Часть два.\nПалеозой: утро\n\nКембрий пятьсот сорок один,"),
+            preprocess_text(
+                "Часть два.\nПалеозой: утро\n\nКембрий пятьсот сорок один,"
+            ),
             "Часть два.\nПалеозой: утро.\nКембрий пятьсот сорок один,",
         )
 
@@ -81,7 +85,7 @@ class RuNormalizrApiTests(unittest.TestCase):
     def test_preprocess_text_normalizes_leading_caps_heading_phrase(self):
         self.assertEqual(
             preprocess_text(
-                'АВТОМОБИЛЬ ДЖИП («ВИЛЛИС»), легкий полноприводной вездеход.'
+                "АВТОМОБИЛЬ ДЖИП («ВИЛЛИС»), легкий полноприводной вездеход."
             ),
             'Автомобиль джип ("виллис"), легкий полноприводной вездеход.',
         )
@@ -89,34 +93,38 @@ class RuNormalizrApiTests(unittest.TestCase):
     def test_preprocess_text_normalizes_caps_heading_with_short_preposition(self):
         self.assertEqual(
             preprocess_text(
-                'АВТОМОБИЛЬ С КОМПЬЮТЕРНЫМ УПРАВЛЕНИЕМ ТРАНСМИССИЕЙ, выпустила на рынок японская компания.'
+                "АВТОМОБИЛЬ С КОМПЬЮТЕРНЫМ УПРАВЛЕНИЕМ ТРАНСМИССИЕЙ, выпустила на рынок японская компания."
             ),
-            'Автомобиль С Компьютерным управлением трансмиссией, выпустила на рынок японская компания.',
+            "Автомобиль С Компьютерным управлением трансмиссией, выпустила на рынок японская компания.",
         )
 
     def test_preprocess_text_normalizes_caps_heading_with_multiple_words(self):
         self.assertEqual(
             preprocess_text(
-                'АВТОРУЧКА С КЕРАМИЧЕСКИМ ПЕРОМ, выпустила на рынок японская компания.'
+                "АВТОРУЧКА С КЕРАМИЧЕСКИМ ПЕРОМ, выпустила на рынок японская компания."
             ),
-            'Авторучка С Керамическим пером, выпустила на рынок японская компания.',
+            "Авторучка С Керамическим пером, выпустила на рынок японская компания.",
         )
 
     def test_preprocess_text_normalizes_caps_heading_without_parentheses(self):
         self.assertEqual(
             preprocess_text(
-                'БАТАРЕЙКА ЭЛЕКТРИЧЕСКАЯ ПЛАСТМАССОВАЯ, сконструирована американскими учеными.'
+                "БАТАРЕЙКА ЭЛЕКТРИЧЕСКАЯ ПЛАСТМАССОВАЯ, сконструирована американскими учеными."
             ),
-            'Батарейка электрическая пластмассовая, сконструирована американскими учеными.',
+            "Батарейка электрическая пластмассовая, сконструирована американскими учеными.",
         )
 
     def test_preprocess_text_cleans_quote_ellipsis_and_sentence_spacing(self):
         self.assertEqual(
-            preprocess_text('Основное правило: любое объяснение лучше его отсутствия … Итак. Ницше, " Сумерки богов "'),
+            preprocess_text(
+                'Основное правило: любое объяснение лучше его отсутствия … Итак. Ницше, " Сумерки богов "'
+            ),
             'Основное правило: любое объяснение лучше его отсутствия… Итак. Ницше, "Сумерки богов"',
         )
 
-    def test_preprocess_text_inserts_legacy_dot_before_digit_line_and_expands_years_ago(self):
+    def test_preprocess_text_inserts_legacy_dot_before_digit_line_and_expands_years_ago(
+        self,
+    ):
         self.assertEqual(
             preprocess_text("МЕЖДУНАРОДНАЯ ШКАЛА\n541 млн л. н."),
             "Международная шкала.\n541 млн лет назад.",
@@ -203,7 +211,9 @@ class RuNormalizrApiTests(unittest.TestCase):
 
     def test_normalize_keeps_cyrillic_measurements_out_of_roman_stage(self):
         self.assertEqual(
-            normalize("характерны гигантские медузоиды до 30 – 40 см в диаметре и перистовидные колонии"),
+            normalize(
+                "характерны гигантские медузоиды до 30 – 40 см в диаметре и перистовидные колонии"
+            ),
             "характерны гигантские медузоиды до тридцати — сорока сантиметров в диаметре и перистовидные колонии",
         )
 
@@ -314,8 +324,12 @@ class RuNormalizrApiTests(unittest.TestCase):
                 check=True,
             )
 
-            self.assertIn("Successfully built ru-normalizr", completed.stdout + completed.stderr)
-            self.assertTrue(any(path.suffix == ".whl" for path in Path(dist_dir).iterdir()))
+            self.assertIn(
+                "Successfully built ru-normalizr", completed.stdout + completed.stderr
+            )
+            self.assertTrue(
+                any(path.suffix == ".whl" for path in Path(dist_dir).iterdir())
+            )
 
     def test_latinization_module_import_does_not_pull_speakerpy(self):
         completed = subprocess.run(

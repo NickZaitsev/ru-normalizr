@@ -8,8 +8,18 @@ from .options import NormalizeOptions
 from .years import year_to_ordinal_words
 
 MONTHS_GENT = {
-    "января": 1, "февраля": 2, "марта": 3, "апреля": 4, "мая": 5, "июня": 6,
-    "июля": 7, "августа": 8, "сентября": 9, "октября": 10, "ноября": 11, "декабря": 12,
+    "января": 1,
+    "февраля": 2,
+    "марта": 3,
+    "апреля": 4,
+    "мая": 5,
+    "июня": 6,
+    "июля": 7,
+    "августа": 8,
+    "сентября": 9,
+    "октября": 10,
+    "ноября": 11,
+    "декабря": 12,
 }
 TEXT_DATE_RANGE_CASES = {
     "за": "accusative",
@@ -35,7 +45,9 @@ TEXT_DATE_LIST_PATTERN = re.compile(
     re.IGNORECASE,
 )
 TEXT_DATE_PATTERN = re.compile(
-    r"\b(\d{1,2})\s+(" + "|".join(MONTHS_GENT.keys()) + r")(?:\s+(\d{4})\s*(?:года?)?)?",
+    r"\b(\d{1,2})\s+("
+    + "|".join(MONTHS_GENT.keys())
+    + r")(?:\s+(\d{4})\s*(?:года?)?)?",
     re.IGNORECASE,
 )
 
@@ -44,7 +56,9 @@ def _day_to_ordinal_genitive(day: int) -> str | None:
     if day < 1 or day > 31:
         return None
     try:
-        return num2words.num2words(day, lang="ru", to="ordinal", case="genitive", gender="n")
+        return num2words.num2words(
+            day, lang="ru", to="ordinal", case="genitive", gender="n"
+        )
     except Exception:
         try:
             return num2words.num2words(day, lang="ru", to="ordinal")
@@ -67,7 +81,9 @@ def _day_to_ordinal(day: int, case: str = "genitive") -> str | None:
 def normalize_text_dates(text: str) -> str:
     def range_repl(match: re.Match[str]) -> str:
         prep = match.group("prep")
-        case = TEXT_DATE_RANGE_CASES.get(prep.lower(), "genitive") if prep else "genitive"
+        case = (
+            TEXT_DATE_RANGE_CASES.get(prep.lower(), "genitive") if prep else "genitive"
+        )
         day1_word = _day_to_ordinal(int(match.group("day1")), case=case)
         day2_word = _day_to_ordinal(int(match.group("day2")), case=case)
         month = match.group("month").lower()
@@ -77,7 +93,9 @@ def normalize_text_dates(text: str) -> str:
         if prep:
             result = f"{prep} {result}"
         if match.group("year"):
-            result += f" {year_to_ordinal_words(int(match.group('year')), case='gent')} года"
+            result += (
+                f" {year_to_ordinal_words(int(match.group('year')), case='gent')} года"
+            )
         return result
 
     def list_repl(match: re.Match[str]) -> str:
@@ -97,7 +115,9 @@ def normalize_text_dates(text: str) -> str:
             rendered_parts.append(day_word)
         result = f"{''.join(rendered_parts)} {month}"
         if match.group("year"):
-            result += f" {year_to_ordinal_words(int(match.group('year')), case='gent')} года"
+            result += (
+                f" {year_to_ordinal_words(int(match.group('year')), case='gent')} года"
+            )
         return result
 
     def repl(match: re.Match[str]) -> str:
@@ -117,10 +137,22 @@ def normalize_text_dates(text: str) -> str:
 
 def normalize_dates(text: str) -> str:
     months_gent = {
-        1: "января", 2: "февраля", 3: "марта", 4: "апреля", 5: "мая", 6: "июня",
-        7: "июля", 8: "августа", 9: "сентября", 10: "октября", 11: "ноября", 12: "декабря",
+        1: "января",
+        2: "февраля",
+        3: "марта",
+        4: "апреля",
+        5: "мая",
+        6: "июня",
+        7: "июля",
+        8: "августа",
+        9: "сентября",
+        10: "октября",
+        11: "ноября",
+        12: "декабря",
     }
-    pattern = re.compile(r"\b(?P<day>0?[1-9]|[12]\d|3[01])\.(?P<month>0?[1-9]|1[0-2])\.(?P<year>\d{2,4})\b")
+    pattern = re.compile(
+        r"\b(?P<day>0?[1-9]|[12]\d|3[01])\.(?P<month>0?[1-9]|1[0-2])\.(?P<year>\d{2,4})\b"
+    )
 
     def repl(match: re.Match[str]) -> str:
         day = int(match.group("day"))
@@ -131,11 +163,15 @@ def normalize_dates(text: str) -> str:
         if year < 100:
             year = 1900 + year if year >= 50 else 2000 + year
         try:
-            day_words = num2words.num2words(day, lang="ru", to="ordinal", case="genitive", gender="n")
+            day_words = num2words.num2words(
+                day, lang="ru", to="ordinal", case="genitive", gender="n"
+            )
         except Exception:
             day_words = num2words.num2words(day, lang="ru", to="ordinal")
         try:
-            year_words = num2words.num2words(year, lang="ru", to="ordinal", case="genitive")
+            year_words = num2words.num2words(
+                year, lang="ru", to="ordinal", case="genitive"
+            )
         except Exception:
             year_words = num2words.num2words(year, lang="ru", to="ordinal")
         return f"{day_words} {months_gent.get(month, str(month))} {year_words} года"
@@ -155,7 +191,9 @@ def normalize_time(text: str) -> str:
             hour_words = str(hour)
         if minute_str[0] == "0":
             try:
-                minute_words = f"ноль {num2words.num2words(int(minute_str[1]), lang='ru')}"
+                minute_words = (
+                    f"ноль {num2words.num2words(int(minute_str[1]), lang='ru')}"
+                )
             except Exception:
                 minute_words = f"ноль {minute_str[1]}"
         else:

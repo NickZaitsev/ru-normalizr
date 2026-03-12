@@ -80,7 +80,9 @@ IPA_MAP = [
 
 
 @lru_cache(maxsize=16)
-def _get_latin_dictionary_normalizer(dictionaries_path: str, filename: str) -> DictionaryNormalizer:
+def _get_latin_dictionary_normalizer(
+    dictionaries_path: str, filename: str
+) -> DictionaryNormalizer:
     return DictionaryNormalizer(
         dictionaries_path=dictionaries_path,
         include_only_files=[filename],
@@ -133,7 +135,9 @@ def _ipa_to_russian(ipa_text: str) -> str:
     return ipa_text.replace("ˈ", "+")
 
 
-def _apply_dictionary_latinization(text: str, dictionaries_path: Path, filename: str) -> str:
+def _apply_dictionary_latinization(
+    text: str, dictionaries_path: Path, filename: str
+) -> str:
     normalizer = _get_latin_dictionary_normalizer(str(dictionaries_path), filename)
     return normalizer.apply(text, strip_unmatched_latin=False)
 
@@ -150,7 +154,9 @@ def _apply_ipa_latinization(text: str, dictionaries_path: Path, filename: str) -
         if "*" in ipa_text:
             fallback = word
             for _ in range(6):
-                fallback = _apply_dictionary_latinization(fallback, dictionaries_path, filename)
+                fallback = _apply_dictionary_latinization(
+                    fallback, dictionaries_path, filename
+                )
             return fallback
         return _ipa_to_russian(ipa_text)
 

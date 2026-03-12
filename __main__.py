@@ -19,20 +19,32 @@ def _read_input(args: argparse.Namespace) -> str:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="ru-normalizr", description="Normalize Russian text.")
+    parser = argparse.ArgumentParser(
+        prog="ru-normalizr", description="Normalize Russian text."
+    )
     parser.add_argument("text", nargs="?", help="Inline text to normalize.")
     parser.add_argument("--file", help="Read text from file.")
-    parser.add_argument("--output", help="Write normalized text to file instead of stdout.")
-    parser.add_argument("--check", action="store_true", help="Normalize input and print the result.")
+    parser.add_argument(
+        "--output", help="Write normalized text to file instead of stdout."
+    )
+    parser.add_argument(
+        "--check", action="store_true", help="Normalize input and print the result."
+    )
     parser.add_argument(
         "--latinization-backend",
         choices=["ipa", "dictionary"],
         default="ipa",
         help="Backend for Latin transliteration.",
     )
-    parser.add_argument("--no-latinization", action="store_true", help="Disable Latin transliteration.")
-    parser.add_argument("--no-first-word-decap", action="store_true", help="Disable first-word decap.")
-    parser.add_argument("--keep-links", action="store_true", help="Keep bracketed numeric links.")
+    parser.add_argument(
+        "--no-latinization", action="store_true", help="Disable Latin transliteration."
+    )
+    parser.add_argument(
+        "--no-first-word-decap", action="store_true", help="Disable first-word decap."
+    )
+    parser.add_argument(
+        "--keep-links", action="store_true", help="Keep bracketed numeric links."
+    )
     return parser
 
 

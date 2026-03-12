@@ -6,7 +6,12 @@ from pathlib import Path
 from ._morph import get_morph
 from .abbreviations import expand_abbreviations
 from .caps import normalize_caps_lines, normalize_first_word_caps
-from .dates_time import normalize_dates, normalize_dates_and_time, normalize_text_dates, normalize_time
+from .dates_time import (
+    normalize_dates,
+    normalize_dates_and_time,
+    normalize_text_dates,
+    normalize_time,
+)
 from .dictionary import apply_dictionary_rules
 from .latinization import DEFAULT_DICTIONARIES_PATH, apply_latinization
 from .numbering import convert_bracketed_numbers, convert_line_numbering
@@ -117,7 +122,9 @@ class PipelineNormalizer:
             handler = handlers[stage]
         except KeyError as exc:
             available = ", ".join(sorted(handlers))
-            raise ValueError(f"Unknown stage '{stage}'. Available stages: {available}") from exc
+            raise ValueError(
+                f"Unknown stage '{stage}'. Available stages: {available}"
+            ) from exc
         return handler(text)
 
     def normalize_text(self, text: str) -> str:
@@ -139,12 +146,18 @@ class PipelineNormalizer:
         text = convert_bracketed_numbers(text, self.options)
         text = convert_line_numbering(text)
         text = normalize_roman(text, self.options)
-        text = normalize_caps_lines(text, enabled=self.options.enable_caps_normalization)
-        text = normalize_first_word_caps(text, enabled=self.options.enable_first_word_decap)
+        text = normalize_caps_lines(
+            text, enabled=self.options.enable_caps_normalization
+        )
+        text = normalize_first_word_caps(
+            text, enabled=self.options.enable_first_word_decap
+        )
         text = PARTICLE_PATTERN.sub("-", text)
         text = apply_cleanup_replacements(text)
         text = normalize_unicode_fractions(text)
-        text = text.translate(str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉", "01234567890123456789"))
+        text = text.translate(
+            str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉", "01234567890123456789")
+        )
         text = re.sub(r"([$€₽])\s?(\d+(?:[.,]\d+)?)", r"\2\1", text)
         text = re.sub(r"(\d)°", r"\1 °", text)
         text = clean_numbers(text)
@@ -180,11 +193,15 @@ class PipelineNormalizer:
         text = self.run_dictionary(text)
         return self.run_finalize(text)
 
-    def run_preprocess(self, text: str, keep_paragraph_placeholders: bool = False) -> str:
+    def run_preprocess(
+        self, text: str, keep_paragraph_placeholders: bool = False
+    ) -> str:
         if text.strip().startswith("+"):
             text = " " + text.lstrip()
 
-        text = normalize_linebreaks(text, keep_paragraph_placeholders=keep_paragraph_placeholders)
+        text = normalize_linebreaks(
+            text, keep_paragraph_placeholders=keep_paragraph_placeholders
+        )
         text = protect_letter_hyphens(text)
         text = text.replace("◦", " ")
         text = remove_decorative_separators(text)
@@ -199,18 +216,26 @@ class PipelineNormalizer:
         text = normalize_spaced_hyphens(text)
         text = convert_bracketed_numbers(text, self.options)
         text = convert_line_numbering(text)
-        text = normalize_caps_lines(text, enabled=self.options.enable_caps_normalization)
-        text = normalize_first_word_caps(text, enabled=self.options.enable_first_word_decap)
+        text = normalize_caps_lines(
+            text, enabled=self.options.enable_caps_normalization
+        )
+        text = normalize_first_word_caps(
+            text, enabled=self.options.enable_first_word_decap
+        )
         text = PARTICLE_PATTERN.sub("-", text)
         text = apply_cleanup_replacements(text)
         text = normalize_unicode_fractions(text)
-        text = text.translate(str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉", "01234567890123456789"))
+        text = text.translate(
+            str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉", "01234567890123456789")
+        )
         text = re.sub(r"([$€₽])\s?(\d+(?:[.,]\d+)?)", r"\2\1", text)
         text = re.sub(r"(\d)°", r"\1 °", text)
         text = clean_numbers(text)
         text = self._fix_glued_numbers(text)
         text = restore_letter_hyphens(text)
-        return remove_numeric_footnotes(text, keep_paragraph_placeholders=keep_paragraph_placeholders)
+        return remove_numeric_footnotes(
+            text, keep_paragraph_placeholders=keep_paragraph_placeholders
+        )
 
     def run_roman(self, text: str) -> str:
         return normalize_roman(text, self.options)
@@ -264,7 +289,19 @@ class PipelineNormalizer:
         def fix_glued(match: re.Match[str]) -> str:
             num, word = match.group(1), match.group(2)
             word_lower = word.lower()
-            if word_lower in {"ти", "ми", "го", "му", "м", "х", "я", "е", "й", "о", "а"}:
+            if word_lower in {
+                "ти",
+                "ми",
+                "го",
+                "му",
+                "м",
+                "х",
+                "я",
+                "е",
+                "й",
+                "о",
+                "а",
+            }:
                 return f"{num}-{word}"
             if word_lower in ALL_UNITS or word_lower in GLUED_PREPOSITIONS:
                 return f"{num} {word}"

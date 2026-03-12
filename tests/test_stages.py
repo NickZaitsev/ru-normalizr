@@ -59,7 +59,7 @@ class RuNormalizrStageTests(unittest.TestCase):
 
     def test_numeral_stage_normalizes_negative_measurements(self):
         self.assertEqual(
-            normalize_numerals("\uE00120 °C"),
+            normalize_numerals("\ue00120 °C"),
             "минус двадцать градусов Цельсия",
         )
 
@@ -115,8 +115,12 @@ class RuNormalizrStageTests(unittest.TestCase):
 
     def test_bracketed_number_stage_keeps_numbers_with_units(self):
         self.assertEqual(convert_bracketed_numbers("Текст (10,0%)"), "Текст (10,0%)")
-        self.assertEqual(convert_bracketed_numbers("Текст (500,5 кг)"), "Текст (500,5 кг)")
-        self.assertEqual(convert_bracketed_numbers("Текст (500,5 руб.)"), "Текст (500,5 руб.)")
+        self.assertEqual(
+            convert_bracketed_numbers("Текст (500,5 кг)"), "Текст (500,5 кг)"
+        )
+        self.assertEqual(
+            convert_bracketed_numbers("Текст (500,5 руб.)"), "Текст (500,5 руб.)"
+        )
 
     def test_bracketed_number_stage_removes_confident_references(self):
         self.assertEqual(convert_bracketed_numbers("Текст (1)"), "Текст ")

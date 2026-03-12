@@ -7,7 +7,9 @@ from .constants import CLEANUP_REPLACEMENTS, UNICODE_FRACTIONS
 DASH_SPACE_PATTERN = re.compile(r" - ")
 LETTER_HYPHEN_PATTERN = re.compile(r"(?<=[A-Za-zА-Яа-яЁё])-(?=[A-Za-zА-Яа-яЁё])")
 SLASH_FIX_PATTERN = re.compile(r"(?<=[a-zA-Zа-яА-ЯёЁ+])/(?=[a-zA-Zа-яА-ЯёЁ+])")
-NUMBER_CLEANUP_PATTERN = re.compile(r"(?<!\d)(?:\d{1,3}(?:[ \u00A0\u2009\u202F]\d{3})+|\d+)(?:[,\.]\d+)?(?!\d)")
+NUMBER_CLEANUP_PATTERN = re.compile(
+    r"(?<!\d)(?:\d{1,3}(?:[ \u00A0\u2009\u202F]\d{3})+|\d+)(?:[,\.]\d+)?(?!\d)"
+)
 BRACKETED_NUMERIC_PATTERN = re.compile(r"([\[<({«])\s*([^()\[\]{}<>«»]+?)\s*([\]>)}»])")
 SPACE_BEFORE_PUNCT_PATTERN = re.compile(r"[ \t]+([,.;:!?])")
 MULTI_SPACE_PATTERN = re.compile(r"[ \t]{2,}")
@@ -19,11 +21,13 @@ EXCESSIVE_LINEBREAKS_PATTERN = re.compile(r"\n{2,}")
 DECORATIVE_SEPARATOR_PATTERN = re.compile(
     r"(?:(?<=^)|(?<=\n)|(?<=\uE002))[ \t]*(?:[*=_~+#\-\xad\u2010-\u2015][ \t]*){3,}(?:(?=$)|(?=\n)|(?=\uE002))"
 )
-LEGACY_LINEBREAK_DOT_PATTERN = re.compile(r"(?<=[^\n.!?…,:;–\-\"'])(\n)(?=[А-ЯЁA-Z0-9])")
+LEGACY_LINEBREAK_DOT_PATTERN = re.compile(
+    r"(?<=[^\n.!?…,:;–\-\"'])(\n)(?=[А-ЯЁA-Z0-9])"
+)
 INLINE_LINEBREAK_SPACE_PATTERN = re.compile(r"(?<=[^\n])\n(?=[^А-ЯЁA-Z0-9\n])")
-LETTER_HYPHEN_PLACEHOLDER = "\uE000"
-NEGATIVE_NUMBER_PLACEHOLDER = "\uE001"
-PARAGRAPH_BREAK_PLACEHOLDER = "\uE002"
+LETTER_HYPHEN_PLACEHOLDER = "\ue000"
+NEGATIVE_NUMBER_PLACEHOLDER = "\ue001"
+PARAGRAPH_BREAK_PLACEHOLDER = "\ue002"
 LEGACY_PLACEHOLDER_BREAK_DOT_PATTERN = re.compile(
     rf"(?<=[^\n.!?…,:;–\-\"'])({re.escape(PARAGRAPH_BREAK_PLACEHOLDER)}+)(?=[А-ЯЁA-Z0-9])"
 )
@@ -34,7 +38,7 @@ YEARS_AGO_ABBREVIATION_PATTERN = re.compile(
 UNARY_MINUS_NUMBER_PATTERN = re.compile(
     r"(?P<prefix>^|[(\[{«]|(?<!\d)\s)(?P<sign>[−-])(?P<space>\s*)(?P<number>\d+(?:[.,]\d+)?)"
 )
-THOUSANDS_SEPARATORS = " \u00A0\u2009\u202F"
+THOUSANDS_SEPARATORS = " \u00a0\u2009\u202f"
 SIGNED_COMMA_NUMBER_PATTERN = re.compile(
     r"^[−-]?(?:\d{1,3}(?:[" + THOUSANDS_SEPARATORS + r"]\d{3})+|\d+),\d+$"
 )
@@ -46,7 +50,9 @@ INTEGER_LIST_PATTERN = re.compile(r"^\d+(?:\s*,\s*\d+)+$")
 INTEGER_RANGE_PATTERN = re.compile(r"^\d+\s*[–—-]\s*\d+$")
 SPACE_INSIDE_QUOTES_PATTERN = re.compile(r'"\s+([^\n"]+?)\s+"')
 SPACE_AFTER_OPEN_QUOTE_PATTERN = re.compile(r'(^|[\s([{\-–—,;:])"([ \t]+)(?=\S)')
-SPACE_BEFORE_CLOSE_QUOTE_PATTERN = re.compile(r'(?<=\S)([ \t]+)"(?=$|[\s)\]}\-–—,.;:!?])')
+SPACE_BEFORE_CLOSE_QUOTE_PATTERN = re.compile(
+    r'(?<=\S)([ \t]+)"(?=$|[\s)\]}\-–—,.;:!?])'
+)
 ELLIPSIS_SPACE_BEFORE_PATTERN = re.compile(r"[ \t]+(?=…)")
 ELLIPSIS_SPACE_AFTER_PATTERN = re.compile(r"(?<=…)(?=[^\s.,;:!?…)\]}\"])\S")
 SENTENCE_SPACE_AFTER_PATTERN = re.compile(r"(?<=[.!?…])(?=[\"(«„“]?[A-ZА-ЯЁ])")
@@ -108,7 +114,12 @@ def expand_years_ago_abbreviation(text: str) -> str:
         tail = match.group("tail")
         next_char_index = match.end()
         next_char = text[next_char_index] if next_char_index < len(text) else ""
-        if not next_char or next_char == "\n" or next_char.isalnum() or next_char.isalpha():
+        if (
+            not next_char
+            or next_char == "\n"
+            or next_char.isalnum()
+            or next_char.isalpha()
+        ):
             return f"лет назад.{tail}"
         return f"лет назад{tail}"
 
@@ -133,7 +144,9 @@ def restore_paragraph_breaks(text: str) -> str:
         f".{PARAGRAPH_BREAK_PLACEHOLDER}{PARAGRAPH_BREAK_PLACEHOLDER}",
         text,
     )
-    text = re.sub(rf"[ \t]*{PARAGRAPH_BREAK_PLACEHOLDER}[ \t]*", PARAGRAPH_BREAK_PLACEHOLDER, text)
+    text = re.sub(
+        rf"[ \t]*{PARAGRAPH_BREAK_PLACEHOLDER}[ \t]*", PARAGRAPH_BREAK_PLACEHOLDER, text
+    )
     return text.replace(PARAGRAPH_BREAK_PLACEHOLDER, "\n")
 
 
@@ -141,7 +154,9 @@ def normalize_linebreaks(text: str, keep_paragraph_placeholders: bool = False) -
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = TRAILING_SPACE_BEFORE_NEWLINE_PATTERN.sub("\n", text)
     text = LEADING_SPACE_AFTER_NEWLINE_PATTERN.sub("\n", text)
-    paragraph_break = PARAGRAPH_BREAK_PLACEHOLDER if keep_paragraph_placeholders else "\n"
+    paragraph_break = (
+        PARAGRAPH_BREAK_PLACEHOLDER if keep_paragraph_placeholders else "\n"
+    )
     text = EXCESSIVE_LINEBREAKS_PATTERN.sub(paragraph_break, text)
     if keep_paragraph_placeholders:
         text = LEGACY_PLACEHOLDER_BREAK_DOT_PATTERN.sub(r".\1", text)
@@ -190,7 +205,9 @@ def classify_bracketed_numeric_content(content: str) -> str:
     return "other"
 
 
-def remove_numeric_footnotes(text: str, keep_paragraph_placeholders: bool = False) -> str:
+def remove_numeric_footnotes(
+    text: str, keep_paragraph_placeholders: bool = False
+) -> str:
     pairs = {"[": "]", "<": ">", "(": ")", "{": "}", "«": "»"}
 
     def repl(match: re.Match[str]) -> str:
@@ -206,15 +223,35 @@ def remove_numeric_footnotes(text: str, keep_paragraph_placeholders: bool = Fals
     text = MULTI_SPACE_PATTERN.sub(" ", text)
     text = SPACE_BEFORE_CLOSE_BRACKET_PATTERN.sub(r"\1", text)
     text = SPACE_AFTER_OPEN_BRACKET_PATTERN.sub(r"\1", text)
-    return normalize_linebreaks(text, keep_paragraph_placeholders=keep_paragraph_placeholders).strip()
+    return normalize_linebreaks(
+        text, keep_paragraph_placeholders=keep_paragraph_placeholders
+    ).strip()
 
 
 def clean_numbers(text: str) -> str:
     def repl_spaces(match: re.Match[str]) -> str:
-        return match.group(0).replace(" ", "").replace("\u00A0", "").replace("\u2009", "").replace("\u202F", "")
+        return (
+            match.group(0)
+            .replace(" ", "")
+            .replace("\u00a0", "")
+            .replace("\u2009", "")
+            .replace("\u202f", "")
+        )
 
     text = NUMBER_CLEANUP_PATTERN.sub(repl_spaces, text)
-    text = re.sub(r"(?<!\d)(\d{1,3}(?:\.\d{3}){2,})(?!\d)", lambda m: m.group(1).replace(".", ""), text)
-    text = re.sub(r"(?<!\d)(\d{1,3}\.\d{3})(?=,\d+)", lambda m: m.group(1).replace(".", ""), text)
-    unit_lookahead = r"(?=\s*(?:[₽$€£¥%‰]|\b(?:руб|долл|евро|тыс|млн|млрд|г|кг|т|м|км|шт)\b))"
-    return re.sub(r"(?<!\d)(\d{1,3}\.\d{3})" + unit_lookahead, lambda m: m.group(1).replace(".", ""), text)
+    text = re.sub(
+        r"(?<!\d)(\d{1,3}(?:\.\d{3}){2,})(?!\d)",
+        lambda m: m.group(1).replace(".", ""),
+        text,
+    )
+    text = re.sub(
+        r"(?<!\d)(\d{1,3}\.\d{3})(?=,\d+)", lambda m: m.group(1).replace(".", ""), text
+    )
+    unit_lookahead = (
+        r"(?=\s*(?:[₽$€£¥%‰]|\b(?:руб|долл|евро|тыс|млн|млрд|г|кг|т|м|км|шт)\b))"
+    )
+    return re.sub(
+        r"(?<!\d)(\d{1,3}\.\d{3})" + unit_lookahead,
+        lambda m: m.group(1).replace(".", ""),
+        text,
+    )

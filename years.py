@@ -9,28 +9,70 @@ from ._morph import get_morph
 from .options import NormalizeOptions
 
 YEAR_SUFFIX_TO_CASE = {
-    "ый": "nomn", "ой": "nomn", "й": "nomn", "ого": "gent", "го": "gent",
-    "ому": "datv", "ым": "ablt", "ом": "loct", "му": "datv",
-    "е": "nomn", "х": "gent", "м": "datv", "ми": "ablt",
+    "ый": "nomn",
+    "ой": "nomn",
+    "й": "nomn",
+    "ого": "gent",
+    "го": "gent",
+    "ому": "datv",
+    "ым": "ablt",
+    "ом": "loct",
+    "му": "datv",
+    "е": "nomn",
+    "х": "gent",
+    "м": "datv",
+    "ми": "ablt",
 }
 PLURAL_SUFFIXES = {"е", "х", "м", "ми"}
 YEAR_WORD_TO_CASE = {
-    "год": "nomn", "года": "gent", "году": "loct", "годом": "ablt", "годе": "loct",
-    "годы": "nomn", "годов": "gent", "годам": "datv", "года́ми": "ablt", "годами": "ablt", "годах": "loct",
-    "г.": "nomn", "гг.": "nomn",
+    "год": "nomn",
+    "года": "gent",
+    "году": "loct",
+    "годом": "ablt",
+    "годе": "loct",
+    "годы": "nomn",
+    "годов": "gent",
+    "годам": "datv",
+    "года́ми": "ablt",
+    "годами": "ablt",
+    "годах": "loct",
+    "г.": "nomn",
+    "гг.": "nomn",
 }
 YEAR_WORD_FORMS = {
-    ("год", "nomn"): "год", ("год", "gent"): "года", ("год", "datv"): "году", ("год", "accs"): "год",
-    ("год", "ablt"): "годом", ("год", "loct"): "году", ("годы", "nomn"): "годы", ("годы", "gent"): "годов",
-    ("годы", "datv"): "годам", ("годы", "accs"): "годы", ("годы", "ablt"): "годами", ("годы", "loct"): "годах",
+    ("год", "nomn"): "год",
+    ("год", "gent"): "года",
+    ("год", "datv"): "году",
+    ("год", "accs"): "год",
+    ("год", "ablt"): "годом",
+    ("год", "loct"): "году",
+    ("годы", "nomn"): "годы",
+    ("годы", "gent"): "годов",
+    ("годы", "datv"): "годам",
+    ("годы", "accs"): "годы",
+    ("годы", "ablt"): "годами",
+    ("годы", "loct"): "годах",
 }
 YEAR_PLURAL_ABBREV_REGEX = r"(?:гг\.?|г\.\s*г\.?)"
 PREPOSITIONS_TO_CASE = {
-    "в": "loct", "во": "loct", "о": "loct", "об": "loct", "к": "datv", "ко": "datv",
-    "с": "gent", "со": "gent", "до": "gent", "от": "gent", "за": "accs", "на": "accs",
-    "по": "accs", "между": "ablt",
+    "в": "loct",
+    "во": "loct",
+    "о": "loct",
+    "об": "loct",
+    "к": "datv",
+    "ко": "datv",
+    "с": "gent",
+    "со": "gent",
+    "до": "gent",
+    "от": "gent",
+    "за": "accs",
+    "на": "accs",
+    "по": "accs",
+    "между": "ablt",
 }
-NUMERIC_RANGE_PATTERN = re.compile(r"(\d+)\s*[—–]\s*(\d+)(?!\d)(?!\s*[а-яА-ЯёЁa-zA-Z%°$€₽Ω])")
+NUMERIC_RANGE_PATTERN = re.compile(
+    r"(\d+)\s*[—–]\s*(\d+)(?!\d)(?!\s*[а-яА-ЯёЁa-zA-Z%°$€₽Ω])"
+)
 
 
 @functools.lru_cache(maxsize=1024)
@@ -46,7 +88,13 @@ def year_to_ordinal_words(year: int, case: str = "nomn", plural: bool = False) -
     }
     if normalized_case in cases_map:
         try:
-            return num2words.num2words(year, lang="ru", to="ordinal", case=cases_map[normalized_case], plural=plural)
+            return num2words.num2words(
+                year,
+                lang="ru",
+                to="ordinal",
+                case=cases_map[normalized_case],
+                plural=plural,
+            )
         except Exception:
             pass
     try:
@@ -98,7 +146,7 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         re.IGNORECASE | re.UNICODE,
     )
     pattern_ot_do_implicit = re.compile(
-        rf"(?P<prep>с|со|от)\s+(?P<year1>\d{3,4})\s+(?P<mid>до|по)\s+(?P<year2>\d{3,4})(?!\s+(?:год|г\.|{YEAR_PLURAL_ABBREV_REGEX}|шту|шт\.|кг|м\.|мест|град|проц|%))",
+        rf"(?P<prep>с|со|от)\s+(?P<year1>\d{3, 4})\s+(?P<mid>до|по)\s+(?P<year2>\d{3, 4})(?!\s+(?:год|г\.|{YEAR_PLURAL_ABBREV_REGEX}|шту|шт\.|кг|м\.|мест|град|проц|%))",
         re.IGNORECASE | re.UNICODE,
     )
     pattern_prep_year_implicit = re.compile(
@@ -108,7 +156,10 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
 
     def replace_range_decade(m: re.Match[str]) -> str:
         case = YEAR_SUFFIX_TO_CASE.get(m.group("suffix").lower(), "nomn")
-        result = (f"{m.group('prep')} " if m.group("prep") else "") + f"{year_to_ordinal_words(int(m.group('year1')), case, True)} — {year_to_ordinal_words(int(m.group('year2')), case, True)}"
+        result = (
+            (f"{m.group('prep')} " if m.group("prep") else "")
+            + f"{year_to_ordinal_words(int(m.group('year1')), case, True)} — {year_to_ordinal_words(int(m.group('year2')), case, True)}"
+        )
         if m.group("word"):
             result += f" {m.group('word')}"
         return result
@@ -118,7 +169,15 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         word = m.group("word")
         if word:
             word_lower = word.lower()
-            word_inflected = "год" if word_lower in ("г.", "г") else "годы" if re.fullmatch(YEAR_PLURAL_ABBREV_REGEX, word_lower) else word
+            word_inflected = (
+                "год"
+                if word_lower in ("г.", "г")
+                else (
+                    "годы"
+                    if re.fullmatch(YEAR_PLURAL_ABBREV_REGEX, word_lower)
+                    else word
+                )
+            )
             if word.endswith(".") and not word_inflected.endswith("."):
                 word_inflected += "."
             result += f" {word_inflected}"
@@ -138,7 +197,9 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
             if not word and not (1000 <= year <= 2100):
                 return m.group(0)
             year = (year // 10) * 10
-        result = year_to_ordinal_words(year, YEAR_SUFFIX_TO_CASE.get(suffix, "nomn"), plural)
+        result = year_to_ordinal_words(
+            year, YEAR_SUFFIX_TO_CASE.get(suffix, "nomn"), plural
+        )
         if word:
             result += f" {word}"
         return result
@@ -176,7 +237,9 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         ordinal = year_to_ordinal_words(year, case, plural)
         prefix = f"{prep} " if prep else ""
         if is_abbrev:
-            return f"{prefix}{ordinal} {YEAR_WORD_FORMS.get((word_norm, case), word_norm)}"
+            return (
+                f"{prefix}{ordinal} {YEAR_WORD_FORMS.get((word_norm, case), word_norm)}"
+            )
         return f"{prefix}{ordinal} {word}"
 
     def replace_range(m: re.Match[str]) -> str:
@@ -195,7 +258,10 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
             case = PREPOSITIONS_TO_CASE.get(prep.lower(), "nomn")
         else:
             case = "nomn"
-        result = (f"{prep} " if prep else "") + f"{year_to_ordinal_words(int(m.group('year1')), case, True)} — {year_to_ordinal_words(int(m.group('year2')), case, True)}"
+        result = (
+            (f"{prep} " if prep else "")
+            + f"{year_to_ordinal_words(int(m.group('year1')), case, True)} — {year_to_ordinal_words(int(m.group('year2')), case, True)}"
+        )
         if word_norm:
             if is_abbrev:
                 inflected = YEAR_WORD_FORMS.get((word_norm, case), word_norm)
@@ -235,4 +301,9 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
     text = pattern_prep_year_implicit.sub(replace_prep_year_implicit, text)
     text = pattern_suffix.sub(replace_suffix, text)
     text = pattern_year_word.sub(replace_with_word, text)
-    return re.sub(rf"(?<![А-Яа-яA-Za-z_]){YEAR_PLURAL_ABBREV_REGEX}(?!\w)", "годы", text, flags=re.IGNORECASE)
+    return re.sub(
+        rf"(?<![А-Яа-яA-Za-z_]){YEAR_PLURAL_ABBREV_REGEX}(?!\w)",
+        "годы",
+        text,
+        flags=re.IGNORECASE,
+    )
