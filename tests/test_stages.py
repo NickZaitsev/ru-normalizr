@@ -3,7 +3,13 @@ import unittest
 from ru_normalizr.abbreviations import expand_abbreviations
 from ru_normalizr.dates_time import normalize_dates_and_time
 from ru_normalizr.numbering import convert_bracketed_numbers
-from ru_normalizr.numerals import normalize_numerals
+from ru_normalizr.numerals import (
+    normalize_decimals,
+    normalize_fractions,
+    normalize_hyphenated_words,
+    normalize_numerals,
+    normalize_ordinals,
+)
 from ru_normalizr.roman_numerals import normalize_roman
 from ru_normalizr.years import normalize_years
 
@@ -67,6 +73,18 @@ class RuNormalizrStageTests(unittest.TestCase):
         self.assertEqual(
             normalize_numerals("до 30 — 40 см в диаметре"),
             "до тридцати — сорока сантиметров в диаметре",
+        )
+
+    def test_numeral_helpers_cover_decimals_fractions_ordinals_and_hyphenated_words(self):
+        self.assertEqual(
+            normalize_decimals("1.5 кг"),
+            "одна целая пять десятых килограмма",
+        )
+        self.assertEqual(normalize_fractions("1/4"), "одна четвёртая")
+        self.assertEqual(normalize_ordinals("5-й"), "пятый ")
+        self.assertEqual(
+            normalize_hyphenated_words("20-этажный дом"),
+            "двадцатиэтажный дом",
         )
 
     def test_abbreviation_stage(self):

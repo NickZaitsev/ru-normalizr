@@ -6,29 +6,17 @@ from pathlib import Path
 from ._morph import get_morph
 from .abbreviations import expand_abbreviations
 from .caps import normalize_caps_lines, normalize_first_word_caps
-from .dates_time import (
-    normalize_dates,
-    normalize_dates_and_time,
-    normalize_text_dates,
-    normalize_time,
-)
+from .dates_time import normalize_dates_and_time
 from .dictionary import apply_dictionary_rules
 from .latinization import DEFAULT_DICTIONARIES_PATH, apply_latinization
 from .numbering import convert_bracketed_numbers, convert_line_numbering
 from .numerals import (
     ALL_UNITS,
-    normalize_all_digits_everywhere,
-    normalize_cardinal_numerals,
     normalize_decimals,
     normalize_fractions,
-    normalize_greek_letters,
     normalize_hyphenated_words,
-    normalize_math_symbols,
     normalize_numerals,
-    normalize_numeric_unit_ranges,
     normalize_ordinals,
-    normalize_remaining_post_numeral_abbreviations,
-    normalize_standalone_currency,
 )
 from .options import NormalizeOptions
 from .preprocess_utils import (
@@ -55,6 +43,10 @@ PARTICLE_PATTERN = re.compile(
     r"(?<=[а-яА-ЯёЁ])\s*[–—―]\s*(?=(?:то|либо|нибудь|ка|таки|де|с)\b)",
     re.IGNORECASE,
 )
+DECORATIVE_MARKER_PATTERN = re.compile(r"(?:[*=_~+#\-\xad\u2010-\u2015]\s*){5,}")
+ASTERISK_SEPARATOR_PATTERN = re.compile(r"(?:\*\s*){3,}")
+CURRENCY_AMOUNT_PATTERN = re.compile(r"([$€₽])\s?(\d+(?:[.,]\d+)?)")
+DEGREE_SPACING_PATTERN = re.compile(r"(\d)°")
 
 GLUED_PREPOSITIONS = {
     "до",
@@ -128,73 +120,40 @@ class PipelineNormalizer:
         return handler(text)
 
     def normalize_text(self, text: str) -> str:
-        if text.strip().startswith("+"):
-            text = " " + text.lstrip()
-
-        text = normalize_linebreaks(text, keep_paragraph_placeholders=True)
-        text = protect_letter_hyphens(text)
-        text = text.replace("◦", " ")
-        text = remove_decorative_separators(text)
-        text = re.sub(r"(?:[*=_~+#\-\xad\u2010-\u2015]\s*){5,}", " ", text)
-        text = re.sub(r"(?:\*\s*){3,}", " ", text)
-        text = text.replace("[", "(").replace("]", ")")
-        text = SLASH_FIX_PATTERN.sub(" ", text)
-        text = normalize_ascii_quote_pairs(text)
-        text = expand_years_ago_abbreviation(text)
-        text = protect_negative_numbers(text)
-        text = normalize_spaced_hyphens(text)
-        text = convert_bracketed_numbers(text, self.options)
-        text = convert_line_numbering(text)
-        text = normalize_roman(text, self.options)
-        text = normalize_caps_lines(
-            text, enabled=self.options.enable_caps_normalization
+        text = self._run_preprocess_steps(
+            text,
+            keep_paragraph_placeholders=True,
+            apply_caps_normalization=False,
         )
-        text = normalize_first_word_caps(
-            text, enabled=self.options.enable_first_word_decap
-        )
-        text = PARTICLE_PATTERN.sub("-", text)
-        text = apply_cleanup_replacements(text)
-        text = normalize_unicode_fractions(text)
-        text = text.translate(
-            str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉", "01234567890123456789")
-        )
-        text = re.sub(r"([$€₽])\s?(\d+(?:[.,]\d+)?)", r"\2\1", text)
-        text = re.sub(r"(\d)°", r"\1 °", text)
-        text = clean_numbers(text)
-        text = self._fix_glued_numbers(text)
-        text = restore_letter_hyphens(text)
-
-        if self.options.enable_year_normalization:
-            text = normalize_years(text, self.options)
-        text = normalize_numeric_ranges(text)
-
-        if self.options.enable_dates_time_normalization:
-            text = normalize_text_dates(text)
-            text = normalize_dates(text)
-            text = normalize_time(text)
-
-        text = normalize_decimals(text)
-        text = normalize_fractions(text)
-
-        if self.options.enable_numeral_normalization:
-            text = normalize_hyphenated_words(text)
-            text = normalize_ordinals(text)
-            text = normalize_numeric_unit_ranges(text)
-            text = normalize_cardinal_numerals(text)
-            text = normalize_remaining_post_numeral_abbreviations(text)
-            text = normalize_greek_letters(text)
-            text = normalize_math_symbols(text)
-            text = normalize_standalone_currency(text)
-
+        text = self.run_roman(text)
+        text = self._run_caps_normalization(text)
         text = remove_numeric_footnotes(text, keep_paragraph_placeholders=True)
-        text = normalize_all_digits_everywhere(text)
-        text = expand_abbreviations(text, self.options)
+        text = self.run_years(text)
+        text = self.run_dates_time(text)
+        text = self.run_numerals(text)
+        text = self.run_abbreviations(text)
         text = self.run_latinization(text)
         text = self.run_dictionary(text)
         return self.run_finalize(text)
 
     def run_preprocess(
         self, text: str, keep_paragraph_placeholders: bool = False
+    ) -> str:
+        text = self._run_preprocess_steps(
+            text,
+            keep_paragraph_placeholders=keep_paragraph_placeholders,
+            apply_caps_normalization=True,
+        )
+        return remove_numeric_footnotes(
+            text, keep_paragraph_placeholders=keep_paragraph_placeholders
+        )
+
+    def _run_preprocess_steps(
+        self,
+        text: str,
+        *,
+        keep_paragraph_placeholders: bool,
+        apply_caps_normalization: bool,
     ) -> str:
         if text.strip().startswith("+"):
             text = " " + text.lstrip()
@@ -205,8 +164,8 @@ class PipelineNormalizer:
         text = protect_letter_hyphens(text)
         text = text.replace("◦", " ")
         text = remove_decorative_separators(text)
-        text = re.sub(r"(?:[*=_~+#\-\xad\u2010-\u2015]\s*){5,}", " ", text)
-        text = re.sub(r"(?:\*\s*){3,}", " ", text)
+        text = DECORATIVE_MARKER_PATTERN.sub(" ", text)
+        text = ASTERISK_SEPARATOR_PATTERN.sub(" ", text)
         text = text.replace("[", "(").replace("]", ")")
         text = SLASH_FIX_PATTERN.sub(" ", text)
         text = normalize_ascii_quote_pairs(text)
@@ -216,25 +175,25 @@ class PipelineNormalizer:
         text = normalize_spaced_hyphens(text)
         text = convert_bracketed_numbers(text, self.options)
         text = convert_line_numbering(text)
-        text = normalize_caps_lines(
-            text, enabled=self.options.enable_caps_normalization
-        )
-        text = normalize_first_word_caps(
-            text, enabled=self.options.enable_first_word_decap
-        )
+        if apply_caps_normalization:
+            text = self._run_caps_normalization(text)
         text = PARTICLE_PATTERN.sub("-", text)
         text = apply_cleanup_replacements(text)
         text = normalize_unicode_fractions(text)
         text = text.translate(
             str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉", "01234567890123456789")
         )
-        text = re.sub(r"([$€₽])\s?(\d+(?:[.,]\d+)?)", r"\2\1", text)
-        text = re.sub(r"(\d)°", r"\1 °", text)
+        text = CURRENCY_AMOUNT_PATTERN.sub(r"\2\1", text)
+        text = DEGREE_SPACING_PATTERN.sub(r"\1 °", text)
         text = clean_numbers(text)
         text = self._fix_glued_numbers(text)
         text = restore_letter_hyphens(text)
-        return remove_numeric_footnotes(
-            text, keep_paragraph_placeholders=keep_paragraph_placeholders
+        return text
+
+    def _run_caps_normalization(self, text: str) -> str:
+        text = normalize_caps_lines(text, enabled=self.options.enable_caps_normalization)
+        return normalize_first_word_caps(
+            text, enabled=self.options.enable_first_word_decap
         )
 
     def run_roman(self, text: str) -> str:

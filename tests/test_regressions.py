@@ -1,6 +1,7 @@
 import unittest
 
-from ru_normalizr import normalize
+from ru_normalizr import NormalizeOptions, normalize
+from ru_normalizr.latinization import apply_latinization
 from ru_normalizr.numerals import get_numeral_case, simple_tokenize
 
 
@@ -16,6 +17,23 @@ class RuNormalizrRegressionTests(unittest.TestCase):
             ),
             "Энди Бехтольшайм, заинтересовавшийся этим проектом, сразу же выписал чек на сумму сто тысяч долларов",
         )
+
+    def test_dictionary_latinization_regressions_keep_current_duplicate_rule_behavior(self):
+        options = NormalizeOptions(enable_latinization=True, latinization_backend="dictionary")
+
+        self.assertEqual(
+            apply_latinization("engineering", enabled=True, backend="dictionary"),
+            "энджинИаинг",
+        )
+        self.assertEqual(
+            apply_latinization("school", enabled=True, backend="dictionary"),
+            "скул",
+        )
+        self.assertEqual(
+            apply_latinization("server", enabled=True, backend="dictionary"),
+            "сеарвэ",
+        )
+        self.assertEqual(normalize("engineering", options), "энджинИаинг")
 
 
 if __name__ == "__main__":

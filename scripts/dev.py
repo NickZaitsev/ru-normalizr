@@ -47,7 +47,7 @@ def build() -> int:
 def main(argv: list[str] | None = None) -> int:
     args = argv or sys.argv[1:]
     if len(args) != 1 or args[0] not in {"clean", "lint", "test", "build"}:
-        print("Usage: python dev.py [clean|lint|test|build]")
+        sys.stderr.write("Usage: python dev.py [clean|lint|test|build]\n")
         return 2
 
     command = args[0]

@@ -3,8 +3,8 @@
 # source=replacement
 #
 # `*` is supported in source patterns as a wildcard for non-space characters.
-# — is a comment.
-# 
+# This file is an example only and is not packaged into the wheel.
+#
 # Examples:
 # *Tube=тюб
 # Open*=оупен

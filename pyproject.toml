@@ -22,10 +22,10 @@ classifiers = [
   "Topic :: Text Processing :: Linguistic",
 ]
 dependencies = [
-  "num2words",
-  "pymorphy3",
-  "pymorphy3-dicts-ru",
-  "roman",
+  "num2words>=0.5.13",
+  "pymorphy3>=2.0",
+  "pymorphy3-dicts-ru>=2.0",
+  "roman>=4.0",
 ]
 
 [project.urls]
@@ -41,14 +41,14 @@ ipa = ["eng_to_ipa"]
 ru-normalizr = "ru_normalizr.__main__:main"
 
 [tool.setuptools]
-packages = ["ru_normalizr"]
+packages = ["ru_normalizr", "ru_normalizr.numerals"]
 include-package-data = false
 
 [tool.setuptools.package-dir]
 ru_normalizr = "."
 
 [tool.setuptools.package-data]
-ru_normalizr = ["py.typed", "dictionaries/*.dic"]
+ru_normalizr = ["py.typed", "dictionaries/latinization_rules.dic"]
 
 [tool.setuptools.exclude-package-data]
 ru_normalizr = [

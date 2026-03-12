@@ -72,7 +72,6 @@ def expand_person_initials(text: str) -> str:
             return True, ""
         if stripped[0] in ",;:":
             return False, ""
-        import re
 
         if re.match(rf"^\s+{RUSSIAN_NAME_TOKEN}\s+[А-ЯЁ]\.\s*[А-ЯЁ]\.", tail):
             return False, ","

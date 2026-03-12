@@ -50,6 +50,24 @@ TEXT_DATE_PATTERN = re.compile(
     + r")(?:\s+(\d{4})\s*(?:года?)?)?",
     re.IGNORECASE,
 )
+MONTHS_GENT_BY_NUMBER = {
+    1: "января",
+    2: "февраля",
+    3: "марта",
+    4: "апреля",
+    5: "мая",
+    6: "июня",
+    7: "июля",
+    8: "августа",
+    9: "сентября",
+    10: "октября",
+    11: "ноября",
+    12: "декабря",
+}
+NUMERIC_DATE_PATTERN = re.compile(
+    r"\b(?P<day>0?[1-9]|[12]\d|3[01])\.(?P<month>0?[1-9]|1[0-2])\.(?P<year>\d{2,4})\b"
+)
+TIME_PATTERN = re.compile(r"\b(?P<hour>[01]?\d|2[0-3]):(?P<minute>[0-5]\d)\b")
 
 
 def _day_to_ordinal_genitive(day: int) -> str | None:
@@ -136,24 +154,6 @@ def normalize_text_dates(text: str) -> str:
 
 
 def normalize_dates(text: str) -> str:
-    months_gent = {
-        1: "января",
-        2: "февраля",
-        3: "марта",
-        4: "апреля",
-        5: "мая",
-        6: "июня",
-        7: "июля",
-        8: "августа",
-        9: "сентября",
-        10: "октября",
-        11: "ноября",
-        12: "декабря",
-    }
-    pattern = re.compile(
-        r"\b(?P<day>0?[1-9]|[12]\d|3[01])\.(?P<month>0?[1-9]|1[0-2])\.(?P<year>\d{2,4})\b"
-    )
-
     def repl(match: re.Match[str]) -> str:
         day = int(match.group("day"))
         month = int(match.group("month"))
@@ -174,14 +174,12 @@ def normalize_dates(text: str) -> str:
             )
         except Exception:
             year_words = num2words.num2words(year, lang="ru", to="ordinal")
-        return f"{day_words} {months_gent.get(month, str(month))} {year_words} года"
+        return f"{day_words} {MONTHS_GENT_BY_NUMBER.get(month, str(month))} {year_words} года"
 
-    return pattern.sub(repl, text)
+    return NUMERIC_DATE_PATTERN.sub(repl, text)
 
 
 def normalize_time(text: str) -> str:
-    pattern = re.compile(r"\b(?P<hour>[01]?\d|2[0-3]):(?P<minute>[0-5]\d)\b")
-
     def repl(match: re.Match[str]) -> str:
         hour = int(match.group("hour"))
         minute_str = match.group("minute")
@@ -203,7 +201,7 @@ def normalize_time(text: str) -> str:
                 minute_words = minute_str
         return f"{hour_words}, {minute_words}"
 
-    return pattern.sub(repl, text)
+    return TIME_PATTERN.sub(repl, text)
 
 
 def normalize_dates_and_time(text: str, options: NormalizeOptions | None = None) -> str:

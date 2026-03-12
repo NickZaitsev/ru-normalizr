@@ -1,4 +1,4 @@
-build
-pytest
-ruff
-twine
+build>=1.0
+pytest>=7.0
+ruff>=0.4
+twine>=5.0

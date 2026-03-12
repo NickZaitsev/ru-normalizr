@@ -1,10 +1,27 @@
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 from ru_normalizr import NormalizeOptions, Normalizer, normalize, preprocess_text
+
+
+def _find_source_root() -> Path | None:
+    current = Path(__file__).resolve()
+    for candidate in [current.parent, *current.parents]:
+        if (candidate / "pyproject.toml").exists():
+            return candidate
+    return None
+
+
+def _clean_build_artifacts(root: Path) -> None:
+    for relative in ("build", "dist", ".tmp_dist", "ru_normalizr.egg-info"):
+        target = root / relative
+        if target.exists():
+            shutil.rmtree(target)
 
 
 class RuNormalizrApiTests(unittest.TestCase):
@@ -19,6 +36,12 @@ class RuNormalizrApiTests(unittest.TestCase):
             normalize("ГЛАВА IV."),
             "Глава четыре.",
         )
+
+    def test_package_root_normalizer_re_exports_pipeline_class(self):
+        from ru_normalizr.pipeline import Normalizer as PipelineNormalizer
+
+        self.assertIs(Normalizer, PipelineNormalizer)
+        self.assertIsInstance(Normalizer(), PipelineNormalizer)
 
     def test_normalize_batch_reuses_normalizer(self):
         normalizer = Normalizer()
@@ -121,6 +144,21 @@ class RuNormalizrApiTests(unittest.TestCase):
             ),
             'Основное правило: любое объяснение лучше его отсутствия… Итак. Ницше, "Сумерки богов"',
         )
+
+    def test_normalize_matches_preprocess_when_later_stages_are_disabled(self):
+        options = NormalizeOptions(
+            enable_year_normalization=False,
+            enable_dates_time_normalization=False,
+            enable_numeral_normalization=False,
+            enable_abbreviation_expansion=False,
+            enable_dictionary_normalization=False,
+            enable_latinization=False,
+        )
+        text = (
+            'Основное правило: любое объяснение лучше его отсутствия … Итак. Ницше, " Сумерки богов "'
+        )
+
+        self.assertEqual(normalize(text, options), preprocess_text(text, options))
 
     def test_preprocess_text_inserts_legacy_dot_before_digit_line_and_expands_years_ago(
         self,
@@ -289,9 +327,14 @@ class RuNormalizrApiTests(unittest.TestCase):
 
         self.assertTrue((package_dir / "py.typed").exists())
         self.assertTrue((package_dir / "dictionaries" / "latinization_rules.dic").exists())
+        self.assertTrue((package_dir / "numerals" / "__init__.py").exists())
+        self.assertFalse((package_dir / "dictionaries" / "your_rules.dic").exists())
 
     def test_package_builds_as_wheel_from_package_directory(self):
-        repo_root = Path(__file__).resolve().parents[2]
+        repo_root = _find_source_root()
+        if repo_root is None:
+            self.skipTest("source checkout not available for wheel build test")
+        _clean_build_artifacts(repo_root)
         with tempfile.TemporaryDirectory() as dist_dir:
             completed = subprocess.run(
                 [
@@ -300,7 +343,7 @@ class RuNormalizrApiTests(unittest.TestCase):
                     "pip",
                     "wheel",
                     "--no-deps",
-                    str(repo_root / "ru_normalizr"),
+                    str(repo_root),
                     "-w",
                     dist_dir,
                 ],
@@ -312,9 +355,21 @@ class RuNormalizrApiTests(unittest.TestCase):
             self.assertIn(
                 "Successfully built ru-normalizr", completed.stdout + completed.stderr
             )
-            self.assertTrue(
-                any(path.suffix == ".whl" for path in Path(dist_dir).iterdir())
-            )
+            wheel_path = next(path for path in Path(dist_dir).iterdir() if path.suffix == ".whl")
+            with zipfile.ZipFile(wheel_path) as wheel_file:
+                wheel_names = set(wheel_file.namelist())
+
+            self.assertIn("ru_normalizr/py.typed", wheel_names)
+            self.assertIn("ru_normalizr/dictionaries/latinization_rules.dic", wheel_names)
+            self.assertIn("ru_normalizr/numerals/__init__.py", wheel_names)
+            self.assertNotIn("ru_normalizr/preprocess.py", wheel_names)
+            self.assertNotIn("ru_normalizr/dictionaries/your_rules.dic", wheel_names)
+            self.assertFalse(any(name.startswith("ru_normalizr/tests/") for name in wheel_names))
+            self.assertFalse(any(name.startswith("ru_normalizr/scripts/") for name in wheel_names))
+            self.assertFalse(any(name.startswith("ru_normalizr/examples/") for name in wheel_names))
+            self.assertFalse(any(name.startswith("build/") for name in wheel_names))
+            self.assertFalse(any(name.startswith("dist/") for name in wheel_names))
+            self.assertFalse(any(name.startswith(".pytest_cache/") for name in wheel_names))
 
     def test_dictionary_rules_can_be_toggled(self):
         options = NormalizeOptions(

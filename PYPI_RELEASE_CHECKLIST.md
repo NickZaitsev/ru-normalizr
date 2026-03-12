@@ -42,5 +42,7 @@ py -3.12 -m twine upload ./ru_normalizr/dist/*
 
 - No generated cache files are committed.
 - No `build/`, `dist/`, or `*.egg-info/` directories are committed.
+- `examples/your_rules.dic` is not present in the built wheel.
+- `scripts/` and `tests/` are absent from the built wheel.
 - Optional `eng_to_ipa` behavior degrades gracefully when not installed.
 - CLI works from stdin and inline text.

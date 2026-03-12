@@ -30,9 +30,10 @@ pip install "ru-normalizr[ipa]"
 ## API
 
 ```python
-from ru_normalizr import NormalizeOptions, Normalizer, normalize
+from ru_normalizr import NormalizeOptions, Normalizer, normalize, preprocess_text
 
 text = normalize("Глава IV. Встреча в 10:07.")
+prepared = preprocess_text("10кг")
 
 normalizer = Normalizer(
     NormalizeOptions(
@@ -75,6 +76,11 @@ options = NormalizeOptions(
 
 print(normalize("YouTube в 2024 г.", options))
 ```
+
+### Example dictionaries
+
+Runtime dictionary assets shipped in the package live under `ru_normalizr/dictionaries/`.
+The editable example override file lives in `examples/your_rules.dic` in the source tree and is not included in published wheels.
 
 ### Batch usage
 
@@ -139,4 +145,10 @@ py -3.12 ./ru_normalizr/scripts/dev.py clean
 py -3.12 ./ru_normalizr/scripts/dev.py test
 py -3.12 ./ru_normalizr/scripts/dev.py lint
 py -3.12 ./ru_normalizr/scripts/dev.py build
+```
+
+The supported public Python imports are from the package root, for example:
+
+```python
+from ru_normalizr import NormalizeOptions, Normalizer, normalize, preprocess_text
 ```

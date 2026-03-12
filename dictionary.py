@@ -231,25 +231,21 @@ class DictionaryNormalizer:
         return "".join(tokens) if modified else text
 
     def _apply_dic_rules(self, text: str, chunks: list[tuple[str, Any]]) -> str:
-        for _ in range(1):
-            prev = text
-            for chunk_type, chunk_data in chunks:
-                if chunk_type == "simple":
-                    text = self._apply_simple_chunk(text, chunk_data)
-                elif chunk_type == "regex_batch":
-                    pattern, mapping = chunk_data
-                    text = pattern.sub(
-                        lambda match: mapping.get(match.group().lower(), match.group()),
-                        text,
-                    )
-                else:
-                    for pattern, replacement in chunk_data:
-                        try:
-                            text = pattern.sub(replacement, text)
-                        except Exception:
-                            continue
-            if text == prev:
-                break
+        for chunk_type, chunk_data in chunks:
+            if chunk_type == "simple":
+                text = self._apply_simple_chunk(text, chunk_data)
+            elif chunk_type == "regex_batch":
+                pattern, mapping = chunk_data
+                text = pattern.sub(
+                    lambda match: mapping.get(match.group().lower(), match.group()),
+                    text,
+                )
+            else:
+                for pattern, replacement in chunk_data:
+                    try:
+                        text = pattern.sub(replacement, text)
+                    except Exception:
+                        continue
         return text
 
     def apply(self, text: str, *, strip_unmatched_latin: bool = False) -> str:
