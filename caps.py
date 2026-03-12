@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from ._morph import get_morph
 from .constants import KNOWN_ABBREVIATIONS
 from .preprocess_utils import PARAGRAPH_BREAK_PLACEHOLDER
 
@@ -118,10 +119,14 @@ def _restore_known_abbreviations(original: str, lowered: str) -> str:
         upper_letters = letters.upper()
         is_known = upper_letters in KNOWN_ABBREVIATIONS
         is_short_abbrev = len(letters) <= 3
+        is_real_short_word = False
+        if 2 <= len(letters) <= 3:
+            parsed = get_morph().parse(letters.lower())[0]
+            is_real_short_word = parsed.tag.POS is not None
         is_consonant_heavy = (
             len(letters) == 4 and sum(1 for c in upper_letters if c in vowels) <= 1
         )
-        if is_known or is_short_abbrev or is_consonant_heavy:
+        if is_known or ((is_short_abbrev and not is_real_short_word)) or is_consonant_heavy:
             low_tokens[i] = orig_tok
     return "".join(low_tokens)
 

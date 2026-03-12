@@ -339,6 +339,8 @@ UNITS_DATA = {
     "унция": ("унция", "femn", "measure"),
     "lb": ("фунт", "masc", "measure"),
     "м": ("метр", "masc", "measure"),
+    "нм.": ("нанометр", "masc", "measure"),
+    "нм": ("нанометр", "masc", "measure"),
     "метр": ("метр", "masc", "measure"),
     "см": ("сантиметр", "masc", "measure"),
     "см²": ("квадратный сантиметр", "masc", "measure"),

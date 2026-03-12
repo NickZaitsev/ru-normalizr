@@ -61,6 +61,12 @@ class RuNormalizrApiTests(unittest.TestCase):
     def test_tts_does_not_decap_single_all_caps_token(self):
         self.assertEqual(preprocess_text("СВСН", NormalizeOptions.tts()), "СВСН")
 
+    def test_tts_does_not_spell_real_words_inside_caps_heading(self):
+        self.assertEqual(
+            normalize("ЛИБЕРТАРИАНСТВО ЗА ОДИН УРОК", NormalizeOptions.tts()),
+            "Либертарианство за один урок",
+        )
+
     def test_preprocess_text_is_exported(self):
         self.assertIn("10 кг", preprocess_text("10кг"))
 
