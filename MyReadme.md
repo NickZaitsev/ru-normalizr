@@ -12,7 +12,7 @@
 - Малое потребление ресурсов. Не требует GPU
 
 [*Смотри сравнение с другими нормализаторами здесь*](#сравнение-с-другими-нормализаторами) \
-[*English version of README*](#main-features)
+[*English version of README*](#main-features-and-modes)
 
 ## Основные возможности и режимы
 
