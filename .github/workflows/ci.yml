@@ -38,4 +38,4 @@ jobs:
         run: python -m pytest -q
 
       - name: Build
-        run: python -m build
+        run: python -m build .
