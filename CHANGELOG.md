@@ -4,6 +4,11 @@ All notable changes to `ru-normalizr` will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## Unreleased
+### Changed
+- Changed release helper scripts.
+
+
 ## [0.1.2] - 2026-03-14
 ### Changed
 - Updated README.md.

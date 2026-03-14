@@ -24,12 +24,30 @@ CLEAN_GLOBS = (
     "**/__pycache__",
     "dictionaries/**/dictionaries_*.pkl",
 )
+PUBLISH_IGNORED_PREFIXES = (
+    "build/",
+    "dist/",
+    ".tmp_dist/",
+    ".pytest_cache/",
+    ".ruff_cache/",
+    "ru_normalizr.egg-info/",
+)
 
 
 def run(*args: str) -> int:
     print(f"> {' '.join(args)}")
     completed = subprocess.run(args, cwd=ROOT)
     return completed.returncode
+
+
+def capture(*args: str) -> subprocess.CompletedProcess[str]:
+    print(f"> {' '.join(args)}")
+    return subprocess.run(
+        args,
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
 
 
 def clean() -> int:
@@ -104,16 +122,98 @@ def twine_check() -> int:
     return run(sys.executable, "-m", "twine", "check", *(str(path) for path in artifacts))
 
 
-def upload(repository: str | None = None) -> int:
-    artifacts = dist_artifacts()
-    if not artifacts:
-        sys.stderr.write("No distribution artifacts found in dist/. Run build or check first.\n")
+def current_branch() -> str:
+    completed = capture("git", "branch", "--show-current")
+    if completed.returncode:
+        sys.stderr.write(completed.stderr)
+        raise RuntimeError("Failed to read current git branch")
+    return completed.stdout.strip()
+
+
+def _normalize_git_path(path: str) -> str:
+    return path.replace("\\", "/")
+
+
+def _is_expected_generated_path(path: str) -> bool:
+    normalized = _normalize_git_path(path)
+    if normalized == "__pycache__" or "/__pycache__/" in f"/{normalized}/":
+        return True
+    return normalized.startswith(PUBLISH_IGNORED_PREFIXES)
+
+
+def ensure_clean_worktree(tag_name: str) -> int:
+    completed = capture("git", "status", "--porcelain")
+    if completed.returncode:
+        sys.stderr.write(completed.stderr)
         return 1
-    args = [sys.executable, "-m", "twine", "upload"]
-    if repository and repository != "pypi":
-        args.extend(["--repository", repository])
-    args.extend(str(path) for path in artifacts)
-    return run(*args)
+    dirty_lines: list[str] = []
+    for line in completed.stdout.splitlines():
+        path = line[3:]
+        if _is_expected_generated_path(path):
+            continue
+        dirty_lines.append(line)
+    if dirty_lines:
+        sys.stderr.write(
+            "Working tree is not clean. Commit or stash changes before publish.\n"
+        )
+        return 1
+
+    local_tag = capture("git", "rev-parse", "-q", "--verify", f"refs/tags/{tag_name}")
+    if local_tag.returncode == 0:
+        sys.stderr.write(f"Tag already exists locally: {tag_name}\n")
+        return 1
+
+    remote_tag = capture("git", "ls-remote", "--tags", "origin", tag_name)
+    if remote_tag.returncode:
+        sys.stderr.write(remote_tag.stderr)
+        return 1
+    if remote_tag.stdout.strip():
+        sys.stderr.write(f"Tag already exists on origin: {tag_name}\n")
+        return 1
+    return 0
+
+
+def publish(
+    *,
+    remote: str,
+    branch: str,
+    skip_check: bool,
+    skip_main_push: bool,
+) -> int:
+    version = project_version()
+    tag_name = f"v{version}"
+
+    if not skip_check:
+        code = check()
+        if code:
+            return code
+    else:
+        code = check_versions()
+        if code:
+            return code
+
+    branch_name = current_branch()
+    if branch_name != branch:
+        sys.stderr.write(
+            f"Publish must run from branch '{branch}'. Current branch: '{branch_name}'.\n"
+        )
+        return 1
+
+    code = ensure_clean_worktree(tag_name)
+    if code:
+        return code
+
+    print(f"Preparing GitHub release for version {version} via tag {tag_name}")
+
+    if not skip_main_push:
+        code = run("git", "push", remote, branch)
+        if code:
+            return code
+
+    code = run("git", "tag", tag_name)
+    if code:
+        return code
+    return run("git", "push", remote, tag_name)
 
 
 def check() -> int:
@@ -142,15 +242,24 @@ def main(argv: list[str] | None = None) -> int:
 
     publish_parser = subparsers.add_parser("publish")
     publish_parser.add_argument(
-        "--repository",
-        choices=("pypi", "testpypi"),
-        default="pypi",
-        help="Upload target. Defaults to PyPI.",
+        "--remote",
+        default="origin",
+        help="Git remote to push branch and tag to. Defaults to origin.",
     )
     publish_parser.add_argument(
         "--skip-check",
         action="store_true",
-        help="Upload existing dist/* artifacts without rerunning checks.",
+        help="Create and push the release tag without rerunning local checks.",
+    )
+    publish_parser.add_argument(
+        "--branch",
+        default="main",
+        help="Branch that must be current and will be pushed before tagging. Defaults to main.",
+    )
+    publish_parser.add_argument(
+        "--skip-main-push",
+        action="store_true",
+        help="Create and push only the release tag without pushing the branch first.",
     )
 
     args = parser.parse_args(argv or sys.argv[1:])
@@ -164,11 +273,12 @@ def main(argv: list[str] | None = None) -> int:
         return build()
     if args.command == "check":
         return check()
-    if not args.skip_check:
-        code = check()
-        if code:
-            return code
-    return upload(args.repository)
+    return publish(
+        remote=args.remote,
+        branch=args.branch,
+        skip_check=args.skip_check,
+        skip_main_push=args.skip_main_push,
+    )
 
 
 if __name__ == "__main__":

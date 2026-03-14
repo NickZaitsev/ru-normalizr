@@ -53,18 +53,29 @@ py -3.12 scripts/dev.py test
 py -3.12 scripts/dev.py lint
 ```
 
-## Optional TestPyPI upload
-
-```bash
-py -3.12 scripts/dev.py publish --repository testpypi
-```
-
-`publish` runs `check` automatically first unless you pass `--skip-check`.
-
-## Final publish flow
+## Preferred publish flow
 
 ```bash
 py -3.12 scripts/dev.py publish
+```
+
+`publish` now uses the GitHub release flow instead of local `twine upload`.
+It will:
+
+- run `check` unless you pass `--skip-check`
+- verify that `__init__.py` and `pyproject.toml` versions match
+- require a clean git working tree
+- push the current `main` branch to `origin`
+- create a git tag like `v0.1.2`
+- push that tag to GitHub
+- let `.github/workflows/release.yml` publish the package to PyPI
+
+Useful variants:
+
+```bash
+py -3.12 scripts/dev.py publish --skip-check
+py -3.12 scripts/dev.py publish --remote origin --branch main
+py -3.12 scripts/dev.py publish --skip-main-push
 ```
 
 ## Manual review items
@@ -75,3 +86,4 @@ py -3.12 scripts/dev.py publish
 - `scripts/` and `tests/` are absent from the built wheel.
 - Optional `eng_to_ipa` behavior degrades gracefully when not installed.
 - CLI works from stdin and inline text.
+- GitHub `Release` workflow is green for the pushed version tag.
