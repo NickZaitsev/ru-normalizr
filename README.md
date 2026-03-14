@@ -138,6 +138,8 @@ print(normalize("YouTube в 2024 г.", options))
 | RuNorm               | 🐢 очень медленно     | ❌ с артефактами | 140-700 секунд |
 | Demagog |  быстро      | низкое   | 35 секунд |
 
+Также было произведено сравнение с многообещающим `russian_text_normalizer`. Он показал себя гораздо лучше, чем RuNorm, но он тоже допускает ошибки в нормализации числительных (например, `получил приблизительно 2500 голосов.`→`получил приблизительно двести пятьдесят тысяч голосов.`), нормализирует не всё и съедает слова из оригинального текста.
+
 ### Входной текст (пример)
 ```text
 Глава 1
@@ -352,6 +354,7 @@ The comparison was run on the same machine and the same texts.
 | RuNorm               | 🐢 slow     | ❌ unstable |
 | Demagog | ⚡ fast      | ❌ limited  |
 
+A comparison was also made with the promising `russian_text_normalizer`. It performed much better than RuNorm, but it also makes errors in normalizing numerals (for example, `получил приблизительно 2500 голосов.`→`получил приблизительно двести пятьдесят тысяч голосов.`), does not normalize everything, and omits words from the original text.
 
 ### Input text (example)
 
