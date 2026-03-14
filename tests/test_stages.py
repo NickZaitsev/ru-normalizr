@@ -1,6 +1,6 @@
 import unittest
 
-from ru_normalizr import NormalizeOptions
+from ru_normalizr import NormalizeOptions, Normalizer
 from ru_normalizr.abbreviations import expand_abbreviations
 from ru_normalizr.dates_time import normalize_dates_and_time
 from ru_normalizr.numbering import convert_bracketed_numbers
@@ -64,6 +64,11 @@ class RuNormalizrStageTests(unittest.TestCase):
             "за одиннадцатое — двенадцатое февраля тысяча девятьсот пятого года",
         )
 
+    def test_dates_time_pipeline_stage_leaves_decimal_numbers_for_numerals_stage(self):
+        normalizer = Normalizer()
+        self.assertEqual(normalizer.run_stage("dates_time", "3,6"), "3,6")
+        self.assertEqual(normalizer.run_stage("dates_time", "(3,6)"), "(3,6)")
+
     def test_numeral_stage(self):
         self.assertEqual(
             normalize_numerals("250$"),
@@ -81,6 +86,20 @@ class RuNormalizrStageTests(unittest.TestCase):
             normalize_numerals("до 30 — 40 см в диаметре"),
             "до тридцати — сорока сантиметров в диаметре",
         )
+
+    def test_numeral_stage_normalizes_bracketed_integer_via_pipeline_stage(self):
+        normalizer = Normalizer()
+        self.assertEqual(normalizer.run_stage("numerals", "(2)"), "(два)")
+
+    def test_numeral_stage_normalizes_bracketed_decimal_via_pipeline_stage(self):
+        normalizer = Normalizer()
+        self.assertEqual(
+            normalizer.run_stage("numerals", "(3,6)"), "(три целых шесть десятых)"
+        )
+
+    def test_numeral_stage_normalizes_decimal_via_pipeline_stage(self):
+        normalizer = Normalizer()
+        self.assertEqual(normalizer.run_stage("numerals", "3,6"), "три целых шесть десятых")
 
     def test_numeral_helpers_cover_decimals_fractions_ordinals_and_hyphenated_words(self):
         self.assertEqual(

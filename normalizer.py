@@ -214,13 +214,13 @@ class PipelineNormalizer:
     def run_dates_time(self, text: str) -> str:
         if not self.options.enable_dates_time_normalization:
             return text
-        text = normalize_dates_and_time(text, self.options)
-        text = normalize_decimals(text)
-        return normalize_fractions(text)
+        return normalize_dates_and_time(text, self.options)
 
     def run_numerals(self, text: str) -> str:
         if not self.options.enable_numeral_normalization:
             return text
+        text = normalize_decimals(text)
+        text = normalize_fractions(text)
         text = normalize_hyphenated_words(text)
         text = normalize_ordinals(text)
         return normalize_numerals(text, self.options)

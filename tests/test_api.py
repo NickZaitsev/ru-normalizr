@@ -196,6 +196,11 @@ class RuNormalizrApiTests(unittest.TestCase):
 
         self.assertEqual(normalize(text, options), preprocess_text(text, options))
 
+    def test_decimal_normalization_now_respects_enable_numeral_normalization(self):
+        options = NormalizeOptions(enable_numeral_normalization=False)
+        self.assertEqual(normalize("3,6", options), "3,6")
+        self.assertEqual(normalize("(3,6)", options), "(3,6)")
+
     def test_preprocess_text_inserts_legacy_dot_before_digit_line_and_expands_years_ago(
         self,
     ):

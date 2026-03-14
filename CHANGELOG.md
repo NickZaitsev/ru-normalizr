@@ -7,6 +7,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## Unreleased
 ### Changed
 - Changed release helper scripts.
+- Moved decimal and fraction normalization from the `dates_time` stage to `numerals`.
+- `enable_numeral_normalization=False` now keeps decimal numbers unchanged instead of normalizing them through `dates_time`.
 
 
 ## [0.1.2] - 2026-03-14

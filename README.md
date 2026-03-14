@@ -119,8 +119,8 @@ print(normalize("YouTube в 2024 г.", options))
 - `preprocess` — предварительная очистка текста: пробелы, переносы строк, пунктуация, часть OCR-подобных склеек, базовая подготовка перед остальной нормализацией
 - `roman` — обработка римских цифр
 - `years` — нормализация годов, десятилетий и диапазонов лет
-- `dates_time` — нормализация дат, времени, дробей и десятичных чисел
-- `numerals` — нормализация числительных, порядковых форм и числовых выражений
+- `dates_time` — нормализация дат и времени
+- `numerals` — нормализация числительных, порядковых форм, дробей, десятичных и других числовых выражений
 - `abbreviations` — раскрытие сокращений, инициалов и буквенных аббревиатур в зависимости от выбранного режима
 - `dictionary` — применение словарных правил и пользовательских словарей
 - `latinization` — перевод латиницы в кириллицу через словарь или IPA-бэкенд
@@ -337,8 +337,8 @@ Individual stages are available:
 - `preprocess` — preliminary text cleanup: spaces, line breaks, punctuation, some OCR-like glued text, and other preparation before the main normalization stages
 - `roman` — Roman numeral handling
 - `years` — normalization of years, decades, and year ranges
-- `dates_time` — normalization of dates, time expressions, fractions, and decimals
-- `numerals` — normalization of cardinal numbers, ordinal forms, and other numeric expressions
+- `dates_time` — normalization of dates and time expressions
+- `numerals` — normalization of cardinal numbers, ordinal forms, fractions, decimals, and other numeric expressions
 - `abbreviations` — expansion of abbreviations, initials, and letter-by-letter abbreviations depending on the selected mode
 - `dictionary` — application of built-in and custom dictionary rules
 - `latinization` — conversion of Latin words into Cyrillic using either dictionary rules or the IPA backend
