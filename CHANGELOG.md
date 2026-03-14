@@ -8,7 +8,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ### Changed
 - Changed release helper scripts.
 - Moved decimal and fraction normalization from the `dates_time` stage to `numerals`.
-- `enable_numeral_normalization=False` now keeps decimal numbers unchanged instead of normalizing them through `dates_time`.
+- `enable_numeral_normalization=False` now keeps decimal numbers unchanged instead of normalizing them through `dates_time`
+### Fixed.
+- Bracketed numeric references are no longer expanded during preprocess when `remove_links=False`; they now stay unchanged unless link removal is enabled.
 
 
 ## [0.1.2] - 2026-03-14

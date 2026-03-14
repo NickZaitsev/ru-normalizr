@@ -201,6 +201,18 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertEqual(normalize("3,6", options), "3,6")
         self.assertEqual(normalize("(3,6)", options), "(3,6)")
 
+    def test_all_disabled_options_keep_bracketed_integer_unchanged(self):
+        options = NormalizeOptions(
+            enable_year_normalization=False,
+            enable_dates_time_normalization=False,
+            enable_numeral_normalization=False,
+            enable_abbreviation_expansion=False,
+            enable_dictionary_normalization=False,
+            enable_latinization=False,
+        )
+        self.assertEqual(normalize("(2)", options), "(2)")
+        self.assertEqual(preprocess_text("(2)", options), "(2)")
+
     def test_preprocess_text_inserts_legacy_dot_before_digit_line_and_expands_years_ago(
         self,
     ):
@@ -538,9 +550,13 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertEqual(normalize("ГИБДД", NormalizeOptions.safe()), "ГИБДД")
         self.assertEqual(normalize("ГИБДД", NormalizeOptions.tts()), "ги бэ дэ дэ")
 
-        self.assertEqual(preprocess_text("(1)", NormalizeOptions()), "(один)")
-        self.assertEqual(preprocess_text("(1)", NormalizeOptions.safe()), "(один)")
+        self.assertEqual(preprocess_text("(1)", NormalizeOptions()), "(1)")
+        self.assertEqual(preprocess_text("(1)", NormalizeOptions.safe()), "(1)")
         self.assertEqual(preprocess_text("(1)", NormalizeOptions.tts()), "")
+
+    def test_preprocess_keeps_bracketed_references_when_link_removal_is_disabled(self):
+        self.assertEqual(preprocess_text("(2)", NormalizeOptions()), "(2)")
+        self.assertEqual(preprocess_text("(2)", NormalizeOptions.safe()), "(2)")
 
     def test_tts_mode_can_enable_ipa_stress_markers_explicitly(self):
         self.assertEqual(

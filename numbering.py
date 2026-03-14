@@ -82,6 +82,6 @@ def convert_bracketed_numbers(
                 pass
         if should_remove:
             return ""
-        return f"{opener}{convert_numeric_sequence(stripped)}{closer}"
+        return match.group(0)
 
     return re.sub(pattern, repl, text, flags=re.IGNORECASE)

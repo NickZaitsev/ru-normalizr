@@ -97,6 +97,15 @@ class RuNormalizrStageTests(unittest.TestCase):
             normalizer.run_stage("numerals", "(3,6)"), "(три целых шесть десятых)"
         )
 
+    def test_numeral_stage_normalizes_other_bracketed_decimals_via_pipeline_stage(self):
+        normalizer = Normalizer()
+        self.assertEqual(
+            normalizer.run_stage("numerals", "(2,6)"), "(две целых шесть десятых)"
+        )
+        self.assertEqual(
+            normalizer.run_stage("numerals", "(3.4)"), "(три целых четыре десятых)"
+        )
+
     def test_numeral_stage_normalizes_decimal_via_pipeline_stage(self):
         normalizer = Normalizer()
         self.assertEqual(normalizer.run_stage("numerals", "3,6"), "три целых шесть десятых")
@@ -176,9 +185,15 @@ class RuNormalizrStageTests(unittest.TestCase):
             convert_bracketed_numbers("Текст [1]", NormalizeOptions.tts()), "Текст "
         )
 
+    def test_bracketed_number_stage_keeps_references_when_link_removal_is_disabled(self):
+        self.assertEqual(convert_bracketed_numbers("Текст (1)"), "Текст (1)")
+        self.assertEqual(convert_bracketed_numbers("Текст [12]"), "Текст [12]")
+
     def test_bracketed_number_stage_keeps_comma_decimals(self):
         self.assertEqual(convert_bracketed_numbers("Текст (500,5)"), "Текст (500,5)")
+        self.assertEqual(convert_bracketed_numbers("Текст (2,6)"), "Текст (2,6)")
         self.assertEqual(convert_bracketed_numbers("Текст (3,14)"), "Текст (3,14)")
+        self.assertEqual(convert_bracketed_numbers("Текст (3.4)"), "Текст (3.4)")
         self.assertEqual(convert_bracketed_numbers("Текст (−0,7)"), "Текст (−0,7)")
 
     def test_bracketed_number_stage_keeps_numbers_with_units(self):
