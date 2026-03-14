@@ -4,7 +4,7 @@ All notable changes to `ru-normalizr` will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
-## Unreleased
+## [0.1.3] - 2026-03-15
 ### Changed
 - Changed release helper scripts.
 - Moved decimal and fraction normalization from the `dates_time` stage to `numerals`.
