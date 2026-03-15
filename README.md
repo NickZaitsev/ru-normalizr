@@ -1,3 +1,7 @@
+[![Windows GUI](https://img.shields.io/badge/Windows-GUI%20Download-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/NickZaitsev/ru-normalizr/releases/latest)
+[![Open in Colab](https://img.shields.io/badge/Open%20in-Colab-F9AB00?style=for-the-badge&logo=googlecolab)](https://colab.research.google.com/drive/1Vyjncl8pteDBOpiDUFk_U5Mn4J968sgS)
+[![PyPI](https://img.shields.io/pypi/v/ru-normalizr?style=for-the-badge)](https://pypi.org/project/ru-normalizr/)
+
 # ru-normalizr — лучший open-source нормализатор русского текста
 
 Приводит числа, даты, время, сокращения, римские цифры, символы и латиницу в русские буквы для использования в TTS и NLP:
