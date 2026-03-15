@@ -1,3 +1,4 @@
+import importlib.util
 import shutil
 import subprocess
 import sys
@@ -25,6 +26,22 @@ def _clean_build_artifacts(root: Path) -> None:
 
 
 class RuNormalizrApiTests(unittest.TestCase):
+    def test_package_init_supports_direct_file_import(self):
+        package_dir = Path(__import__("ru_normalizr").__file__).resolve().parent
+        init_path = package_dir / "__init__.py"
+        spec = importlib.util.spec_from_file_location("__init__", init_path)
+
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        self.assertIs(module.NormalizeOptions, NormalizeOptions)
+        self.assertIs(module.Normalizer, Normalizer)
+        self.assertIs(module.normalize, normalize)
+        self.assertIs(module.preprocess_text, preprocess_text)
+
     def test_normalize_function_handles_roman_and_time_pipeline(self):
         self.assertEqual(
             normalize("Глава IV. Встреча в 10:07."),

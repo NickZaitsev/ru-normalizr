@@ -11,6 +11,7 @@
 - Стабильнее и качественнее, чем LLM-based нормализаторы
 - Малое потребление ресурсов. Не требует GPU
 
+[**Скачать программу *ru-normalizr GUI* для Windows**](https://github.com/NickZaitsev/ru-normalizr/releases/latest) \
 [*Смотри сравнение с другими нормализаторами здесь*](#сравнение-с-другими-нормализаторами) \
 [*English version of README*](#main-features)
 
@@ -39,6 +40,8 @@
 ```bash
 pip install ru-normalizr
 ```
+
+Для Windows также доступен GUI: [Скачать ru-normalizr GUI для Windows](https://github.com/NickZaitsev/ru-normalizr/releases/latest)
 
 ## Запуск из cmd или bash (CLI)
 

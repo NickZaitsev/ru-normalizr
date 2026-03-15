@@ -9,7 +9,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [0.1.4] - 2026-03-15
 - Update repo name to `ru-normalizr`.
-
+- Fix CI/CD
+- Add GUI link to README.md
 
 ## [0.1.3] - 2026-03-15
 ### Changed
