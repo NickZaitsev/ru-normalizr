@@ -30,10 +30,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/NickZaitsev/ru_normalizr"
-Repository = "https://github.com/NickZaitsev/ru_normalizr"
-Issues = "https://github.com/NickZaitsev/ru_normalizr/issues"
-Changelog = "https://github.com/NickZaitsev/ru_normalizr/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/NickZaitsev/ru-normalizr"
+Repository = "https://github.com/NickZaitsev/ru-normalizr"
+Issues = "https://github.com/NickZaitsev/ru-normalizr/issues"
+Changelog = "https://github.com/NickZaitsev/ru-normalizr/blob/main/CHANGELOG.md"
 
 [project.scripts]
 ru-normalizr = "ru_normalizr.__main__:main"
