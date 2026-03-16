@@ -313,6 +313,8 @@ def _get_preposition_before_number(tokens: list[str], idx: int) -> tuple[str, st
             return phrase, PREP_CASE[phrase]
     for i in range(idx - 1, max(-1, idx - 3), -1):
         word_left = _normalize_context_token(tokens[i])
+        if word_left == "чем":
+            break
         if word_left in PREP_CASE:
             return word_left, PREP_CASE[word_left]
     return None
@@ -404,6 +406,15 @@ def get_numeral_case(tokens: list[str], idx: int) -> str:
             return VERB_CASE[p_verb.normal_form]
         if any(char in tokens[i] for char in ".!?"):
             break
+
+    if idx < len(tokens) - 1:
+        word_right = tokens[idx + 1].lower().strip(".,!?;:")
+        if word_right:
+            p_right = morph.parse(word_right)[0]
+            if is_case_reliable_noun(p_right):
+                noun_case = p_right.tag.case
+                if noun_case in {"datv", "ablt", "loct"} or "loc2" in p_right.tag:
+                    return "loct" if noun_case == "loct" or "loc2" in p_right.tag else noun_case
 
     if idx < len(tokens) - 1:
         word_right = tokens[idx + 1].lower().strip(".,!?;:")
