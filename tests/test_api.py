@@ -511,6 +511,12 @@ class RuNormalizrApiTests(unittest.TestCase):
             "УЖЕ тысяча девятьсот девяностые годы.",
         )
 
+    def test_normalize_keeps_hyphenated_decade_phrases_out_of_implicit_year_rule(self):
+        self.assertEqual(
+            normalize("а в 1990-ые годы началась новая волна обсуждений."),
+            "а в тысяча девятьсот девяностые годы началась новая волна обсуждений.",
+        )
+
     def test_normalize_keeps_parallel_percent_phrases_in_same_case(self):
         self.assertEqual(
             normalize("(Например, 20 % личного и 20 % экономического)"),

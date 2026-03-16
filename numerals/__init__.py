@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from ..options import NormalizeOptions
+from ..text_context import simple_tokenize
 from ._constants import ALL_UNITS
-from ._helpers import get_numeral_case, simple_tokenize
+from ._helpers import get_numeral_case
 from .cardinals import (
     normalize_all_digits_everywhere,
     normalize_cardinal_numerals,

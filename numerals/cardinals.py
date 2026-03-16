@@ -5,6 +5,7 @@ import re
 import num2words
 
 from .._morph import get_morph
+from ..text_context import simple_tokenize
 from ._constants import (
     DIGIT_PATTERN,
     NUMERIC_UNIT_RANGE_PATTERN,
@@ -24,7 +25,6 @@ from ._helpers import (
     safe_inflect,
     should_consume_abbreviation_dot,
     should_keep_decimal_unit_dot,
-    simple_tokenize,
 )
 
 
