@@ -5,9 +5,11 @@ All notable changes to `ru-normalizr` will be documented in this file.
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
 ## Unreleased
-
+### Changed
+- Fix 'к→кулон' and 'м в → милливольт' error
 
 ## [0.1.4] - 2026-03-15
+### Changed
 - Update repo name to `ru-normalizr`.
 - Fix CI/CD
 - Add GUI link to README.md
