@@ -321,6 +321,19 @@ class RuNormalizrApiTests(unittest.TestCase):
             "пятисот десяти — пятисот пяти миллионов лет назад (в среднем пятьсот восемь миллионов лет назад).",
         )
 
+    def test_preprocess_tts_keeps_bracketed_years_within_ignore_interval(self):
+        self.assertEqual(
+            preprocess_text("Пекин (2008)", NormalizeOptions.tts()),
+            "Пекин (2008)",
+        )
+
+    def test_preprocess_tts_respects_bracketed_year_ignore_interval_boundaries(self):
+        options = NormalizeOptions.tts()
+        self.assertEqual(preprocess_text("Рим (2200)", options), "Рим (2200)")
+        self.assertEqual(preprocess_text("Рим (2201)", options), "Рим")
+        self.assertEqual(preprocess_text("ссылка (12)", options), "ссылка")
+        self.assertEqual(preprocess_text("диапазон (1–3)", options), "диапазон")
+
     def test_preprocess_text_keeps_bracketed_comma_decimals(self):
         self.assertEqual(preprocess_text("(500,5)"), "(500,5)")
         self.assertEqual(preprocess_text("(1 234,56)"), "(1234,56)")
@@ -481,6 +494,152 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertEqual(
             normalize("8 байт/с"),
             "восемь байт в секунду",
+        )
+
+    def test_normalize_supports_requested_common_abbreviations(self):
+        self.assertEqual(normalize("ул. Абрамова"), "улица Абрамова")
+        self.assertEqual(normalize("Св. Георгия"), "Святого Георгия")
+        self.assertEqual(normalize("и т.д. и т.п."), "и так далее и тому подобное.")
+
+    def test_normalize_supports_full_decade_suffix_spelling(self):
+        self.assertEqual(
+            normalize("1990-ые годы."),
+            "тысяча девятьсот девяностые годы.",
+        )
+        self.assertEqual(
+            normalize("УЖЕ 1990-ые годы.", NormalizeOptions.tts()),
+            "УЖЕ тысяча девятьсот девяностые годы.",
+        )
+
+    def test_normalize_keeps_parallel_percent_phrases_in_same_case(self):
+        self.assertEqual(
+            normalize("(Например, 20 % личного и 20 % экономического)"),
+            "(Например, двадцать процентов личного и двадцать процентов экономического)",
+        )
+
+    def test_normalize_inflects_generic_numeric_ranges_from_context(self):
+        self.assertEqual(
+            normalize("Правительство и политика последних 20-30 лет."),
+            "Правительство и политика последних двадцати — тридцати лет.",
+        )
+        self.assertEqual(
+            normalize(
+                "В главах 1–3 рассматриваются общие проблемы, которые стоят перед всеми без исключения пловцами."
+            ),
+            "В главах с первой по третью рассматриваются общие проблемы, которые стоят перед всеми без исключения пловцами.",
+        )
+        self.assertEqual(
+            normalize(
+                "В главах 4–10 объясняются принципы эффективного плавания, взаимодействия тела человека и воды."
+            ),
+            "В главах с четвёртой по десятую объясняются принципы эффективного плавания, взаимодействия тела человека и воды.",
+        )
+        self.assertEqual(
+            normalize("Правительство и политика последних 20-30 лет и продолжение курса."),
+            "Правительство и политика последних двадцати — тридцати лет и продолжение курса.",
+        )
+
+    def test_normalize_supports_heading_like_numeric_ranges(self):
+        self.assertEqual(
+            normalize("В главах 1–3 рассматриваются общие проблемы."),
+            "В главах с первой по третью рассматриваются общие проблемы.",
+        )
+        self.assertEqual(
+            normalize("В главах 4–10 объясняются принципы."),
+            "В главах с четвёртой по десятую объясняются принципы.",
+        )
+        self.assertEqual(
+            normalize("В частях 2–4 говорится об этом."),
+            "В частях со второй по четвёртую говорится об этом.",
+        )
+        self.assertEqual(
+            normalize("В разделах 5–7 приведены примеры."),
+            "В разделах с пятого по седьмой приведены примеры.",
+        )
+        self.assertEqual(
+            normalize("В томах 2–3 опубликованы материалы."),
+            "В томах со второго по третий опубликованы материалы.",
+        )
+        self.assertEqual(
+            normalize("В книгах 1–2 рассказано об эпохе."),
+            "В книгах с первой по вторую рассказано об эпохе.",
+        )
+        self.assertEqual(
+            normalize("В кварталах 1–2 наблюдался рост."),
+            "В кварталах с первого по второй наблюдался рост.",
+        )
+
+    def test_normalize_keeps_ordinary_numeric_ranges_working(self):
+        self.assertEqual(
+            normalize("до 30 – 40 см в диаметре"),
+            "до тридцати — сорока сантиметров в диаметре",
+        )
+        self.assertEqual(
+            normalize("1990–2000 гг. компания выпустила 15 моделей."),
+            "тысяча девятьсот девяностые — двухтысячные годы. Компания выпустила пятнадцать моделей.",
+        )
+        self.assertEqual(
+            normalize("В начале 1960-х гг. стечение обстоятельств посеяло семена."),
+            "В начале тысяча девятьсот шестидесятых годов стечение обстоятельств посеяло семена.",
+        )
+        self.assertEqual(
+            normalize("Из лохковского века Шотландии – 410 – 414 млн л. н. –"),
+            "Из лохковского века Шотландии — четыреста десять — четыреста четырнадцать миллионов лет назад —",
+        )
+        self.assertEqual(
+            normalize("В результате погибли от 60 до 80 тыс. жителей города."),
+            "В результате погибли от шестидесяти до восьмидесяти тысяч жителей города.",
+        )
+
+    def test_normalize_supports_shared_year_abbreviation_after_multiple_years(self):
+        self.assertEqual(
+            normalize("в 1943 и 1951 гг. — два тома"),
+            "в тысяча девятьсот сорок третьем и тысяча девятьсот пятьдесят первом годах — два тома",
+        )
+
+    def test_normalize_keeps_bracketed_years_in_todo_visa_case(self):
+        result = normalize(
+            'Данила Изотов, член "Команды Visa", серебряный призер Олимпийских игр в Пекине (2008) '
+            "в эстафете 4×200 метров вольным стилем, мировой рекордсмен в эстафете 4×100 метров "
+            "смешанным стилем в коротких бассейнах, бронзовый призер Чемпионата мира в Риме (2009) "
+            "на дистанции 200 м вольным стилем.",
+            NormalizeOptions.tts(),
+        )
+        self.assertIn("(две тысячи восемь)", result)
+        self.assertIn("(две тысячи девять)", result)
+
+    def test_normalize_supports_years_with_era_markers_below_thousand(self):
+        self.assertEqual(
+            normalize("(206 год до н. э. – 220 год н. э.)"),
+            "(двести шестой год до нашей эры — двести двадцатый год нашей эры)",
+        )
+
+    def test_normalize_keeps_age_phrases_in_nominative(self):
+        self.assertEqual(
+            normalize("когда ей было 16 лет,"),
+            "когда ей было шестнадцать лет,",
+        )
+        self.assertEqual(
+            normalize("у неё было 16 лет опыта."),
+            "у неё было шестнадцать лет опыта.",
+        )
+        self.assertEqual(
+            normalize("мне исполнилось 16 лет."),
+            "мне исполнилось шестнадцать лет.",
+        )
+
+    def test_normalize_keeps_explicit_case_cues_after_case_heuristic_softening(self):
+        self.assertEqual(
+            normalize("к 16 годам он вырос."),
+            "к шестнадцати годам он вырос.",
+        )
+        self.assertEqual(
+            normalize("после 16 лет службы."),
+            "после шестнадцати лет службы.",
+        )
+        self.assertEqual(
+            normalize("между 5 и 7 годами прошёл срок."),
+            "между пятью и семью годами прошёл срок.",
         )
 
     def test_normalize_supports_single_letter_cyrillic_units_when_boundary_is_clear(self):

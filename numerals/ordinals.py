@@ -8,6 +8,57 @@ from .._morph import get_morph
 from ._constants import HYPHENATED_WORD_PATTERN, ORDINAL_PATTERN
 from ._helpers import get_numeral_case, inflect_numeral_string, simple_tokenize
 
+HEADING_RANGE_PATTERN = re.compile(
+    r"\b(?P<head>"
+    r"глава|главы|главе|главу|главой|главами|главах|"
+    r"часть|части|частью|частях|"
+    r"раздел|раздела|разделе|разделу|разделом|разделах|"
+    r"том|тома|томе|томом|томах|"
+    r"книга|книги|книге|книгой|книгах|"
+    r"квартал|квартала|квартале|кварталу|кварталом|кварталах"
+    r")\s+(?P<left>\d+)\s*[–—-]\s*(?P<right>\d+)\b",
+    re.IGNORECASE | re.UNICODE,
+)
+
+
+def _ordinal_words(num: int, case: str, gender: str | None) -> str:
+    case_map = {
+        "nomn": "nominative",
+        "gent": "genitive",
+        "datv": "dative",
+        "accs": "accusative",
+        "ablt": "instrumental",
+        "loct": "prepositional",
+    }
+    gender_map = {"masc": "m", "femn": "f", "neut": "n"}
+    kwargs: dict[str, str] = {"to": "ordinal", "case": case_map.get(case, "nominative")}
+    if gender in gender_map:
+        kwargs["gender"] = gender_map[gender]
+    try:
+        return num2words.num2words(num, lang="ru", **kwargs)
+    except Exception:
+        return num2words.num2words(num, lang="ru", to="ordinal")
+
+
+def _pick_range_preposition(first_ordinal: str) -> str:
+    return "со" if first_ordinal.startswith(("в", "ф", "с", "з", "ш", "ж")) else "с"
+
+
+def normalize_heading_ranges(text: str) -> str:
+    morph = get_morph()
+
+    def repl(match: re.Match[str]) -> str:
+        head = match.group("head")
+        parsed = morph.parse(head.lower())
+        noun_parse = next((candidate for candidate in parsed if "NOUN" in candidate.tag), None)
+        gender = noun_parse.tag.gender if noun_parse and noun_parse.tag.gender else "masc"
+        left_ordinal = _ordinal_words(int(match.group("left")), "gent", gender)
+        right_case = "accs" if gender == "femn" else "nomn"
+        right_ordinal = _ordinal_words(int(match.group("right")), right_case, gender)
+        return f"{head} {_pick_range_preposition(left_ordinal)} {left_ordinal} по {right_ordinal}"
+
+    return HEADING_RANGE_PATTERN.sub(repl, text)
+
 
 def normalize_hyphenated_words(text: str) -> str:
     def repl(match: re.Match[str]) -> str:

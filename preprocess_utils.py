@@ -219,7 +219,9 @@ def classify_bracketed_numeric_content(content: str) -> str:
 
 
 def remove_numeric_footnotes(
-    text: str, keep_paragraph_placeholders: bool = False
+    text: str,
+    keep_paragraph_placeholders: bool = False,
+    ignore_interval: tuple[int, int] | None = None,
 ) -> str:
     pairs = {"[": "]", "<": ">", "(": ")", "{": "}", "«": "»"}
 
@@ -227,7 +229,13 @@ def remove_numeric_footnotes(
         opener, content, closer = match.group(1), match.group(2), match.group(3)
         if pairs.get(opener) != closer:
             return match.group(0)
+        stripped = content.strip()
         if classify_bracketed_numeric_content(content) == "reference":
+            if ignore_interval is not None and stripped.isdigit():
+                value = int(stripped)
+                min_val, max_val = ignore_interval
+                if min_val <= value <= max_val:
+                    return match.group(0)
             return ""
         return match.group(0)
 

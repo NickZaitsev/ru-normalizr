@@ -12,10 +12,13 @@ YEAR_SUFFIX_TO_CASE = {
     "ый": "nomn",
     "ой": "nomn",
     "й": "nomn",
+    "ые": "nomn",
     "ого": "gent",
     "го": "gent",
+    "ых": "gent",
     "ому": "datv",
     "ым": "ablt",
+    "ыми": "ablt",
     "ом": "loct",
     "му": "datv",
     "е": "nomn",
@@ -23,7 +26,7 @@ YEAR_SUFFIX_TO_CASE = {
     "м": "datv",
     "ми": "ablt",
 }
-PLURAL_SUFFIXES = {"е", "х", "м", "ми"}
+PLURAL_SUFFIXES = {"е", "х", "м", "ми", "ые", "ых", "ыми"}
 YEAR_WORD_TO_CASE = {
     "год": "nomn",
     "года": "gent",
@@ -137,8 +140,16 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         rf"(?:(?P<prep>с|со|из|от|в|во)\s+)?(?P<year1>\d+)\s*[-–—]\s*(?P<year2>\d+)\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
         re.IGNORECASE | re.UNICODE,
     )
+    pattern_multiple_years = re.compile(
+        rf"(?:(?P<prep>в|во|о|об|к|ко|с|со|до|от|за|на|по|между)\s+)?(?P<years>\d{{3,4}}(?:\s*,\s*\d{{3,4}})*\s+и\s+\d{{3,4}})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w))",
+        re.IGNORECASE | re.UNICODE,
+    )
     pattern_suffix = re.compile(
-        rf"(?:^|(?<=\s)|(?<=[«\"'(]))(\d+)[-–—](ого|ому|ый|ой|ым|ом|му|ми|го|м|е|х|й)(?![а-яА-ЯёЁ\d])(?:\s+(год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?",
+        rf"(?:^|(?<=\s)|(?<=[«\"'(]))(\d+)[-–—](ого|ому|ыми|ые|ых|ый|ой|ым|ом|му|ми|го|м|е|х|й)(?![а-яА-ЯёЁ\d])(?:\s+(год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?",
+        re.IGNORECASE | re.UNICODE,
+    )
+    pattern_era_year = re.compile(
+        r"(?:(?P<prep>в|во|о|об|к|ко|с|со|до|от|за|на|по|между)\s+)?(?P<year>\d+)\s+(?P<word>год[а-яё]*\b)\s+(?P<era>до\s+н\.?\s*э\.?|н\.?\s*э\.?)",
         re.IGNORECASE | re.UNICODE,
     )
     pattern_year_word = re.compile(
@@ -237,6 +248,51 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
             result += f" {inflected}"
         return result
 
+    def replace_multiple_years(m: re.Match[str]) -> str:
+        prep = m.group("prep")
+        years_text = m.group("years")
+        word = m.group("word")
+        word_lower = word.lower()
+        if re.fullmatch(YEAR_PLURAL_ABBREV_REGEX, word_lower):
+            case = PREPOSITIONS_TO_CASE.get(prep.lower(), "nomn") if prep else "nomn"
+            word_norm = "годы"
+        else:
+            case = YEAR_WORD_TO_CASE.get(word_lower, "nomn")
+            if prep and case == "nomn":
+                case = PREPOSITIONS_TO_CASE.get(prep.lower(), case)
+            word_norm = "годы" if word_lower.startswith("год") else word
+
+        parts = re.split(r"(\s*,\s*|\s+и\s+)", years_text)
+        rendered_parts: list[str] = []
+        for part in parts:
+            stripped = part.strip()
+            if not stripped:
+                continue
+            if stripped.isdigit():
+                rendered_parts.append(year_to_ordinal_words(int(stripped), case))
+            else:
+                rendered_parts.append(part)
+
+        prefix = f"{prep} " if prep else ""
+        inflected_word = YEAR_WORD_FORMS.get((word_norm, case), word_norm)
+        return f"{prefix}{''.join(rendered_parts)} {inflected_word}"
+
+    def replace_era_year(m: re.Match[str]) -> str:
+        prep = m.group("prep")
+        word = m.group("word")
+        word_lower = word.lower()
+        if word_lower == "году" and prep:
+            case = "datv" if prep.lower() in ("к", "ко") else "loct"
+        elif prep:
+            case = PREPOSITIONS_TO_CASE.get(prep.lower(), YEAR_WORD_TO_CASE.get(word_lower, "nomn"))
+        else:
+            case = YEAR_WORD_TO_CASE.get(word_lower, "nomn")
+        prefix = f"{prep} " if prep else ""
+        return (
+            f"{prefix}{year_to_ordinal_words(int(m.group('year')), case)} "
+            f"{word} {m.group('era')}"
+        )
+
     def replace_with_word(m: re.Match[str]) -> str:
         prep = m.group("prep")
         year = int(m.group("year"))
@@ -330,9 +386,11 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
     text = pattern_range_decade.sub(replace_range_decade, text)
     text = pattern_s_po.sub(replace_s_po, text)
     text = pattern_range.sub(replace_range, text)
+    text = pattern_multiple_years.sub(replace_multiple_years, text)
     text = pattern_ot_do_implicit.sub(replace_ot_do_implicit, text)
     text = pattern_prep_year_implicit.sub(replace_prep_year_implicit, text)
     text = pattern_suffix.sub(replace_suffix, text)
+    text = pattern_era_year.sub(replace_era_year, text)
     text = pattern_year_word.sub(replace_with_word, text)
     return re.sub(
         rf"(?<![А-Яа-яA-Za-z_]){YEAR_PLURAL_ABBREV_REGEX}(?!\w)",

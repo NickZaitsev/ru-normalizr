@@ -11,7 +11,7 @@ from .cardinals import (
 )
 from .decimals import normalize_decimals
 from .fractions import normalize_fractions
-from .ordinals import normalize_hyphenated_words, normalize_ordinals
+from .ordinals import normalize_heading_ranges, normalize_hyphenated_words, normalize_ordinals
 from .symbols import (
     normalize_greek_letters,
     normalize_math_symbols,
@@ -21,6 +21,7 @@ from .symbols import (
 
 def normalize_numerals(text: str, options: NormalizeOptions | None = None) -> str:
     del options
+    text = normalize_heading_ranges(text)
     text = normalize_numeric_unit_ranges(text)
     text = normalize_cardinal_numerals(text)
     text = normalize_remaining_post_numeral_abbreviations(text)
@@ -39,6 +40,7 @@ __all__ = [
     "normalize_decimals",
     "normalize_fractions",
     "normalize_greek_letters",
+    "normalize_heading_ranges",
     "normalize_hyphenated_words",
     "normalize_math_symbols",
     "normalize_numerals",

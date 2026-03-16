@@ -134,7 +134,11 @@ class PipelineNormalizer:
         text = self.run_roman(text)
         text = self._run_caps_normalization(text)
         if self.options.remove_links:
-            text = remove_numeric_footnotes(text, keep_paragraph_placeholders=True)
+            text = remove_numeric_footnotes(
+                text,
+                keep_paragraph_placeholders=True,
+                ignore_interval=self.options.remove_links_ignore_interval,
+            )
         else:
             text = normalize_linebreaks(text, keep_paragraph_placeholders=True).strip()
         text = self.run_years(text)
@@ -155,7 +159,9 @@ class PipelineNormalizer:
         )
         if self.options.remove_links:
             text = remove_numeric_footnotes(
-                text, keep_paragraph_placeholders=keep_paragraph_placeholders
+                text,
+                keep_paragraph_placeholders=keep_paragraph_placeholders,
+                ignore_interval=self.options.remove_links_ignore_interval,
             )
         else:
             text = normalize_linebreaks(

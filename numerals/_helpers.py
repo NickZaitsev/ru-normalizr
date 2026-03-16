@@ -27,6 +27,7 @@ COMMA_DOT_PATTERN = re.compile(r",\.")
 DOT_COMMA_PATTERN = re.compile(r"\.,")
 OPEN_BRACKET_SPACING_PATTERN = re.compile(r"([\(\[\{])\s+")
 CLOSE_BRACKET_SPACING_PATTERN = re.compile(r"\s+([\)\]\}])")
+WORD_RANGE_HYPHEN_PATTERN = re.compile(r"(?<=[A-Za-zА-Яа-яЁё]) - (?=[A-Za-zА-Яа-яЁё])")
 
 
 def simple_tokenize(text: str) -> list[str]:
@@ -322,6 +323,43 @@ def _get_preposition_before_number(tokens: list[str], idx: int) -> tuple[str, st
 
 def get_numeral_case(tokens: list[str], idx: int) -> str:
     morph = get_morph()
+    is_range_start = idx < len(tokens) - 1 and tokens[idx + 1] in {"-", "–", "—"}
+
+    def unit_hint(number_index: int) -> str | None:
+        if number_index + 1 >= len(tokens):
+            return None
+        hint = _normalize_context_token(tokens[number_index + 1])
+        if hint == "°" and number_index + 2 < len(tokens):
+            return hint + _normalize_context_token(tokens[number_index + 2])
+        return hint or None
+
+    if idx > 1 and tokens[idx - 1] == "и":
+        current_hint = unit_hint(idx)
+        for back in range(idx - 2, max(-1, idx - 6), -1):
+            if any(char in tokens[back] for char in ".!?;:"):
+                break
+            if is_integer_token(tokens[back]) and unit_hint(back) == current_hint:
+                return get_numeral_case(tokens, back)
+    if idx > 1 and tokens[idx - 1] in {"-", "–", "—"} and is_integer_token(tokens[idx - 2]):
+        return get_numeral_case(tokens, idx - 2)
+
+    if is_range_start and idx > 0:
+        prev_token = tokens[idx - 1].strip(".,!?;:")
+        if prev_token:
+            p_prev = morph.parse(prev_token)[0]
+            prev_case = "loct" if "loc2" in p_prev.tag else p_prev.tag.case
+            if prev_case:
+                if is_case_reliable_noun(p_prev):
+                    if idx > 1:
+                        prev_prev = _normalize_context_token(tokens[idx - 2])
+                        if prev_prev in {"в", "во", "о", "об", "при"}:
+                            return "loct"
+                        if prev_prev in PREP_CASE:
+                            return PREP_CASE[prev_prev]
+                    return prev_case
+                if p_prev.tag.POS in {"ADJF", "PRTF"}:
+                    return prev_case
+
     prep_match = _get_preposition_before_number(tokens, idx)
     if prep_match is not None:
         word_left, prep_case = prep_match
@@ -394,9 +432,9 @@ def get_numeral_case(tokens: list[str], idx: int) -> str:
 
     for i in range(max(0, idx - 2), idx):
         p = morph.parse(tokens[i])[0]
-        if blocked_by_noun and p.tag.POS in {"ADJF", "PRTF", "NPRO"}:
+        if blocked_by_noun and p.tag.POS in {"ADJF", "PRTF"}:
             continue
-        if p.tag.POS in {"ADJF", "PRTF", "NPRO"} and p.tag.case:
+        if p.tag.POS in {"ADJF", "PRTF"} and p.tag.case:
             return p.tag.case
 
     for i in range(idx - 1, max(-1, idx - 5), -1):
@@ -411,20 +449,24 @@ def get_numeral_case(tokens: list[str], idx: int) -> str:
         word_right = tokens[idx + 1].lower().strip(".,!?;:")
         if word_right:
             p_right = morph.parse(word_right)[0]
+            noun_case = p_right.tag.case
+            if not (
+                is_case_reliable_noun(p_right)
+                and (noun_case in {"gent", "datv", "ablt", "loct"} or "loc2" in p_right.tag)
+            ):
+                for entity_type, keywords in ENTITY_KEYWORDS.items():
+                    if p_right.normal_form in keywords or word_right in keywords:
+                        return ENTITY_DEFAULT_CASE[entity_type]
+
+    if idx < len(tokens) - 1:
+        word_right = tokens[idx + 1].lower().strip(".,!?;:")
+        if word_right:
+            p_right = morph.parse(word_right)[0]
             if is_case_reliable_noun(p_right):
                 noun_case = p_right.tag.case
                 if noun_case in {"datv", "ablt", "loct"} or "loc2" in p_right.tag:
                     return "loct" if noun_case == "loct" or "loc2" in p_right.tag else noun_case
 
-    if idx < len(tokens) - 1:
-        word_right = tokens[idx + 1].lower().strip(".,!?;:")
-        p_right = morph.parse(word_right)[0]
-        for entity_type, keywords in ENTITY_KEYWORDS.items():
-            if p_right.normal_form in keywords or word_right in keywords:
-                return ENTITY_DEFAULT_CASE[entity_type]
-
-    if idx > 1 and tokens[idx - 1] == "и" and is_integer_token(tokens[idx - 2]):
-        return get_numeral_case(tokens, idx - 2)
     if idx == 0 or any(char in tokens[idx - 1] for char in ".!?"):
         return "nomn"
     return "nomn"
@@ -454,4 +496,5 @@ def detokenize(tokens: list[str]) -> str:
     text = DOT_COMMA_PATTERN.sub(".", text)
     text = OPEN_BRACKET_SPACING_PATTERN.sub(r"\1", text)
     text = CLOSE_BRACKET_SPACING_PATTERN.sub(r"\1", text)
+    text = WORD_RANGE_HYPHEN_PATTERN.sub(" — ", text)
     return normalize_ascii_quote_pairs(text)
