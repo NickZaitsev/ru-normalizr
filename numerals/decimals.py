@@ -4,7 +4,7 @@ import re
 
 from .._morph import get_morph
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
-from ._constants import UNIT_TOKEN_FRAGMENT, UNITS_DATA
+from ._constants import PREP_CASE, UNIT_TOKEN_FRAGMENT, UNITS_DATA
 from ._helpers import (
     get_numeral_case,
     inflect_numeral_string,
@@ -20,6 +20,26 @@ DECIMAL_PATTERN = re.compile(
 
 
 def normalize_decimals(text: str) -> str:
+    def is_ambiguous_preposition_token(token: str) -> bool:
+        clean = token.lower().strip('.,:;!"«»()[]{}')
+        return bool(clean) and " " not in clean and clean in PREP_CASE
+
+    def should_skip_unit_candidate(unit_raw: str, rest: str) -> bool:
+        if not is_ambiguous_preposition_token(unit_raw):
+            return False
+        stripped_rest = rest.lstrip()
+        if not stripped_rest:
+            return False
+        next_char = stripped_rest[:1]
+        return bool(re.match(r"[^\W_]", next_char, re.UNICODE))
+
+    def should_skip_combined_unit_candidate(unit_parts: list[str]) -> bool:
+        cleaned_parts = [part.strip('.,:;!"«»()[]{}') for part in unit_parts]
+        return any(
+            cleaned and is_ambiguous_preposition_token(cleaned)
+            for cleaned in cleaned_parts[1:]
+        )
+
     def repl(match: re.Match[str]) -> str:
         s = match.group("num").replace(",", ".")
         unit_raw = match.group("unit")
@@ -65,17 +85,34 @@ def normalize_decimals(text: str) -> str:
         result = f"{int_words} {cel_words} {frac_words} {order_words}"
         if unit_raw:
             unit_dot = match.group("unit_dot")
-            unit_lower = unit_raw.lower().strip(".")
-            unit_info = UNITS_DATA.get(unit_lower)
             unit2_raw = match.group("unit2")
             unit2_dot = match.group("unit2_dot")
+            unit_info = None
+            unit_consumes_second_token = False
+            if unit2_raw and not should_skip_combined_unit_candidate([unit_raw, unit2_raw]):
+                combined_candidates = []
+                if unit_dot:
+                    combined_candidates.append(f"{unit_raw}.{unit2_raw}")
+                combined_candidates.append(f"{unit_raw}{unit2_raw}")
+                for candidate_raw in combined_candidates:
+                    candidate_key = candidate_raw.lower().strip(".")
+                    unit_info = UNITS_DATA.get(candidate_key)
+                    if unit_info:
+                        unit_consumes_second_token = True
+                        break
+            if unit_info is None:
+                unit_lower = unit_raw.lower().strip(".")
+                if not should_skip_unit_candidate(unit_raw, text[match.end("unit") :]):
+                    unit_info = UNITS_DATA.get(unit_lower)
             unit2_processed = False
             if unit_info:
                 lemma, _, _, *u_suffix = unit_info
                 result += " " + inflect_unit_lemma(lemma, {"gent", "sing"})
                 if u_suffix:
                     result += " " + u_suffix[0]
-                if unit2_raw:
+                if unit_consumes_second_token:
+                    unit2_processed = True
+                elif unit2_raw:
                     unit2_lower = unit2_raw.lower().strip(".")
                     unit2_info = UNITS_DATA.get(unit2_lower)
                     multipliers = {"тысяча", "миллион", "миллиард", "триллион"}

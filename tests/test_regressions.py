@@ -1,8 +1,9 @@
 import unittest
+from unittest.mock import patch
 
 from ru_normalizr import NormalizeOptions, normalize
 from ru_normalizr.latinization import apply_latinization
-from ru_normalizr.numerals import get_numeral_case, simple_tokenize
+from ru_normalizr.numerals import _constants, get_numeral_case, simple_tokenize
 
 
 class RuNormalizrRegressionTests(unittest.TestCase):
@@ -133,6 +134,26 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         self.assertIn("Сегодня", result)
         self.assertIn("обновил", result)
         self.assertIn("для", result)
+
+    def test_unit_candidate_does_not_glue_meter_and_preposition_into_millivolt(self):
+        with patch.dict(
+            _constants.UNITS_DATA,
+            {"мв": ("милливольт", "masc", "measure")},
+        ):
+            self.assertEqual(
+                normalize("1,5 м в секунду (90 м в минуту)"),
+                "одна целая пять десятых метра в секунду (девяносто метров в минуту)",
+            )
+
+    def test_unit_candidate_does_not_treat_preposition_k_as_unit_after_number(self):
+        with patch.dict(
+            _constants.UNITS_DATA,
+            {"к": ("кулон", "masc", "measure")},
+        ):
+            self.assertEqual(
+                normalize("Соотношение 3 к 1."),
+                "Соотношение три к одному.",
+            )
 
 
 if __name__ == "__main__":

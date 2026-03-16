@@ -9,6 +9,7 @@ from ._constants import (
     DIGIT_PATTERN,
     NUMERIC_UNIT_RANGE_PATTERN,
     POST_NUMERAL_ABBREVIATION_PATTERNS,
+    PREP_CASE,
     TIME_WORDS,
     UNITS_DATA,
 )
@@ -32,6 +33,30 @@ def normalize_cardinal_numerals(text: str) -> str:
     tokens = simple_tokenize(text)
     result_tokens: list[str] = []
 
+    def is_word_token(token: str) -> bool:
+        return bool(re.fullmatch(r"[^\W\d_]+", token, re.UNICODE))
+
+    def is_ambiguous_preposition_token(token: str) -> bool:
+        clean = token.lower().strip('.,:;!"«»()[]{}')
+        return bool(clean) and " " not in clean and clean in PREP_CASE
+
+    def should_skip_unit_candidate(start_index: int, token_span: int, unit_raw: str) -> bool:
+        chunk = tokens[start_index : start_index + token_span]
+        if (
+            token_span == 1
+            and unit_raw == unit_raw.strip('.,:;!"«»()[]{}')
+            and is_ambiguous_preposition_token(unit_raw)
+            and start_index + token_span < len(tokens)
+        ):
+            next_token = tokens[start_index + token_span].strip('.,:;!"«»()[]{}')
+            if next_token:
+                return True
+        return (
+            token_span > 1
+            and all(is_word_token(token) for token in chunk)
+            and any(is_ambiguous_preposition_token(token) for token in chunk[1:])
+        )
+
     def extract_unit_candidate(start_index: int) -> tuple[str, str, int] | None:
         best_match: tuple[str, str, int] | None = None
         max_end = min(len(tokens), start_index + 4)
@@ -42,6 +67,10 @@ def normalize_cardinal_numerals(text: str) -> str:
             candidate_raw = "".join(chunk)
             candidate_key = candidate_raw.lower().strip(".")
             if candidate_key in UNITS_DATA:
+                if should_skip_unit_candidate(
+                    start_index, end_index - start_index, candidate_raw
+                ):
+                    continue
                 best_match = (candidate_key, candidate_raw, end_index - start_index)
         return best_match
 
@@ -113,7 +142,10 @@ def normalize_cardinal_numerals(text: str) -> str:
                     unit_token_span = 2
             elif unit_candidate:
                 next_token_lower, unit_raw, unit_token_span = unit_candidate
-            unit_info = UNITS_DATA.get(next_token_lower)
+            if should_skip_unit_candidate(i + 1, unit_token_span, unit_raw):
+                unit_info = None
+            else:
+                unit_info = UNITS_DATA.get(next_token_lower)
             if unit_info:
                 preserve_unit_dot = (
                     unit_raw.endswith(".")
