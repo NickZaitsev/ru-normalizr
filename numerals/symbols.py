@@ -10,6 +10,7 @@ from ._constants import (
 )
 
 MATH_EXPRESSION_CHAR_PATTERN = re.compile(r"[0-9A-Za-zА-Яа-яЁё_,.%()+\-/*^°№]")
+APPROXIMATE_NUMBER_PATTERN = re.compile(r"(?<!\w)~\s*(?=(?:\ue001)?\d)")
 
 
 def _extract_math_expression_side(text: str, start: int, step: int) -> str:
@@ -77,6 +78,7 @@ def normalize_greek_letters(text: str) -> str:
 
 def normalize_math_symbols(text: str) -> str:
     text = _normalize_contextual_equals(text)
+    text = APPROXIMATE_NUMBER_PATTERN.sub("примерно ", text)
     for char, replacement in MATH_SYMBOLS.items():
         text = text.replace(char, replacement)
     return text
