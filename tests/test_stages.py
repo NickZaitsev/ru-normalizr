@@ -8,6 +8,7 @@ from ru_normalizr.numerals import (
     normalize_decimals,
     normalize_fractions,
     normalize_hyphenated_words,
+    normalize_math_symbols,
     normalize_numerals,
     normalize_ordinals,
 )
@@ -110,6 +111,15 @@ class RuNormalizrStageTests(unittest.TestCase):
         normalizer = Normalizer()
         self.assertEqual(normalizer.run_stage("numerals", "3,6"), "три целых шесть десятых")
 
+    def test_numeral_stage_reads_equals_only_between_numeric_expressions(self):
+        normalizer = Normalizer()
+        self.assertEqual(normalizer.run_stage("numerals", "2=2"), "два равно два")
+        self.assertEqual(
+            normalizer.run_stage("numerals", "3,5 = 7/2"),
+            "три целых пять десятых равно семь вторых",
+        )
+        self.assertEqual(normalizer.run_stage("numerals", "x = y"), "x = y")
+
     def test_numeral_helpers_cover_decimals_fractions_ordinals_and_hyphenated_words(self):
         self.assertEqual(
             normalize_decimals("1.5 кг"),
@@ -121,6 +131,12 @@ class RuNormalizrStageTests(unittest.TestCase):
             normalize_hyphenated_words("20-этажный дом"),
             "двадцатиэтажный дом",
         )
+
+    def test_math_symbol_stage_reads_equals_when_one_side_contains_digits(self):
+        self.assertEqual(normalize_math_symbols("t=10"), "t равно 10")
+        self.assertEqual(normalize_math_symbols("x=(2+3)"), "x равно (2+3)")
+        self.assertEqual(normalize_math_symbols("x = y"), "x = y")
+        self.assertEqual(normalize_math_symbols("======"), "======")
 
     def test_abbreviation_stage(self):
         self.assertEqual(

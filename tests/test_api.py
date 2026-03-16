@@ -660,6 +660,16 @@ class RuNormalizrApiTests(unittest.TestCase):
             "Соотношение три к одному. Соотношение три целых пять десятых к одному. Ждали пять с половиной минут.",
         )
 
+    def test_normalize_reads_equals_only_between_numeric_expressions(self):
+        self.assertEqual(normalize("2=2"), "два равно два")
+        self.assertEqual(
+            normalize("3,5 = 7/2"),
+            "три целых пять десятых равно семь вторых",
+        )
+        self.assertEqual(normalize("t=10"), "t равно десять")
+        self.assertEqual(normalize("x=(2)"), "x равно (два)")
+        self.assertEqual(normalize("x = y"), "x = y")
+
     def test_normalize_supports_spaced_compound_units_and_compact_rate_aliases(self):
         self.assertEqual(
             normalize("90 км ч и 5 квт ч"),
