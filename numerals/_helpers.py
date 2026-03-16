@@ -11,13 +11,9 @@ from ..preprocess_utils import (
     PARAGRAPH_BREAK_PLACEHOLDER,
     normalize_ascii_quote_pairs,
 )
+from ..text_context import PUNCT_STRIP, normalize_context_token
 from ._constants import ENTITY_DEFAULT_CASE, ENTITY_KEYWORDS, PREP_CASE, TIME_WORDS, VERB_CASE
 
-TOKEN_PATTERN = re.compile(
-    rf"\n+|{re.escape(PARAGRAPH_BREAK_PLACEHOLDER)}+|{re.escape(NEGATIVE_NUMBER_PLACEHOLDER)}\d+(?:[.,]\d+)?|\d+-[A-Za-z]+|\d+|[^\W\d_]+(?:-[^\W_]+)+|[^\W\d_]+|[$€₽£¥₴₸₺₹¢₪₩₫₱₦]|[^\w\s]",
-    flags=re.UNICODE,
-)
-PUNCT_STRIP = '.,:;!"«»()[]{}'
 SENTENCE_PUNCTUATION_PATTERN = re.compile(r"\s+([.,!?;:])")
 POINT_NUMBER_SPACING_PATTERN = re.compile(r"(?<=\.) (?=\d)")
 POINT_WORD_PATTERN = re.compile(r"(точка [а-яё]+)\. (?=[а-яё])", flags=re.IGNORECASE)
@@ -28,10 +24,6 @@ DOT_COMMA_PATTERN = re.compile(r"\.,")
 OPEN_BRACKET_SPACING_PATTERN = re.compile(r"([\(\[\{])\s+")
 CLOSE_BRACKET_SPACING_PATTERN = re.compile(r"\s+([\)\]\}])")
 WORD_RANGE_HYPHEN_PATTERN = re.compile(r"(?<=[A-Za-zА-Яа-яЁё]) - (?=[A-Za-zА-Яа-яЁё])")
-
-
-def simple_tokenize(text: str) -> list[str]:
-    return TOKEN_PATTERN.findall(text)
 
 
 def is_integer_token(token: str) -> bool:
@@ -298,22 +290,18 @@ def get_target_tags_for_number(
     return {case, "sing"} if form == "one" else {case, "plur"}
 
 
-def _normalize_context_token(token: str) -> str:
-    return token.lower().strip(".,!?;:")
-
-
 def _get_preposition_before_number(tokens: list[str], idx: int) -> tuple[str, str] | None:
     max_prep_len = min(3, idx)
     for prep_len in range(max_prep_len, 1, -1):
         start = idx - prep_len
-        prep_tokens = [_normalize_context_token(token) for token in tokens[start:idx]]
+        prep_tokens = [normalize_context_token(token) for token in tokens[start:idx]]
         if not all(prep_tokens):
             continue
         phrase = " ".join(prep_tokens)
         if phrase in PREP_CASE:
             return phrase, PREP_CASE[phrase]
     for i in range(idx - 1, max(-1, idx - 3), -1):
-        word_left = _normalize_context_token(tokens[i])
+        word_left = normalize_context_token(tokens[i])
         if word_left == "чем":
             break
         if word_left in PREP_CASE:
@@ -328,9 +316,9 @@ def get_numeral_case(tokens: list[str], idx: int) -> str:
     def unit_hint(number_index: int) -> str | None:
         if number_index + 1 >= len(tokens):
             return None
-        hint = _normalize_context_token(tokens[number_index + 1])
+        hint = normalize_context_token(tokens[number_index + 1])
         if hint == "°" and number_index + 2 < len(tokens):
-            return hint + _normalize_context_token(tokens[number_index + 2])
+            return hint + normalize_context_token(tokens[number_index + 2])
         return hint or None
 
     if idx > 1 and tokens[idx - 1] == "и":
@@ -351,7 +339,7 @@ def get_numeral_case(tokens: list[str], idx: int) -> str:
             if prev_case:
                 if is_case_reliable_noun(p_prev):
                     if idx > 1:
-                        prev_prev = _normalize_context_token(tokens[idx - 2])
+                        prev_prev = normalize_context_token(tokens[idx - 2])
                         if prev_prev in {"в", "во", "о", "об", "при"}:
                             return "loct"
                         if prev_prev in PREP_CASE:

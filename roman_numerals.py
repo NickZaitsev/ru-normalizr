@@ -6,8 +6,9 @@ import roman
 
 from ._morph import get_morph
 from .constants import KNOWN_ABBREVIATIONS
-from .numerals._helpers import get_numeral_case, simple_tokenize
+from .numerals._helpers import get_numeral_case
 from .options import NormalizeOptions
+from .text_context import simple_tokenize
 
 _ROMAN_ABBREVIATION_EXCEPTIONS = frozenset(
     {

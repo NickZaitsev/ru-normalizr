@@ -4,6 +4,7 @@ import re
 
 from .._morph import get_morph
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
+from ..text_context import simple_tokenize
 from ._constants import PREP_CASE, UNIT_TOKEN_FRAGMENT, UNITS_DATA
 from ._helpers import (
     get_numeral_case,
@@ -11,7 +12,6 @@ from ._helpers import (
     inflect_unit_lemma,
     safe_inflect,
     should_keep_decimal_unit_dot,
-    simple_tokenize,
 )
 
 DECIMAL_PATTERN = re.compile(

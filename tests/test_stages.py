@@ -180,6 +180,38 @@ class RuNormalizrStageTests(unittest.TestCase):
             normalize_years("В 1981 г. книга вышла."),
         )
 
+    def test_year_stage_normalizes_clean_implicit_year_phrase(self):
+        self.assertEqual(
+            normalize_years("в 1990 началось обсуждение"),
+            "в тысяча девятьсот девяностом началось обсуждение",
+        )
+        self.assertEqual(
+            normalize_years("в 1990, началось обсуждение"),
+            "в тысяча девятьсот девяностом, началось обсуждение",
+        )
+
+    def test_year_stage_keeps_hyphenated_decade_out_of_implicit_year_rule(self):
+        self.assertEqual(
+            normalize_years("а в 1990-ые годы началась новая волна обсуждений."),
+            "а в тысяча девятьсот девяностые годы началась новая волна обсуждений.",
+        )
+
+    def test_year_stage_keeps_measurement_contexts_out_of_implicit_year_rules(self):
+        self.assertEqual(normalize_years("в 1990 кг"), "в 1990 кг")
+        self.assertEqual(normalize_years("от 1000 до 1200 кг"), "от 1000 до 1200 кг")
+        self.assertEqual(normalize_years("с 1990 по 1995 кг"), "с 1990 по 1995 кг")
+        self.assertEqual(normalize_years("с 1990 по 1995 руб."), "с 1990 по 1995 руб.")
+
+    def test_year_stage_keeps_explicit_s_po_year_ranges_working(self):
+        self.assertEqual(
+            normalize_years("с 1990 по 1995"),
+            "с тысяча девятьсот девяностого по тысяча девятьсот девяносто пятый",
+        )
+        self.assertEqual(
+            normalize_years("с 1990 по 1995 гг."),
+            "с тысяча девятьсот девяностого по тысяча девятьсот девяносто пятый годы.",
+        )
+
     def test_bracketed_number_stage_respects_link_removal(self):
         self.assertEqual(
             convert_bracketed_numbers("Текст [1]", NormalizeOptions.tts()), "Текст "

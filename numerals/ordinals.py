@@ -5,8 +5,9 @@ import re
 import num2words
 
 from .._morph import get_morph
+from ..text_context import simple_tokenize
 from ._constants import HYPHENATED_WORD_PATTERN, ORDINAL_PATTERN
-from ._helpers import get_numeral_case, inflect_numeral_string, simple_tokenize
+from ._helpers import get_numeral_case, inflect_numeral_string
 
 HEADING_RANGE_PATTERN = re.compile(
     r"\b(?P<head>"
