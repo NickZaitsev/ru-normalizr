@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## Unreleased
 ### Changed
 - Fix 'к→кулон' and 'м в → милливольт' error
+- Add regression coverage for ambiguous single-letter units and compound unit boundaries such as `км ч`, `квт ч`, `fps`, `mph`, `kbps`, `об мин`, and `ммоль л`
 
 ## [0.1.4] - 2026-03-15
 ### Changed

@@ -483,6 +483,70 @@ class RuNormalizrApiTests(unittest.TestCase):
             "восемь байт в секунду",
         )
 
+    def test_normalize_supports_single_letter_cyrillic_units_when_boundary_is_clear(self):
+        self.assertEqual(
+            normalize("длина 5 м, температура 300 К. Ждали 5 С."),
+            "длина пять метров, температура триста кельвинов. Ждали пять секунд.",
+        )
+
+    def test_normalize_keeps_ambiguous_single_letter_units_as_prepositions_in_running_text(self):
+        self.assertEqual(
+            normalize("Соотношение 3 к 1. Соотношение 3,5 к 1. Ждали 5 с половиной минут."),
+            "Соотношение три к одному. Соотношение три целых пять десятых к одному. Ждали пять с половиной минут.",
+        )
+
+    def test_normalize_supports_spaced_compound_units_and_compact_rate_aliases(self):
+        self.assertEqual(
+            normalize("90 км ч и 5 квт ч"),
+            "девяносто километров в час и пять киловатт-часов",
+        )
+        self.assertEqual(
+            normalize("12 fps, 60 mph и 20 kbps"),
+            "двенадцать кадров в секунду, шестьдесят миль в час и двадцать килобитов в секунду",
+        )
+
+    def test_normalize_supports_decimal_spaced_compound_units(self):
+        self.assertEqual(
+            normalize("1,5 км ч и 1,5 квт ч"),
+            "одна целая пять десятых километра в час и одна целая пять десятых киловатт-часа",
+        )
+
+    def test_normalize_supports_safe_compact_units_without_slash(self):
+        self.assertEqual(
+            normalize("12 об мин и 3 ммоль л"),
+            "двенадцать оборотов в минуту и три миллимоля на литр",
+        )
+
+    def test_normalize_compound_units_do_not_overconsume_following_token(self):
+        self.assertEqual(
+            normalize("500 квт ч Кл и 90 км ч Кл"),
+            "пятьсот киловатт-часов Кл и девяносто километров в час Кл",
+        )
+        self.assertEqual(
+            normalize("1,5 квт ч Кл и 1,5 км ч Кл"),
+            "одна целая пять десятых киловатт-часа Кл и одна целая пять десятых километра в час Кл",
+        )
+
+    def test_normalize_compound_units_do_not_capture_following_prepositions(self):
+        self.assertEqual(
+            normalize("12 fps к цели, 60 mph в городе и 20 kbps к серверу"),
+            "двенадцать кадров в секунду к цели, шестьдесят миль в час в городе и двадцать килобитов в секунду к серверу",
+        )
+        self.assertEqual(
+            normalize("12 об мин к концу цикла и 3 ммоль л в крови"),
+            "двенадцать оборотов в минуту к концу цикла и три миллимоля на литр в крови",
+        )
+
+    def test_normalize_compound_units_keep_boundaries_near_punctuation(self):
+        self.assertEqual(
+            normalize("500 квт ч, Кл. 90 км ч. Кл."),
+            "пятьсот киловатт-часов, Кл. Девяносто километров в час. Кл.",
+        )
+        self.assertEqual(
+            normalize("(1,5 квт ч) Кл и 1,5 fps в сцене"),
+            "(одна целая пять десятых киловатт-часа) Кл и одна целая пять десятых кадра в секунду в сцене",
+        )
+
     def test_normalize_syncs_legacy_gibdd_abbreviation_reading(self):
         self.assertEqual(
             normalize("ГИБДД", NormalizeOptions.tts()),
