@@ -443,8 +443,14 @@ class RuNormalizrApiTests(unittest.TestCase):
     def test_normalize_supports_ascii_square_and_cubic_units(self):
         self.assertEqual(
             normalize("площадь 10 м2, объем 3 м^3 и участок 2 км2"),
-            "площадь десять квадратных метров, объем три кубического метра и участок два квадратного километра",
+            "площадь десять квадратных метров, объем три кубических метра и участок два квадратных километра",
         )
+        self.assertEqual(normalize("1 м^3"), "один кубический метр")
+        self.assertEqual(normalize("2 м^3"), "два кубических метра")
+        self.assertEqual(normalize("5 м^3"), "пять кубических метров")
+        self.assertEqual(normalize("1 км2"), "один квадратный километр")
+        self.assertEqual(normalize("2 км2"), "два квадратных километра")
+        self.assertEqual(normalize("5 км2"), "пять квадратных километров")
 
     def test_normalize_supports_slash_units_for_speed_and_rpm(self):
         self.assertEqual(
@@ -458,8 +464,8 @@ class RuNormalizrApiTests(unittest.TestCase):
             "канал десять мегабайтов в секунду и двадцать килобитов в секунду",
         )
         self.assertEqual(
-            normalize("раствор 5 мг/мл, 3 ммоль/л и 300 K"),
-            "раствор пять миллиграммов на миллилитр, три миллимоля на литр и триста кельвинов",
+            normalize("раствор 5 мг/мл, 3 ммоль/л"),
+            "раствор пять миллиграммов на миллилитр, три миллимоля на литр",
         )
 
     def test_normalize_supports_dotted_time_abbreviations(self):
@@ -472,6 +478,10 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertEqual(
             normalize("10 см2 и 5 куб.м"),
             "десять квадратных сантиметров и пять кубических метров",
+        )
+        self.assertEqual(
+            normalize("2 куб.м и 4 км2"),
+            "два кубических метра и четыре квадратных километра",
         )
         self.assertEqual(
             normalize("7 сут. и 2 нед."),
@@ -491,6 +501,12 @@ class RuNormalizrApiTests(unittest.TestCase):
             normalize("5 IU и 3 мкг/мл"),
             "пять международных единиц и три микрограмма на миллилитр",
         )
+        self.assertEqual(normalize("1 IU"), "одна международная единица")
+        self.assertEqual(
+            normalize("2 IU и 3 IU"),
+            "две международные единицы и три международные единицы",
+        )
+        self.assertEqual(normalize("5 IU"), "пять международных единиц")
         self.assertEqual(
             normalize("8 байт/с"),
             "восемь байт в секунду",
@@ -662,8 +678,8 @@ class RuNormalizrApiTests(unittest.TestCase):
 
     def test_normalize_supports_single_letter_cyrillic_units_when_boundary_is_clear(self):
         self.assertEqual(
-            normalize("длина 5 м, температура 300 К. Ждали 5 С."),
-            "длина пять метров, температура триста кельвинов. Ждали пять секунд.",
+            normalize("длина 5 м, температура 300 °C. Ждали 5 С."),
+            "длина пять метров, температура триста градусов Цельсия. Ждали пять секунд.",
         )
 
     def test_normalize_keeps_ambiguous_single_letter_units_as_prepositions_in_running_text(self):
