@@ -496,6 +496,18 @@ class RuNormalizrApiTests(unittest.TestCase):
             "восемь байт в секунду",
         )
 
+    def test_normalize_reads_tilde_before_decimal_measurement_as_approximation(self):
+        self.assertEqual(
+            normalize("~2.7 GB"),
+            "примерно две целых семь десятых гигабайта",
+        )
+
+    def test_normalize_reads_compact_k_suffix_after_tilde_as_thousands(self):
+        self.assertEqual(
+            normalize("~250k запросов"),
+            "примерно двести пятьдесят тысяч запросов",
+        )
+
     def test_normalize_supports_requested_common_abbreviations(self):
         self.assertEqual(normalize("ул. Абрамова"), "улица Абрамова")
         self.assertEqual(normalize("Св. Георгия"), "Святого Георгия")

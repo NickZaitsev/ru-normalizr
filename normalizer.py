@@ -275,6 +275,8 @@ class PipelineNormalizer:
         def fix_glued(match: re.Match[str]) -> str:
             num, word = match.group(1), match.group(2)
             word_lower = word.lower()
+            if word == "k":
+                return f"{num} тыс"
             if word_lower in {
                 "ти",
                 "ми",

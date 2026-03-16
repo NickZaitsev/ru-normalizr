@@ -320,8 +320,8 @@ UNITS_DATA = {
     "°К": ("градус", "masc", "measure", "Кельвина"), # russian K
     "°": ("градус", "masc", "measure"),
     "градус": ("градус", "masc", "measure"),
-    "k": ("кельвин", "masc", "measure"),
-    "к": ("кельвин", "masc", "measure"),
+    # "k": ("кельвин", "masc", "measure"),
+    # "к": ("кельвин", "masc", "measure"),
     "кельвин": ("кельвин", "masc", "measure"),
     "v": ("вольт", "masc", "measure"),
     "в.": ("век", "masc", "measure"),
