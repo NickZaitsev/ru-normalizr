@@ -11,6 +11,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Preserve bracketed year-like values during TTS link removal, improve range/year case handling (`1990-ые`, `1943 и 1951 гг.`, `206 год до н. э.`), and add `ул.`/`Св.` expansions
 - Keep hyphenated decade forms such as `в 1990-ые годы` out of the implicit preposition-plus-year rule so they stay decade phrases instead of becoming `девяностом-ые`
 - Move implicit year disambiguation out of year regexes into shared token/context helpers, and keep `с 1990 по 1995 кг`-style measurement ranges from being misread as year ranges
+- Read `=` as `равно` in math-like expressions when at least one side contains digits, covering forms such as `t=10` and `x=(2+3)` while leaving plain non-numeric assignments such as `x = y` unchanged
 
 ## [0.1.4] - 2026-03-15
 ### Changed

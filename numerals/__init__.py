@@ -24,10 +24,10 @@ def normalize_numerals(text: str, options: NormalizeOptions | None = None) -> st
     del options
     text = normalize_heading_ranges(text)
     text = normalize_numeric_unit_ranges(text)
+    text = normalize_math_symbols(text)
     text = normalize_cardinal_numerals(text)
     text = normalize_remaining_post_numeral_abbreviations(text)
     text = normalize_greek_letters(text)
-    text = normalize_math_symbols(text)
     text = normalize_standalone_currency(text)
     text = normalize_all_digits_everywhere(text)
     return text

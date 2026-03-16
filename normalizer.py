@@ -19,6 +19,7 @@ from .numerals import (
     normalize_decimals,
     normalize_fractions,
     normalize_hyphenated_words,
+    normalize_math_symbols,
     normalize_numerals,
     normalize_ordinals,
 )
@@ -234,6 +235,7 @@ class PipelineNormalizer:
     def run_numerals(self, text: str) -> str:
         if not self.options.enable_numeral_normalization:
             return text
+        text = normalize_math_symbols(text)
         text = normalize_decimals(text)
         text = normalize_fractions(text)
         text = normalize_hyphenated_words(text)
