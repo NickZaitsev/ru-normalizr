@@ -16,9 +16,6 @@ Before making changes, first inspect:
 - `README.md`
 - `CHANGELOG.md`
 - `VERSIONING.md`
-- `PYPI_RELEASE_CHECKLIST.md`
-- `pyproject.toml`
-- `__init__.py`
 - relevant files in `tests/`
 
 When changing behavior, understand which stage is responsible before editing code:
@@ -50,6 +47,19 @@ Avoid:
 
 If a bug can be reproduced, add or update a test that fails before the fix whenever practical.
 
+Do not add special-case replacements for a single token, phrase, or sentence unless the repository already intentionally handles that class of exceptions and the general rule approach is demonstrably worse.
+
+Before changing normalization behavior, inspect existing tests for that feature area to understand the current intended behavior.
+
+Preferred bugfix workflow:
+1. reproduce the issue
+2. locate the responsible normalization stage
+3. add or update a failing test when practical
+4. implement the smallest correct fix
+5. run targeted checks
+6. run broader validation if the change has wider impact
+7. update docs/changelog if needed
+
 ## Tests and validation
 
 For behavior changes, add or update tests in `tests/`.
@@ -59,7 +69,7 @@ Preferred full validation flow:
 
 ```bash
 py -3.12 scripts/dev.py check
-````
+```
 
 If only a quick targeted pass is needed during iteration, you may use:
 
@@ -68,7 +78,7 @@ py -3.12 scripts/dev.py test
 py -3.12 scripts/dev.py lint
 ```
 
-Do not claim success unless the relevant checks actually passed.
+If tests are already failing before your change, do not claim the repository is fully green. Report which failures were pre-existing and which are caused or fixed by your changes.
 If something could not be run, say so explicitly.
 
 ## Changelog and release discipline
@@ -99,6 +109,16 @@ When performing a release:
 * keep versions synchronized
 
 Any intentional normalization output change must be covered by tests and mentioned in `CHANGELOG.md`.
+
+## Instruction priority
+
+If instructions conflict, follow this order:
+1. explicit user task
+2. repository safety and correctness
+3. this AGENTS.md
+4. local optimization or refactoring preferences
+
+Do not change public function signatures, option names, CLI flags, or default behaviors unless the task explicitly requires it.
 
 ## Documentation rules
 
@@ -143,7 +163,9 @@ When finishing a task
 ```bash
 py -3.12 scripts/dev.py check
 ````
+
 2. Update CHANGELOG.md
+Do not update `CHANGELOG.md` for purely internal refactors or test-only changes unless they affect contributors in a meaningful way.
 
 3. provide:
 * what changed
