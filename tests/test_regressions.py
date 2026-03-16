@@ -7,6 +7,17 @@ from ru_normalizr.numerals import _constants, get_numeral_case, simple_tokenize
 
 
 class RuNormalizrRegressionTests(unittest.TestCase):
+    COMPARATIVE_GENITIVE_MARKERS = (
+        "не более",
+        "не менее",
+        "не больше",
+        "не меньше",
+        "более",
+        "менее",
+        "больше",
+        "меньше",
+    )
+
     def test_dictionary_latinization_expected_output_for_long_english_text(self):
         text = (
             "Windows Server updates improve browser security, download archives, "
@@ -52,6 +63,12 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         tokens = simple_tokenize("отмена из-за 5 ошибок")
         self.assertEqual(get_numeral_case(tokens, tokens.index("5")), "gent")
 
+    def test_comparative_quantifiers_use_genitive_case(self):
+        for marker in self.COMPARATIVE_GENITIVE_MARKERS:
+            with self.subTest(marker=marker):
+                tokens = simple_tokenize(f"скорость {marker} 8 км/ч")
+                self.assertEqual(get_numeral_case(tokens, tokens.index("8")), "gent")
+
     def test_normalize_amount_with_thousands_abbreviation_after_na_summu(self):
         self.assertEqual(
             normalize(
@@ -82,6 +99,40 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         self.assertEqual(
             normalize("Заявление подали в связи с 5 случаями."),
             "Заявление подали в связи с пятью случаями.",
+        )
+
+    def test_normalize_comparative_speed_quantifiers(self):
+        for marker in self.COMPARATIVE_GENITIVE_MARKERS:
+            with self.subTest(marker=marker):
+                self.assertEqual(
+                    normalize(f"со скоростью {marker} 8 км/ч"),
+                    f"со скоростью {marker} восьми километров в час",
+                )
+
+    def test_hyphenated_bolee_menee_does_not_trigger_genitive_marker(self):
+        self.assertEqual(
+            normalize("более-менее 5 минут"),
+            "более-менее пять минут",
+        )
+
+    def test_quantifier_with_chem_can_follow_instrumental_case(self):
+        self.assertEqual(
+            normalize("не менее чем 5 процентами"),
+            "не менее чем пятью процентами",
+        )
+        self.assertEqual(
+            normalize("больше чем 2 людьми"),
+            "больше чем двумя людьми",
+        )
+        self.assertEqual(
+            normalize("менее чем 3 случаями"),
+            "менее чем тремя случаями",
+        )
+
+    def test_external_case_can_flow_past_quantifier_with_chem(self):
+        self.assertEqual(
+            normalize("в более чем 60 странах"),
+            "в более чем шестидесяти странах",
         )
 
     def test_dictionary_latinization_regressions_keep_current_duplicate_rule_behavior(self):

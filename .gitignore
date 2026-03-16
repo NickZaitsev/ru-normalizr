@@ -11,3 +11,4 @@ dist/
 .tmp_dist/
 *.whl
 *.tar.gz
+TODO.txt
