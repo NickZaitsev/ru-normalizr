@@ -130,8 +130,15 @@ def inflect_unit_lemma(lemma: str, target_tags: set[str]) -> str:
         return lemma
 
     noun_form = safe_inflect(noun_parsed, target_tags, fallback_word=noun_text)
-    adj_tags = {tag for tag in target_tags if tag in {"nomn", "gent", "datv", "accs", "ablt", "loct", "sing", "plur"}}
-    if "plur" not in adj_tags:
+    adj_tags = {
+        tag
+        for tag in target_tags
+        if tag in {"nomn", "gent", "datv", "accs", "ablt", "loct", "sing", "plur"}
+    }
+    if adj_tags == {"gent", "sing"}:
+        noun_gender = noun_parsed.tag.gender
+        adj_tags = {"plur", "nomn"} if noun_gender == "femn" else {"gent", "plur"}
+    elif "plur" not in adj_tags:
         noun_gender = noun_parsed.tag.gender
         if noun_gender:
             adj_tags.add(noun_gender)
