@@ -227,6 +227,10 @@ class RuNormalizrStageTests(unittest.TestCase):
             normalize_years("с 1990 по 1995 гг."),
             "с тысяча девятьсот девяностого по тысяча девятьсот девяносто пятый годы.",
         )
+        self.assertEqual(
+            normalize_years("с 1920 до 1933 г."),
+            "с тысяча девятьсот двадцатого до тысяча девятьсот тридцать третьего года.",
+        )
 
     def test_bracketed_number_stage_respects_link_removal(self):
         self.assertEqual(

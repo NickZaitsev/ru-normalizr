@@ -631,6 +631,14 @@ class RuNormalizrApiTests(unittest.TestCase):
             "в тысяча девятьсот сорок третьем и тысяча девятьсот пятьдесят первом годах — два тома",
         )
 
+    def test_normalize_keeps_do_year_ranges_with_trailing_single_year_abbreviation(self):
+        self.assertEqual(
+            normalize(
+                "С 1920 до 1933 г. конституционная поправка запрещала производство."
+            ),
+            "С тысяча девятьсот двадцатого до тысяча девятьсот тридцать третьего года конституционная поправка запрещала производство.",
+        )
+
     def test_normalize_keeps_bracketed_years_in_todo_visa_case(self):
         result = normalize(
             'Данила Изотов, член "Команды Visa", серебряный призер Олимпийских игр в Пекине (2008) '

@@ -137,7 +137,7 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         re.IGNORECASE | re.UNICODE,
     )
     pattern_s_po = re.compile(
-        rf"(?:с|со)\s+(?P<year1>\d+)\s+по\s+(?P<year2>\d+)(?:\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?",
+        rf"(?P<prep>с|со|от)\s+(?P<year1>\d+)\s+(?P<mid>до|по)\s+(?P<year2>\d+)(?:\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?",
         re.IGNORECASE | re.UNICODE,
     )
     pattern_range = re.compile(
@@ -213,6 +213,8 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         return result
 
     def replace_s_po(m: re.Match[str]) -> str:
+        prep = m.group("prep")
+        mid = m.group("mid")
         if not m.group("word") and not should_treat_as_implicit_year(
             text,
             m.end(),
@@ -220,20 +222,29 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
             year_suffix_tail_pattern=year_suffix_tail_pattern,
         ):
             return m.group(0)
-        result = f"с {year_to_ordinal_words(int(m.group('year1')), 'gent')} по {year_to_ordinal_words(int(m.group('year2')), 'accs')}"
+        case2 = "accs" if mid.lower() == "по" else "gent"
+        result = (
+            f"{prep} {year_to_ordinal_words(int(m.group('year1')), 'gent')} "
+            f"{mid} {year_to_ordinal_words(int(m.group('year2')), case2)}"
+        )
         word = m.group("word")
         if word:
             word_lower = word.lower()
-            word_inflected = (
-                "год"
-                if word_lower in ("г.", "г")
-                else (
-                    "годы"
-                    if re.fullmatch(YEAR_PLURAL_ABBREV_REGEX, word_lower)
-                    else word
-                )
-            )
-            if word.endswith(".") and not word_inflected.endswith("."):
+            if word_lower in ("г.", "г"):
+                word_norm = "год"
+                word_inflected = YEAR_WORD_FORMS.get((word_norm, case2), word_norm)
+            elif re.fullmatch(YEAR_PLURAL_ABBREV_REGEX, word_lower):
+                word_norm = "годы"
+                word_inflected = YEAR_WORD_FORMS.get((word_norm, case2), word_norm)
+            else:
+                word_inflected = word
+            tail = text[m.end() :].lstrip()
+            keep_terminal_dot = not tail or tail[:1].isupper()
+            if (
+                keep_terminal_dot
+                and word.endswith(".")
+                and not word_inflected.endswith(".")
+            ):
                 word_inflected += "."
             result += f" {word_inflected}"
         return result
