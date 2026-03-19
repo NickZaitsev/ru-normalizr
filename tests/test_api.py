@@ -773,6 +773,14 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertEqual(normalize("x=(2)"), "x равно (два)")
         self.assertEqual(normalize("x = y"), "x = y")
 
+    def test_normalize_reads_ampersand_from_context(self):
+        self.assertEqual(normalize("нефть & газ"), "нефть и газ")
+        self.assertEqual(normalize("эй ти & ти"), "эй ти энд ти")
+        self.assertEqual(
+            normalize("AT&T", NormalizeOptions.tts()),
+            "эй ти энд ти",
+        )
+
     def test_normalize_supports_spaced_compound_units_and_compact_rate_aliases(self):
         self.assertEqual(
             normalize("90 км ч и 5 квт ч"),

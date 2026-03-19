@@ -192,6 +192,16 @@ class RuNormalizrStageTests(unittest.TestCase):
             "статья 15 уголовный кодекс российской федерации",
         )
 
+    def test_abbreviation_stage_normalizes_ampersand_contextually(self):
+        self.assertEqual(
+            expand_abbreviations("нефть & газ"),
+            "нефть и газ",
+        )
+        self.assertEqual(
+            expand_abbreviations("эй ти & ти"),
+            "эй ти энд ти",
+        )
+
     def test_abbreviation_stage_keeps_article_abbreviation_without_digit(self):
         self.assertEqual(
             expand_abbreviations("ст. ложка"),

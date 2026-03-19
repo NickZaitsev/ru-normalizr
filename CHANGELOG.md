@@ -17,6 +17,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Fix agreement for compound adjective+noun measurement units after numerals, so outputs such as `3 м^3`, `2 км2`, and `2 IU` normalize to `три кубических метра`, `два квадратных километра`, and `две международные единицы`
 - Stop misreading title-case `См.` as a Cyrillic Roman numeral token and normalize single chapter/section-style references such as `главу 10`, `из главы 10`, and `из раздела 3` to ordinal forms like `главу десятую`, `из главы десятой`, and `из раздела третьего`
 - Inflect adjective-like abbreviations such as `гос.`, `междунар.`, and `полит.` from the following noun phrase so forms like `гос. контроля` normalize to `государственного контроля`
+- Normalize `&` contextually as `и` in Russian phrases and as `энд` in brand-like English letter-name contexts such as `AT&T`
 
 ## [0.1.4] - 2026-03-15
 ### Changed

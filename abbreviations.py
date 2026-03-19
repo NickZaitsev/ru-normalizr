@@ -36,6 +36,12 @@ _ADJECTIVE_ABBREVIATION_PATTERN = re.compile(
     rf"(?P<space>\s+)(?P<phrase>{_ADJECTIVE_ABBREVIATION_WORD}(?:\s+{_ADJECTIVE_ABBREVIATION_WORD}){{0,2}})",
     re.IGNORECASE,
 )
+_WORD_AMPERSAND_PATTERN = re.compile(
+    r"(?P<left>[A-Za-zА-Яа-яЁё]+(?:[-'][A-Za-zА-Яа-яЁё0-9]+)*)\s*&\s*(?P<right>[A-Za-zА-Яа-яЁё]+(?:[-'][A-Za-zА-Яа-яЁё0-9]+)*)"
+)
+_SINGLE_TOKEN_EN_LETTER_NAMES = frozenset(
+    value.lower() for value in EN_LETTER_NAMES.values() if " " not in value
+)
 
 
 def _expand_contextual_etc_abbreviations(text: str) -> str:
@@ -226,6 +232,53 @@ def expand_letter_abbreviations(text: str) -> str:
     return ABBREV_SOLID_PATTERN.sub(lambda m: expand_token(m.group(0), False), text)
 
 
+def _normalize_contextual_ampersands(
+    text: str, options: NormalizeOptions | None = None
+) -> str:
+    active = options or NormalizeOptions()
+
+    def has_ascii_letters(token: str) -> bool:
+        return any("A" <= char <= "Z" or "a" <= char <= "z" for char in token)
+
+    def has_cyrillic_letters(token: str) -> bool:
+        return any(("А" <= char <= "я") or char in "Ёё" for char in token)
+
+    def is_english_letter_name(token: str) -> bool:
+        return token.lower() in _SINGLE_TOKEN_EN_LETTER_NAMES
+
+    def repl(match: re.Match[str]) -> str:
+        left = match.group("left")
+        right = match.group("right")
+        left_has_ascii = has_ascii_letters(left)
+        right_has_ascii = has_ascii_letters(right)
+        left_is_english = is_english_letter_name(left)
+        right_is_english = is_english_letter_name(right)
+
+        brand_like_context = (
+            (left_has_ascii and right_has_ascii and active.enable_latinization)
+            or (left_is_english and right_is_english)
+            or (left_is_english and right_has_ascii)
+            or (left_has_ascii and right_is_english)
+        )
+        if brand_like_context:
+            return f"{left} энд {right}"
+
+        if left_has_ascii and right_has_ascii:
+            return f"{left} & {right}"
+
+        if (
+            has_cyrillic_letters(left)
+            or has_cyrillic_letters(right)
+            or left_is_english
+            or right_is_english
+        ):
+            return f"{left} и {right}"
+
+        return match.group(0)
+
+    return _WORD_AMPERSAND_PATTERN.sub(repl, text)
+
+
 def expand_abbreviations(text: str, options: NormalizeOptions | None = None) -> str:
     active = options or NormalizeOptions()
     if not active.enable_abbreviation_expansion:
@@ -239,4 +292,4 @@ def expand_abbreviations(text: str, options: NormalizeOptions | None = None) -> 
         text = expand_person_initials(text)
     if active.enable_letter_abbreviation_expansion:
         text = expand_letter_abbreviations(text)
-    return text
+    return _normalize_contextual_ampersands(text, active)
