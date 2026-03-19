@@ -226,6 +226,28 @@ class RuNormalizrStageTests(unittest.TestCase):
             "примечание редактора",
         )
 
+    def test_abbreviation_stage_inflects_contextual_adjective_abbreviations(self):
+        self.assertEqual(
+            expand_abbreviations("гос. контроля"),
+            "государственного контроля",
+        )
+        self.assertEqual(
+            expand_abbreviations("гос. имущество"),
+            "государственное имущество",
+        )
+        self.assertEqual(
+            expand_abbreviations("гос. институты"),
+            "государственные институты",
+        )
+        self.assertEqual(
+            expand_abbreviations("междунар. контроля"),
+            "международного контроля",
+        )
+        self.assertEqual(
+            expand_abbreviations("полит. системы"),
+            "политической системы",
+        )
+
     def test_year_stage(self):
         self.assertIn(
             "году книга",
