@@ -7,7 +7,13 @@ import num2words
 
 from ._morph import get_morph
 from .options import NormalizeOptions
-from .years_context import should_treat_as_implicit_year
+from .years_context import (
+    YEAR_ANY_NUMBER_PATTERN,
+    YEAR_IMPLICIT_PREP_PATTERN,
+    YEAR_RANGE_NUMBER_PATTERN,
+    is_plausible_year,
+    should_treat_as_implicit_year,
+)
 
 YEAR_SUFFIX_TO_CASE = {
     "ый": "nomn",
@@ -80,7 +86,6 @@ PREPOSITIONS_TO_CASE = {
 NUMERIC_RANGE_PATTERN = re.compile(
     r"(\d+)\s*[—–]\s*(\d+)(?!\d)(?!\s*[а-яА-ЯёЁa-zA-Z%°$€₽Ω])"
 )
-SPACED_THOUSANDS_TAIL = r"(?![ \u00A0\u2009\u202F]\d{3}\b)"
 
 
 @functools.lru_cache(maxsize=1024)
@@ -138,15 +143,15 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         re.IGNORECASE | re.UNICODE,
     )
     pattern_s_po = re.compile(
-        rf"(?P<prep>с|со|от)\s+(?P<year1>\d+){SPACED_THOUSANDS_TAIL}\s+(?P<mid>до|по)\s+(?P<year2>\d+){SPACED_THOUSANDS_TAIL}(?!\d)(?:\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?",
+        rf"(?P<prep>с|со|от)\s+(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<mid>до|по)\s+(?P<year2>{YEAR_ANY_NUMBER_PATTERN})(?!\d)(?:\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?",
         re.IGNORECASE | re.UNICODE,
     )
     pattern_range = re.compile(
-        rf"(?:(?P<prep>с|со|из|от|в|во)\s+)?(?P<year1>\d+){SPACED_THOUSANDS_TAIL}\s*[-–—]\s*(?P<year2>\d+){SPACED_THOUSANDS_TAIL}\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
+        rf"(?:(?P<prep>с|со|из|от|в|во)\s+)?(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s*[-–—]\s*(?P<year2>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
         re.IGNORECASE | re.UNICODE,
     )
     pattern_multiple_years = re.compile(
-        rf"(?:(?P<prep>в|во|о|об|к|ко|с|со|до|от|за|на|по|между)\s+)?(?P<years>\d{{3,4}}(?:\s*,\s*\d{{3,4}})*\s+и\s+\d{{3,4}})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w))",
+        rf"(?:(?P<prep>в|во|о|об|к|ко|с|со|до|от|за|на|по|между)\s+)?(?P<years>{YEAR_RANGE_NUMBER_PATTERN}(?:\s*,\s*{YEAR_RANGE_NUMBER_PATTERN})*\s+и\s+{YEAR_RANGE_NUMBER_PATTERN})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w))",
         re.IGNORECASE | re.UNICODE,
     )
     pattern_suffix = re.compile(
@@ -154,11 +159,11 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         re.IGNORECASE | re.UNICODE,
     )
     pattern_era_year = re.compile(
-        rf"(?:(?P<prep>в|во|о|об|к|ко|с|со|до|от|за|на|по|между)\s+)?(?P<year>\d+){SPACED_THOUSANDS_TAIL}\s+(?P<word>год[а-яё]*\b)\s+(?P<era>до\s+н\.?\s*э\.?|н\.?\s*э\.?)",
+        rf"(?:(?P<prep>в|во|о|об|к|ко|с|со|до|от|за|на|по|между)\s+)?(?P<year>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<word>год[а-яё]*\b)\s+(?P<era>до\s+н\.?\s*э\.?|н\.?\s*э\.?)",
         re.IGNORECASE | re.UNICODE,
     )
     pattern_year_word = re.compile(
-        rf"(?:(?P<prep>в|во|о|об|к|ко|с|со|до|от|за|на|по|между)\s+)?(?P<year>\d+){SPACED_THOUSANDS_TAIL}\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
+        rf"(?:(?P<prep>в|во|о|об|к|ко|с|со|до|от|за|на|по|между)\s+)?(?P<year>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
         re.IGNORECASE | re.UNICODE,
     )
     explicit_year_word_tail_pattern = re.compile(
@@ -170,11 +175,11 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         re.IGNORECASE | re.UNICODE,
     )
     pattern_ot_do_implicit = re.compile(
-        rf"(?P<prep>с|со|от)\s+(?P<year1>\d{{3,4}}){SPACED_THOUSANDS_TAIL}\s+(?P<mid>до|по)\s+(?P<year2>\d{{3,4}}){SPACED_THOUSANDS_TAIL}(?!\d)",
+        rf"(?P<prep>с|со|от)\s+(?P<year1>{YEAR_RANGE_NUMBER_PATTERN})\s+(?P<mid>до|по)\s+(?P<year2>{YEAR_RANGE_NUMBER_PATTERN})(?!\d)",
         re.IGNORECASE | re.UNICODE,
     )
     pattern_prep_year_implicit = re.compile(
-        rf"\b(?P<prep>в|во|о|об|к|ко|с|со|до|от|из|по)\s+(?P<year>(?:1\d|20)\d{{2}}){SPACED_THOUSANDS_TAIL}(?!\d)",
+        rf"\b(?P<prep>в|во|о|об|к|ко|с|со|до|от|из|по)\s+(?P<year>{YEAR_IMPLICIT_PREP_PATTERN})(?!\d)",
         re.IGNORECASE | re.UNICODE,
     )
 
@@ -262,7 +267,7 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
             # Bare decade-like forms such as "1980-х" are common for years,
             # but model codes like "6301-Х" should not be routed through
             # year normalization when there is no explicit year word.
-            if not word and not (1000 <= year <= 2100):
+            if not word and not is_plausible_year(year):
                 return m.group(0)
             year = (year // 10) * 10
         result = year_to_ordinal_words(year, case, plural)
@@ -395,7 +400,7 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
     def replace_ot_do_implicit(m: re.Match[str]) -> str:
         year1 = int(m.group("year1"))
         year2 = int(m.group("year2"))
-        if not (1000 <= year1 <= 2100 and 1000 <= year2 <= 2100):
+        if not (is_plausible_year(year1) and is_plausible_year(year2)):
             return m.group(0)
         if not should_treat_as_implicit_year(
             text,

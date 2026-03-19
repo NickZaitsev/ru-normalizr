@@ -14,6 +14,7 @@ from ru_normalizr.numerals import (
 )
 from ru_normalizr.roman_numerals import normalize_roman
 from ru_normalizr.years import normalize_years
+from ru_normalizr.years_context import is_plausible_year
 
 
 class RuNormalizrStageTests(unittest.TestCase):
@@ -282,13 +283,28 @@ class RuNormalizrStageTests(unittest.TestCase):
 
     def test_year_stage_keeps_measurement_contexts_out_of_implicit_year_rules(self):
         self.assertEqual(normalize_years("в 1990 кг"), "в 1990 кг")
+        self.assertEqual(normalize_years("в 1990 % случаев"), "в 1990 % случаев")
+        self.assertEqual(normalize_years("в 1990 руб."), "в 1990 руб.")
+        self.assertEqual(normalize_years("в 1990 usd"), "в 1990 usd")
         self.assertEqual(normalize_years("от 1000 до 1200 кг"), "от 1000 до 1200 кг")
+        self.assertEqual(normalize_years("от 1200 до 10000 ₽"), "от 1200 до 10000 ₽")
         self.assertEqual(normalize_years("от 1200 до 10000 МПа"), "от 1200 до 10000 МПа")
+        self.assertEqual(
+            normalize_years("от 1200 до 10 000 ₽"), "от 1200 до 10 000 ₽"
+        )
         self.assertEqual(
             normalize_years("от 1200 до 10 000 МПа"), "от 1200 до 10 000 МПа"
         )
         self.assertEqual(normalize_years("с 1990 по 1995 кг"), "с 1990 по 1995 кг")
         self.assertEqual(normalize_years("с 1990 по 1995 руб."), "с 1990 по 1995 руб.")
+        self.assertEqual(normalize_years("с 1990 по 1995 usd"), "с 1990 по 1995 usd")
+
+    def test_year_context_plausible_year_bounds(self):
+        self.assertFalse(is_plausible_year(999))
+        self.assertTrue(is_plausible_year(1000))
+        self.assertTrue(is_plausible_year(1990))
+        self.assertTrue(is_plausible_year(2100))
+        self.assertFalse(is_plausible_year(2101))
 
     def test_year_stage_keeps_explicit_s_po_year_ranges_working(self):
         self.assertEqual(
