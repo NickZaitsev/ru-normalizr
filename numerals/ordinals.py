@@ -17,13 +17,48 @@ HEADING_WORDS_PATTERN = (
     r"книга|книги|книге|книгой|книгах|"
     r"квартал|квартала|квартале|кварталу|кварталом|кварталах"
 )
+AMBIGUOUS_HEADING_WORDS = {
+    "главы",
+    "части",
+    "раздела",
+    "тома",
+    "книги",
+    "квартала",
+}
+HEADING_CONTEXT_CASES = {
+    "в": "loct",
+    "во": "loct",
+    "о": "loct",
+    "об": "loct",
+    "обо": "loct",
+    "при": "loct",
+    "к": "datv",
+    "ко": "datv",
+    "по": "datv",
+    "с": "gent",
+    "со": "gent",
+    "из": "gent",
+    "до": "gent",
+    "от": "gent",
+    "у": "gent",
+    "без": "gent",
+    "после": "gent",
+    "для": "gent",
+    "около": "gent",
+    "возле": "gent",
+    "вокруг": "gent",
+    "кроме": "gent",
+    "начало": "gent",
+    "конец": "gent",
+    "середина": "gent",
+}
 SINGULAR_HEADING_WORDS_PATTERN = (
-    r"главе|главу|главой|"
-    r"частью|"
-    r"разделе|разделу|"
-    r"томе|томом|"
-    r"книге|книгой|"
-    r"квартале|кварталу|кварталом"
+    r"главы|главе|главу|главой|"
+    r"части|частью|"
+    r"раздела|разделе|разделу|"
+    r"тома|томе|томом|"
+    r"книги|книге|книгой|"
+    r"квартала|квартале|кварталу|кварталом"
 )
 HEADING_RANGE_PATTERN = re.compile(
     rf"\b(?P<head>{HEADING_WORDS_PATTERN})\s+(?P<left>\d+)\s*[–—-]\s*(?P<right>\d+)\b",
@@ -58,18 +93,45 @@ def _pick_range_preposition(first_ordinal: str) -> str:
     return "со" if first_ordinal.startswith(("в", "ф", "с", "з", "ш", "ж")) else "с"
 
 
-def _heading_parse(head: str):
+def _heading_parse(text: str, match_start: int, head: str):
     parsed = [candidate for candidate in get_morph().parse(head.lower()) if "NOUN" in candidate.tag]
     if not parsed:
         return None
     inanimate = [candidate for candidate in parsed if "inan" in candidate.tag]
-    return inanimate[0] if inanimate else parsed[0]
+    candidates = inanimate if inanimate else parsed
+    normalized_head = head.lower()
+    if normalized_head not in AMBIGUOUS_HEADING_WORDS:
+        return candidates[0]
+
+    left_context = text[max(0, match_start - 40) : match_start]
+    left_tokens = simple_tokenize(left_context)
+    left_word = next(
+        (
+            token.lower()
+            for token in reversed(left_tokens)
+            if any(char.isalpha() for char in token)
+        ),
+        "",
+    )
+    target_case = HEADING_CONTEXT_CASES.get(left_word)
+    if target_case is None:
+        return None
+
+    for candidate in candidates:
+        candidate_case = "loct" if "loc2" in candidate.tag else candidate.tag.case
+        if candidate_case == target_case and "sing" in candidate.tag:
+            return candidate
+    for candidate in candidates:
+        candidate_case = "loct" if "loc2" in candidate.tag else candidate.tag.case
+        if candidate_case == target_case:
+            return candidate
+    return None
 
 
 def normalize_heading_ranges(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
         head = match.group("head")
-        noun_parse = _heading_parse(head)
+        noun_parse = _heading_parse(text, match.start(), head)
         gender = noun_parse.tag.gender if noun_parse and noun_parse.tag.gender else "masc"
         left_ordinal = _ordinal_words(int(match.group("left")), "gent", gender)
         right_case = "accs" if gender == "femn" else "nomn"
@@ -82,7 +144,7 @@ def normalize_heading_ranges(text: str) -> str:
 def normalize_heading_numbers(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
         head = match.group("head")
-        noun_parse = _heading_parse(head)
+        noun_parse = _heading_parse(text, match.start(), head)
         if noun_parse is None:
             return match.group(0)
         gender = noun_parse.tag.gender or "masc"

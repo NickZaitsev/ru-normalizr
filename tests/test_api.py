@@ -73,6 +73,36 @@ class RuNormalizrApiTests(unittest.TestCase):
             "смотри главу четвёртую.",
         )
 
+    def test_normalize_supports_genitive_chapter_section_and_book_references(self):
+        self.assertEqual(
+            normalize("Из главы 10 становится ясно, почему конфликт затянулся."),
+            "Из главы десятой становится ясно, почему конфликт затянулся.",
+        )
+        self.assertEqual(
+            normalize("До главы 10 читатель ещё не знает, кто предал отряд."),
+            "До главы десятой читатель ещё не знает, кто предал отряд.",
+        )
+        self.assertEqual(
+            normalize("Из раздела 3 видно, как менялась стратегия автора."),
+            "Из раздела третьего видно, как менялась стратегия автора.",
+        )
+        self.assertEqual(
+            normalize("Из книги 2 читатель узнаёт подробности экспедиции."),
+            "Из книги второй читатель узнаёт подробности экспедиции.",
+        )
+        self.assertEqual(
+            normalize("В части 2 приводятся дополнительные материалы."),
+            "В части второй приводятся дополнительные материалы.",
+        )
+        self.assertEqual(
+            normalize("К главе 10 автор подходит только во второй половине книги."),
+            "К главе десятой автор подходит только во второй половине книги.",
+        )
+        self.assertEqual(
+            normalize("С главой 10 хорошо рифмуется финал следующей части."),
+            "С главой десятой хорошо рифмуется финал следующей части.",
+        )
+
     def test_normalize_runs_roman_before_caps_normalization(self):
         self.assertEqual(
             normalize("ГЛАВА IV.", NormalizeOptions.tts()),

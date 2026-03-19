@@ -91,6 +91,26 @@ class RuNormalizrStageTests(unittest.TestCase):
             normalize_numerals("в главе 10"),
             "в главе десятой",
         )
+        self.assertEqual(
+            normalize_numerals("из главы 10"),
+            "из главы десятой",
+        )
+        self.assertEqual(
+            normalize_numerals("до главы 10"),
+            "до главы десятой",
+        )
+        self.assertEqual(
+            normalize_numerals("из раздела 3"),
+            "из раздела третьего",
+        )
+        self.assertEqual(
+            normalize_numerals("из книги 2"),
+            "из книги второй",
+        )
+        self.assertEqual(
+            normalize_numerals("в части 2"),
+            "в части второй",
+        )
 
     def test_numeral_stage_normalizes_negative_measurements(self):
         self.assertEqual(
