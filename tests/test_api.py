@@ -584,6 +584,18 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertEqual(normalize("Св. Георгия"), "Святого Георгия")
         self.assertEqual(normalize("и т.д. и т.п."), "и так далее и тому подобное.")
 
+    def test_normalize_inflects_common_adjective_abbreviations_from_context(self):
+        self.assertEqual(
+            normalize(
+                "Такие либертарианские идеи, как приватизация, разного рода снижение гос. контроля,"
+            ),
+            "Такие либертарианские идеи, как приватизация, разного рода снижение государственного контроля,",
+        )
+        self.assertEqual(
+            normalize("реформа междунар. контроля и полит. системы"),
+            "реформа международного контроля и политической системы",
+        )
+
     def test_normalize_supports_full_decade_suffix_spelling(self):
         self.assertEqual(
             normalize("1990-ые годы."),

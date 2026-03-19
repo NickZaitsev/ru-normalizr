@@ -3,7 +3,10 @@ from __future__ import annotations
 import re
 
 from ._morph import get_morph
-from .abbreviation_rules import ABBREVIATION_PATTERNS
+from .abbreviation_rules import (
+    ABBREVIATION_PATTERNS,
+    ADJECTIVE_ABBREVIATION_EXPANSIONS,
+)
 from .constants import (
     ABBREV_DOTTED_PATTERN,
     ABBREV_MAX_LEN_EN,
@@ -19,10 +22,19 @@ from .constants import (
     RU_VOWELS,
     RUSSIAN_NAME_TOKEN,
 )
+from .numerals._helpers import safe_inflect
 from .options import NormalizeOptions
 
 _ETC_ABBREVIATION_PATTERN = re.compile(
     r"(?<!\w)(?P<abbr>т\.?\s*[дп]\.)(?P<tail>\s*)(?!\w)", re.IGNORECASE
+)
+_ADJECTIVE_ABBREVIATION_WORD = (
+    r"(?!и\b|или\b|либо\b|да\b|но\b|а\b)[А-ЯЁа-яё-]+"
+)
+_ADJECTIVE_ABBREVIATION_PATTERN = re.compile(
+    rf"(?<!\w)(?P<abbr>{'|'.join(sorted((re.escape(key) for key in ADJECTIVE_ABBREVIATION_EXPANSIONS), key=len, reverse=True))})"
+    rf"(?P<space>\s+)(?P<phrase>{_ADJECTIVE_ABBREVIATION_WORD}(?:\s+{_ADJECTIVE_ABBREVIATION_WORD}){{0,2}})",
+    re.IGNORECASE,
 )
 
 
@@ -57,6 +69,67 @@ def _expand_contextual_etc_abbreviations(text: str) -> str:
         return f"{expansion}{'.' if keep_terminal_dot else ''}{tail}"
 
     return _ETC_ABBREVIATION_PATTERN.sub(repl, text)
+
+
+def _expand_contextual_adjective_abbreviations(text: str) -> str:
+    morph = get_morph()
+
+    def choose_head_noun(phrase: str):
+        for word in phrase.split():
+            parsed = morph.parse(word.lower())
+            noun_candidate = next(
+                (candidate for candidate in parsed if "NOUN" in candidate.tag),
+                None,
+            )
+            if noun_candidate is not None:
+                return noun_candidate
+        return None
+
+    def inflect_adjective(lemma: str, noun_parse) -> str:
+        parsed = morph.parse(lemma)
+        adjective_parse = next(
+            (
+                candidate
+                for candidate in parsed
+                if candidate.tag.POS in {"ADJF", "PRTF"}
+            ),
+            parsed[0] if parsed else None,
+        )
+        if adjective_parse is None:
+            return lemma
+
+        noun_case = "loct" if "loc2" in noun_parse.tag else noun_parse.tag.case
+        if noun_case is None:
+            return lemma
+        target_tags = {noun_case}
+        if "plur" in noun_parse.tag:
+            target_tags.add("plur")
+        else:
+            target_tags.add("sing")
+            if noun_parse.tag.gender:
+                target_tags.add(noun_parse.tag.gender)
+        return safe_inflect(
+            adjective_parse,
+            target_tags,
+            fallback_word=lemma,
+            pos_filter={"ADJF", "PRTF"},
+        )
+
+    def repl(match: re.Match[str]) -> str:
+        abbr = match.group("abbr")
+        phrase = match.group("phrase")
+        lemma = ADJECTIVE_ABBREVIATION_EXPANSIONS.get(abbr.lower())
+        if lemma is None:
+            return match.group(0)
+        noun_parse = choose_head_noun(phrase)
+        if noun_parse is None:
+            return match.group(0)
+        expanded = inflect_adjective(lemma, noun_parse)
+        if abbr[:1].isupper():
+            expanded = expanded[:1].upper() + expanded[1:]
+        return f"{expanded}{match.group('space')}{phrase}"
+
+    return _ADJECTIVE_ABBREVIATION_PATTERN.sub(repl, text)
 
 
 def expand_person_initials(text: str) -> str:
@@ -159,6 +232,7 @@ def expand_abbreviations(text: str, options: NormalizeOptions | None = None) -> 
         return text
     if active.enable_contextual_abbreviation_expansion:
         text = _expand_contextual_etc_abbreviations(text)
+        text = _expand_contextual_adjective_abbreviations(text)
         for pattern, replacement in ABBREVIATION_PATTERNS:
             text = pattern.sub(replacement, text)
     if active.enable_initials_expansion:
