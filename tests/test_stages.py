@@ -283,6 +283,10 @@ class RuNormalizrStageTests(unittest.TestCase):
     def test_year_stage_keeps_measurement_contexts_out_of_implicit_year_rules(self):
         self.assertEqual(normalize_years("в 1990 кг"), "в 1990 кг")
         self.assertEqual(normalize_years("от 1000 до 1200 кг"), "от 1000 до 1200 кг")
+        self.assertEqual(normalize_years("от 1200 до 10000 МПа"), "от 1200 до 10000 МПа")
+        self.assertEqual(
+            normalize_years("от 1200 до 10 000 МПа"), "от 1200 до 10 000 МПа"
+        )
         self.assertEqual(normalize_years("с 1990 по 1995 кг"), "с 1990 по 1995 кг")
         self.assertEqual(normalize_years("с 1990 по 1995 руб."), "с 1990 по 1995 руб.")
 

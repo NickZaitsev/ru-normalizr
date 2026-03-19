@@ -80,6 +80,7 @@ PREPOSITIONS_TO_CASE = {
 NUMERIC_RANGE_PATTERN = re.compile(
     r"(\d+)\s*[—–]\s*(\d+)(?!\d)(?!\s*[а-яА-ЯёЁa-zA-Z%°$€₽Ω])"
 )
+SPACED_THOUSANDS_TAIL = r"(?![ \u00A0\u2009\u202F]\d{3}\b)"
 
 
 @functools.lru_cache(maxsize=1024)
@@ -137,11 +138,11 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         re.IGNORECASE | re.UNICODE,
     )
     pattern_s_po = re.compile(
-        rf"(?P<prep>с|со|от)\s+(?P<year1>\d+)\s+(?P<mid>до|по)\s+(?P<year2>\d+)(?:\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?",
+        rf"(?P<prep>с|со|от)\s+(?P<year1>\d+){SPACED_THOUSANDS_TAIL}\s+(?P<mid>до|по)\s+(?P<year2>\d+){SPACED_THOUSANDS_TAIL}(?!\d)(?:\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?",
         re.IGNORECASE | re.UNICODE,
     )
     pattern_range = re.compile(
-        rf"(?:(?P<prep>с|со|из|от|в|во)\s+)?(?P<year1>\d+)\s*[-–—]\s*(?P<year2>\d+)\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
+        rf"(?:(?P<prep>с|со|из|от|в|во)\s+)?(?P<year1>\d+){SPACED_THOUSANDS_TAIL}\s*[-–—]\s*(?P<year2>\d+){SPACED_THOUSANDS_TAIL}\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
         re.IGNORECASE | re.UNICODE,
     )
     pattern_multiple_years = re.compile(
@@ -153,11 +154,11 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         re.IGNORECASE | re.UNICODE,
     )
     pattern_era_year = re.compile(
-        r"(?:(?P<prep>в|во|о|об|к|ко|с|со|до|от|за|на|по|между)\s+)?(?P<year>\d+)\s+(?P<word>год[а-яё]*\b)\s+(?P<era>до\s+н\.?\s*э\.?|н\.?\s*э\.?)",
+        rf"(?:(?P<prep>в|во|о|об|к|ко|с|со|до|от|за|на|по|между)\s+)?(?P<year>\d+){SPACED_THOUSANDS_TAIL}\s+(?P<word>год[а-яё]*\b)\s+(?P<era>до\s+н\.?\s*э\.?|н\.?\s*э\.?)",
         re.IGNORECASE | re.UNICODE,
     )
     pattern_year_word = re.compile(
-        rf"(?:(?P<prep>в|во|о|об|к|ко|с|со|до|от|за|на|по|между)\s+)?(?P<year>\d+)\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
+        rf"(?:(?P<prep>в|во|о|об|к|ко|с|со|до|от|за|на|по|между)\s+)?(?P<year>\d+){SPACED_THOUSANDS_TAIL}\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
         re.IGNORECASE | re.UNICODE,
     )
     explicit_year_word_tail_pattern = re.compile(
@@ -169,11 +170,11 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         re.IGNORECASE | re.UNICODE,
     )
     pattern_ot_do_implicit = re.compile(
-        r"(?P<prep>с|со|от)\s+(?P<year1>\d{3,4})\s+(?P<mid>до|по)\s+(?P<year2>\d{3,4})(?!\d)",
+        rf"(?P<prep>с|со|от)\s+(?P<year1>\d{{3,4}}){SPACED_THOUSANDS_TAIL}\s+(?P<mid>до|по)\s+(?P<year2>\d{{3,4}}){SPACED_THOUSANDS_TAIL}(?!\d)",
         re.IGNORECASE | re.UNICODE,
     )
     pattern_prep_year_implicit = re.compile(
-        r"\b(?P<prep>в|во|о|об|к|ко|с|со|до|от|из|по)\s+(?P<year>(?:1\d|20)\d{2})(?!\d)",
+        rf"\b(?P<prep>в|во|о|об|к|ко|с|со|до|от|из|по)\s+(?P<year>(?:1\d|20)\d{{2}}){SPACED_THOUSANDS_TAIL}(?!\d)",
         re.IGNORECASE | re.UNICODE,
     )
 
