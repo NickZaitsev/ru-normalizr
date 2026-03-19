@@ -15,6 +15,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Read `=` as `равно` in math-like expressions when at least one side contains digits, covering forms such as `t=10` and `x=(2+3)` while leaving plain non-numeric assignments such as `x = y` unchanged
 - Read `~` as `примерно` before numeric expressions and treat compact lowercase `k` suffixes such as `250k` as thousands while keeping uppercase `K` for Kelvin units
 - Fix agreement for compound adjective+noun measurement units after numerals, so outputs such as `3 м^3`, `2 км2`, and `2 IU` normalize to `три кубических метра`, `два квадратных километра`, and `две международные единицы`
+- Stop misreading title-case `См.` as a Cyrillic Roman numeral token and normalize single chapter/section-style references such as `главу 10` to ordinal forms like `главу десятую`
 
 ## [0.1.4] - 2026-03-15
 ### Changed

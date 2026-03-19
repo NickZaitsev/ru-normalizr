@@ -48,6 +48,31 @@ class RuNormalizrApiTests(unittest.TestCase):
             "Глава четыре. Встреча в десять, ноль семь.",
         )
 
+    def test_normalize_keeps_see_chapter_reference_semantics(self):
+        text = "(См. главу 10.)"
+        expected = "(смотри главу десятую.)"
+
+        self.assertEqual(normalize(text), expected)
+        self.assertEqual(normalize(text, NormalizeOptions.tts()), expected)
+
+    def test_normalize_distinguishes_chapter_heading_and_inline_references(self):
+        self.assertEqual(
+            normalize("Глава 10. Последние слова генерала."),
+            "Глава десять. Последние слова генерала.",
+        )
+        self.assertEqual(
+            normalize("См. главу 10, где описан конфликт."),
+            "смотри главу десятую, где описан конфликт.",
+        )
+        self.assertEqual(
+            normalize("В главе 10 автор объясняет принципы эффективного плавания."),
+            "В главе десятой автор объясняет принципы эффективного плавания.",
+        )
+        self.assertEqual(
+            normalize("См. главу IV."),
+            "смотри главу четвёртую.",
+        )
+
     def test_normalize_runs_roman_before_caps_normalization(self):
         self.assertEqual(
             normalize("ГЛАВА IV.", NormalizeOptions.tts()),

@@ -9,15 +9,28 @@ from ..text_context import simple_tokenize
 from ._constants import HYPHENATED_WORD_PATTERN, ORDINAL_PATTERN
 from ._helpers import get_numeral_case, inflect_numeral_string
 
-HEADING_RANGE_PATTERN = re.compile(
-    r"\b(?P<head>"
+HEADING_WORDS_PATTERN = (
     r"глава|главы|главе|главу|главой|главами|главах|"
     r"часть|части|частью|частях|"
     r"раздел|раздела|разделе|разделу|разделом|разделах|"
     r"том|тома|томе|томом|томах|"
     r"книга|книги|книге|книгой|книгах|"
     r"квартал|квартала|квартале|кварталу|кварталом|кварталах"
-    r")\s+(?P<left>\d+)\s*[–—-]\s*(?P<right>\d+)\b",
+)
+SINGULAR_HEADING_WORDS_PATTERN = (
+    r"главе|главу|главой|"
+    r"частью|"
+    r"разделе|разделу|"
+    r"томе|томом|"
+    r"книге|книгой|"
+    r"квартале|кварталу|кварталом"
+)
+HEADING_RANGE_PATTERN = re.compile(
+    rf"\b(?P<head>{HEADING_WORDS_PATTERN})\s+(?P<left>\d+)\s*[–—-]\s*(?P<right>\d+)\b",
+    re.IGNORECASE | re.UNICODE,
+)
+HEADING_SINGLE_PATTERN = re.compile(
+    rf"\b(?P<head>{SINGULAR_HEADING_WORDS_PATTERN})\s+(?P<number>\d+)\b",
     re.IGNORECASE | re.UNICODE,
 )
 
@@ -45,13 +58,18 @@ def _pick_range_preposition(first_ordinal: str) -> str:
     return "со" if first_ordinal.startswith(("в", "ф", "с", "з", "ш", "ж")) else "с"
 
 
-def normalize_heading_ranges(text: str) -> str:
-    morph = get_morph()
+def _heading_parse(head: str):
+    parsed = [candidate for candidate in get_morph().parse(head.lower()) if "NOUN" in candidate.tag]
+    if not parsed:
+        return None
+    inanimate = [candidate for candidate in parsed if "inan" in candidate.tag]
+    return inanimate[0] if inanimate else parsed[0]
 
+
+def normalize_heading_ranges(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
         head = match.group("head")
-        parsed = morph.parse(head.lower())
-        noun_parse = next((candidate for candidate in parsed if "NOUN" in candidate.tag), None)
+        noun_parse = _heading_parse(head)
         gender = noun_parse.tag.gender if noun_parse and noun_parse.tag.gender else "masc"
         left_ordinal = _ordinal_words(int(match.group("left")), "gent", gender)
         right_case = "accs" if gender == "femn" else "nomn"
@@ -59,6 +77,20 @@ def normalize_heading_ranges(text: str) -> str:
         return f"{head} {_pick_range_preposition(left_ordinal)} {left_ordinal} по {right_ordinal}"
 
     return HEADING_RANGE_PATTERN.sub(repl, text)
+
+
+def normalize_heading_numbers(text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        head = match.group("head")
+        noun_parse = _heading_parse(head)
+        if noun_parse is None:
+            return match.group(0)
+        gender = noun_parse.tag.gender or "masc"
+        case = noun_parse.tag.case or "nomn"
+        ordinal = _ordinal_words(int(match.group("number")), case, gender)
+        return f"{head} {ordinal}"
+
+    return HEADING_SINGLE_PATTERN.sub(repl, text)
 
 
 def normalize_hyphenated_words(text: str) -> str:

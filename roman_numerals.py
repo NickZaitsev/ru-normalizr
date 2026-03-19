@@ -185,6 +185,8 @@ def normalize_cyrillic_roman(text: str) -> str:
         word = match.group(1)
         if word == word.lower():
             return word
+        if word != word.upper():
+            return word
         if not any(char in "ХхСсІіМм" for char in word):
             return word
         latin_word = "".join(cyrillic_to_latin.get(char, char) for char in word).upper()

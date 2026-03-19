@@ -29,6 +29,12 @@ class RuNormalizrStageTests(unittest.TestCase):
             "Диаметр 40 см.",
         )
 
+    def test_roman_stage_keeps_title_case_see_abbreviation(self):
+        self.assertEqual(
+            normalize_roman("См. главу IV."),
+            "См. главу 4.",
+        )
+
     def test_roman_stage_keeps_known_abbreviation_cd(self):
         self.assertEqual(
             normalize_roman("CD-плеер и CD"),
@@ -74,6 +80,16 @@ class RuNormalizrStageTests(unittest.TestCase):
         self.assertEqual(
             normalize_numerals("250$"),
             "двести пятьдесят долларов",
+        )
+
+    def test_numeral_stage_normalizes_heading_single_number_as_ordinal(self):
+        self.assertEqual(
+            normalize_numerals("главу 10"),
+            "главу десятую",
+        )
+        self.assertEqual(
+            normalize_numerals("в главе 10"),
+            "в главе десятой",
         )
 
     def test_numeral_stage_normalizes_negative_measurements(self):
