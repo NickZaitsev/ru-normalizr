@@ -221,6 +221,24 @@ class RuNormalizrStageTests(unittest.TestCase):
             "миссис Поппер",
         )
 
+    def test_abbreviation_stage_expands_single_initials_in_tts_only_for_name_like_tokens(self):
+        self.assertEqual(
+            expand_abbreviations("Ч. Рихтер", NormalizeOptions.tts()),
+            "чэ Рихтер.",
+        )
+        self.assertEqual(
+            expand_abbreviations("Рихтер Ч.", NormalizeOptions.tts()),
+            "Рихтер чэ.",
+        )
+        self.assertEqual(
+            expand_abbreviations("С. Петербург", NormalizeOptions.tts()),
+            "С. Петербург",
+        )
+        self.assertEqual(
+            expand_abbreviations("Ч. Рихтер", NormalizeOptions.safe()),
+            "Ч. Рихтер",
+        )
+
     def test_abbreviation_stage_expands_article_only_before_digit(self):
         self.assertEqual(
             expand_abbreviations("ст. 15 УК РФ"),
@@ -316,6 +334,8 @@ class RuNormalizrStageTests(unittest.TestCase):
         )
 
     def test_year_stage_keeps_measurement_contexts_out_of_implicit_year_rules(self):
+        self.assertEqual(normalize_years("от 1 до 9"), "от 1 до 9")
+        self.assertEqual(normalize_years("от 90 до 99"), "от 90 до 99")
         self.assertEqual(normalize_years("в 1990 кг"), "в 1990 кг")
         self.assertEqual(normalize_years("в 1990 % случаев"), "в 1990 % случаев")
         self.assertEqual(normalize_years("в 1990 ¢"), "в 1990 ¢")

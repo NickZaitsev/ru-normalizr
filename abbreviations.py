@@ -16,7 +16,9 @@ from .constants import (
     EN_LETTER_NAMES,
     KNOWN_ABBREVIATIONS,
     PERSON_INITIALS_SURNAME_PATTERN,
+    PERSON_SINGLE_INITIAL_SURNAME_PATTERN,
     PERSON_SURNAME_INITIALS_PATTERN,
+    PERSON_SURNAME_SINGLE_INITIAL_PATTERN,
     REAL_WORD_POS,
     RU_LETTER_NAMES,
     RU_VOWELS,
@@ -142,6 +144,26 @@ def expand_person_initials(text: str) -> str:
     def initial_name(ch: str) -> str:
         return RU_LETTER_NAMES.get(ch.upper(), ch.lower())
 
+    def is_likely_person_name_token(token: str) -> bool:
+        parsed = get_morph().parse(token)
+        if not parsed:
+            return True
+        meaningful = [candidate for candidate in parsed if "PNCT" not in candidate.tag]
+        if not meaningful:
+            return True
+        if any(
+            marker in candidate.tag
+            for candidate in meaningful
+            for marker in ("Surn", "Name", "Patr")
+        ):
+            return True
+        top_candidates = meaningful[:3]
+        if top_candidates and all("Geox" in candidate.tag for candidate in top_candidates):
+            return False
+        if top_candidates and all("Abbr" in candidate.tag for candidate in top_candidates):
+            return False
+        return True
+
     def choose_tail(match_end: int) -> tuple[bool, str]:
         tail = text[match_end:]
         stripped = tail.lstrip()
@@ -172,6 +194,21 @@ def expand_person_initials(text: str) -> str:
             return f"{surname} {i1} {i2}{terminal}"
         return f"{surname}, {i1}, {i2}{non_final_tail}"
 
+    def repl_surname_single_initial(match):
+        surname = match.group("surname")
+        if not is_likely_person_name_token(surname):
+            return match.group(0)
+        i1 = initial_name(match.group("i1"))
+        is_final, non_final_tail = choose_tail(match.end())
+        if is_final:
+            terminal = (
+                ""
+                if text[match.end() :].lstrip().startswith((".", "!", "?", "…"))
+                else "."
+            )
+            return f"{surname} {i1}{terminal}"
+        return f"{surname}, {i1}{non_final_tail}"
+
     def repl_initials_surname(match):
         i1 = initial_name(match.group("i1"))
         i2 = initial_name(match.group("i2"))
@@ -186,8 +223,25 @@ def expand_person_initials(text: str) -> str:
             return f"{i1} {i2} {surname}{terminal}"
         return f"{i1}, {i2}, {surname}{non_final_tail}"
 
+    def repl_single_initial_surname(match):
+        surname = match.group("surname")
+        if not is_likely_person_name_token(surname):
+            return match.group(0)
+        i1 = initial_name(match.group("i1"))
+        is_final, non_final_tail = choose_tail(match.end())
+        if is_final:
+            terminal = (
+                ""
+                if text[match.end() :].lstrip().startswith((".", "!", "?", "…"))
+                else "."
+            )
+            return f"{i1} {surname}{terminal}"
+        return f"{i1}, {surname}{non_final_tail}"
+
     text = PERSON_SURNAME_INITIALS_PATTERN.sub(repl_surname_initials, text)
-    return PERSON_INITIALS_SURNAME_PATTERN.sub(repl_initials_surname, text)
+    text = PERSON_INITIALS_SURNAME_PATTERN.sub(repl_initials_surname, text)
+    text = PERSON_SURNAME_SINGLE_INITIAL_PATTERN.sub(repl_surname_single_initial, text)
+    return PERSON_SINGLE_INITIAL_SURNAME_PATTERN.sub(repl_single_initial_surname, text)
 
 
 def expand_letter_abbreviations(text: str) -> str:

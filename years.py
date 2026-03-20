@@ -221,6 +221,12 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
     def replace_s_po(m: re.Match[str]) -> str:
         prep = m.group("prep")
         mid = m.group("mid")
+        year1 = int(m.group("year1"))
+        year2 = int(m.group("year2"))
+        if not m.group("word") and not (
+            is_plausible_year(year1) and is_plausible_year(year2)
+        ):
+            return m.group(0)
         if not m.group("word") and not should_treat_as_implicit_year(
             text,
             m.end(),
@@ -230,8 +236,8 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
             return m.group(0)
         case2 = "accs" if mid.lower() == "по" else "gent"
         result = (
-            f"{prep} {year_to_ordinal_words(int(m.group('year1')), 'gent')} "
-            f"{mid} {year_to_ordinal_words(int(m.group('year2')), case2)}"
+            f"{prep} {year_to_ordinal_words(year1, 'gent')} "
+            f"{mid} {year_to_ordinal_words(year2, case2)}"
         )
         word = m.group("word")
         if word:

@@ -222,6 +222,14 @@ PERSON_INITIALS_SURNAME_PATTERN = re.compile(
     rf"(?<![A-Za-zА-Яа-яЁё])(?P<i1>[А-ЯЁ])\.\s*(?P<i2>[А-ЯЁ])\.\s+"
     rf"(?P<surname>{RUSSIAN_NAME_TOKEN})(?![A-Za-zА-Яа-яЁё])"
 )
+PERSON_SURNAME_SINGLE_INITIAL_PATTERN = re.compile(
+    rf"(?<![A-Za-zА-Яа-яЁё])(?P<surname>{RUSSIAN_NAME_TOKEN})\s+"
+    r"(?P<i1>[А-ЯЁ])\.(?![A-Za-zА-Яа-яЁё])"
+)
+PERSON_SINGLE_INITIAL_SURNAME_PATTERN = re.compile(
+    rf"(?<![A-Za-zА-Яа-яЁё])(?P<i1>[А-ЯЁ])\.\s+"
+    rf"(?P<surname>{RUSSIAN_NAME_TOKEN})(?![A-Za-zА-Яа-яЁё])"
+)
 
 ABBREV_DOTTED_PATTERN = re.compile(
     r"(?<![A-Za-zА-ЯЁ])(?:[A-ZА-ЯЁ]\.){2,}[A-ZА-ЯЁ]?\.?(?![A-Za-zА-ЯЁ])"

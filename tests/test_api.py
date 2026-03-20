@@ -692,6 +692,14 @@ class RuNormalizrApiTests(unittest.TestCase):
             "до тридцати — сорока сантиметров в диаметре",
         )
         self.assertEqual(
+            normalize("от 1 до 9"),
+            "от одного до девяти",
+        )
+        self.assertEqual(
+            normalize("от 90 до 99"),
+            "от девяноста до девяноста девяти",
+        )
+        self.assertEqual(
             normalize("от 1200 до 10000 ₽"),
             "от одной тысячи двухсот до десяти тысяч рублей",
         )
@@ -885,6 +893,20 @@ class RuNormalizrApiTests(unittest.TestCase):
     def test_tts_expands_unknown_cyrillic_letter_abbreviations(self):
         self.assertEqual(normalize("ЦРУ", NormalizeOptions.tts()), "цэ эр уу")
         self.assertEqual(normalize("ФБР", NormalizeOptions.tts()), "эф бэ эр")
+
+    def test_tts_expands_single_person_initials_without_touching_non_person_tokens(self):
+        self.assertEqual(
+            normalize("Ч. Рихтер разработал шкалу.", NormalizeOptions.tts()),
+            "чэ, Рихтер, разработал шкалу.",
+        )
+        self.assertEqual(
+            normalize("Рихтер Ч. разработал шкалу.", NormalizeOptions.tts()),
+            "Рихтер, чэ, разработал шкалу.",
+        )
+        self.assertEqual(
+            normalize("С. Петербург красив.", NormalizeOptions.tts()),
+            "С. Петербург красив.",
+        )
 
     def test_safe_mode_keeps_caps_and_letter_abbreviations_conservative(self):
         self.assertEqual(normalize("ГЛАВА IV.", NormalizeOptions.safe()), "ГЛАВА четыре.")

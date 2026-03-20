@@ -22,6 +22,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Normalize `&` contextually as `и` in Russian phrases and as `энд` in brand-like English letter-name contexts such as `AT&T`
 - Route safe `число-дефис-единица` forms such as `35-мм`, `35 - мм`, and `1,5-мл` through shared numeral hyphen handling so they normalize like spaced units while leaving ordinary forms such as `20-этажный` and ambiguous single-letter suffixes alone
 - Keep preprocess from eagerly converting ASCII ` - ` into `—`; only normalize explicit dash characters there, canonize numeric `число - suffix/unit` forms such as `35 - мм`, `20 - этажный`, and `5 - й` before numeral handling, and move leftover ASCII word-separator dashes to finalize so plain spaced ranges like `10 - 20` stay range-like
+- Restrict implicit `от/с ... до/по ...` year-range normalization without explicit `год/г./гг.` to plausible years only, and expand single initials near likely surnames in TTS mode while leaving obvious non-person tokens such as `С. Петербург` untouched
 
 ## [0.1.4] - 2026-03-15
 ### Changed
