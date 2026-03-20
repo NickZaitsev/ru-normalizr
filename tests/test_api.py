@@ -592,6 +592,14 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertEqual(normalize("Св. Георгия"), "Святого Георгия")
         self.assertEqual(normalize("и т.д. и т.п."), "и так далее и тому подобное.")
 
+    def test_normalize_expands_english_titles_before_latinization(self):
+        self.assertEqual(normalize("Mr. Поппер ?"), "мистер Поппер?")
+        self.assertEqual(normalize("Mrs. Поппер ?"), "миссис Поппер?")
+        self.assertEqual(
+            normalize("Mr. Поппер ?", NormalizeOptions.safe()),
+            "мистер Поппер?",
+        )
+
     def test_normalize_inflects_common_adjective_abbreviations_from_context(self):
         self.assertEqual(
             normalize(
