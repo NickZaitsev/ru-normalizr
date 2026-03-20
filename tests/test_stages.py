@@ -211,6 +211,16 @@ class RuNormalizrStageTests(unittest.TestCase):
             "(смотри рисунок)",
         )
 
+    def test_abbreviation_stage_expands_english_titles(self):
+        self.assertEqual(
+            expand_abbreviations("Mr. Поппер"),
+            "мистер Поппер",
+        )
+        self.assertEqual(
+            expand_abbreviations("Mrs. Поппер"),
+            "миссис Поппер",
+        )
+
     def test_abbreviation_stage_expands_article_only_before_digit(self):
         self.assertEqual(
             expand_abbreviations("ст. 15 УК РФ"),
