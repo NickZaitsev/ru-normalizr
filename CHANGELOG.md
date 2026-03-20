@@ -24,6 +24,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Keep preprocess from eagerly converting ASCII ` - ` into `—`; only normalize explicit dash characters there, canonize numeric `число - suffix/unit` forms such as `35 - мм`, `20 - этажный`, and `5 - й` before numeral handling, and move leftover ASCII word-separator dashes to finalize so plain spaced ranges like `10 - 20` stay range-like
 - Restrict implicit `от/с ... до/по ...` year-range normalization without explicit `год/г./гг.` to plausible years only, and expand single initials near likely surnames in TTS mode while leaving obvious non-person tokens such as `С. Петербург` untouched
 - Read regnal name patterns such as `Георг VI`, `Людовик XVI`, `Елизавета II`, and `Дарий I` as ordinal names (`Георг шестой`, `Людовик шестнадцатый`, etc.) instead of cardinal numerals
+- Preserve full Greek-script words such as `αστατος` instead of spelling them out letter-by-letter, while still reading standalone Greek symbols like `α`, and expand `от греч./лат. <foreign word>` to forms such as `от греческого αστατος` and `от латинского homo`
 
 ## [0.1.4] - 2026-03-15
 ### Changed

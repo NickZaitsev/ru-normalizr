@@ -71,9 +71,16 @@ def _normalize_contextual_equals(text: str) -> str:
 
 
 def normalize_greek_letters(text: str) -> str:
-    for char, replacement in GREEK_LETTERS.items():
-        text = text.replace(char, replacement)
-    return text
+    greek_chars = "".join(re.escape(char) for char in GREEK_LETTERS)
+    pattern = re.compile(rf"[{greek_chars}]+")
+
+    def repl(match: re.Match[str]) -> str:
+        token = match.group(0)
+        if len(token) != 1:
+            return token
+        return GREEK_LETTERS.get(token, token)
+
+    return pattern.sub(repl, text)
 
 
 def normalize_math_symbols(text: str) -> str:

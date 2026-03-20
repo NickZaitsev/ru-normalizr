@@ -44,6 +44,22 @@ _WORD_AMPERSAND_PATTERN = re.compile(
 _SINGLE_TOKEN_EN_LETTER_NAMES = frozenset(
     value.lower() for value in EN_LETTER_NAMES.values() if " " not in value
 )
+_LANGUAGE_ORIGIN_ABBREVIATIONS = {
+    "англ.": "английский",
+    "руск.": "русский",
+    "рус.": "русский",
+    "немецк.": "немецкий",
+    "нем.": "немецкий",
+    "франц.": "французский",
+    "греч.": "греческий",
+    "латин.": "латинский",
+    "лат.": "латинский",
+}
+_LANGUAGE_ORIGIN_PATTERN = re.compile(
+    rf"(?<!\w)(?P<prep>от|из|с|со)\s+(?P<abbr>{'|'.join(sorted((re.escape(key) for key in _LANGUAGE_ORIGIN_ABBREVIATIONS), key=len, reverse=True))})"
+    r"(?P<space>\s+)(?P<word>[^\s.,;:!?()\"\[\]{}«»]+)",
+    re.IGNORECASE,
+)
 
 
 def _expand_contextual_etc_abbreviations(text: str) -> str:
@@ -138,6 +154,48 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
         return f"{expanded}{match.group('space')}{phrase}"
 
     return _ADJECTIVE_ABBREVIATION_PATTERN.sub(repl, text)
+
+
+def _expand_language_origin_abbreviations(text: str) -> str:
+    morph = get_morph()
+
+    def has_non_cyrillic_word(word: str) -> bool:
+        letters = [char for char in word if char.isalpha()]
+        return bool(letters) and not any(
+            ("А" <= char <= "я") or char in "Ёё" for char in letters
+        )
+
+    def inflect_language_lemma(lemma: str) -> str:
+        parsed = next(
+            (
+                candidate
+                for candidate in morph.parse(lemma)
+                if candidate.tag.POS in {"ADJF", "PRTF"}
+            ),
+            None,
+        )
+        if parsed is None:
+            return lemma
+        return safe_inflect(
+            parsed,
+            {"gent", "sing", "masc"},
+            fallback_word=lemma,
+            pos_filter={"ADJF", "PRTF"},
+        )
+
+    def repl(match: re.Match[str]) -> str:
+        word = match.group("word")
+        if not has_non_cyrillic_word(word):
+            return match.group(0)
+        lemma = _LANGUAGE_ORIGIN_ABBREVIATIONS.get(match.group("abbr").lower())
+        if lemma is None:
+            return match.group(0)
+        return (
+            f"{match.group('prep')} {inflect_language_lemma(lemma)}"
+            f"{match.group('space')}{word}"
+        )
+
+    return _LANGUAGE_ORIGIN_PATTERN.sub(repl, text)
 
 
 def expand_person_initials(text: str) -> str:
@@ -337,6 +395,7 @@ def expand_abbreviations(text: str, options: NormalizeOptions | None = None) -> 
     active = options or NormalizeOptions()
     if not active.enable_abbreviation_expansion:
         return text
+    text = _expand_language_origin_abbreviations(text)
     if active.enable_contextual_abbreviation_expansion:
         text = _expand_contextual_etc_abbreviations(text)
         text = _expand_contextual_adjective_abbreviations(text)
