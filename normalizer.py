@@ -35,6 +35,7 @@ from .preprocess_utils import (
     clean_numbers,
     expand_years_ago_abbreviation,
     normalize_ascii_quote_pairs,
+    normalize_cyrillic_combining_stress_marks,
     normalize_explicit_dashes,
     normalize_linebreaks,
     normalize_punctuation_spacing,
@@ -188,6 +189,7 @@ class PipelineNormalizer:
         text = normalize_linebreaks(
             text, keep_paragraph_placeholders=keep_paragraph_placeholders
         )
+        text = normalize_cyrillic_combining_stress_marks(text)
         text = protect_letter_hyphens(text)
         text = text.replace("◦", " ")
         text = remove_decorative_separators(text)

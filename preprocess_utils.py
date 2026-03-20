@@ -76,6 +76,9 @@ SPACE_BEFORE_CLOSE_QUOTE_PATTERN = re.compile(
 ELLIPSIS_SPACE_BEFORE_PATTERN = re.compile(r"[ \t]+(?=…)")
 ELLIPSIS_SPACE_AFTER_PATTERN = re.compile(r"(?<=…)(?=[^\s.,;:!?…)\]}\"])\S")
 SENTENCE_SPACE_AFTER_PATTERN = re.compile(r"(?<=[.!?…])(?=[\"(«„“]?[A-ZА-ЯЁ])")
+CYRILLIC_COMBINING_STRESS_PATTERN = re.compile(
+    r"([АЕЁИОУЫЭЮЯаеёиоуыэюя])([\u0300\u0301])"
+)
 
 
 def normalize_ascii_quote_pairs(text: str) -> str:
@@ -106,6 +109,10 @@ def normalize_punctuation_spacing(text: str) -> str:
     text = ELLIPSIS_SPACE_BEFORE_PATTERN.sub("", text)
     text = ELLIPSIS_SPACE_AFTER_PATTERN.sub(lambda m: f" {m.group(0)}", text)
     return SENTENCE_SPACE_AFTER_PATTERN.sub(" ", text)
+
+
+def normalize_cyrillic_combining_stress_marks(text: str) -> str:
+    return CYRILLIC_COMBINING_STRESS_PATTERN.sub(r"+\1", text)
 
 
 def normalize_explicit_dashes(text: str) -> str:

@@ -25,6 +25,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Restrict implicit `от/с ... до/по ...` year-range normalization without explicit `год/г./гг.` to plausible years only, and expand single initials near likely surnames in TTS mode while leaving obvious non-person tokens such as `С. Петербург` untouched
 - Read regnal name patterns such as `Георг VI`, `Людовик XVI`, `Елизавета II`, and `Дарий I` as ordinal names (`Георг шестой`, `Людовик шестнадцатый`, etc.) instead of cardinal numerals
 - Preserve full Greek-script words such as `αστατος` instead of spelling them out letter-by-letter, while still reading standalone Greek symbols like `α`, and expand `от греч./лат. <foreign word>` to forms such as `от греческого αστατος` and `от латинского homo`
+- Rewrite explicit Cyrillic combining stress marks such as `Фри́дрих А́вгуст` to the package's `+` stress format (`Фр+идрих +Август`) during preprocess instead of letting combining accents break token spacing
 
 ## [0.1.4] - 2026-03-15
 ### Changed
