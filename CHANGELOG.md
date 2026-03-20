@@ -11,7 +11,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Preserve bracketed year-like values during TTS link removal, improve range/year case handling (`1990-ые`, `1943 и 1951 гг.`, `206 год до н. э.`), and add `ул.`/`Св.` expansions
 - Keep hyphenated decade forms such as `в 1990-ые годы` out of the implicit preposition-plus-year rule so they stay decade phrases instead of becoming `девяностом-ые`
 - Move implicit year disambiguation out of year regexes into shared token/context helpers, and keep `с 1990 по 1995 кг`-style measurement ranges from being misread as year ranges
-- Keep implicit year heuristics from misreading measurement ranges such as `от 1200 до 10000 МПа` and spaced-thousands forms like `от 1200 до 10 000 МПа`
+- Keep implicit year heuristics from misreading measurement and currency ranges such as `от 1200 до 10000 МПа`, `от 1200 до 10000 ₽`, and spaced-thousands forms like `от 1200 до 10 000 МПа`, while reusing shared unit/currency lexicons from `numerals._constants`
 - Restore `с/со/от ... до|по ... г.` year-range normalization so explicit trailing year abbreviations keep both range endpoints in year morphology
 - Read `=` as `равно` in math-like expressions when at least one side contains digits, covering forms such as `t=10` and `x=(2+3)` while leaving plain non-numeric assignments such as `x = y` unchanged
 - Read `~` as `примерно` before numeric expressions and treat compact lowercase `k` suffixes such as `250k` as thousands while keeping uppercase `K` for Kelvin units
@@ -19,6 +19,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Stop misreading title-case `См.` as a Cyrillic Roman numeral token and normalize single chapter/section-style references such as `главу 10`, `из главы 10`, and `из раздела 3` to ordinal forms like `главу десятую`, `из главы десятой`, and `из раздела третьего`
 - Inflect adjective-like abbreviations such as `гос.`, `междунар.`, and `полит.` from the following noun phrase so forms like `гос. контроля` normalize to `государственного контроля`
 - Normalize `&` contextually as `и` in Russian phrases and as `энд` in brand-like English letter-name contexts such as `AT&T`
+- Route safe `число-дефис-единица` forms such as `35-мм`, `35 - мм`, and `1,5-мл` through shared numeral hyphen handling so they normalize like spaced units while leaving ordinary forms such as `20-этажный` and ambiguous single-letter suffixes alone
+- Keep preprocess from eagerly converting ASCII ` - ` into `—`; only normalize explicit dash characters there, canonize numeric `число - suffix/unit` forms such as `35 - мм`, `20 - этажный`, and `5 - й` before numeral handling, and move leftover ASCII word-separator dashes to finalize so plain spaced ranges like `10 - 20` stay range-like
 
 ## [0.1.4] - 2026-03-15
 ### Changed

@@ -195,6 +195,14 @@ class RuNormalizrApiTests(unittest.TestCase):
             "Планета-печка и Великая Революция",
         )
 
+    def test_preprocess_text_keeps_ascii_spaced_hyphen_for_later_stages(self):
+        self.assertEqual(preprocess_text("слово - слово"), "слово - слово")
+        self.assertEqual(preprocess_text("35 - мм"), "35 - мм")
+
+    def test_preprocess_text_normalizes_explicit_dash_characters(self):
+        self.assertEqual(preprocess_text("слово – слово"), "слово — слово")
+        self.assertEqual(preprocess_text("слово ― слово"), "слово — слово")
+
     def test_preprocess_text_normalizes_leading_caps_heading_phrase(self):
         self.assertEqual(
             preprocess_text(
@@ -468,7 +476,7 @@ class RuNormalizrApiTests(unittest.TestCase):
     def test_normalize_preserves_numeric_range_as_non_minus(self):
         self.assertEqual(
             normalize("10 - 20"),
-            "десять, двадцать",
+            "десять — двадцать",
         )
 
     def test_normalize_handles_negative_decimal_from_start_of_text(self):
@@ -772,6 +780,17 @@ class RuNormalizrApiTests(unittest.TestCase):
             normalize("длина 5 м, температура 300 °C. Ждали 5 С."),
             "длина пять метров, температура триста градусов Цельсия. Ждали пять секунд.",
         )
+
+    def test_normalize_supports_safe_hyphenated_numeric_units(self):
+        self.assertEqual(normalize("35-мм"), "тридцать пять миллиметров")
+        self.assertEqual(normalize("35 - мм"), "тридцать пять миллиметров")
+        self.assertEqual(normalize("1,5-мл"), "одна целая пять десятых миллилитра")
+        self.assertEqual(
+            normalize("35-ММ", NormalizeOptions.tts()),
+            "тридцать пять миллиметров",
+        )
+        self.assertEqual(normalize("20 - этажный дом"), "двадцатиэтажный дом")
+        self.assertEqual(normalize("5 - й этаж"), "пятый этаж")
 
     def test_normalize_keeps_ambiguous_single_letter_units_as_prepositions_in_running_text(self):
         self.assertEqual(

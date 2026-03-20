@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 
 from ._morph import get_morph
-from .numerals._constants import ALL_UNITS
+from .numerals._constants import ALL_UNITS, CURRENCY_STANDALONE, ENTITY_KEYWORDS
 from .text_context import normalize_context_token, simple_tokenize
 
 YEAR_MIN = 1000
@@ -16,6 +16,13 @@ YEAR_IMPLICIT_PREP_PATTERN = rf"(?:1\d|20)\d{{2}}{SPACED_THOUSANDS_TAIL}"
 
 _TRIVIA_TOKENS = {",", ";", ":", ".", "!", "?", "…", "»", '"', "”", ")", "]", "}"}
 _NON_YEAR_EXCEPTION_LEMMAS = {"раз", "место"}
+_NON_YEAR_LEXICON = (
+    ALL_UNITS
+    | set(CURRENCY_STANDALONE)
+    | ENTITY_KEYWORDS["money"]
+    | ENTITY_KEYWORDS["percent"]
+    | ENTITY_KEYWORDS["measure"]
+)
 
 
 def _leading_context_tokens(text: str, start: int, limit: int = 3) -> list[str]:
@@ -47,13 +54,13 @@ def is_plausible_year(value: int) -> bool:
 
 
 def _is_non_year_following_token(token: str) -> bool:
-    if token in ALL_UNITS:
+    if token in _NON_YEAR_LEXICON:
         return True
     parsed = get_morph().parse(token)
     if not parsed:
         return False
     lemma = parsed[0].normal_form
-    return lemma in ALL_UNITS or lemma in _NON_YEAR_EXCEPTION_LEMMAS
+    return lemma in _NON_YEAR_LEXICON or lemma in _NON_YEAR_EXCEPTION_LEMMAS
 
 
 def should_treat_as_implicit_year(

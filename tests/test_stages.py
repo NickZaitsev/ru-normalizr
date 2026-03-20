@@ -29,6 +29,10 @@ class RuNormalizrStageTests(unittest.TestCase):
             normalize_roman("Диаметр 40 см."),
             "Диаметр 40 см.",
         )
+        self.assertEqual(
+            normalize_roman("Фотокамера 35-ММ."),
+            "Фотокамера 35-ММ.",
+        )
 
     def test_roman_stage_keeps_title_case_see_abbreviation(self):
         self.assertEqual(
@@ -169,11 +173,31 @@ class RuNormalizrStageTests(unittest.TestCase):
             "двадцатиэтажный дом",
         )
 
+    def test_numeral_stage_supports_safe_hyphenated_units(self):
+        normalizer = Normalizer()
+        self.assertEqual(
+            normalizer.run_stage("numerals", "35-мм и 1,5-мл"),
+            "тридцать пять миллиметров и одна целая пять десятых миллилитра",
+        )
+        self.assertEqual(
+            normalizer.run_stage("numerals", "20 - этажный дом и 5 - й этаж"),
+            "двадцатиэтажный дом и пятый этаж",
+        )
+        self.assertEqual(
+            normalizer.run_stage("numerals", "20-этажный дом"),
+            "двадцатиэтажный дом",
+        )
+
     def test_math_symbol_stage_reads_equals_when_one_side_contains_digits(self):
         self.assertEqual(normalize_math_symbols("t=10"), "t равно 10")
         self.assertEqual(normalize_math_symbols("x=(2+3)"), "x равно (2+3)")
         self.assertEqual(normalize_math_symbols("x = y"), "x = y")
         self.assertEqual(normalize_math_symbols("======"), "======")
+
+    def test_finalize_stage_converts_ascii_spaced_hyphen_to_dash(self):
+        normalizer = Normalizer()
+        self.assertEqual(normalizer.run_stage("finalize", "слово - слово"), "слово — слово")
+        self.assertEqual(normalizer.run_stage("finalize", "слово — слово"), "слово — слово")
 
     def test_abbreviation_stage(self):
         self.assertEqual(
@@ -284,11 +308,16 @@ class RuNormalizrStageTests(unittest.TestCase):
     def test_year_stage_keeps_measurement_contexts_out_of_implicit_year_rules(self):
         self.assertEqual(normalize_years("в 1990 кг"), "в 1990 кг")
         self.assertEqual(normalize_years("в 1990 % случаев"), "в 1990 % случаев")
+        self.assertEqual(normalize_years("в 1990 ¢"), "в 1990 ¢")
         self.assertEqual(normalize_years("в 1990 руб."), "в 1990 руб.")
         self.assertEqual(normalize_years("в 1990 usd"), "в 1990 usd")
         self.assertEqual(normalize_years("от 1000 до 1200 кг"), "от 1000 до 1200 кг")
+        self.assertEqual(normalize_years("от 1200 до 10000 ¢"), "от 1200 до 10000 ¢")
         self.assertEqual(normalize_years("от 1200 до 10000 ₽"), "от 1200 до 10000 ₽")
         self.assertEqual(normalize_years("от 1200 до 10000 МПа"), "от 1200 до 10000 МПа")
+        self.assertEqual(
+            normalize_years("от 1200 до 10 000 ¢"), "от 1200 до 10 000 ¢"
+        )
         self.assertEqual(
             normalize_years("от 1200 до 10 000 ₽"), "от 1200 до 10 000 ₽"
         )

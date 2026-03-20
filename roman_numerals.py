@@ -7,6 +7,7 @@ import roman
 from ._morph import get_morph
 from .constants import KNOWN_ABBREVIATIONS
 from .numerals._helpers import get_numeral_case
+from .numerals._hyphen import is_safe_numeric_hyphen_unit
 from .options import NormalizeOptions
 from .text_context import simple_tokenize
 
@@ -187,6 +188,10 @@ def normalize_cyrillic_roman(text: str) -> str:
             return word
         if word != word.upper():
             return word
+        if is_safe_numeric_hyphen_unit(word):
+            left_context = text[max(0, match.start() - 32) : match.start()]
+            if re.search(r"\d+(?:[.,]\d+)?\s*[-–—]?\s*$", left_context):
+                return word
         if not any(char in "ХхСсІіМм" for char in word):
             return word
         latin_word = "".join(cyrillic_to_latin.get(char, char) for char in word).upper()

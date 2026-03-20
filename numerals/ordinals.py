@@ -8,6 +8,7 @@ from .._morph import get_morph
 from ..text_context import simple_tokenize
 from ._constants import HYPHENATED_WORD_PATTERN, ORDINAL_PATTERN
 from ._helpers import get_numeral_case, inflect_numeral_string
+from ._hyphen import CARDINAL_CASE_SUFFIXES, classify_numeric_hyphen_rhs
 
 HEADING_WORDS_PATTERN = (
     r"глава|главы|главе|главу|главой|главами|главах|"
@@ -161,9 +162,10 @@ def normalize_hyphenated_words(text: str) -> str:
         num_str = match.group(1)
         word = match.group(2)
         word_lower = word.lower()
-        ordinal_suffixes = {"й", "я", "е", "го", "му", "м", "ю", "ее", "ий", "ая", "ое"}
-        cardinal_case_suffixes = {"ти", "ми", "х", "мя", "и"}
-        if word_lower in ordinal_suffixes:
+        word_kind = classify_numeric_hyphen_rhs(word)
+        if word_kind == "unit":
+            return match.group(0)
+        if word_kind == "ordinal_suffix":
             return match.group(0)
         if (
             word_lower
@@ -227,7 +229,7 @@ def normalize_hyphenated_words(text: str) -> str:
         )
         target_case = "gent" if is_adj_like and case == "nomn" else case
         num_words = inflect_numeral_string(num_str, target_case)
-        if word_lower in cardinal_case_suffixes:
+        if word_lower in CARDINAL_CASE_SUFFIXES:
             return num_words
         return (
             f"{num_words}{word}"

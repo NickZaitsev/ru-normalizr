@@ -4,7 +4,7 @@ import re
 
 from .constants import CLEANUP_REPLACEMENTS, UNICODE_FRACTIONS
 
-DASH_SPACE_PATTERN = re.compile(r" - ")
+ASCII_DASH_SPACE_PATTERN = re.compile(r" - ")
 LETTER_HYPHEN_PATTERN = re.compile(r"(?<=[A-Za-zА-Яа-яЁё])-(?=[A-Za-zА-Яа-яЁё])")
 SLASH_FIX_PATTERN = re.compile(r"(?<=[a-zA-Zа-яА-ЯёЁ+])/(?=[a-zA-Zа-яА-ЯёЁ+])")
 UNIT_SLASH_PATTERN = re.compile(
@@ -108,8 +108,12 @@ def normalize_punctuation_spacing(text: str) -> str:
     return SENTENCE_SPACE_AFTER_PATTERN.sub(" ", text)
 
 
-def normalize_spaced_hyphens(text: str) -> str:
-    return DASH_SPACE_PATTERN.sub(" — ", text)
+def normalize_explicit_dashes(text: str) -> str:
+    return text.translate(str.maketrans({"–": "—", "―": "—"}))
+
+
+def normalize_spaced_ascii_hyphens(text: str) -> str:
+    return ASCII_DASH_SPACE_PATTERN.sub(" — ", text)
 
 
 def protect_negative_numbers(text: str) -> str:

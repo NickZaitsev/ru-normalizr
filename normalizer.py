@@ -23,6 +23,10 @@ from .numerals import (
     normalize_numerals,
     normalize_ordinals,
 )
+from .numerals._hyphen import (
+    normalize_numeric_unit_hyphen_links,
+    normalize_spaced_numeric_hyphen_words,
+)
 from .options import NormalizeOptions
 from .preprocess_utils import (
     SLASH_FIX_PATTERN,
@@ -31,9 +35,10 @@ from .preprocess_utils import (
     clean_numbers,
     expand_years_ago_abbreviation,
     normalize_ascii_quote_pairs,
+    normalize_explicit_dashes,
     normalize_linebreaks,
     normalize_punctuation_spacing,
-    normalize_spaced_hyphens,
+    normalize_spaced_ascii_hyphens,
     normalize_unicode_fractions,
     protect_letter_hyphens,
     protect_negative_numbers,
@@ -196,7 +201,7 @@ class PipelineNormalizer:
         text = normalize_punctuation_spacing(text)
         text = expand_years_ago_abbreviation(text)
         text = protect_negative_numbers(text)
-        text = normalize_spaced_hyphens(text)
+        text = normalize_explicit_dashes(text)
         text = convert_bracketed_numbers(text, self.options)
         text = convert_line_numbering(text)
         if apply_caps_normalization:
@@ -236,6 +241,8 @@ class PipelineNormalizer:
         if not self.options.enable_numeral_normalization:
             return text
         text = normalize_math_symbols(text)
+        text = normalize_spaced_numeric_hyphen_words(text)
+        text = normalize_numeric_unit_hyphen_links(text)
         text = normalize_decimals(text)
         text = normalize_fractions(text)
         text = normalize_hyphenated_words(text)
@@ -266,6 +273,7 @@ class PipelineNormalizer:
 
     def run_finalize(self, text: str) -> str:
         text = normalize_ascii_quote_pairs(text)
+        text = normalize_spaced_ascii_hyphens(text)
         text = normalize_punctuation_spacing(text)
         text = normalize_linebreaks(text, keep_paragraph_placeholders=True)
         text = normalize_sentence_start_caps(text)
