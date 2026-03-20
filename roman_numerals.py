@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+import num2words
 import roman
 
 from ._morph import get_morph
@@ -9,7 +10,7 @@ from .constants import KNOWN_ABBREVIATIONS
 from .numerals._helpers import get_numeral_case
 from .numerals._hyphen import is_safe_numeric_hyphen_unit
 from .options import NormalizeOptions
-from .text_context import simple_tokenize
+from .text_context import normalize_context_token, simple_tokenize
 
 _ROMAN_ABBREVIATION_EXCEPTIONS = frozenset(
     {
@@ -33,6 +34,44 @@ _CENTURY_CASE_TO_ENDING = {
     "ablt": "-м",
     "loct": "-м",
 }
+
+_REGNAL_CASE_CONTEXT = {
+    "в": "loct",
+    "во": "loct",
+    "на": "loct",
+    "о": "loct",
+    "об": "loct",
+    "обо": "loct",
+    "при": "loct",
+    "к": "datv",
+    "ко": "datv",
+    "по": "datv",
+    "с": "gent",
+    "со": "gent",
+    "из": "gent",
+    "от": "gent",
+    "до": "gent",
+    "у": "gent",
+    "без": "gent",
+    "для": "gent",
+    "около": "gent",
+    "после": "gent",
+    "ради": "gent",
+    "между": "ablt",
+    "над": "ablt",
+    "под": "ablt",
+    "перед": "ablt",
+    "пред": "ablt",
+}
+_REGNAL_CASE_TO_NUM2WORDS = {
+    "nomn": "nominative",
+    "gent": "genitive",
+    "datv": "dative",
+    "accs": "accusative",
+    "ablt": "instrumental",
+    "loct": "prepositional",
+}
+_REGNAL_GENDER_TO_NUM2WORDS = {"masc": "m", "femn": "f", "neut": "n"}
 
 
 def _expand_century_abbreviation(text: str, match: re.Match[str], number: int) -> str:
@@ -113,13 +152,61 @@ def convert_roman_words(text: str) -> str:
 
 
 def convert_roman_names(text: str) -> str:
-    pattern = r"\b([А-ЯЁ][а-яё]+)\s+(II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV)\b"
+    pattern = r"\b(?P<name>[А-ЯЁ][а-яё]+)\s+(?P<roman>[IVXLCDM]+)\b"
+
+    def pick_name_parse(match: re.Match[str]):
+        name = match.group("name")
+        parses = [
+            candidate
+            for candidate in get_morph().parse(name)
+            if "NOUN" in candidate.tag
+            and "anim" in candidate.tag
+            and any(
+                marker in candidate.tag for marker in ("Name", "Surn", "Patr")
+            )
+        ]
+        if not parses:
+            return None
+
+        left_context = text[max(0, match.start() - 40) : match.start()]
+        left_tokens = simple_tokenize(left_context)
+        left_word = next(
+            (
+                normalize_context_token(token)
+                for token in reversed(left_tokens)
+                if any(char.isalpha() for char in token)
+            ),
+            "",
+        )
+        target_case = _REGNAL_CASE_CONTEXT.get(left_word)
+        if target_case is not None:
+            for candidate in parses:
+                candidate_case = "loct" if "loc2" in candidate.tag else candidate.tag.case
+                if candidate_case == target_case:
+                    return candidate
+        return parses[0]
 
     def repl(match: re.Match[str]) -> str:
         try:
-            return f"{match.group(1)} {roman.fromRoman(match.group(2))}"
+            number = roman.fromRoman(match.group("roman"))
         except roman.InvalidRomanNumeralError:
             return match.group(0)
+        parse = pick_name_parse(match)
+        if parse is None:
+            return match.group(0)
+        case = "loct" if "loc2" in parse.tag else (parse.tag.case or "nomn")
+        gender = parse.tag.gender or "masc"
+        kwargs = {
+            "lang": "ru",
+            "to": "ordinal",
+            "case": _REGNAL_CASE_TO_NUM2WORDS.get(case, "nominative"),
+            "gender": _REGNAL_GENDER_TO_NUM2WORDS.get(gender, "m"),
+        }
+        try:
+            ordinal = num2words.num2words(number, **kwargs)
+        except Exception:
+            ordinal = num2words.num2words(number, lang="ru", to="ordinal")
+        return f"{match.group('name')} {ordinal}"
 
     return re.sub(pattern, repl, text)
 
