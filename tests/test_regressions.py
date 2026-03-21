@@ -2,8 +2,32 @@ import unittest
 from unittest.mock import patch
 
 from ru_normalizr import NormalizeOptions, normalize
+from ru_normalizr.abbreviations import expand_abbreviations
 from ru_normalizr.latinization import apply_latinization
 from ru_normalizr.numerals import _constants, get_numeral_case, simple_tokenize
+
+
+class _FakeTag:
+    def __init__(self, *grammemes: str):
+        self.grammemes = frozenset(grammemes)
+        self.POS = None
+
+    def __contains__(self, grammeme: str) -> bool:
+        if grammeme == "PNCT":
+            raise ValueError(f"Grammeme is unknown: {grammeme}")
+        return grammeme in self.grammemes
+
+
+class _FakeParse:
+    def __init__(self, *grammemes: str):
+        self.tag = _FakeTag(*grammemes)
+
+
+class _FakeMorph:
+    def parse(self, token: str):
+        if token == "Петербург":
+            return [_FakeParse("Geox")]
+        return []
 
 
 class RuNormalizrRegressionTests(unittest.TestCase):
@@ -17,6 +41,13 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         "больше",
         "меньше",
     )
+
+    def test_single_initial_geographical_name_check_does_not_call_tag_contains_for_pnct(self):
+        with patch("ru_normalizr.abbreviations.get_morph", return_value=_FakeMorph()):
+            self.assertEqual(
+                expand_abbreviations("С. Петербург", NormalizeOptions.tts()),
+                "С. Петербург",
+            )
 
     def test_dictionary_latinization_expected_output_for_long_english_text(self):
         text = (
