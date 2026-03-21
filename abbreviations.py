@@ -202,23 +202,37 @@ def expand_person_initials(text: str) -> str:
     def initial_name(ch: str) -> str:
         return RU_LETTER_NAMES.get(ch.upper(), ch.lower())
 
+    def candidate_grammemes(candidate) -> frozenset[str]:
+        grammemes = getattr(candidate.tag, "grammemes", None)
+        if grammemes is None:
+            return frozenset()
+        return frozenset(grammemes)
+
     def is_likely_person_name_token(token: str) -> bool:
         parsed = get_morph().parse(token)
         if not parsed:
             return True
-        meaningful = [candidate for candidate in parsed if "PNCT" not in candidate.tag]
+        meaningful = [
+            candidate
+            for candidate in parsed
+            if "PNCT" not in candidate_grammemes(candidate)
+        ]
         if not meaningful:
             return True
         if any(
-            marker in candidate.tag
+            marker in candidate_grammemes(candidate)
             for candidate in meaningful
             for marker in ("Surn", "Name", "Patr")
         ):
             return True
         top_candidates = meaningful[:3]
-        if top_candidates and all("Geox" in candidate.tag for candidate in top_candidates):
+        if top_candidates and all(
+            "Geox" in candidate_grammemes(candidate) for candidate in top_candidates
+        ):
             return False
-        if top_candidates and all("Abbr" in candidate.tag for candidate in top_candidates):
+        if top_candidates and all(
+            "Abbr" in candidate_grammemes(candidate) for candidate in top_candidates
+        ):
             return False
         return True
 
