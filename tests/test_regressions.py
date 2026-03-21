@@ -217,6 +217,17 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         self.assertIn("обновил", result)
         self.assertIn("для", result)
 
+    def test_ipa_latinization_falls_back_to_bundled_dictionary_when_requested_file_is_missing(self):
+        self.assertEqual(
+            apply_latinization(
+                "Beobachtung",
+                enabled=True,
+                backend="ipa",
+                dictionary_filename="65_ЛАТИНИЦА@.dic",
+            ),
+            "бэобэчтюнг",
+        )
+
     def test_unit_candidate_does_not_glue_meter_and_preposition_into_millivolt(self):
         with patch.dict(
             _constants.UNITS_DATA,

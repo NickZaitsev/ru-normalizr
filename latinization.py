@@ -143,20 +143,36 @@ def _apply_dictionary_latinization(
     return normalizer.apply(text, strip_unmatched_latin=False)
 
 
-def _resolve_latinization_dictionary_path(
+def _resolve_latinization_dictionary_source(
     dictionaries_path: Path | None, filename: str
-) -> Path:
+) -> tuple[Path, str]:
     if dictionaries_path is None:
-        return DEFAULT_LATINIZATION_DICTIONARIES_PATH
+        default_file = DEFAULT_LATINIZATION_DICTIONARIES_PATH / filename
+        if default_file.exists():
+            return DEFAULT_LATINIZATION_DICTIONARIES_PATH, filename
+        return DEFAULT_LATINIZATION_DICTIONARIES_PATH, "latinization_rules.dic"
 
-    if (dictionaries_path / filename).exists():
-        return dictionaries_path
+    direct_path = dictionaries_path / filename
+    if direct_path.exists():
+        return dictionaries_path, filename
 
     nested_path = dictionaries_path / "latinization"
-    if (nested_path / filename).exists():
-        return nested_path
+    nested_file = nested_path / filename
+    if nested_file.exists():
+        return nested_path, filename
 
-    return dictionaries_path
+    default_file = DEFAULT_LATINIZATION_DICTIONARIES_PATH / filename
+    if default_file.exists():
+        return DEFAULT_LATINIZATION_DICTIONARIES_PATH, filename
+
+    bundled_default_filename = "latinization_rules.dic"
+    bundled_default_file = (
+        DEFAULT_LATINIZATION_DICTIONARIES_PATH / bundled_default_filename
+    )
+    if bundled_default_file.exists():
+        return DEFAULT_LATINIZATION_DICTIONARIES_PATH, bundled_default_filename
+
+    return dictionaries_path, filename
 
 
 def _apply_ipa_latinization(
@@ -200,17 +216,17 @@ def apply_latinization(
     if not enabled or not re.search(r"[A-Za-z]", text):
         return text
 
-    dict_path = _resolve_latinization_dictionary_path(
+    dict_path, resolved_filename = _resolve_latinization_dictionary_source(
         dictionaries_path, dictionary_filename
     )
     backend_name = backend.lower()
     if backend_name == "dictionary":
-        return _apply_dictionary_latinization(text, dict_path, dictionary_filename)
+        return _apply_dictionary_latinization(text, dict_path, resolved_filename)
     if backend_name == "ipa":
         return _apply_ipa_latinization(
             text,
             dict_path,
-            dictionary_filename,
+            resolved_filename,
             include_stress_markers=include_stress_markers,
         )
     return text

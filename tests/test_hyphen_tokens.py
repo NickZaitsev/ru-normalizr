@@ -22,6 +22,11 @@ class RuNormalizrHyphenTokenTests(unittest.TestCase):
         self.assertEqual(normalize("B52G", options), "би пятьдесят два-джи")
         self.assertEqual(normalize("Z80A", options), "зи восемьдесят-э")
 
+    def test_normalize_distinguishes_mixed_case_and_all_caps_latin_index_tokens(self):
+        options = NormalizeOptions.tts()
+        self.assertEqual(normalize("Stg-44", options), "стг-сорок четыре")
+        self.assertEqual(normalize("STG-44", options), "эс ти джи-сорок четыре")
+
 
 if __name__ == "__main__":
     unittest.main()
