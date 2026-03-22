@@ -469,7 +469,13 @@ def convert_roman_century_ranges(text: str) -> str:
             right_number = roman.fromRoman(match.group("right").upper())
         except roman.InvalidRomanNumeralError:
             return match.group(0)
-        right_case = "gent" if match.group("mid").lower() == "до" else None
+        normalized_word = normalize_context_token(match.group("word"))
+        if match.group("mid").lower() == "до":
+            right_case = "gent"
+        elif normalized_word == "вв":
+            right_case = "nomn"
+        else:
+            right_case = None
         resolved = _resolve_explicit_roman_context_form(
             match.group("word"),
             case_override=right_case,

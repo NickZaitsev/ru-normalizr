@@ -120,6 +120,22 @@ class RuNormalizrStageTests(unittest.TestCase):
             normalize_roman("В XV-XVI вв. менялись маршруты."),
             "В пятнадцатом — шестнадцатом веках менялись маршруты.",
         )
+        self.assertEqual(
+            normalize_roman("XV и XVI вв."),
+            "пятнадцатый и шестнадцатый века",
+        )
+        self.assertEqual(
+            normalize_roman("XV-XVI вв."),
+            "пятнадцатый — шестнадцатый века",
+        )
+        self.assertEqual(
+            normalize_roman("С XVI по XVIII вв. менялись маршруты."),
+            "С шестнадцатого по восемнадцатый века менялись маршруты.",
+        )
+        self.assertEqual(
+            normalize_roman("От XVI до XVIII вв. менялись маршруты."),
+            "От шестнадцатого до восемнадцатого веков менялись маршруты.",
+        )
 
     def test_roman_stage_reads_quarter_abbreviations_in_context(self):
         self.assertEqual(

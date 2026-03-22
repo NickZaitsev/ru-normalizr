@@ -52,6 +52,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Normalize left-shared heading ranges written with hyphens, so forms such as `главы IV-V` and `в разделах IV-V` no longer partially convert only the first Roman numeral
 - Improve abbreviated Roman context handling for `кв.` and `вв.`, and keep `от ... до ... в.` ranges in the expected genitive form on the right endpoint
 - Keep malformed Roman hyphen ranges from partially converting only their right-hand side, so inputs such as `IIII-IV век` stay untouched instead of turning into mixed forms like `IIII-четвёртый век`
+- Treat `вв.` consistently as plural `века` across shared series and range patterns, covering forms such as `XV и XVI вв.`, `XV-XVI вв.`, `с XVI по XVIII вв.`, and `от XVI до XVIII вв.`
 
 ## [0.1.4] - 2026-03-15
 ### Changed
