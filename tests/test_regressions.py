@@ -8,6 +8,7 @@ from ru_normalizr.abbreviations import expand_abbreviations
 from ru_normalizr.dictionary import DictionaryNormalizer
 from ru_normalizr.latinization import (
     _resolve_unknown_latin_fallback,
+    _resolve_unknown_latin_fallbacks,
     apply_latinization,
 )
 from ru_normalizr.numerals import _constants, get_numeral_case, simple_tokenize
@@ -47,6 +48,18 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         "больше",
         "меньше",
     )
+
+    @staticmethod
+    def _alpha_word(index: int) -> str:
+        letters: list[str] = []
+        current = index
+        while True:
+            current, remainder = divmod(current, 26)
+            letters.append(chr(ord("a") + remainder))
+            if current == 0:
+                break
+            current -= 1
+        return "token" + "".join(reversed(letters))
 
     def test_single_initial_geographical_name_check_does_not_call_tag_contains_for_pnct(self):
         with patch("ru_normalizr.abbreviations.get_morph", return_value=_FakeMorph()):
@@ -259,6 +272,59 @@ class RuNormalizrRegressionTests(unittest.TestCase):
             )
 
         self.assertEqual(calls, ["mystery", "мистери"])
+
+    def test_ipa_latinization_batches_large_eng_to_ipa_lookups(self):
+        words = [self._alpha_word(index) for index in range(1700)]
+        calls: list[list[str]] = []
+
+        def fake_ipa_list(
+            words_in, keep_punct=True, stress_marks="both", db_type="sql"
+        ):
+            del keep_punct, stress_marks, db_type
+            chunk = list(words_in)
+            calls.append(chunk)
+            return [["ˈmɪstəri"] for _ in chunk]
+
+        with patch("eng_to_ipa.ipa_list", side_effect=fake_ipa_list):
+            result = apply_latinization(
+                " ".join(words),
+                enabled=True,
+                backend="ipa",
+            )
+
+        self.assertEqual(len(calls), 3)
+        self.assertTrue(all(len(chunk) <= 800 for chunk in calls))
+        self.assertEqual(len(result.split()), len(words))
+        self.assertNotRegex(result, r"[A-Za-z]")
+
+    def test_unknown_latin_fallback_batches_dictionary_rewrite_for_many_words(self):
+        words = tuple(self._alpha_word(index) for index in range(12))
+        calls: list[str] = []
+
+        def fake_apply(text: str, dictionaries_path: Path, filename: str) -> str:
+            del dictionaries_path, filename
+            calls.append(text)
+            return "\n".join(
+                line if line.endswith("_ru") else f"{line}_ru"
+                for line in text.split("\n")
+            )
+
+        with patch(
+            "ru_normalizr.latinization._apply_dictionary_latinization",
+            side_effect=fake_apply,
+        ):
+            result = _resolve_unknown_latin_fallbacks(
+                words,
+                "C:/tmp",
+                "latinization.dic",
+            )
+
+        self.assertEqual(
+            result,
+            {word: f"{word}_ru" for word in words},
+        )
+        self.assertEqual(len(calls), 2)
+        self.assertIn("\n", calls[0])
 
     def test_dictionary_normalizer_precompiles_simple_chunks_once(self):
         with TemporaryDirectory() as tmp_dir:

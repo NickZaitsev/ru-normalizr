@@ -8,6 +8,10 @@ from .dictionary import DictionaryNormalizer
 
 DEFAULT_DICTIONARIES_PATH = Path(__file__).resolve().parent / "dictionaries"
 DEFAULT_LATINIZATION_DICTIONARIES_PATH = DEFAULT_DICTIONARIES_PATH / "latinization"
+LATIN_TOKEN_PATTERN = re.compile(r"[A-Za-z][A-Za-z'\-]*")
+IPA_BATCH_SIZE = 800
+IPA_BATCH_THRESHOLD = 24
+DICTIONARY_FALLBACK_BATCH_THRESHOLD = 8
 
 # Order matters.
 IPA_MAP = [
@@ -97,6 +101,20 @@ def _ipa_convert_cached(word: str) -> str:
     return ipa.convert(word)
 
 
+def _ipa_convert_batch(words: tuple[str, ...]) -> tuple[str, ...]:
+    import eng_to_ipa as ipa
+
+    converted: list[str] = []
+    for start in range(0, len(words), IPA_BATCH_SIZE):
+        chunk = list(words[start : start + IPA_BATCH_SIZE])
+        ipa_chunks = ipa.ipa_list(chunk, keep_punct=True)
+        converted.extend(
+            ipa_variants[-1] if ipa_variants else ""
+            for ipa_variants in ipa_chunks
+        )
+    return tuple(converted)
+
+
 @lru_cache(maxsize=50000)
 def _resolve_unknown_latin_fallback(
     word: str, dictionaries_path: str, filename: str
@@ -109,6 +127,35 @@ def _resolve_unknown_latin_fallback(
             break
         current = updated
     return current
+
+
+def _resolve_unknown_latin_fallbacks(
+    words: tuple[str, ...], dictionaries_path: str, filename: str
+) -> dict[str, str]:
+    unique_words = tuple(dict.fromkeys(words))
+    if not unique_words:
+        return {}
+    if len(unique_words) <= DICTIONARY_FALLBACK_BATCH_THRESHOLD:
+        return {
+            word: _resolve_unknown_latin_fallback(word, dictionaries_path, filename)
+            for word in unique_words
+        }
+
+    current = "\n".join(unique_words)
+    resolved_path = Path(dictionaries_path)
+    for _ in range(6):
+        updated = _apply_dictionary_latinization(current, resolved_path, filename)
+        if updated == current:
+            break
+        current = updated
+
+    resolved_words = current.split("\n")
+    if len(resolved_words) != len(unique_words):
+        return {
+            word: _resolve_unknown_latin_fallback(word, dictionaries_path, filename)
+            for word in unique_words
+        }
+    return dict(zip(unique_words, resolved_words))
 
 
 def handle_long_vowels(ipa: str) -> str:
@@ -201,18 +248,43 @@ def _apply_ipa_latinization(
     except ImportError:
         return text
 
-    def replace(match: re.Match[str]) -> str:
-        word = match.group(0)
-        ipa_text = _ipa_convert_cached(word.lower())
+    matches = list(LATIN_TOKEN_PATTERN.finditer(text))
+    if not matches:
+        return text
+
+    unique_words = tuple(dict.fromkeys(match.group(0).lower() for match in matches))
+    if len(unique_words) <= IPA_BATCH_THRESHOLD:
+        ipa_results = {
+            word: _ipa_convert_cached(word)
+            for word in unique_words
+        }
+    else:
+        ipa_results = dict(zip(unique_words, _ipa_convert_batch(unique_words)))
+
+    replacements: dict[str, str] = {}
+    unknown_words: list[str] = []
+    for word, ipa_text in ipa_results.items():
         if "*" in ipa_text:
-            return _resolve_unknown_latin_fallback(
-                word, str(dictionaries_path), filename
-            )
-        return _ipa_to_russian(
+            unknown_words.append(word)
+            continue
+        replacements[word] = _ipa_to_russian(
             ipa_text, include_stress_markers=include_stress_markers
         )
 
-    return re.sub(r"[A-Za-z][A-Za-z'\-]*", replace, text)
+    if unknown_words:
+        replacements.update(
+            _resolve_unknown_latin_fallbacks(
+                tuple(unknown_words),
+                str(dictionaries_path),
+                filename,
+            )
+        )
+
+    def replace(match: re.Match[str]) -> str:
+        word = match.group(0).lower()
+        return replacements.get(word, match.group(0))
+
+    return LATIN_TOKEN_PATTERN.sub(replace, text)
 
 
 def apply_latinization(

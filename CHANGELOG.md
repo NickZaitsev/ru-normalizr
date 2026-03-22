@@ -4,6 +4,10 @@ All notable changes to `ru-normalizr` will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## Unreleased
+### Changed
+- Speed up IPA latinization on large texts with many distinct Latin tokens by batching `eng_to_ipa` lookups and batched dictionary fallback rewrites instead of resolving every token separately
+
 ## [0.2.0] - 2026-03-22
 ### Added
 - Add an early TTS-only URL stage that rewrites explicit links such as `https://example.com/a1` into spoken separator words and digit-by-digit number readings before preprocess, while leaving plain Latin chunks for the later latinization stage
