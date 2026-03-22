@@ -53,6 +53,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Improve abbreviated Roman context handling for `кв.` and `вв.`, and keep `от ... до ... в.` ranges in the expected genitive form on the right endpoint
 - Keep malformed Roman hyphen ranges from partially converting only their right-hand side, so inputs such as `IIII-IV век` stay untouched instead of turning into mixed forms like `IIII-четвёртый век`
 - Treat `вв.` consistently as plural `века` across shared series and range patterns, covering forms such as `XV и XVI вв.`, `XV-XVI вв.`, `с XVI по XVIII вв.`, and `от XVI до XVIII вв.`
+- Refresh README Python examples so Roman heading outputs such as `Глава IV.` match the current ordinal normalization (`Глава четвёртая.`)
 
 ## [0.1.4] - 2026-03-15
 ### Changed
