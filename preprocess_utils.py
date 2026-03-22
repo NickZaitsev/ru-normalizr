@@ -79,6 +79,11 @@ SENTENCE_SPACE_AFTER_PATTERN = re.compile(r"(?<=[.!?…])(?=[\"(«„“]?[A-ZА
 CYRILLIC_COMBINING_STRESS_PATTERN = re.compile(
     r"([АЕЁИОУЫЭЮЯаеёиоуыэюя])([\u0300\u0301])"
 )
+ZERO_WIDTH_FORMATTING_PATTERN = re.compile(r"[\u200B\u200C\u200D\u2060\uFEFF]")
+PAGE_ABBREVIATION_PATTERN = re.compile(r"\b[сp]\.\s*(?=\d)", re.IGNORECASE)
+APPROXIMATE_ABBREVIATION_PATTERN = re.compile(r"\bок\.\s*(?=\d)", re.IGNORECASE)
+ERA_BEFORE_COMMON_PATTERN = re.compile(r"до\s+н\.?\s*э\.", re.IGNORECASE)
+ERA_COMMON_PATTERN = re.compile(r"(?<!\w)н\.?\s*э\.", re.IGNORECASE)
 
 
 def normalize_ascii_quote_pairs(text: str) -> str:
@@ -113,6 +118,17 @@ def normalize_punctuation_spacing(text: str) -> str:
 
 def normalize_cyrillic_combining_stress_marks(text: str) -> str:
     return CYRILLIC_COMBINING_STRESS_PATTERN.sub(r"+\1", text)
+
+
+def remove_zero_width_formatting(text: str) -> str:
+    return ZERO_WIDTH_FORMATTING_PATTERN.sub("", text)
+
+
+def normalize_numeric_abbreviations(text: str) -> str:
+    text = PAGE_ABBREVIATION_PATTERN.sub("страница ", text)
+    text = APPROXIMATE_ABBREVIATION_PATTERN.sub("около ", text)
+    text = ERA_BEFORE_COMMON_PATTERN.sub("до нашей эры", text)
+    return ERA_COMMON_PATTERN.sub("нашей эры", text)
 
 
 def normalize_explicit_dashes(text: str) -> str:

@@ -288,6 +288,12 @@ def normalize_ordinals(text: str) -> str:
         plural = suffix in ("х", "ми", "е", "м") and not (
             suffix == "м" and case == "loct"
         )
+        if suffix == "е" and tokens_right:
+            next_clean = tokens_right[0].strip(".,!?;:")
+            if next_clean:
+                p_next = morph.parse(next_clean)[0]
+                if "sing" in p_next.tag and "neut" in p_next.tag:
+                    plural = False
         cases_map = {
             "nomn": "nominative",
             "gent": "genitive",
