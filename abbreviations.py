@@ -141,6 +141,8 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
         abbr = match.group("abbr")
         phrase = match.group("phrase")
+        if abbr.lower() in _LANGUAGE_ORIGIN_ABBREVIATIONS and phrase[:1].isupper():
+            return match.group(0)
         lemma = ADJECTIVE_ABBREVIATION_EXPANSIONS.get(abbr.lower())
         if lemma is None:
             return match.group(0)

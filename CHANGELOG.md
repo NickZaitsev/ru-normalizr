@@ -32,6 +32,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Tighten dotted `8.00` time normalization so explicit clock contexts still normalize while ordinary decimals like `3.50 руб.` and `2.15 кг` remain decimal numbers; also preserve BCE/CE terminal punctuation and handle century ranges written as `С XVI по XVIII в.`
 - Fix reported historical/BCE normalization regressions around `ок.`, `до н. э./н. э.`, parenthesized years, Roman century ranges, dotted clock times, page references like `с.22-25`, zero-width formatting garbage in Cyrillic text, and numeric/unit ranges such as `2-6 футов`
 - Normalize smart single quotation marks such as `‘...’` to ASCII quote pairs when they act as surrounding quotes, while keeping intra-word apostrophes like `rock’n’roll` unchanged
+- Stop unconditional language-abbreviation replacements such as `нем.` and `лат.` from misreading sentence-final pronoun forms like `в нем. Когда...`, while keeping contextual expansions such as `нем. слово` and `от лат. homo`
 
 ## [0.1.4] - 2026-03-15
 ### Changed

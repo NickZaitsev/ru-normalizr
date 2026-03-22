@@ -629,6 +629,14 @@ class RuNormalizrApiTests(unittest.TestCase):
             "реформа международного контроля и политической системы",
         )
 
+    def test_normalize_keeps_pronoun_sentence_boundary_before_next_sentence(self):
+        self.assertEqual(
+            normalize(
+                'Общее у всех — единое представление о мире и о месте человека в нем. Когда мы называем древних охотников и собирателей "анимистами",'
+            ),
+            'Общее у всех — единое представление о мире и о месте человека в нем. Когда мы называем древних охотников и собирателей "анимистами",',
+        )
+
     def test_normalize_supports_full_decade_suffix_spelling(self):
         self.assertEqual(
             normalize("1990-ые годы."),

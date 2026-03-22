@@ -324,6 +324,24 @@ class RuNormalizrStageTests(unittest.TestCase):
             expand_abbreviations("полит. системы"),
             "политической системы",
         )
+        self.assertEqual(
+            expand_abbreviations("нем. слово"),
+            "немецкое слово",
+        )
+
+    def test_abbreviation_stage_keeps_pronoun_sentence_boundary_for_language_like_tokens(self):
+        self.assertEqual(
+            expand_abbreviations("в нем. Когда мы вспоминали об этом"),
+            "в нем. Когда мы вспоминали об этом",
+        )
+        self.assertEqual(
+            expand_abbreviations("о нем. Потом заговорили снова"),
+            "о нем. Потом заговорили снова",
+        )
+        self.assertEqual(
+            expand_abbreviations("от нем. Beobachtung"),
+            "от немецкого Beobachtung",
+        )
 
     def test_year_stage(self):
         self.assertIn(
