@@ -43,6 +43,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Normalize coordinated Roman numerals with a shared context word on the right into contextual ordinal forms, so inputs such as `V и IV тысячелетиях до н. э.` become `пятом и четвёртом ...` instead of leaving the first numeral for latinization as `ви`
 - Normalize chapter/section/book-style Roman and Arabic headings to ordinal forms such as `Глава четвёртая` / `Глава десятая` for more consistent heading handling across the pipeline
 - Fix a crash in era-year normalization for abbreviated forms such as `50 г. до н. э.` when no leading preposition is present
+- Infer case for coordinated Roman-century series from sentence context, so forms such as `за XV и XVI века` normalize to `за пятнадцатый и шестнадцатый века` instead of an incorrect genitive reading
 
 ## [0.1.4] - 2026-03-15
 ### Changed

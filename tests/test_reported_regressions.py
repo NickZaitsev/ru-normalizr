@@ -102,6 +102,10 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             normalize("С XVI по XIX век из Африки в Америку завезли примерно десять миллионов рабов."),
             "С шестнадцатого по девятнадцатый век из Африки в Америку завезли примерно десять миллионов рабов.",
         )
+        self.assertEqual(
+            normalize("За XV и XVI века европейцы успели проплыть вокруг Африки."),
+            "За пятнадцатый и шестнадцатый века европейцы успели проплыть вокруг Африки.",
+        )
 
     def test_normalize_fixes_millennium_and_era_years(self):
         self.assertEqual(
