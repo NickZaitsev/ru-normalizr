@@ -71,6 +71,56 @@ class RuNormalizrStageTests(unittest.TestCase):
             "За пятнадцатый и шестнадцатый века европейцы успели проплыть вокруг Африки.",
         )
 
+    def test_roman_stage_reads_shared_century_series_in_dative_context(self):
+        self.assertEqual(
+            normalize_roman("К XV и XVI векам сложились новые маршруты."),
+            "К пятнадцатому и шестнадцатому векам сложились новые маршруты.",
+        )
+
+    def test_roman_stage_reads_century_abbreviation_in_context(self):
+        self.assertEqual(
+            normalize_roman("В XV в. начались перемены."),
+            "В пятнадцатом веке начались перемены.",
+        )
+        self.assertEqual(
+            normalize_roman("За XV в. многое изменилось."),
+            "За пятнадцатый век многое изменилось.",
+        )
+        self.assertEqual(
+            normalize_roman("О XV в. часто спорят историки."),
+            "О пятнадцатом веке часто спорят историки.",
+        )
+        self.assertEqual(
+            normalize_roman("К XV в. сложились новые маршруты."),
+            "К пятнадцатому веку сложились новые маршруты.",
+        )
+
+    def test_roman_stage_reads_left_shared_heading_series(self):
+        self.assertEqual(
+            normalize_roman("Главы IV и V были переработаны."),
+            "Четвёртая и пятая главы были переработаны.",
+        )
+        self.assertEqual(
+            normalize_roman("В главах IV и V описаны реформы."),
+            "В четвёртой и пятой главах описаны реформы.",
+        )
+        self.assertEqual(
+            normalize_roman("Из глав IV и V убрали примечания."),
+            "Из четвёртой и пятой глав убрали примечания.",
+        )
+        self.assertEqual(
+            normalize_roman("Разделы IV и V содержат примеры."),
+            "Четвёртый и пятый разделы содержат примеры.",
+        )
+        self.assertEqual(
+            normalize_roman("В разделах IV и V приведены примеры."),
+            "В четвёртом и пятом разделах приведены примеры.",
+        )
+        self.assertEqual(
+            normalize_roman("Из разделов IV и V убрали повторы."),
+            "Из четвёртого и пятого разделов убрали повторы.",
+        )
+
     def test_roman_stage_keeps_plain_single_letter_and_normalizes_heading_context(self):
         self.assertEqual(
             normalize_roman("Буква V и глава IV."),

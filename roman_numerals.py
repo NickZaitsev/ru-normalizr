@@ -31,15 +31,6 @@ _ROMAN_ABBREVIATION_EXCEPTIONS = frozenset(
     }
 )
 
-_CENTURY_CASE_TO_ENDING = {
-    "nomn": "-й",
-    "accs": "-й",
-    "gent": "-го",
-    "datv": "-му",
-    "ablt": "-м",
-    "loct": "-м",
-}
-
 _REGNAL_CASE_CONTEXT = {
     "в": "loct",
     "во": "loct",
@@ -86,75 +77,96 @@ _CENTURY_CASE_TO_WORD_FORM = {
     "ablt": "веком",
     "loct": "веке",
 }
-_ROMAN_WORD_SUFFIXES = {
-    "в.": ("век", "-й"),
-    "век": ("век", "-й"),
-    "века": ("века", "-го"),
-    "веку": ("веку", "-му"),
-    "веке": ("веке", "-м"),
-    "веком": ("веком", "-м"),
-    "веками": ("веками", "-ми"),
-    "веках": ("веках", "-х"),
-    "столетие": ("столетие", "-е"),
-    "столетия": ("столетия", "-го"),
-    "столетию": ("столетию", "-му"),
-    "столетии": ("столетии", "-м"),
-    "столетием": ("столетием", "-м"),
-    "столетиях": ("столетиях", "-х"),
-    "тысячелетие": ("тысячелетие", "-е"),
-    "тысячелетия": ("тысячелетия", "-го"),
-    "тысячелетию": ("тысячелетию", "-му"),
-    "тысячелетии": ("тысячелетии", "-м"),
-    "тысячелетием": ("тысячелетием", "-м"),
-    "тысячелетиях": ("тысячелетиях", "-х"),
-    "глава": ("глава", "-я"),
-    "главы": ("главы", "-й"),
-    "главе": ("главе", "-й"),
-    "главу": ("главу", "-ю"),
-    "главой": ("главой", "-й"),
-    "главами": ("главами", "-ми"),
-    "главах": ("главах", "-х"),
-    "раздел": ("раздел", "-й"),
-    "раздела": ("раздела", "-го"),
-    "разделе": ("разделе", "-м"),
-    "разделу": ("разделу", "-му"),
-    "часть": ("часть", "-я"),
-    "части": ("части", "-й"),
-    "частью": ("частью", "-й"),
-    "том": ("том", "-й"),
-    "тома": ("тома", "-го"),
-    "томе": ("томе", "-м"),
-    "томом": ("томом", "-м"),
-    "книга": ("книга", "-я"),
-    "книги": ("книги", "-й"),
-    "книге": ("книге", "-й"),
-    "книгой": ("книгой", "-й"),
-    "квартал": ("квартал", "-й"),
-    "квартала": ("квартала", "-го"),
-    "кварталу": ("кварталу", "-му"),
-    "квартале": ("квартале", "-м"),
-    "кварталом": ("кварталом", "-м"),
-    "кв.": ("квартал", "-й"),
-    "кв": ("квартал", "-й"),
-    "в": ("век", "-й"),
-}
-_ROMAN_SHARED_WORD_SUFFIXES = {
-    key: value for key, value in _ROMAN_WORD_SUFFIXES.items() if key not in {"в.", "в"}
+_ROMAN_CONTEXT_LEMMAS = frozenset(
+    {
+        "век",
+        "столетие",
+        "тысячелетие",
+        "глава",
+        "раздел",
+        "часть",
+        "том",
+        "книга",
+        "квартал",
+    }
+)
+_ROMAN_HEADING_LEMMAS = frozenset(
+    {"глава", "раздел", "часть", "том", "книга", "квартал"}
+)
+_ROMAN_ABBREVIATION_TO_LEMMA = {
+    "в": "век",
+    "кв": "квартал",
 }
 _ROMAN_SHARED_SEPARATOR_PATTERN = re.compile(r"(\s*,\s*|\s+и\s+)")
+_ROMAN_CONTEXT_WORD_PATTERN = r"[A-Za-zА-ЯЁа-яё]+\.?"
 
 
-def _expand_century_abbreviation(text: str, match: re.Match[str], number: int) -> str:
-    morph = get_morph()
+def _resolve_roman_context_noun(
+    word: str,
+    *,
+    allow_abbreviations: bool = True,
+) -> tuple[str, object, bool] | None:
+    normalized = normalize_context_token(word)
+    if not normalized:
+        return None
+    if allow_abbreviations and normalized in _ROMAN_ABBREVIATION_TO_LEMMA:
+        lemma = _ROMAN_ABBREVIATION_TO_LEMMA[normalized]
+        parse = choose_noun_parse(lemma)
+        if parse is None:
+            return None
+        return lemma, parse, True
+    parse = choose_noun_parse(word)
+    if parse is None or parse.normal_form not in _ROMAN_CONTEXT_LEMMAS:
+        return None
+    return parse.normal_form, parse, False
+
+
+def _render_context_noun_word(
+    word: str,
+    lemma: str,
+    noun_parse,
+    *,
+    case: str,
+    is_abbreviation: bool,
+) -> str:
+    if not is_abbreviation:
+        return word
+    inflected = noun_parse.inflect({case, "sing"})
+    return inflected.word if inflected else lemma
+
+
+def _infer_roman_context_case(
+    text: str,
+    match: re.Match[str],
+    noun_word: str,
+) -> str:
     left_context = text[max(0, match.start() - 60) : match.start()]
     right_context = text[match.end() : match.end() + 60]
-    tokens = simple_tokenize(left_context) + [str(number), "век"] + simple_tokenize(right_context)
-    case = get_numeral_case(tokens, len(simple_tokenize(left_context)))
-    ending = _CENTURY_CASE_TO_ENDING.get(case, "-й")
-    parsed = morph.parse("век")[0]
-    noun_form = parsed.inflect({case, "sing"})
-    century_word = noun_form.word if noun_form else "век"
-    return f"{number}{ending} {century_word}"
+    left_tokens = simple_tokenize(left_context)
+    tokens = left_tokens + ["1", noun_word] + simple_tokenize(right_context)
+    return get_numeral_case(tokens, len(left_tokens))
+
+
+def _infer_abbreviated_century_case(
+    text: str,
+    match: re.Match[str],
+) -> str:
+    case = _infer_roman_context_case(text, match, "век")
+    if case != "accs":
+        return case
+    left_context = text[max(0, match.start() - 40) : match.start()]
+    left_tokens = simple_tokenize(left_context)
+    left_word = next(
+        (
+            normalize_context_token(token)
+            for token in reversed(left_tokens)
+            if any(char.isalpha() for char in token)
+        ),
+        "",
+    )
+    if left_word in {"в", "во", "на", "о", "об", "обо", "при"}:
+        return "loct"
+    return case
 
 
 def _render_shared_ordinal_in_context(
@@ -163,78 +175,148 @@ def _render_shared_ordinal_in_context(
     number: int,
     noun_word: str,
 ) -> str | None:
-    noun_parse = choose_noun_parse(noun_word)
-    if noun_parse is None:
+    resolved = _resolve_roman_context_noun(noun_word, allow_abbreviations=False)
+    if resolved is None:
         return None
-    left_context = text[max(0, match.start() - 60) : match.start()]
-    right_context = text[match.end() : match.end() + 60]
-    left_tokens = simple_tokenize(left_context)
-    tokens = left_tokens + [str(number), noun_word] + simple_tokenize(right_context)
-    case = get_numeral_case(tokens, len(left_tokens))
+    _, noun_parse, _ = resolved
+    case = _infer_roman_context_case(text, match, noun_word)
     gender = noun_parse.tag.gender or "masc"
     inanimate = "inan" in noun_parse.tag
     return render_ordinal(number, case=case, gender=gender, inanimate=inanimate)
 
 
+def _render_single_roman_with_context(
+    text: str,
+    match: re.Match[str],
+    number: int,
+    noun_word: str,
+) -> str | None:
+    resolved = _resolve_roman_context_noun(noun_word)
+    if resolved is None:
+        return None
+    lemma, noun_parse, is_abbreviation = resolved
+    case = (
+        _infer_abbreviated_century_case(text, match)
+        if is_abbreviation and lemma == "век"
+        else _infer_roman_context_case(text, match, lemma)
+        if is_abbreviation
+        else noun_parse_case(noun_parse)
+    )
+    rendered_noun = _render_context_noun_word(
+        noun_word,
+        lemma,
+        noun_parse,
+        case=case,
+        is_abbreviation=is_abbreviation,
+    )
+    rendered_ordinal = render_ordinal(
+        number,
+        case=case,
+        gender=noun_parse.tag.gender or "masc",
+        inanimate="inan" in noun_parse.tag,
+    )
+    return f"{rendered_ordinal} {rendered_noun}"
+
+
+def _render_roman_series_with_context(
+    text: str,
+    match: re.Match[str],
+    series: str,
+    noun_word: str,
+    *,
+    noun_first: bool = False,
+) -> str | None:
+    resolved = _resolve_roman_context_noun(noun_word, allow_abbreviations=False)
+    if resolved is None:
+        return None
+    _, noun_parse, _ = resolved
+    parts = _ROMAN_SHARED_SEPARATOR_PATTERN.split(series)
+    rendered_parts: list[str] = []
+    for part in parts:
+        if not part:
+            continue
+        if _ROMAN_SHARED_SEPARATOR_PATTERN.fullmatch(part):
+            rendered_parts.append(part)
+            continue
+        try:
+            number = roman.fromRoman(part.upper())
+        except roman.InvalidRomanNumeralError:
+            return None
+        ordinal = _render_shared_ordinal_in_context(text, match, number, noun_word)
+        if ordinal is None:
+            ordinal = render_ordinal(
+                number,
+                case=noun_parse_case(noun_parse),
+                gender=noun_parse.tag.gender or "masc",
+                inanimate="inan" in noun_parse.tag,
+            )
+        rendered_parts.append(ordinal)
+    rendered_series = "".join(rendered_parts)
+    if noun_first:
+        if noun_word[:1].isupper() and rendered_series:
+            rendered_series = rendered_series[:1].upper() + rendered_series[1:]
+        return f"{rendered_series} {noun_word.lower()}"
+    return f"{rendered_series} {noun_word}"
+
+
 def convert_shared_roman_words(text: str) -> str:
-    suffixes_regex = "|".join(map(re.escape, _ROMAN_SHARED_WORD_SUFFIXES.keys()))
     pattern = re.compile(
-        rf"\b(?P<series>[IVXLCDM]+(?:\s*(?:,\s*|\s+и\s+)[IVXLCDM]+)+)\s+(?P<suffix>{suffixes_regex})(?!\w)"
+        rf"\b(?P<series>[IVXLCDM]+(?:\s*(?:,\s*|\s+и\s+)[IVXLCDM]+)+)\s+(?P<suffix>{_ROMAN_CONTEXT_WORD_PATTERN})(?!\w)"
     )
 
     def repl(match: re.Match[str]) -> str:
-        matched_suffix = match.group("suffix").lower()
-        rendered_word = match.group("suffix")
-        _, ending = _ROMAN_SHARED_WORD_SUFFIXES[matched_suffix]
-        parts = _ROMAN_SHARED_SEPARATOR_PATTERN.split(match.group("series"))
-        rendered_parts: list[str] = []
-        for part in parts:
-            if not part:
-                continue
-            if _ROMAN_SHARED_SEPARATOR_PATTERN.fullmatch(part):
-                rendered_parts.append(part)
-                continue
-            try:
-                number = roman.fromRoman(part.upper())
-            except roman.InvalidRomanNumeralError:
-                return match.group(0)
-            ordinal = _render_shared_ordinal_in_context(
-                text,
-                match,
-                number,
-                rendered_word,
-            )
-            if ordinal is None:
-                ordinal = render_ordinal_from_noun_word(
-                    number,
-                    rendered_word,
-                    singularize_plural=True,
-                )
-            if ordinal is None:
-                rendered_parts.append(f"{number}{ending}")
-            else:
-                rendered_parts.append(ordinal)
-        return f"{''.join(rendered_parts)} {rendered_word}"
+        rendered = _render_roman_series_with_context(
+            text,
+            match,
+            match.group("series"),
+            match.group("suffix"),
+        )
+        return rendered if rendered is not None else match.group(0)
+
+    return pattern.sub(repl, text)
+
+
+def convert_left_shared_roman_words(text: str) -> str:
+    pattern = re.compile(
+        rf"\b(?P<suffix>{_ROMAN_CONTEXT_WORD_PATTERN})\s+(?P<series>[IVXLCDM]+(?:\s*(?:,\s*|\s+и\s+)[IVXLCDM]+)+)\b",
+        re.IGNORECASE,
+    )
+
+    def repl(match: re.Match[str]) -> str:
+        rendered = _render_roman_series_with_context(
+            text,
+            match,
+            match.group("series"),
+            match.group("suffix"),
+            noun_first=True,
+        )
+        return rendered if rendered is not None else match.group(0)
 
     return pattern.sub(repl, text)
 
 
 def convert_roman_words(text: str) -> str:
-    suffixes_regex = "|".join(map(re.escape, _ROMAN_WORD_SUFFIXES.keys()))
-    pattern = rf"\b([IVXLCDM]+)\s*({suffixes_regex})(?!\w)"
+    pattern = re.compile(
+        rf"\b(?P<roman>[IVXLCDM]+)(?P<spacing>\s*)(?P<word>{_ROMAN_CONTEXT_WORD_PATTERN})(?!\w)",
+        re.IGNORECASE,
+    )
 
     def repl(match: re.Match[str]) -> str:
         try:
-            number = roman.fromRoman(match.group(1).upper())
+            number = roman.fromRoman(match.group("roman").upper())
         except roman.InvalidRomanNumeralError:
             return match.group(0)
-        matched_suffix = match.group(2).lower()
-        if matched_suffix in {"в.", "в"}:
-            return _expand_century_abbreviation(text, match, number)
-        target_word, ending = _ROMAN_WORD_SUFFIXES[matched_suffix]
-        return f"{number}{ending} {target_word}"
+        if not match.group("spacing") and normalize_context_token(match.group("word")) != "в":
+            return match.group(0)
+        rendered = _render_single_roman_with_context(
+            text,
+            match,
+            number,
+            match.group("word"),
+        )
+        return rendered if rendered is not None else match.group(0)
 
-    return re.sub(pattern, repl, text)
+    return pattern.sub(repl, text)
 
 
 def convert_roman_century_ranges(text: str) -> str:
@@ -317,50 +399,32 @@ def convert_roman_names(text: str) -> str:
 
 
 def convert_heading_roman_numerals(text: str) -> str:
-    heading_words = (
-        "глава",
-        "главы",
-        "главе",
-        "главу",
-        "главой",
-        "часть",
-        "части",
-        "частью",
-        "раздел",
-        "раздела",
-        "разделе",
-        "разделу",
-        "том",
-        "тома",
-        "томе",
-        "томом",
-        "книга",
-        "книги",
-        "книге",
-        "книгой",
-        "квартал",
-        "квартала",
-        "квартале",
-        "кварталу",
-        "кварталом",
+    pattern = re.compile(
+        rf"\b(?P<word>{_ROMAN_CONTEXT_WORD_PATTERN})\s+(?P<roman>[IVXLCDM]+)\b",
+        re.IGNORECASE,
     )
-    pattern = rf"\b({'|'.join(map(re.escape, heading_words))})\s+([IVXLCDM]+)\b"
 
     def repl(match: re.Match[str]) -> str:
-        if match.group(2) != match.group(2).upper():
+        if match.group("roman") != match.group("roman").upper():
+            return match.group(0)
+        resolved = _resolve_roman_context_noun(
+            match.group("word"),
+            allow_abbreviations=False,
+        )
+        if resolved is None or resolved[0] not in _ROMAN_HEADING_LEMMAS:
             return match.group(0)
         try:
             ordinal = render_ordinal_from_noun_word(
-                roman.fromRoman(match.group(2).upper()),
-                match.group(1),
+                roman.fromRoman(match.group("roman").upper()),
+                match.group("word"),
             )
             if ordinal is None:
-                return f"{match.group(1)} {roman.fromRoman(match.group(2).upper())}"
-            return f"{match.group(1)} {ordinal}"
+                return f"{match.group('word')} {roman.fromRoman(match.group('roman').upper())}"
+            return f"{match.group('word')} {ordinal}"
         except roman.InvalidRomanNumeralError:
             return match.group(0)
 
-    return re.sub(pattern, repl, text, flags=re.IGNORECASE)
+    return pattern.sub(repl, text)
 
 
 def convert_other_roman_numerals(text: str) -> str:
@@ -420,6 +484,7 @@ def normalize_roman(text: str, options: NormalizeOptions | None = None) -> str:
         return text
     text = normalize_cyrillic_roman(text)
     text = convert_roman_century_ranges(text)
+    text = convert_left_shared_roman_words(text)
     text = convert_shared_roman_words(text)
     text = convert_roman_words(text)
     text = convert_roman_names(text)

@@ -106,6 +106,34 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             normalize("За XV и XVI века европейцы успели проплыть вокруг Африки."),
             "За пятнадцатый и шестнадцатый века европейцы успели проплыть вокруг Африки.",
         )
+        self.assertEqual(
+            normalize("К XV и XVI векам сложились новые маршруты."),
+            "К пятнадцатому и шестнадцатому векам сложились новые маршруты.",
+        )
+        self.assertEqual(
+            normalize("В XV в. начались перемены."),
+            "В пятнадцатом веке начались перемены.",
+        )
+        self.assertEqual(
+            normalize("За XV в. многое изменилось."),
+            "За пятнадцатый век многое изменилось.",
+        )
+        self.assertEqual(
+            normalize("О XV в. часто спорят историки."),
+            "О пятнадцатом веке часто спорят историки.",
+        )
+        self.assertEqual(
+            normalize("К XV в. сложились новые маршруты."),
+            "К пятнадцатому веку сложились новые маршруты.",
+        )
+        self.assertEqual(
+            normalize("Между XV и XVI веками усилилась морская конкуренция."),
+            "Между пятнадцатым и шестнадцатым веками усилилась морская конкуренция.",
+        )
+        self.assertEqual(
+            normalize("О XV и XVI веках часто спорят историки."),
+            "О пятнадцатом и шестнадцатом веках часто спорят историки.",
+        )
 
     def test_normalize_fixes_millennium_and_era_years(self):
         self.assertEqual(
@@ -198,6 +226,32 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
         self.assertEqual(
             normalize("Он видел 3-й фильм подряд."),
             "Он видел третий фильм подряд.",
+        )
+
+    def test_normalize_reads_left_shared_heading_series(self):
+        self.assertEqual(
+            normalize("Главы IV и V были переработаны."),
+            "Четвёртая и пятая главы были переработаны.",
+        )
+        self.assertEqual(
+            normalize("В главах IV и V описаны реформы."),
+            "В четвёртой и пятой главах описаны реформы.",
+        )
+        self.assertEqual(
+            normalize("Из глав IV и V убрали примечания."),
+            "Из четвёртой и пятой глав убрали примечания.",
+        )
+        self.assertEqual(
+            normalize("Разделы IV и V содержат примеры."),
+            "Четвёртый и пятый разделы содержат примеры.",
+        )
+        self.assertEqual(
+            normalize("В разделах IV и V приведены примеры."),
+            "В четвёртом и пятом разделах приведены примеры.",
+        )
+        self.assertEqual(
+            normalize("Из разделов IV и V убрали повторы."),
+            "Из четвёртого и пятого разделов убрали повторы.",
         )
 
 
