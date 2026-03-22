@@ -59,24 +59,6 @@ _REGNAL_CASE_CONTEXT = {
     "перед": "ablt",
     "пред": "ablt",
 }
-_CENTURY_WORD_TO_CASE = {
-    "в.": "nomn",
-    "век": "nomn",
-    "века": "gent",
-    "веку": "datv",
-    "веке": "loct",
-    "веком": "ablt",
-    "веками": "ablt",
-    "веках": "loct",
-}
-_CENTURY_CASE_TO_WORD_FORM = {
-    "nomn": "век",
-    "gent": "века",
-    "datv": "веку",
-    "accs": "век",
-    "ablt": "веком",
-    "loct": "веке",
-}
 _ROMAN_CONTEXT_LEMMAS = frozenset(
     {
         "век",
@@ -135,6 +117,38 @@ def _render_context_noun_word(
     return inflected.word if inflected else lemma
 
 
+def _render_ordinal_for_context_noun(
+    number: int,
+    noun_parse,
+    *,
+    case: str | None = None,
+) -> str:
+    return render_ordinal(
+        number,
+        case=case or noun_parse_case(noun_parse),
+        gender=noun_parse.tag.gender or "masc",
+        inanimate="inan" in noun_parse.tag,
+    )
+
+
+def _resolve_explicit_roman_context_form(
+    word: str,
+) -> tuple[object, str, str] | None:
+    resolved = _resolve_roman_context_noun(word)
+    if resolved is None:
+        return None
+    lemma, noun_parse, is_abbreviation = resolved
+    case = "nomn" if is_abbreviation else noun_parse_case(noun_parse)
+    rendered_word = _render_context_noun_word(
+        word,
+        lemma,
+        noun_parse,
+        case=case,
+        is_abbreviation=is_abbreviation,
+    )
+    return noun_parse, case, rendered_word
+
+
 def _infer_roman_context_case(
     text: str,
     match: re.Match[str],
@@ -180,9 +194,7 @@ def _render_shared_ordinal_in_context(
         return None
     _, noun_parse, _ = resolved
     case = _infer_roman_context_case(text, match, noun_word)
-    gender = noun_parse.tag.gender or "masc"
-    inanimate = "inan" in noun_parse.tag
-    return render_ordinal(number, case=case, gender=gender, inanimate=inanimate)
+    return _render_ordinal_for_context_noun(number, noun_parse, case=case)
 
 
 def _render_single_roman_with_context(
@@ -209,11 +221,10 @@ def _render_single_roman_with_context(
         case=case,
         is_abbreviation=is_abbreviation,
     )
-    rendered_ordinal = render_ordinal(
+    rendered_ordinal = _render_ordinal_for_context_noun(
         number,
+        noun_parse,
         case=case,
-        gender=noun_parse.tag.gender or "masc",
-        inanimate="inan" in noun_parse.tag,
     )
     return f"{rendered_ordinal} {rendered_noun}"
 
@@ -244,12 +255,7 @@ def _render_roman_series_with_context(
             return None
         ordinal = _render_shared_ordinal_in_context(text, match, number, noun_word)
         if ordinal is None:
-            ordinal = render_ordinal(
-                number,
-                case=noun_parse_case(noun_parse),
-                gender=noun_parse.tag.gender or "masc",
-                inanimate="inan" in noun_parse.tag,
-            )
+            ordinal = _render_ordinal_for_context_noun(number, noun_parse)
         rendered_parts.append(ordinal)
     rendered_series = "".join(rendered_parts)
     if noun_first:
@@ -324,8 +330,6 @@ def convert_roman_century_ranges(text: str) -> str:
         r"\b(?P<prep>с|со|от)\s+(?P<left>[IVXLCDM]+)\s+(?P<mid>до|по)\s+(?P<right>[IVXLCDM]+)\s+(?P<word>век(?:а|у|е|ом|ами|ах)?|в\.)(?!\w)",
         re.IGNORECASE,
     )
-    def ordinal(number: int, case: str) -> str:
-        return render_ordinal(number, case=case, gender="masc")
 
     def repl(match: re.Match[str]) -> str:
         try:
@@ -333,16 +337,13 @@ def convert_roman_century_ranges(text: str) -> str:
             right_number = roman.fromRoman(match.group("right").upper())
         except roman.InvalidRomanNumeralError:
             return match.group(0)
-        word = match.group("word").lower()
-        right_case = _CENTURY_WORD_TO_CASE.get(word, "nomn")
-        century_word = (
-            _CENTURY_CASE_TO_WORD_FORM.get(right_case, "век")
-            if word == "в."
-            else match.group("word")
-        )
+        resolved = _resolve_explicit_roman_context_form(match.group("word"))
+        if resolved is None:
+            return match.group(0)
+        noun_parse, right_case, rendered_word = resolved
         return (
-            f"{match.group('prep')} {ordinal(left_number, 'gent')} "
-            f"{match.group('mid')} {ordinal(right_number, right_case)} {century_word}"
+            f"{match.group('prep')} {_render_ordinal_for_context_noun(left_number, noun_parse, case='gent')} "
+            f"{match.group('mid')} {_render_ordinal_for_context_noun(right_number, noun_parse, case=right_case)} {rendered_word}"
         )
 
     return pattern.sub(repl, text)
