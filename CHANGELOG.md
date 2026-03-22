@@ -4,32 +4,47 @@ All notable changes to `ru-normalizr` will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
-## Unreleased
-### Changed
-- Cache resolved IPA latinization fallback results for repeated unknown Latin words, and stop retrying dictionary fallback once the transliteration stabilizes
-- Precompile runtime regexes for large simple dictionary-rule chunks once per `DictionaryNormalizer` instance instead of rebuilding them on every `apply()`
+## [0.2.0] - 2026-03-22
+### Added
 - Add an early TTS-only URL stage that rewrites explicit links such as `https://example.com/a1` into spoken separator words and digit-by-digit number readings before preprocess, while leaving plain Latin chunks for the later latinization stage
-- Fall back to the bundled latinization dictionary when a requested latinization dictionary filename is missing, so IPA fallback still rewrites unknown Latin words instead of leaving them unchanged
-- Fix some 'к → Кельвин' and 'м в → милливольт' misnormalization errors. Add regression coverage for ambiguous single-letter units and compound unit boundaries such as `км ч`, `квт ч`, `fps`, `mph`, `kbps`, `об мин`, and `ммоль л`
-- Explicitly treat `не более`, `не менее`, `не больше`, `не меньше`, `более`, `менее`, `больше`, and `меньше` as genitive-marking quantifiers only in direct continuous use before numerals, without extending that rule through `чем`
-- Preserve bracketed year-like values during TTS link removal, improve range/year case handling (`1990-ые`, `1943 и 1951 гг.`, `206 год до н. э.`), and add `ул.`/`Св.` expansions
-- Keep hyphenated decade forms such as `в 1990-ые годы` out of the implicit preposition-plus-year rule so they stay decade phrases instead of becoming `девяностом-ые`
-- Move implicit year disambiguation out of year regexes into shared token/context helpers, and keep `с 1990 по 1995 кг`-style measurement ranges from being misread as year ranges
-- Keep implicit year heuristics from misreading measurement and currency ranges such as `от 1200 до 10000 МПа`, `от 1200 до 10000 ₽`, and spaced-thousands forms like `от 1200 до 10 000 МПа`, while reusing shared unit/currency lexicons from `numerals._constants`
-- Restore `с/со/от ... до|по ... г.` year-range normalization so explicit trailing year abbreviations keep both range endpoints in year morphology
 - Read `=` as `равно` in math-like expressions when at least one side contains digits, covering forms such as `t=10` and `x=(2+3)` while leaving plain non-numeric assignments such as `x = y` unchanged
 - Read `~` as `примерно` before numeric expressions and treat compact lowercase `k` suffixes such as `250k` as thousands while keeping uppercase `K` for Kelvin units
-- Fix agreement for compound adjective+noun measurement units after numerals, so outputs such as `3 м^3`, `2 км2`, and `2 IU` normalize to `три кубических метра`, `два квадратных километра`, and `две международные единицы`
-- Stop misreading title-case `См.` as a Cyrillic Roman numeral token and normalize single chapter/section-style references such as `главу 10`, `из главы 10`, and `из раздела 3` to ordinal forms like `главу десятую`, `из главы десятой`, and `из раздела третьего`
 - Inflect adjective-like abbreviations such as `гос.`, `междунар.`, and `полит.` from the following noun phrase so forms like `гос. контроля` normalize to `государственного контроля`
 - Expand English title abbreviations `Mr.` and `Mrs.` to `мистер` and `миссис` before latinization, so mixed inputs such as `Mr. Поппер` normalize cleanly
 - Normalize `&` contextually as `и` in Russian phrases and as `энд` in brand-like English letter-name contexts such as `AT&T`
-- Route safe `число-дефис-единица` forms such as `35-мм`, `35 - мм`, and `1,5-мл` through shared numeral hyphen handling so they normalize like spaced units while leaving ordinary forms such as `20-этажный` and ambiguous single-letter suffixes alone
-- Keep preprocess from eagerly converting ASCII ` - ` into `—`; only normalize explicit dash characters there, canonize numeric `число - suffix/unit` forms such as `35 - мм`, `20 - этажный`, and `5 - й` before numeral handling, and move leftover ASCII word-separator dashes to finalize so plain spaced ranges like `10 - 20` stay range-like
-- Restrict implicit `от/с ... до/по ...` year-range normalization without explicit `год/г./гг.` to plausible years only, and expand single initials near likely surnames in TTS mode while leaving obvious non-person tokens such as `С. Петербург` untouched
+- Add `ул.` and `Св.` expansions
+- Normalize single chapter/section-style references such as `главу 10`, `из главы 10`, and `из раздела 3` to ordinal forms like `главу десятую`, `из главы десятой`, and `из раздела третьего`
 - Read regnal name patterns such as `Георг VI`, `Людовик XVI`, `Елизавета II`, and `Дарий I` as ordinal names (`Георг шестой`, `Людовик шестнадцатый`, etc.) instead of cardinal numerals
 - Preserve full Greek-script words such as `αστατος` instead of spelling them out letter-by-letter, while still reading standalone Greek symbols like `α`, and expand `от греч./лат. <foreign word>` to forms such as `от греческого αστατος` and `от латинского homo`
+- Extend era handling to English historical markers such as `BC`, `BCE`, `AD`, and `CE`, and route shared-era ranges through the existing year logic for forms like `с 12500 по 9500 до н. э.`
+- Normalize chapter/section/book-style Roman and Arabic headings to ordinal forms such as `Глава четвёртая` / `Глава десятая` for more consistent heading handling across the pipeline
+- Normalize coordinated Roman numerals with a shared context word on the right into contextual ordinal forms, so inputs such as `V и IV тысячелетиях до н. э.` become `пятом и четвёртом ...` instead of leaving the first numeral for latinization as `ви`
+- Normalize more coordinated Roman series with shared context words on either side, covering dative forms such as `к XV и XVI векам` and left-shared heading patterns such as `главы IV и V` / `в главах IV и V`
+- Normalize left-shared heading ranges written with hyphens, so forms such as `главы IV-V` and `в разделах IV-V` no longer partially convert only the first Roman numeral
+- Treat `вв.` consistently as plural `века` across shared series and range patterns, covering forms such as `XV и XVI вв.`, `XV-XVI вв.`, `с XVI по XVIII вв.`, and `от XVI до XVIII вв.`
+
+### Changed
+- Cache resolved IPA latinization fallback results for repeated unknown Latin words, and stop retrying dictionary fallback once the transliteration stabilizes
+- Precompile runtime regexes for large simple dictionary-rule chunks once per `DictionaryNormalizer` instance instead of rebuilding them on every `apply()`
+- Explicitly treat `не более`, `не менее`, `не больше`, `не меньше`, `более`, `менее`, `больше`, and `меньше` as genitive-marking quantifiers only in direct continuous use before numerals, without extending that rule through `чем`
+- Move implicit year disambiguation out of year regexes into shared token/context helpers
+- Route safe `число-дефис-единица` forms such as `35-мм`, `35 - мм`, and `1,5-мл` through shared numeral hyphen handling so they normalize like spaced units while leaving ordinary forms such as `20-этажный` and ambiguous single-letter suffixes alone
+- Keep preprocess from eagerly converting ASCII ` - ` into `—`; only normalize explicit dash characters there, canonize numeric `число - suffix/unit` forms such as `35 - мм`, `20 - этажный`, and `5 - й` before numeral handling, and move leftover ASCII word-separator dashes to finalize so plain spaced ranges like `10 - 20` stay range-like
 - Rewrite explicit Cyrillic combining stress marks such as `Фри́дрих А́вгуст` to the package's `+` stress format (`Фр+идрих +Август`) during preprocess instead of letting combining accents break token spacing
+- Restrict implicit `от/с ... до/по ...` year-range normalization without explicit `год/г./гг.` to plausible years only, and expand single initials near likely surnames in TTS mode while leaving obvious non-person tokens such as `С. Петербург` untouched
+- Refresh README Python examples so Roman heading outputs such as `Глава IV.` match the current ordinal normalization (`Глава четвёртая.`)
+
+### Fixed
+- Fall back to the bundled latinization dictionary when a requested latinization dictionary filename is missing, so IPA fallback still rewrites unknown Latin words instead of leaving them unchanged
+- Fix some 'к → Кельвин' and 'м в → милливольт' misnormalization errors. Add regression coverage for ambiguous single-letter units and compound unit boundaries such as `км ч`, `квт ч`, `fps`, `mph`, `kbps`, `об мин`, and `ммоль л`
+- Preserve bracketed year-like values during TTS link removal
+- Improve range/year case handling for forms such as `1990-ые`, `1943 и 1951 гг.`, and `206 год до н. э.`
+- Keep hyphenated decade forms such as `в 1990-ые годы` out of the implicit preposition-plus-year rule so they stay decade phrases instead of becoming `девяностом-ые`
+- Keep `с 1990 по 1995 кг`-style measurement ranges from being misread as year ranges
+- Keep implicit year heuristics from misreading measurement and currency ranges such as `от 1200 до 10000 МПа`, `от 1200 до 10000 ₽`, and spaced-thousands forms like `от 1200 до 10 000 МПа`, while reusing shared unit/currency lexicons from `numerals._constants`
+- Restore `с/со/от ... до|по ... г.` year-range normalization so explicit trailing year abbreviations keep both range endpoints in year morphology
+- Fix agreement for compound adjective+noun measurement units after numerals, so outputs such as `3 м^3`, `2 км2`, and `2 IU` normalize to `три кубических метра`, `два квадратных километра`, and `две международные единицы`
+- Stop misreading title-case `См.` as a Cyrillic Roman numeral token
 - Stop initials expansion from crashing on some `pymorphy3` tag objects while checking name-like tokens, preserving cases such as `С. Петербург` in TTS mode
 - Tighten dotted `8.00` time normalization so explicit clock contexts still normalize while ordinary decimals like `3.50 руб.` and `2.15 кг` remain decimal numbers; also preserve BCE/CE terminal punctuation and handle century ranges written as `С XVI по XVIII в.`
 - Fix reported historical/BCE normalization regressions around `ок.`, `до н. э./н. э.`, parenthesized years, Roman century ranges, dotted clock times, page references like `с.22-25`, zero-width formatting garbage in Cyrillic text, and numeric/unit ranges such as `2-6 футов`
@@ -38,22 +53,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Normalize measurement ranges with spelled-out multiword units such as `1200-1400 кубических сантиметров`, so dimensional contexts like `объемом ...` no longer fall back to an incorrect instrumental numeral form
 - Keep inanimate accusative ordinals such as `XX век` and `3-й фильм` in the nominative-looking form (`двадцатый век`, `третий фильм`) instead of the animate accusative/genitive form (`двадцатого`, `третьего`)
 - Normalize shared-era ancient year ranges such as `12500-9500 до н. э.` as year ranges instead of plain numbers, and avoid malformed large ordinals like `двенадцатый тысяч ...` for years above 9999
-- Extend era handling to English historical markers such as `BC`, `BCE`, `AD`, and `CE`, and route shared-era ranges through the existing year logic for forms like `с 12500 по 9500 до н. э.`
 - Keep explicit BCE/CE year nouns such as `в 1776 год до н. э.` aligned with the written `год` form, so the ordinal no longer incorrectly switches to a prepositional shape like `шестом год`
-- Normalize coordinated Roman numerals with a shared context word on the right into contextual ordinal forms, so inputs such as `V и IV тысячелетиях до н. э.` become `пятом и четвёртом ...` instead of leaving the first numeral for latinization as `ви`
-- Normalize chapter/section/book-style Roman and Arabic headings to ordinal forms such as `Глава четвёртая` / `Глава десятая` for more consistent heading handling across the pipeline
 - Fix a crash in era-year normalization for abbreviated forms such as `50 г. до н. э.` when no leading preposition is present
 - Infer case for coordinated Roman-century series from sentence context, so forms such as `за XV и XVI века` normalize to `за пятнадцатый и шестнадцатый века` instead of an incorrect genitive reading
-- Normalize more coordinated Roman series with shared context words on either side, covering dative forms such as `к XV и XVI векам` and left-shared heading patterns such as `главы IV и V` / `в главах IV и V`
 - Route single Roman numerals with contextual abbreviations such as `XV в.` through the same lemma-based context logic as full noun forms, preserving correct case in forms like `в XV в.`, `за XV в.`, `о XV в.`, and `к XV в.`
 - Keep coordinated Roman-series normalization working at sentence boundaries and normalize hyphenated Roman ranges such as `III-IV веках` / `III-IV тысячелетиях` into contextual ordinal ranges instead of falling through to plain numeral handling
 - Keep standalone `Roman + century noun` forms such as `XXI века` aligned with the explicit noun morphology, so genitive forms no longer fall back to nominative readings like `двадцать первый века`
 - Respect explicit oblique noun forms like `веков` in coordinated and hyphenated Roman series, so outputs such as `XV-XVI веков` and `XV и XVI веков` stay in genitive (`пятнадцатого ... веков`) instead of falling back to nominative ordinals
-- Normalize left-shared heading ranges written with hyphens, so forms such as `главы IV-V` and `в разделах IV-V` no longer partially convert only the first Roman numeral
 - Improve abbreviated Roman context handling for `кв.` and `вв.`, and keep `от ... до ... в.` ranges in the expected genitive form on the right endpoint
 - Keep malformed Roman hyphen ranges from partially converting only their right-hand side, so inputs such as `IIII-IV век` stay untouched instead of turning into mixed forms like `IIII-четвёртый век`
-- Treat `вв.` consistently as plural `века` across shared series and range patterns, covering forms such as `XV и XVI вв.`, `XV-XVI вв.`, `с XVI по XVIII вв.`, and `от XVI до XVIII вв.`
-- Refresh README Python examples so Roman heading outputs such as `Глава IV.` match the current ordinal normalization (`Глава четвёртая.`)
 
 ## [0.1.4] - 2026-03-15
 ### Changed

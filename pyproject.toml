@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ru-normalizr"
-version = "0.1.4"
+version = "0.2.0"
 description = "The best open-source Russian text normalization for TTS and NLP: numbers, dates, abbreviations, Roman numerals, CAPS, and Latin-to-Cyrillic transliteration"
 readme = "README.md"
 requires-python = ">=3.10"

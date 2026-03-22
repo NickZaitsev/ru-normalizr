@@ -8,4 +8,4 @@ except ImportError:  # pragma: no cover - supports direct file import during tes
     from ru_normalizr.pipeline import Normalizer, normalize, preprocess_text
 
 __all__ = ["NormalizeOptions", "Normalizer", "normalize", "preprocess_text"]
-__version__ = "0.1.4"
+__version__ = "0.2.0"
