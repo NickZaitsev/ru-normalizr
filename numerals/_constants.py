@@ -637,7 +637,7 @@ UNIT_TOKEN_FRAGMENT = (
 )
 
 NUMERIC_UNIT_RANGE_PATTERN = re.compile(
-    rf"(?<!\d)(?P<left>\d+)\s*[—–-]\s*(?P<right>\d+)\s*(?P<unit>{UNIT_TOKEN_FRAGMENT})(?!\w)"
+    rf"(?<!\d)(?P<left>\d+)\s*[—–-]\s*(?P<right>\d+)\s*(?P<unit>{UNIT_TOKEN_FRAGMENT}(?:\s+[^\W\d_]+){{0,2}})(?!\w)"
 )
 DECIMAL_PATTERN = re.compile(
     rf"(?<!\d)(?P<num>(?:-|\\ue001)?\d+[.,]\d+)(?:\s*(?P<unit>{UNIT_TOKEN_FRAGMENT})(?P<unit_dot>\.)?)?(?:\s+(?P<unit2>{UNIT_TOKEN_FRAGMENT})(?P<unit2_dot>\.)?)?(?!\d)"

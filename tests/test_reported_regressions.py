@@ -24,6 +24,10 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             normalize("Предполагается, что идеальные сферы диаметром 2-6 футов"),
             "Предполагается, что идеальные сферы диаметром двух — шести футов",
         )
+        self.assertEqual(
+            normalize("мозг объемом 1200-1400 кубических сантиметров"),
+            "мозг объемом одной тысячи двухсот — одной тысячи четырёхсот кубических сантиметров",
+        )
 
     def test_normalize_expands_page_reference_before_numeric_range(self):
         self.assertEqual(

@@ -29,6 +29,8 @@ from ._helpers import (
 
 GENITIVE_RANGE_CONTEXT_STEMS = (
     "диаметр",
+    "объем",
+    "объём",
     "ширин",
     "высот",
     "длин",
@@ -37,6 +39,70 @@ GENITIVE_RANGE_CONTEXT_STEMS = (
     "толщин",
     "размер",
 )
+
+
+def _resolve_range_unit_info(unit_raw: str):
+    unit_lower = unit_raw.lower().strip(".")
+    direct = UNITS_DATA.get(unit_lower)
+    if direct is not None:
+        return direct
+
+    parts = [part for part in unit_lower.split() if part]
+    if len(parts) < 2:
+        return None
+
+    morph = get_morph()
+    noun_parse = next(
+        (
+            candidate
+            for candidate in morph.parse(parts[-1])
+            if "NOUN" in candidate.tag
+        ),
+        None,
+    )
+    if noun_parse is None:
+        return None
+
+    if len(parts) == 2:
+        head_parse = next(
+            (
+                candidate
+                for candidate in morph.parse(parts[0])
+                if candidate.tag.POS in {"ADJF", "PRTF"}
+            ),
+            None,
+        )
+        if head_parse is None:
+            return None
+        lemma = f"{head_parse.normal_form} {noun_parse.normal_form}"
+    else:
+        first_parse = next(
+            (
+                candidate
+                for candidate in morph.parse(parts[0])
+                if candidate.tag.POS in {"ADJF", "PRTF"}
+            ),
+            None,
+        )
+        second_parse = next(
+            (
+                candidate
+                for candidate in morph.parse(parts[1])
+                if candidate.tag.POS in {"ADJF", "PRTF"}
+            ),
+            None,
+        )
+        if first_parse is None or second_parse is None:
+            return None
+        lemma = (
+            f"{first_parse.normal_form} {second_parse.normal_form}"
+            f" {noun_parse.normal_form}"
+        )
+
+    for info in UNITS_DATA.values():
+        if info[0] == lemma:
+            return info
+    return None
 
 
 def normalize_cardinal_numerals(text: str) -> str:
@@ -309,8 +375,7 @@ def normalize_numeric_unit_ranges(text: str) -> str:
         left = match.group("left")
         right = match.group("right")
         unit_raw = match.group("unit")
-        unit_lower = unit_raw.lower().strip(".")
-        unit_info = UNITS_DATA.get(unit_lower)
+        unit_info = _resolve_range_unit_info(unit_raw)
         if not unit_info:
             return match.group(0)
         context = text[max(0, match.start() - 40) : match.start()]

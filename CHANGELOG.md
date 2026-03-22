@@ -33,6 +33,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Fix reported historical/BCE normalization regressions around `ок.`, `до н. э./н. э.`, parenthesized years, Roman century ranges, dotted clock times, page references like `с.22-25`, zero-width formatting garbage in Cyrillic text, and numeric/unit ranges such as `2-6 футов`
 - Normalize smart single quotation marks such as `‘...’` to ASCII quote pairs when they act as surrounding quotes, while keeping intra-word apostrophes like `rock’n’roll` unchanged
 - Stop unconditional language-abbreviation replacements such as `нем.` and `лат.` from misreading sentence-final pronoun forms like `в нем. Когда...`, while keeping contextual expansions such as `нем. слово` and `от лат. homo`
+- Normalize measurement ranges with spelled-out multiword units such as `1200-1400 кубических сантиметров`, so dimensional contexts like `объемом ...` no longer fall back to an incorrect instrumental numeral form
 
 ## [0.1.4] - 2026-03-15
 ### Changed
