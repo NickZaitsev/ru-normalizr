@@ -141,6 +141,13 @@ def _should_keep_era_terminal_dot(source_text: str, match: re.Match[str]) -> boo
     return False
 
 
+def _resolve_explicit_year_word_case(prep: str | None, word: str) -> str:
+    word_lower = word.lower()
+    if word_lower == "году" and prep:
+        return "datv" if prep.lower() in ("к", "ко") else "loct"
+    return YEAR_WORD_TO_CASE.get(word_lower, "nomn")
+
+
 @functools.lru_cache(maxsize=1024)
 def year_to_ordinal_words(year: int, case: str = "nomn", plural: bool = False) -> str:
     normalized_case = "nomn" if case == "accs" and not plural else case
@@ -421,14 +428,12 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
                 case = "loct"
         elif word:
             word_lower = word.lower()
-            if word_lower == "году" and prep:
-                case = "datv" if prep.lower() in ("к", "ко") else "loct"
-            elif prep:
+            if word_lower in ("г.", "г"):
                 case = PREPOSITIONS_TO_CASE.get(
-                    prep.lower(), YEAR_WORD_TO_CASE.get(word_lower, "nomn")
+                    prep.lower(), "nomn"
                 )
             else:
-                case = YEAR_WORD_TO_CASE.get(word_lower, "nomn")
+                case = _resolve_explicit_year_word_case(prep, word)
         elif prep:
             case = PREPOSITIONS_TO_CASE.get(prep.lower(), "nomn")
         else:
@@ -456,14 +461,12 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
             return m.group(0)
         if word:
             word_lower = word.lower()
-            if word_lower == "году" and prep:
-                case = "datv" if prep.lower() in ("к", "ко") else "loct"
-            elif prep:
+            if word_lower in ("г.", "г"):
                 case = PREPOSITIONS_TO_CASE.get(
-                    prep.lower(), YEAR_WORD_TO_CASE.get(word_lower, "nomn")
+                    prep.lower(), "nomn"
                 )
             else:
-                case = YEAR_WORD_TO_CASE.get(word_lower, "nomn")
+                case = _resolve_explicit_year_word_case(prep, word)
         elif prep:
             case = PREPOSITIONS_TO_CASE.get(prep.lower(), "nomn")
         else:
@@ -525,10 +528,8 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         is_year_prepositional = word_lower == "году" and prep
         if not is_year_prepositional and year < 1000 and not is_abbrev:
             return m.group(0)
-        if word_lower == "году" and prep:
-            case = "datv" if prep.lower() in ("к", "ко") else "loct"
-        elif not is_abbrev:
-            case = YEAR_WORD_TO_CASE.get(word_lower, "nomn")
+        if not is_abbrev:
+            case = _resolve_explicit_year_word_case(prep, word)
         elif prep:
             case = PREPOSITIONS_TO_CASE.get(prep.lower(), "nomn")
         else:

@@ -118,6 +118,10 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             ),
             "Монументальная Бехистунская надпись высотой пятнадцать метров и двадцать пять метров шириной была выбита в скале по приказу царя Дария первого примерно в пятисотом году до нашей эры.",
         )
+        self.assertEqual(
+            normalize("Перенеситесь мысленно в 1776 год до н. э."),
+            "Перенеситесь мысленно в тысяча семьсот семьдесят шестой год до нашей эры.",
+        )
 
     def test_normalize_keeps_plain_cardinal_limit_after_do(self):
         self.assertEqual(
