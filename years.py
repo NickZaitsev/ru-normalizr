@@ -7,6 +7,7 @@ import num2words
 
 from ._morph import get_morph
 from .options import NormalizeOptions
+from .text_context import normalize_context_token, simple_tokenize
 from .years_context import (
     YEAR_ANY_NUMBER_PATTERN,
     YEAR_IMPLICIT_PREP_PATTERN,
@@ -14,7 +15,6 @@ from .years_context import (
     is_plausible_year,
     should_treat_as_implicit_year,
 )
-from .text_context import normalize_context_token, simple_tokenize
 
 YEAR_SUFFIX_TO_CASE = {
     "ый": "nomn",
@@ -360,10 +360,9 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
             word_form = YEAR_WORD_FORMS.get(("год", case), "год")
         prefix = f"{prep} " if prep else ""
         era_text = "до нашей эры" if m.group("era").lower().startswith("до") else "нашей эры"
-        terminal = "." if not text[m.end() :].strip() else ""
         return (
             f"{prefix}{year_to_ordinal_words(int(m.group('year')), case)} "
-            f"{word_form} {era_text}{terminal}"
+            f"{word_form} {era_text}"
         )
 
     def replace_parenthesized_year(m: re.Match[str]) -> str:

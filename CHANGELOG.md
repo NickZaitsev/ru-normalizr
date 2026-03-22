@@ -28,6 +28,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Preserve full Greek-script words such as `αστατος` instead of spelling them out letter-by-letter, while still reading standalone Greek symbols like `α`, and expand `от греч./лат. <foreign word>` to forms such as `от греческого αστατος` and `от латинского homo`
 - Rewrite explicit Cyrillic combining stress marks such as `Фри́дрих А́вгуст` to the package's `+` stress format (`Фр+идрих +Август`) during preprocess instead of letting combining accents break token spacing
 - Stop initials expansion from crashing on some `pymorphy3` tag objects while checking name-like tokens, preserving cases such as `С. Петербург` in TTS mode
+- Tighten dotted `8.00` time normalization so explicit clock contexts still normalize while ordinary decimals like `3.50 руб.` and `2.15 кг` remain decimal numbers; also preserve BCE/CE terminal punctuation and handle century ranges written as `С XVI по XVIII в.`
 - Fix reported historical/BCE normalization regressions around `ок.`, `до н. э./н. э.`, parenthesized years, Roman century ranges, dotted clock times, page references like `с.22-25`, zero-width formatting garbage in Cyrillic text, and numeric/unit ranges such as `2-6 футов`
 
 ## [0.1.4] - 2026-03-15

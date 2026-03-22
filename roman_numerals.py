@@ -82,6 +82,14 @@ _CENTURY_WORD_TO_CASE = {
     "веками": "ablt",
     "веках": "loct",
 }
+_CENTURY_CASE_TO_WORD_FORM = {
+    "nomn": "век",
+    "gent": "века",
+    "datv": "веку",
+    "accs": "век",
+    "ablt": "веком",
+    "loct": "веке",
+}
 
 
 def _expand_century_abbreviation(text: str, match: re.Match[str], number: int) -> str:
@@ -169,7 +177,7 @@ def convert_roman_words(text: str) -> str:
 
 def convert_roman_century_ranges(text: str) -> str:
     pattern = re.compile(
-        r"\b(?P<prep>с|со|от)\s+(?P<left>[IVXLCDM]+)\s+(?P<mid>до|по)\s+(?P<right>[IVXLCDM]+)\s+(?P<word>век(?:а|у|е|ом|ами|ах)?|в\.)\b",
+        r"\b(?P<prep>с|со|от)\s+(?P<left>[IVXLCDM]+)\s+(?P<mid>до|по)\s+(?P<right>[IVXLCDM]+)\s+(?P<word>век(?:а|у|е|ом|ами|ах)?|в\.)(?!\w)",
         re.IGNORECASE,
     )
     case_map = {
@@ -197,9 +205,14 @@ def convert_roman_century_ranges(text: str) -> str:
             return match.group(0)
         word = match.group("word").lower()
         right_case = _CENTURY_WORD_TO_CASE.get(word, "nomn")
+        century_word = (
+            _CENTURY_CASE_TO_WORD_FORM.get(right_case, "век")
+            if word == "в."
+            else match.group("word")
+        )
         return (
             f"{match.group('prep')} {ordinal(left_number, 'gent')} "
-            f"{match.group('mid')} {ordinal(right_number, right_case)} {match.group('word')}"
+            f"{match.group('mid')} {ordinal(right_number, right_case)} {century_word}"
         )
 
     return pattern.sub(repl, text)

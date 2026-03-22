@@ -22,7 +22,6 @@ from .constants import (
     REAL_WORD_POS,
     RU_LETTER_NAMES,
     RU_VOWELS,
-    RUSSIAN_NAME_TOKEN,
 )
 from .numerals._helpers import safe_inflect
 from .options import NormalizeOptions

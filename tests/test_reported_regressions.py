@@ -59,6 +59,10 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             "С шестнадцатого по восемнадцатый век цинга унесла жизни примерно двух миллионов моряков.",
         )
         self.assertEqual(
+            normalize("С XVI по XVIII в. цинга унесла жизни примерно двух миллионов моряков."),
+            "С шестнадцатого по восемнадцатый век цинга унесла жизни примерно двух миллионов моряков.",
+        )
+        self.assertEqual(
             normalize("С XVI по XIX век из Африки в Америку завезли примерно десять миллионов рабов."),
             "С шестнадцатого по девятнадцатый век из Африки в Америку завезли примерно десять миллионов рабов.",
         )
@@ -91,6 +95,30 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
                 "В 8.00 утром 26 сентября 1943 года сотни вспышек озарили горизонт."
             ),
             "В восемь, ноль ноль утром двадцать шестого сентября тысяча девятьсот сорок третьего года сотни вспышек озарили горизонт.",
+        )
+
+    def test_normalize_dotted_clock_times_do_not_hijack_plain_decimals(self):
+        self.assertEqual(
+            normalize("Цена: 3.50 руб."),
+            "Цена: три целых пятьдесят сотых рубля.",
+        )
+        self.assertEqual(
+            normalize("масса 2.15 кг"),
+            "масса две целых пятнадцать сотых килограмма",
+        )
+
+    def test_normalize_keeps_era_terminal_punctuation_only_when_present(self):
+        self.assertEqual(
+            normalize("около 50 н. э"),
+            "около пятидесятого года нашей эры",
+        )
+        self.assertEqual(
+            normalize("около 50 н. э."),
+            "около пятидесятого года нашей эры.",
+        )
+        self.assertEqual(
+            normalize("Инцидент случился около 50 н. э. Никто не пострадал."),
+            "Инцидент случился около пятидесятого года нашей эры. Никто не пострадал.",
         )
 
     def test_normalize_keeps_military_ordinals_out_of_year_rules(self):

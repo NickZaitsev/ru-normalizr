@@ -45,9 +45,9 @@ from .preprocess_utils import (
     protect_letter_hyphens,
     protect_negative_numbers,
     protect_unit_slashes,
-    remove_zero_width_formatting,
     remove_decorative_separators,
     remove_numeric_footnotes,
+    remove_zero_width_formatting,
     restore_letter_hyphens,
     restore_paragraph_breaks,
 )
