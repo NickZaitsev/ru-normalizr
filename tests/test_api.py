@@ -261,6 +261,15 @@ class RuNormalizrApiTests(unittest.TestCase):
             '"Ад, где твоя победа?" (I Коринф. 15: 55).',
         )
 
+    def test_preprocess_text_normalizes_smart_single_quotes_used_as_quotes(self):
+        self.assertEqual(
+            preprocess_text("‘Complete Genomics Gets Gene Sequencing under $5000 (Update 1)’"),
+            '"Complete Genomics Gets Gene Sequencing under 5000$ (Update 1)"',
+        )
+
+    def test_preprocess_text_keeps_smart_single_apostrophes_inside_words(self):
+        self.assertEqual(preprocess_text("rock’n’roll"), "rock’n’roll")
+
     def test_normalize_matches_preprocess_when_later_stages_are_disabled(self):
         options = NormalizeOptions(
             enable_year_normalization=False,

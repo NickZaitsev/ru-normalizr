@@ -73,6 +73,12 @@ SPACE_AFTER_OPEN_QUOTE_PATTERN = re.compile(
 SPACE_BEFORE_CLOSE_QUOTE_PATTERN = re.compile(
     r'(?<=\S)([ \t]+)"(?=$|[\s)\]}\-–—,.;:!?])'
 )
+OPEN_SINGLE_QUOTE_PATTERN = re.compile(
+    r"(?P<prefix>^|[\s([{\-–—,;:])(?P<quote>[‘‚‛‹])(?=\S)"
+)
+CLOSE_SINGLE_QUOTE_PATTERN = re.compile(
+    r"(?<=\S)(?P<quote>[’›])(?=$|[\s)\]}\-–—,.;:!?])"
+)
 ELLIPSIS_SPACE_BEFORE_PATTERN = re.compile(r"[ \t]+(?=…)")
 ELLIPSIS_SPACE_AFTER_PATTERN = re.compile(r"(?<=…)(?=[^\s.,;:!?…)\]}\"])\S")
 SENTENCE_SPACE_AFTER_PATTERN = re.compile(r"(?<=[.!?…])(?=[\"(«„“]?[A-ZА-ЯЁ])")
@@ -107,6 +113,8 @@ def normalize_ascii_quote_pairs(text: str) -> str:
     )
     for old, new in replacements:
         text = text.replace(old, new)
+    text = OPEN_SINGLE_QUOTE_PATTERN.sub(r'\g<prefix>"', text)
+    text = CLOSE_SINGLE_QUOTE_PATTERN.sub('"', text)
     text = SPACE_INSIDE_QUOTES_PATTERN.sub(r'\1"\2"', text)
     text = SPACE_AFTER_OPEN_QUOTE_PATTERN.sub(r'\1"', text)
     return SPACE_BEFORE_CLOSE_QUOTE_PATTERN.sub('"', text)
