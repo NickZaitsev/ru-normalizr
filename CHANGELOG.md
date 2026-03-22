@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## Unreleased
 ### Changed
+- Cache resolved IPA latinization fallback results for repeated unknown Latin words, and stop retrying dictionary fallback once the transliteration stabilizes
+- Precompile runtime regexes for large simple dictionary-rule chunks once per `DictionaryNormalizer` instance instead of rebuilding them on every `apply()`
 - Add an early TTS-only URL stage that rewrites explicit links such as `https://example.com/a1` into spoken separator words and digit-by-digit number readings before preprocess, while leaving plain Latin chunks for the later latinization stage
 - Fall back to the bundled latinization dictionary when a requested latinization dictionary filename is missing, so IPA fallback still rewrites unknown Latin words instead of leaving them unchanged
 - Fix some 'к → Кельвин' and 'м в → милливольт' misnormalization errors. Add regression coverage for ambiguous single-letter units and compound unit boundaries such as `км ч`, `квт ч`, `fps`, `mph`, `kbps`, `об мин`, and `ммоль л`

@@ -1,9 +1,15 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from ru_normalizr import NormalizeOptions, normalize
 from ru_normalizr.abbreviations import expand_abbreviations
-from ru_normalizr.latinization import apply_latinization
+from ru_normalizr.dictionary import DictionaryNormalizer
+from ru_normalizr.latinization import (
+    _resolve_unknown_latin_fallback,
+    apply_latinization,
+)
 from ru_normalizr.numerals import _constants, get_numeral_case, simple_tokenize
 
 
@@ -227,6 +233,53 @@ class RuNormalizrRegressionTests(unittest.TestCase):
             ),
             "бэобэчтюнг",
         )
+
+    def test_ipa_unknown_fallback_cache_reuses_resolved_word(self):
+        _resolve_unknown_latin_fallback.cache_clear()
+        calls: list[str] = []
+
+        def fake_apply(text: str, dictionaries_path: Path, filename: str) -> str:
+            del dictionaries_path, filename
+            calls.append(text)
+            if text == "mystery":
+                return "мистери"
+            return text
+
+        with patch(
+            "ru_normalizr.latinization._apply_dictionary_latinization",
+            side_effect=fake_apply,
+        ):
+            self.assertEqual(
+                _resolve_unknown_latin_fallback("mystery", "C:/tmp", "latinization.dic"),
+                "мистери",
+            )
+            self.assertEqual(
+                _resolve_unknown_latin_fallback("mystery", "C:/tmp", "latinization.dic"),
+                "мистери",
+            )
+
+        self.assertEqual(calls, ["mystery", "мистери"])
+
+    def test_dictionary_normalizer_precompiles_simple_chunks_once(self):
+        with TemporaryDirectory() as tmp_dir:
+            dic_path = Path(tmp_dir) / "bulk.dic"
+            dic_path.write_text(
+                "\n".join(f"token{i}=replacement{i}" for i in range(1001)),
+                encoding="utf-8",
+            )
+            normalizer = DictionaryNormalizer(dictionaries_path=tmp_dir)
+
+            with patch("ru_normalizr.dictionary._compile_simple_mapping_patterns") as mocked:
+                self.assertEqual(
+                    normalizer.apply("token1 token999"),
+                    "replacement1 replacement999",
+                )
+                self.assertEqual(
+                    normalizer.apply("token2"),
+                    "replacement2",
+                )
+
+            mocked.assert_not_called()
 
     def test_unit_candidate_does_not_glue_meter_and_preposition_into_millivolt(self):
         with patch.dict(

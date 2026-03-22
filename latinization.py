@@ -97,6 +97,20 @@ def _ipa_convert_cached(word: str) -> str:
     return ipa.convert(word)
 
 
+@lru_cache(maxsize=50000)
+def _resolve_unknown_latin_fallback(
+    word: str, dictionaries_path: str, filename: str
+) -> str:
+    current = word
+    resolved_path = Path(dictionaries_path)
+    for _ in range(6):
+        updated = _apply_dictionary_latinization(current, resolved_path, filename)
+        if updated == current:
+            break
+        current = updated
+    return current
+
+
 def handle_long_vowels(ipa: str) -> str:
     long_vowels = {
         "iː": "ii",
@@ -191,12 +205,9 @@ def _apply_ipa_latinization(
         word = match.group(0)
         ipa_text = _ipa_convert_cached(word.lower())
         if "*" in ipa_text:
-            fallback = word
-            for _ in range(6):
-                fallback = _apply_dictionary_latinization(
-                    fallback, dictionaries_path, filename
-                )
-            return fallback
+            return _resolve_unknown_latin_fallback(
+                word, str(dictionaries_path), filename
+            )
         return _ipa_to_russian(
             ipa_text, include_stress_markers=include_stress_markers
         )

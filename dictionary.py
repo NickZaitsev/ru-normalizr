@@ -45,11 +45,13 @@ class DictionaryNormalizer:
         self.exclude_files = set(exclude_files or [])
         self.include_only_files = set(include_only_files or [])
         self._file_rules: list[tuple[str, Any]] = []
+        self._runtime_file_rules: list[tuple[str, Any]] = []
         self._total_dic = 0
 
         if not self._try_load_from_cache():
             self._load_all_dictionaries()
             self._save_to_cache()
+        self._build_runtime_rules()
 
     def _get_cache_path(self) -> Path:
         base = f"dictionaries_{_DICTIONARY_CACHE_VERSION}"
@@ -205,6 +207,23 @@ class DictionaryNormalizer:
         flush()
         return chunks
 
+    def _build_runtime_rules(self) -> None:
+        runtime_rules: list[tuple[str, Any]] = []
+        for file_type, rules in self._file_rules:
+            if file_type != "dic":
+                runtime_rules.append((file_type, rules))
+                continue
+            runtime_chunks: list[tuple[str, Any]] = []
+            for chunk_type, chunk_data in rules:
+                if chunk_type == "simple":
+                    runtime_chunks.append(
+                        ("simple_compiled", _compile_simple_mapping_patterns(chunk_data))
+                    )
+                else:
+                    runtime_chunks.append((chunk_type, chunk_data))
+            runtime_rules.append((file_type, runtime_chunks))
+        self._runtime_file_rules = runtime_rules
+
     def _dic_pattern_to_regex(
         self, source: str, target: str, anchor_start: bool = False
     ) -> tuple[str, str]:
@@ -253,14 +272,16 @@ class DictionaryNormalizer:
             pattern = "^" + pattern
         return pattern, "".join(replacement_parts)
 
-    def _apply_simple_chunk(self, text: str, mapping: dict[str, str]) -> str:
-        for pattern, replacement in _compile_simple_mapping_patterns(mapping):
+    def _apply_simple_chunk(
+        self, text: str, patterns: list[tuple[re.Pattern[str], str]]
+    ) -> str:
+        for pattern, replacement in patterns:
             text = pattern.sub(replacement, text)
         return text
 
     def _apply_dic_rules(self, text: str, chunks: list[tuple[str, Any]]) -> str:
         for chunk_type, chunk_data in chunks:
-            if chunk_type == "simple":
+            if chunk_type == "simple_compiled":
                 text = self._apply_simple_chunk(text, chunk_data)
             elif chunk_type == "regex_batch":
                 pattern, mapping = chunk_data
@@ -277,9 +298,9 @@ class DictionaryNormalizer:
         return text
 
     def apply(self, text: str, *, strip_unmatched_latin: bool = False) -> str:
-        if not self._file_rules:
+        if not self._runtime_file_rules:
             return text
-        for file_type, rules in self._file_rules:
+        for file_type, rules in self._runtime_file_rules:
             if file_type == "dic":
                 text = self._apply_dic_rules(text, rules)
         if strip_unmatched_latin:
