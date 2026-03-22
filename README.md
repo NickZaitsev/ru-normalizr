@@ -32,6 +32,7 @@
 - включает нормализацию CAPS (`ГЛАВА` → `Глава`)
 - раскрывает инициалы и аббревиатуры в звуки (`ГИБДД` → `ги бэ дэ дэ`)
 - включает перевод латиницы в кириллицу (`iPhone` → `айфоун`)
+- читает явные URL вроде `https://example.com/a1` ближе к тому, как их произносят вслух
 - может убирать сноски в скобках, например, `[1]`
 
 `ru-normalizr` умеет ставить верные ударения ТОЛЬКО при переводе латиницы в кириллицу.
@@ -123,6 +124,7 @@ print(normalize("YouTube в 2024 г.", options))
 
 Доступны отдельные стадии:
 
+- `urls` — ранняя нормализация явных URL в TTS-режиме: переводит разделители в слова и читает цифры внутри ссылок поцифрово, оставляя чистую латиницу на более позднюю стадию `latinization`
 - `preprocess` — предварительная очистка текста: пробелы, переносы строк, пунктуация, часть OCR-подобных склеек, базовая подготовка перед остальной нормализацией
 - `roman` — обработка римских цифр
 - `years` — нормализация годов, десятилетий и диапазонов лет
@@ -249,6 +251,7 @@ By default, `safe` mode is used:
 - includes CAPS normalization (`ГЛАВА` → `Глава`)
 - expands initials and abbreviations into letter names / sounds (`ГИБДД` → `ги бэ дэ дэ`)
 - includes Latin-to-Cyrillic transliteration (`iPhone` → `айфоун`)
+- reads explicit URLs such as `https://example.com/a1` closer to how they would be spoken aloud
 - can remove bracketed references such as `[1]`
 
 `ru-normalizr` can add correct stress marks ONLY when converting Latin text to Cyrillic.  
@@ -341,6 +344,7 @@ print(normalize("YouTube в 2024 г.", options))
 
 Individual stages are available:
 
+- `urls` — early normalization of explicit URLs in TTS mode: turns separators into spoken words and reads digits inside links digit-by-digit while leaving plain Latin words for the later `latinization` stage
 - `preprocess` — preliminary text cleanup: spaces, line breaks, punctuation, some OCR-like glued text, and other preparation before the main normalization stages
 - `roman` — Roman numeral handling
 - `years` — normalization of years, decades, and year ranges

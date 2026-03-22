@@ -13,6 +13,7 @@ from ru_normalizr.numerals import (
     normalize_ordinals,
 )
 from ru_normalizr.roman_numerals import normalize_roman
+from ru_normalizr.urls import normalize_urls
 from ru_normalizr.years import normalize_years
 from ru_normalizr.years_context import is_plausible_year
 
@@ -198,6 +199,19 @@ class RuNormalizrStageTests(unittest.TestCase):
         normalizer = Normalizer()
         self.assertEqual(normalizer.run_stage("finalize", "слово - слово"), "слово — слово")
         self.assertEqual(normalizer.run_stage("finalize", "слово — слово"), "слово — слово")
+
+    def test_url_stage_rewrites_explicit_url_structure_before_preprocess(self):
+        normalizer = Normalizer(NormalizeOptions.tts())
+        self.assertEqual(
+            normalizer.run_stage("urls", "https://milk.org/a1?b=23."),
+            "https двоеточие слэш слэш milk точка org слэш a один вопрос b равно два три.",
+        )
+
+    def test_url_stage_is_disabled_outside_tts_by_default(self):
+        self.assertEqual(
+            normalize_urls("https://milk.org/a1?b=23.", enabled=False),
+            "https://milk.org/a1?b=23.",
+        )
 
     def test_abbreviation_stage(self):
         self.assertEqual(

@@ -11,6 +11,7 @@ _SAFE_MODE_DEFAULTS = {
     "enable_caps_normalization": False,
     "enable_first_word_decap": False,
     "remove_links": False,
+    "enable_url_normalization": False,
     "enable_year_normalization": True,
     "enable_roman_normalization": True,
     "enable_dates_time_normalization": True,
@@ -29,6 +30,7 @@ _TTS_MODE_DEFAULTS = {
     "enable_caps_normalization": True,
     "enable_first_word_decap": True,
     "remove_links": True,
+    "enable_url_normalization": True,
     "enable_year_normalization": True,
     "enable_roman_normalization": True,
     "enable_dates_time_normalization": True,
@@ -57,6 +59,7 @@ class NormalizeOptions:
     enable_caps_normalization: bool
     enable_first_word_decap: bool
     remove_links: bool
+    enable_url_normalization: bool
     remove_links_ignore_interval: tuple[int, int]
     enable_year_normalization: bool
     enable_roman_normalization: bool
@@ -82,6 +85,7 @@ class NormalizeOptions:
         enable_caps_normalization: bool | None = None,
         enable_first_word_decap: bool | None = None,
         remove_links: bool | None = None,
+        enable_url_normalization: bool | None = None,
         remove_links_ignore_interval: tuple[int, int] = (1000, 2200),
         enable_year_normalization: bool | None = None,
         enable_roman_normalization: bool | None = None,
@@ -107,6 +111,7 @@ class NormalizeOptions:
             "enable_caps_normalization": enable_caps_normalization,
             "enable_first_word_decap": enable_first_word_decap,
             "remove_links": remove_links,
+            "enable_url_normalization": enable_url_normalization,
             "enable_year_normalization": enable_year_normalization,
             "enable_roman_normalization": enable_roman_normalization,
             "enable_dates_time_normalization": enable_dates_time_normalization,

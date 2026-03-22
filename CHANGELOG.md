@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## Unreleased
 ### Changed
+- Add an early TTS-only URL stage that rewrites explicit links such as `https://example.com/a1` into spoken separator words and digit-by-digit number readings before preprocess, while leaving plain Latin chunks for the later latinization stage
 - Fall back to the bundled latinization dictionary when a requested latinization dictionary filename is missing, so IPA fallback still rewrites unknown Latin words instead of leaving them unchanged
 - Fix some 'к → Кельвин' and 'м в → милливольт' misnormalization errors. Add regression coverage for ambiguous single-letter units and compound unit boundaries such as `км ч`, `квт ч`, `fps`, `mph`, `kbps`, `об мин`, and `ммоль л`
 - Explicitly treat `не более`, `не менее`, `не больше`, `не меньше`, `более`, `менее`, `больше`, and `меньше` as genitive-marking quantifiers only in direct continuous use before numerals, without extending that rule through `чем`

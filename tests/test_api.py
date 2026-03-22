@@ -600,6 +600,14 @@ class RuNormalizrApiTests(unittest.TestCase):
             "мистер Поппер?",
         )
 
+    def test_tts_normalizes_explicit_urls_before_general_pipeline(self):
+        result = normalize("https://milk.org/a1?b=23.", NormalizeOptions.tts())
+        self.assertIn("двоеточие слэш слэш", result)
+        self.assertIn("один", result)
+        self.assertIn("два три", result)
+        self.assertNotIn("https://", result)
+        self.assertNotIn("?b=23", result)
+
     def test_normalize_inflects_common_adjective_abbreviations_from_context(self):
         self.assertEqual(
             normalize(
@@ -920,12 +928,14 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertFalse(safe.enable_initials_expansion)
         self.assertFalse(safe.enable_letter_abbreviation_expansion)
         self.assertFalse(safe.enable_latinization)
+        self.assertFalse(safe.enable_url_normalization)
         self.assertFalse(safe.remove_links)
 
         self.assertTrue(tts.enable_caps_normalization)
         self.assertTrue(tts.enable_initials_expansion)
         self.assertTrue(tts.enable_letter_abbreviation_expansion)
         self.assertTrue(tts.enable_latinization)
+        self.assertTrue(tts.enable_url_normalization)
         self.assertTrue(tts.remove_links)
 
     def test_default_options_match_safe_preset_except_mode_marker(self):
@@ -935,6 +945,7 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertEqual(default.enable_caps_normalization, safe.enable_caps_normalization)
         self.assertEqual(default.enable_first_word_decap, safe.enable_first_word_decap)
         self.assertEqual(default.remove_links, safe.remove_links)
+        self.assertEqual(default.enable_url_normalization, safe.enable_url_normalization)
         self.assertEqual(default.remove_links_ignore_interval, safe.remove_links_ignore_interval)
         self.assertEqual(default.enable_year_normalization, safe.enable_year_normalization)
         self.assertEqual(default.enable_roman_normalization, safe.enable_roman_normalization)
@@ -981,6 +992,14 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertEqual(normalize("ГИБДД"), "ГИБДД")
         self.assertEqual(normalize("ГИБДД", NormalizeOptions.safe()), "ГИБДД")
         self.assertEqual(normalize("ГИБДД", NormalizeOptions.tts()), "ги бэ дэ дэ")
+        self.assertEqual(
+            Normalizer(NormalizeOptions.safe()).run_stage("urls", "https://milk.org/a1"),
+            "https://milk.org/a1",
+        )
+        self.assertEqual(
+            Normalizer(NormalizeOptions.tts()).run_stage("urls", "https://milk.org/a1"),
+            "https двоеточие слэш слэш milk точка org слэш a один",
+        )
 
         self.assertEqual(preprocess_text("(1)", NormalizeOptions()), "(1)")
         self.assertEqual(preprocess_text("(1)", NormalizeOptions.safe()), "(1)")
@@ -1016,6 +1035,10 @@ class RuNormalizrApiTests(unittest.TestCase):
         normalizer = Normalizer()
 
         self.assertEqual(normalizer.run_stage("roman", "Глава IV."), "Глава 4.")
+        self.assertEqual(
+            Normalizer(NormalizeOptions.tts()).run_stage("urls", "https://milk.org/a1"),
+            "https двоеточие слэш слэш milk точка org слэш a один",
+        )
 
     def test_package_metadata_files_exist(self):
         package_dir = Path(__import__("ru_normalizr").__file__).resolve().parent

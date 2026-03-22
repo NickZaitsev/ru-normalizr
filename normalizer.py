@@ -52,6 +52,7 @@ from .preprocess_utils import (
     restore_paragraph_breaks,
 )
 from .roman_numerals import normalize_roman
+from .urls import normalize_urls
 from .years import normalize_numeric_ranges, normalize_years
 
 PARTICLE_PATTERN = re.compile(
@@ -115,6 +116,7 @@ class PipelineNormalizer:
 
     def run_stage(self, stage: str, text: str) -> str:
         handlers = {
+            "urls": self.run_urls,
             "preprocess": self.run_preprocess,
             "roman": self.run_roman,
             "years": self.run_years,
@@ -135,6 +137,7 @@ class PipelineNormalizer:
         return handler(text)
 
     def normalize_text(self, text: str) -> str:
+        text = self.run_urls(text)
         text = self._run_preprocess_steps(
             text,
             keep_paragraph_placeholders=True,
@@ -177,6 +180,9 @@ class PipelineNormalizer:
                 text, keep_paragraph_placeholders=keep_paragraph_placeholders
             ).strip()
         return text
+
+    def run_urls(self, text: str) -> str:
+        return normalize_urls(text, enabled=self.options.enable_url_normalization)
 
     def _run_preprocess_steps(
         self,
