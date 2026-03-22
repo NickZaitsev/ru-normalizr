@@ -83,6 +83,12 @@ _ROMAN_SHARED_SEPARATOR_PATTERN = re.compile(r"(\s*,\s*|\s+и\s+)")
 _ROMAN_CONTEXT_WORD_PATTERN = r"[A-Za-zА-ЯЁа-яё]+\.?"
 
 
+def _split_context_word_punctuation(word: str) -> tuple[str, str]:
+    if word.endswith(".") and normalize_context_token(word) not in _ROMAN_ABBREVIATION_TO_LEMMA:
+        return word[:-1], "."
+    return word, ""
+
+
 def _resolve_roman_context_noun(
     word: str,
     *,
@@ -134,19 +140,20 @@ def _render_ordinal_for_context_noun(
 def _resolve_explicit_roman_context_form(
     word: str,
 ) -> tuple[object, str, str] | None:
-    resolved = _resolve_roman_context_noun(word)
+    base_word, trailing_punctuation = _split_context_word_punctuation(word)
+    resolved = _resolve_roman_context_noun(base_word)
     if resolved is None:
         return None
     lemma, noun_parse, is_abbreviation = resolved
     case = "nomn" if is_abbreviation else noun_parse_case(noun_parse)
     rendered_word = _render_context_noun_word(
-        word,
+        base_word,
         lemma,
         noun_parse,
         case=case,
         is_abbreviation=is_abbreviation,
     )
-    return noun_parse, case, rendered_word
+    return noun_parse, case, f"{rendered_word}{trailing_punctuation}"
 
 
 def _infer_roman_context_case(
@@ -203,19 +210,19 @@ def _render_single_roman_with_context(
     number: int,
     noun_word: str,
 ) -> str | None:
-    resolved = _resolve_roman_context_noun(noun_word)
+    base_word, trailing_punctuation = _split_context_word_punctuation(noun_word)
+    resolved = _resolve_roman_context_noun(base_word)
     if resolved is None:
         return None
     lemma, noun_parse, is_abbreviation = resolved
-    case = (
-        _infer_abbreviated_century_case(text, match)
-        if is_abbreviation and lemma == "век"
-        else _infer_roman_context_case(text, match, lemma)
-        if is_abbreviation
-        else noun_parse_case(noun_parse)
-    )
+    if is_abbreviation and lemma == "век":
+        case = _infer_abbreviated_century_case(text, match)
+    elif is_abbreviation:
+        case = _infer_roman_context_case(text, match, lemma)
+    else:
+        case = noun_parse_case(noun_parse)
     rendered_noun = _render_context_noun_word(
-        noun_word,
+        base_word,
         lemma,
         noun_parse,
         case=case,
@@ -226,7 +233,7 @@ def _render_single_roman_with_context(
         noun_parse,
         case=case,
     )
-    return f"{rendered_ordinal} {rendered_noun}"
+    return f"{rendered_ordinal} {rendered_noun}{trailing_punctuation}"
 
 
 def _render_roman_series_with_context(
@@ -237,7 +244,8 @@ def _render_roman_series_with_context(
     *,
     noun_first: bool = False,
 ) -> str | None:
-    resolved = _resolve_roman_context_noun(noun_word, allow_abbreviations=False)
+    base_word, trailing_punctuation = _split_context_word_punctuation(noun_word)
+    resolved = _resolve_roman_context_noun(base_word, allow_abbreviations=False)
     if resolved is None:
         return None
     _, noun_parse, _ = resolved
@@ -253,7 +261,7 @@ def _render_roman_series_with_context(
             number = roman.fromRoman(part.upper())
         except roman.InvalidRomanNumeralError:
             return None
-        ordinal = _render_shared_ordinal_in_context(text, match, number, noun_word)
+        ordinal = _render_shared_ordinal_in_context(text, match, number, base_word)
         if ordinal is None:
             ordinal = _render_ordinal_for_context_noun(number, noun_parse)
         rendered_parts.append(ordinal)
@@ -261,8 +269,38 @@ def _render_roman_series_with_context(
     if noun_first:
         if noun_word[:1].isupper() and rendered_series:
             rendered_series = rendered_series[:1].upper() + rendered_series[1:]
-        return f"{rendered_series} {noun_word.lower()}"
-    return f"{rendered_series} {noun_word}"
+        return f"{rendered_series} {base_word.lower()}{trailing_punctuation}"
+    return f"{rendered_series} {base_word}{trailing_punctuation}"
+
+
+def _render_roman_hyphen_range_with_context(
+    text: str,
+    match: re.Match[str],
+    left_number: int,
+    right_number: int,
+    noun_word: str,
+) -> str | None:
+    base_word, trailing_punctuation = _split_context_word_punctuation(noun_word)
+    resolved = _resolve_roman_context_noun(base_word)
+    if resolved is None:
+        return None
+    lemma, noun_parse, is_abbreviation = resolved
+    if is_abbreviation and lemma == "век":
+        case = _infer_abbreviated_century_case(text, match)
+    elif is_abbreviation:
+        case = _infer_roman_context_case(text, match, lemma)
+    else:
+        case = _infer_roman_context_case(text, match, base_word)
+    rendered_noun = _render_context_noun_word(
+        base_word,
+        lemma,
+        noun_parse,
+        case=case,
+        is_abbreviation=is_abbreviation,
+    )
+    left_ordinal = _render_ordinal_for_context_noun(left_number, noun_parse, case=case)
+    right_ordinal = _render_ordinal_for_context_noun(right_number, noun_parse, case=case)
+    return f"{left_ordinal} — {right_ordinal} {rendered_noun}{trailing_punctuation}"
 
 
 def convert_shared_roman_words(text: str) -> str:
@@ -345,6 +383,29 @@ def convert_roman_century_ranges(text: str) -> str:
             f"{match.group('prep')} {_render_ordinal_for_context_noun(left_number, noun_parse, case='gent')} "
             f"{match.group('mid')} {_render_ordinal_for_context_noun(right_number, noun_parse, case=right_case)} {rendered_word}"
         )
+
+    return pattern.sub(repl, text)
+
+
+def convert_hyphenated_roman_ranges(text: str) -> str:
+    pattern = re.compile(
+        rf"\b(?P<left>[IVXLCDM]+)\s*[-–—]\s*(?P<right>[IVXLCDM]+)\s+(?P<word>{_ROMAN_CONTEXT_WORD_PATTERN})(?!\w)"
+    )
+
+    def repl(match: re.Match[str]) -> str:
+        try:
+            left_number = roman.fromRoman(match.group("left").upper())
+            right_number = roman.fromRoman(match.group("right").upper())
+        except roman.InvalidRomanNumeralError:
+            return match.group(0)
+        rendered = _render_roman_hyphen_range_with_context(
+            text,
+            match,
+            left_number,
+            right_number,
+            match.group("word"),
+        )
+        return rendered if rendered is not None else match.group(0)
 
     return pattern.sub(repl, text)
 
@@ -485,8 +546,9 @@ def normalize_roman(text: str, options: NormalizeOptions | None = None) -> str:
         return text
     text = normalize_cyrillic_roman(text)
     text = convert_roman_century_ranges(text)
-    text = convert_left_shared_roman_words(text)
+    text = convert_hyphenated_roman_ranges(text)
     text = convert_shared_roman_words(text)
+    text = convert_left_shared_roman_words(text)
     text = convert_roman_words(text)
     text = convert_roman_names(text)
     text = convert_heading_roman_numerals(text)

@@ -64,6 +64,16 @@ class RuNormalizrStageTests(unittest.TestCase):
             normalize_roman("В V, IV и III веках такие случаи были редки."),
             "В пятом, четвёртом и третьем веках такие случаи были редки.",
         )
+        self.assertEqual(
+            normalize_roman("В XVI и XVII веках религиозные войны опустошали Европу."),
+            "В шестнадцатом и семнадцатом веках религиозные войны опустошали Европу.",
+        )
+        self.assertEqual(
+            normalize_roman(
+                "Страшную память оставили по себе религиозные войны между католиками и протестантами, опустошавшие Европу в XVI и XVII веках."
+            ),
+            "Страшную память оставили по себе религиозные войны между католиками и протестантами, опустошавшие Европу в шестнадцатом и семнадцатом веках.",
+        )
 
     def test_roman_stage_reads_shared_century_series_in_accusative_context(self):
         self.assertEqual(
@@ -93,6 +103,20 @@ class RuNormalizrStageTests(unittest.TestCase):
         self.assertEqual(
             normalize_roman("К XV в. сложились новые маршруты."),
             "К пятнадцатому веку сложились новые маршруты.",
+        )
+        self.assertEqual(
+            normalize_roman("Наследие XXI века ощущается до сих пор."),
+            "Наследие двадцать первого века ощущается до сих пор.",
+        )
+
+    def test_roman_stage_reads_hyphenated_roman_ranges_in_context(self):
+        self.assertEqual(
+            normalize_roman("В III-IV веках н.э. манихейство распространялось."),
+            "В третьем — четвёртом веках н.э. манихейство распространялось.",
+        )
+        self.assertEqual(
+            normalize_roman("В III-IV тысячелетиях до н. э. распространялись ранние культуры."),
+            "В третьем — четвёртом тысячелетиях до н. э. распространялись ранние культуры.",
         )
 
     def test_roman_stage_reads_left_shared_heading_series(self):

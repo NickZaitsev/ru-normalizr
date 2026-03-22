@@ -46,6 +46,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Infer case for coordinated Roman-century series from sentence context, so forms such as `за XV и XVI века` normalize to `за пятнадцатый и шестнадцатый века` instead of an incorrect genitive reading
 - Normalize more coordinated Roman series with shared context words on either side, covering dative forms such as `к XV и XVI векам` and left-shared heading patterns such as `главы IV и V` / `в главах IV и V`
 - Route single Roman numerals with contextual abbreviations such as `XV в.` through the same lemma-based context logic as full noun forms, preserving correct case in forms like `в XV в.`, `за XV в.`, `о XV в.`, and `к XV в.`
+- Keep coordinated Roman-series normalization working at sentence boundaries and normalize hyphenated Roman ranges such as `III-IV веках` / `III-IV тысячелетиях` into contextual ordinal ranges instead of falling through to plain numeral handling
+- Keep standalone `Roman + century noun` forms such as `XXI века` aligned with the explicit noun morphology, so genitive forms no longer fall back to nominative readings like `двадцать первый века`
 
 ## [0.1.4] - 2026-03-15
 ### Changed
