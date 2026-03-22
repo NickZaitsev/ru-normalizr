@@ -1,5 +1,6 @@
 include LICENSE
 include README.md
+include py.typed
 include pyproject.toml
 recursive-include dictionaries *.dic
 recursive-include numerals *.py
