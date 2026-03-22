@@ -45,7 +45,7 @@ class RuNormalizrApiTests(unittest.TestCase):
     def test_normalize_function_handles_roman_and_time_pipeline(self):
         self.assertEqual(
             normalize("Глава IV. Встреча в 10:07."),
-            "Глава четыре. Встреча в десять, ноль семь.",
+            "Глава четвёртая. Встреча в десять, ноль семь.",
         )
 
     def test_normalize_keeps_see_chapter_reference_semantics(self):
@@ -58,7 +58,7 @@ class RuNormalizrApiTests(unittest.TestCase):
     def test_normalize_distinguishes_chapter_heading_and_inline_references(self):
         self.assertEqual(
             normalize("Глава 10. Последние слова генерала."),
-            "Глава десять. Последние слова генерала.",
+            "Глава десятая. Последние слова генерала.",
         )
         self.assertEqual(
             normalize("См. главу 10, где описан конфликт."),
@@ -106,7 +106,7 @@ class RuNormalizrApiTests(unittest.TestCase):
     def test_normalize_runs_roman_before_caps_normalization(self):
         self.assertEqual(
             normalize("ГЛАВА IV.", NormalizeOptions.tts()),
-            "Глава четыре.",
+            "Глава четвёртая.",
         )
 
     def test_package_root_normalizer_re_exports_pipeline_class(self):
@@ -120,7 +120,7 @@ class RuNormalizrApiTests(unittest.TestCase):
 
         self.assertEqual(
             normalizer.normalize_batch(["Глава IV.", "Встреча в 10:07."]),
-            ["Глава четыре.", "Встреча в десять, ноль семь."],
+            ["Глава четвёртая.", "Встреча в десять, ноль семь."],
         )
 
     def test_options_can_disable_first_word_decap(self):
@@ -342,7 +342,7 @@ class RuNormalizrApiTests(unittest.TestCase):
     def test_normalize_preserves_paragraph_breaks_during_full_pipeline(self):
         self.assertEqual(
             normalize("Глава IV.\n\nВстреча в 10:07."),
-            "Глава четыре.\n\nВстреча в десять, ноль семь.",
+            "Глава четвёртая.\n\nВстреча в десять, ноль семь.",
         )
 
     def test_normalize_preserves_paragraph_break_before_quoted_uppercase_text(self):
@@ -934,7 +934,7 @@ class RuNormalizrApiTests(unittest.TestCase):
         )
 
     def test_safe_mode_keeps_caps_and_letter_abbreviations_conservative(self):
-        self.assertEqual(normalize("ГЛАВА IV.", NormalizeOptions.safe()), "ГЛАВА четыре.")
+        self.assertEqual(normalize("ГЛАВА IV.", NormalizeOptions.safe()), "ГЛАВА четвёртая.")
         self.assertEqual(normalize("ГИБДД", NormalizeOptions.safe()), "ГИБДД")
 
     def test_mode_helpers_apply_expected_defaults(self):
@@ -1051,7 +1051,7 @@ class RuNormalizrApiTests(unittest.TestCase):
     def test_run_stage_supports_targeted_stage_access(self):
         normalizer = Normalizer()
 
-        self.assertEqual(normalizer.run_stage("roman", "Глава IV."), "Глава 4.")
+        self.assertEqual(normalizer.run_stage("roman", "Глава IV."), "Глава четвёртая.")
         self.assertEqual(
             Normalizer(NormalizeOptions.tts()).run_stage("urls", "https://milk.org/a1"),
             "https двоеточие слэш слэш milk точка org слэш a один",
@@ -1147,7 +1147,7 @@ class RuNormalizrCliTests(unittest.TestCase):
             check=True,
         )
 
-        self.assertIn("Глава четыре.", completed.stdout)
+        self.assertIn("Глава четвёртая.", completed.stdout)
 
     def test_cli_can_write_output_to_file(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -1167,7 +1167,7 @@ class RuNormalizrCliTests(unittest.TestCase):
             )
 
             self.assertEqual(completed.stdout, "")
-            self.assertEqual(output_path.read_text(encoding="utf-8"), "Глава четыре.\n")
+            self.assertEqual(output_path.read_text(encoding="utf-8"), "Глава четвёртая.\n")
 
     def test_cli_tts_mode_enables_letter_abbreviation_expansion(self):
         completed = subprocess.run(

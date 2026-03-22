@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 
-import num2words
 import roman
 
 from ._morph import get_morph
@@ -10,6 +9,11 @@ from .constants import KNOWN_ABBREVIATIONS
 from .numerals._helpers import get_numeral_case
 from .numerals._hyphen import is_safe_numeric_hyphen_unit
 from .options import NormalizeOptions
+from .ordinal_utils import (
+    noun_parse_case,
+    render_ordinal,
+    render_ordinal_from_noun_word,
+)
 from .text_context import normalize_context_token, simple_tokenize
 
 _ROMAN_ABBREVIATION_EXCEPTIONS = frozenset(
@@ -63,15 +67,6 @@ _REGNAL_CASE_CONTEXT = {
     "перед": "ablt",
     "пред": "ablt",
 }
-_REGNAL_CASE_TO_NUM2WORDS = {
-    "nomn": "nominative",
-    "gent": "genitive",
-    "datv": "dative",
-    "accs": "accusative",
-    "ablt": "instrumental",
-    "loct": "prepositional",
-}
-_REGNAL_GENDER_TO_NUM2WORDS = {"masc": "m", "femn": "f", "neut": "n"}
 _CENTURY_WORD_TO_CASE = {
     "в.": "nomn",
     "век": "nomn",
@@ -146,15 +141,6 @@ _ROMAN_SHARED_WORD_SUFFIXES = {
     key: value for key, value in _ROMAN_WORD_SUFFIXES.items() if key not in {"в.", "в"}
 }
 _ROMAN_SHARED_SEPARATOR_PATTERN = re.compile(r"(\s*,\s*|\s+и\s+)")
-_CASE_TO_NUM2WORDS = {
-    "nomn": "nominative",
-    "gent": "genitive",
-    "datv": "dative",
-    "accs": "accusative",
-    "ablt": "instrumental",
-    "loct": "prepositional",
-}
-_GENDER_TO_NUM2WORDS = {"masc": "m", "femn": "f", "neut": "n"}
 
 
 def _expand_century_abbreviation(text: str, match: re.Match[str], number: int) -> str:
@@ -168,38 +154,6 @@ def _expand_century_abbreviation(text: str, match: re.Match[str], number: int) -
     noun_form = parsed.inflect({case, "sing"})
     century_word = noun_form.word if noun_form else "век"
     return f"{number}{ending} {century_word}"
-
-
-def _shared_ordinal_from_word(number: int, word: str) -> str | None:
-    noun_parses = [
-        candidate
-        for candidate in get_morph().parse(word.lower())
-        if "NOUN" in candidate.tag
-    ]
-    if not noun_parses:
-        return None
-
-    inanimate_parses = [candidate for candidate in noun_parses if "inan" in candidate.tag]
-    noun_parse = inanimate_parses[0] if inanimate_parses else noun_parses[0]
-    case = "loct" if "loc2" in noun_parse.tag else (noun_parse.tag.case or "nomn")
-    gender = noun_parse.tag.gender or "masc"
-    generation_case = case
-    if case == "accs" and gender in {"masc", "neut"} and "inan" in noun_parse.tag:
-        generation_case = "nomn"
-
-    kwargs = {
-        "lang": "ru",
-        "to": "ordinal",
-        "case": _CASE_TO_NUM2WORDS.get(generation_case, "nominative"),
-        "gender": _GENDER_TO_NUM2WORDS.get(gender, "m"),
-    }
-    try:
-        return num2words.num2words(number, **kwargs)
-    except Exception:
-        try:
-            return num2words.num2words(number, lang="ru", to="ordinal")
-        except Exception:
-            return None
 
 
 def convert_shared_roman_words(text: str) -> str:
@@ -224,7 +178,11 @@ def convert_shared_roman_words(text: str) -> str:
                 number = roman.fromRoman(part.upper())
             except roman.InvalidRomanNumeralError:
                 return match.group(0)
-            ordinal = _shared_ordinal_from_word(number, rendered_word)
+            ordinal = render_ordinal_from_noun_word(
+                number,
+                rendered_word,
+                singularize_plural=True,
+            )
             if ordinal is None:
                 rendered_parts.append(f"{number}{ending}")
             else:
@@ -257,22 +215,8 @@ def convert_roman_century_ranges(text: str) -> str:
         r"\b(?P<prep>с|со|от)\s+(?P<left>[IVXLCDM]+)\s+(?P<mid>до|по)\s+(?P<right>[IVXLCDM]+)\s+(?P<word>век(?:а|у|е|ом|ами|ах)?|в\.)(?!\w)",
         re.IGNORECASE,
     )
-    case_map = {
-        "nomn": "nominative",
-        "gent": "genitive",
-        "datv": "dative",
-        "accs": "accusative",
-        "ablt": "instrumental",
-        "loct": "prepositional",
-    }
-
     def ordinal(number: int, case: str) -> str:
-        try:
-            return num2words.num2words(
-                number, lang="ru", to="ordinal", case=case_map.get(case, "nominative")
-            )
-        except Exception:
-            return num2words.num2words(number, lang="ru", to="ordinal")
+        return render_ordinal(number, case=case, gender="masc")
 
     def repl(match: re.Match[str]) -> str:
         try:
@@ -338,19 +282,9 @@ def convert_roman_names(text: str) -> str:
         parse = pick_name_parse(match)
         if parse is None:
             return match.group(0)
-        case = "loct" if "loc2" in parse.tag else (parse.tag.case or "nomn")
+        case = noun_parse_case(parse)
         gender = parse.tag.gender or "masc"
-        kwargs = {
-            "lang": "ru",
-            "to": "ordinal",
-            "case": _REGNAL_CASE_TO_NUM2WORDS.get(case, "nominative"),
-            "gender": _REGNAL_GENDER_TO_NUM2WORDS.get(gender, "m"),
-        }
-        try:
-            ordinal = num2words.num2words(number, **kwargs)
-        except Exception:
-            ordinal = num2words.num2words(number, lang="ru", to="ordinal")
-        return f"{match.group('name')} {ordinal}"
+        return f"{match.group('name')} {render_ordinal(number, case=case, gender=gender)}"
 
     return re.sub(pattern, repl, text)
 
@@ -359,17 +293,29 @@ def convert_heading_roman_numerals(text: str) -> str:
     heading_words = (
         "глава",
         "главы",
+        "главе",
+        "главу",
+        "главой",
         "часть",
         "части",
+        "частью",
         "раздел",
         "раздела",
         "разделе",
+        "разделу",
         "том",
         "тома",
         "томе",
+        "томом",
         "книга",
         "книги",
         "книге",
+        "книгой",
+        "квартал",
+        "квартала",
+        "квартале",
+        "кварталу",
+        "кварталом",
     )
     pattern = rf"\b({'|'.join(map(re.escape, heading_words))})\s+([IVXLCDM]+)\b"
 
@@ -377,7 +323,13 @@ def convert_heading_roman_numerals(text: str) -> str:
         if match.group(2) != match.group(2).upper():
             return match.group(0)
         try:
-            return f"{match.group(1)} {roman.fromRoman(match.group(2).upper())}"
+            ordinal = render_ordinal_from_noun_word(
+                roman.fromRoman(match.group(2).upper()),
+                match.group(1),
+            )
+            if ordinal is None:
+                return f"{match.group(1)} {roman.fromRoman(match.group(2).upper())}"
+            return f"{match.group(1)} {ordinal}"
         except roman.InvalidRomanNumeralError:
             return match.group(0)
 

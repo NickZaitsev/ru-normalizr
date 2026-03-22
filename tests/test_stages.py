@@ -22,7 +22,7 @@ class RuNormalizrStageTests(unittest.TestCase):
     def test_roman_stage(self):
         self.assertEqual(
             normalize_roman("Глава IV. Общественный строй"),
-            "Глава 4. Общественный строй",
+            "Глава четвёртая. Общественный строй",
         )
 
     def test_roman_stage_does_not_treat_cyrillic_measurement_as_roman(self):
@@ -38,7 +38,7 @@ class RuNormalizrStageTests(unittest.TestCase):
     def test_roman_stage_keeps_title_case_see_abbreviation(self):
         self.assertEqual(
             normalize_roman("См. главу IV."),
-            "См. главу 4.",
+            "См. главу четвёртую.",
         )
 
     def test_roman_stage_keeps_known_abbreviation_cd(self):
@@ -65,10 +65,10 @@ class RuNormalizrStageTests(unittest.TestCase):
             "В пятом, четвёртом и третьем веках такие случаи были редки.",
         )
 
-    def test_roman_stage_does_not_promote_single_letter_roman_without_shared_context(self):
+    def test_roman_stage_keeps_plain_single_letter_and_normalizes_heading_context(self):
         self.assertEqual(
             normalize_roman("Буква V и глава IV."),
-            "Буква V и глава 4.",
+            "Буква V и глава четвёртая.",
         )
 
     def test_dates_time_stage(self):
@@ -108,6 +108,10 @@ class RuNormalizrStageTests(unittest.TestCase):
 
     def test_numeral_stage_normalizes_heading_single_number_as_ordinal(self):
         self.assertEqual(
+            normalize_numerals("глава 10"),
+            "глава десятая",
+        )
+        self.assertEqual(
             normalize_numerals("главу 10"),
             "главу десятую",
         )
@@ -124,12 +128,24 @@ class RuNormalizrStageTests(unittest.TestCase):
             "до главы десятой",
         )
         self.assertEqual(
+            normalize_numerals("раздел 3"),
+            "раздел третий",
+        )
+        self.assertEqual(
             normalize_numerals("из раздела 3"),
             "из раздела третьего",
         )
         self.assertEqual(
+            normalize_numerals("книга 2"),
+            "книга вторая",
+        )
+        self.assertEqual(
             normalize_numerals("из книги 2"),
             "из книги второй",
+        )
+        self.assertEqual(
+            normalize_numerals("часть 2"),
+            "часть вторая",
         )
         self.assertEqual(
             normalize_numerals("в части 2"),

@@ -5,6 +5,7 @@ import re
 import num2words
 
 from .._morph import get_morph
+from ..ordinal_utils import render_ordinal
 from ..text_context import simple_tokenize
 from ._constants import HYPHENATED_WORD_PATTERN, ORDINAL_PATTERN
 from ._helpers import get_numeral_case, inflect_numeral_string
@@ -54,12 +55,12 @@ HEADING_CONTEXT_CASES = {
     "середина": "gent",
 }
 SINGULAR_HEADING_WORDS_PATTERN = (
-    r"главы|главе|главу|главой|"
-    r"части|частью|"
-    r"раздела|разделе|разделу|"
-    r"тома|томе|томом|"
-    r"книги|книге|книгой|"
-    r"квартала|квартале|кварталу|кварталом"
+    r"глава|главы|главе|главу|главой|"
+    r"часть|части|частью|"
+    r"раздел|раздела|разделе|разделу|"
+    r"том|тома|томе|томом|"
+    r"книга|книги|книге|книгой|"
+    r"квартал|квартала|квартале|кварталу|кварталом"
 )
 HEADING_RANGE_PATTERN = re.compile(
     rf"\b(?P<head>{HEADING_WORDS_PATTERN})\s+(?P<left>\d+)\s*[–—-]\s*(?P<right>\d+)\b",
@@ -72,22 +73,7 @@ HEADING_SINGLE_PATTERN = re.compile(
 
 
 def _ordinal_words(num: int, case: str, gender: str | None) -> str:
-    case_map = {
-        "nomn": "nominative",
-        "gent": "genitive",
-        "datv": "dative",
-        "accs": "accusative",
-        "ablt": "instrumental",
-        "loct": "prepositional",
-    }
-    gender_map = {"masc": "m", "femn": "f", "neut": "n"}
-    kwargs: dict[str, str] = {"to": "ordinal", "case": case_map.get(case, "nominative")}
-    if gender in gender_map:
-        kwargs["gender"] = gender_map[gender]
-    try:
-        return num2words.num2words(num, lang="ru", **kwargs)
-    except Exception:
-        return num2words.num2words(num, lang="ru", to="ordinal")
+    return render_ordinal(num, case=case, gender=gender)
 
 
 def _pick_range_preposition(first_ordinal: str) -> str:
@@ -102,6 +88,13 @@ def _heading_parse(text: str, match_start: int, head: str):
     candidates = inanimate if inanimate else parsed
     normalized_head = head.lower()
     if normalized_head not in AMBIGUOUS_HEADING_WORDS:
+        nominative_singular = [
+            candidate
+            for candidate in candidates
+            if ("sing" in candidate.tag and "nomn" in candidate.tag)
+        ]
+        if nominative_singular:
+            return nominative_singular[0]
         return candidates[0]
 
     left_context = text[max(0, match_start - 40) : match_start]
@@ -319,47 +312,35 @@ def normalize_ordinals(text: str) -> str:
         ):
             generation_case = "nomn"
 
-        cases_map = {
-            "nomn": "nominative",
-            "gent": "genitive",
-            "datv": "dative",
-            "accs": "accusative",
-            "ablt": "instrumental",
-            "loct": "prepositional",
-        }
-        gender_map = {"masc": "m", "femn": "f", "neut": "n"}
-        if generation_case in cases_map:
+        if is_cardinal_suffix:
+            cases_map = {
+                "nomn": "nominative",
+                "gent": "genitive",
+                "datv": "dative",
+                "accs": "accusative",
+                "ablt": "instrumental",
+                "loct": "prepositional",
+            }
             try:
-                kwargs = {"case": cases_map[generation_case]}
-                if not is_cardinal_suffix:
-                    kwargs["to"] = "ordinal"
-                if plural:
-                    kwargs["plural"] = True
-                elif gender in gender_map and not is_cardinal_suffix:
-                    kwargs["gender"] = gender_map[gender]
-                return num2words.num2words(num, lang="ru", **kwargs) + " "
+                return (
+                    num2words.num2words(
+                        num,
+                        lang="ru",
+                        case=cases_map.get(generation_case, "nominative"),
+                    )
+                    + " "
+                )
             except Exception:
-                pass
-        try:
-            ordinal = num2words.num2words(
-                num, lang="ru", to="cardinal" if is_cardinal_suffix else "ordinal"
+                return match.group(0)
+        return (
+            render_ordinal(
+                num,
+                case=generation_case,
+                gender=gender,
+                plural=plural,
+                inanimate=right_noun is not None and "inan" in right_noun.tag,
             )
-        except Exception:
-            return match.group(0)
-        words = ordinal.split()
-        if not words:
-            return ordinal
-        parsed = morph.parse(words[-1])
-        if parsed:
-            p = parsed[0]
-            target_tags = {generation_case}
-            if plural:
-                target_tags.add("plur")
-            elif gender:
-                target_tags.add(gender)
-            inflected = p.inflect(target_tags)
-            if inflected:
-                words[-1] = inflected.word
-        return " ".join(words) + " "
+            + " "
+        )
 
     return ORDINAL_PATTERN.sub(repl, text)
