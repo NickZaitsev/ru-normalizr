@@ -40,6 +40,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Normalize shared-era ancient year ranges such as `12500-9500 до н. э.` as year ranges instead of plain numbers, and avoid malformed large ordinals like `двенадцатый тысяч ...` for years above 9999
 - Extend era handling to English historical markers such as `BC`, `BCE`, `AD`, and `CE`, and route shared-era ranges through the existing year logic for forms like `с 12500 по 9500 до н. э.`
 - Keep explicit BCE/CE year nouns such as `в 1776 год до н. э.` aligned with the written `год` form, so the ordinal no longer incorrectly switches to a prepositional shape like `шестом год`
+- Normalize coordinated Roman numerals with a shared context word on the right into contextual ordinal forms, so inputs such as `V и IV тысячелетиях до н. э.` become `пятом и четвёртом ...` instead of leaving the first numeral for latinization as `ви`
+- Fix a crash in era-year normalization for abbreviated forms such as `50 г. до н. э.` when no leading preposition is present
 
 ## [0.1.4] - 2026-03-15
 ### Changed

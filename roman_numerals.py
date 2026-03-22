@@ -90,6 +90,71 @@ _CENTURY_CASE_TO_WORD_FORM = {
     "ablt": "веком",
     "loct": "веке",
 }
+_ROMAN_WORD_SUFFIXES = {
+    "в.": ("век", "-й"),
+    "век": ("век", "-й"),
+    "века": ("века", "-го"),
+    "веку": ("веку", "-му"),
+    "веке": ("веке", "-м"),
+    "веком": ("веком", "-м"),
+    "веками": ("веками", "-ми"),
+    "веках": ("веках", "-х"),
+    "столетие": ("столетие", "-е"),
+    "столетия": ("столетия", "-го"),
+    "столетию": ("столетию", "-му"),
+    "столетии": ("столетии", "-м"),
+    "столетием": ("столетием", "-м"),
+    "столетиях": ("столетиях", "-х"),
+    "тысячелетие": ("тысячелетие", "-е"),
+    "тысячелетия": ("тысячелетия", "-го"),
+    "тысячелетию": ("тысячелетию", "-му"),
+    "тысячелетии": ("тысячелетии", "-м"),
+    "тысячелетием": ("тысячелетием", "-м"),
+    "тысячелетиях": ("тысячелетиях", "-х"),
+    "глава": ("глава", "-я"),
+    "главы": ("главы", "-й"),
+    "главе": ("главе", "-й"),
+    "главу": ("главу", "-ю"),
+    "главой": ("главой", "-й"),
+    "главами": ("главами", "-ми"),
+    "главах": ("главах", "-х"),
+    "раздел": ("раздел", "-й"),
+    "раздела": ("раздела", "-го"),
+    "разделе": ("разделе", "-м"),
+    "разделу": ("разделу", "-му"),
+    "часть": ("часть", "-я"),
+    "части": ("части", "-й"),
+    "частью": ("частью", "-й"),
+    "том": ("том", "-й"),
+    "тома": ("тома", "-го"),
+    "томе": ("томе", "-м"),
+    "томом": ("томом", "-м"),
+    "книга": ("книга", "-я"),
+    "книги": ("книги", "-й"),
+    "книге": ("книге", "-й"),
+    "книгой": ("книгой", "-й"),
+    "квартал": ("квартал", "-й"),
+    "квартала": ("квартала", "-го"),
+    "кварталу": ("кварталу", "-му"),
+    "квартале": ("квартале", "-м"),
+    "кварталом": ("кварталом", "-м"),
+    "кв.": ("квартал", "-й"),
+    "кв": ("квартал", "-й"),
+    "в": ("век", "-й"),
+}
+_ROMAN_SHARED_WORD_SUFFIXES = {
+    key: value for key, value in _ROMAN_WORD_SUFFIXES.items() if key not in {"в.", "в"}
+}
+_ROMAN_SHARED_SEPARATOR_PATTERN = re.compile(r"(\s*,\s*|\s+и\s+)")
+_CASE_TO_NUM2WORDS = {
+    "nomn": "nominative",
+    "gent": "genitive",
+    "datv": "dative",
+    "accs": "accusative",
+    "ablt": "instrumental",
+    "loct": "prepositional",
+}
+_GENDER_TO_NUM2WORDS = {"masc": "m", "femn": "f", "neut": "n"}
 
 
 def _expand_century_abbreviation(text: str, match: re.Match[str], number: int) -> str:
@@ -105,60 +170,72 @@ def _expand_century_abbreviation(text: str, match: re.Match[str], number: int) -
     return f"{number}{ending} {century_word}"
 
 
-def convert_roman_words(text: str) -> str:
-    words = {
-        "в.": ("век", "-й"),
-        "век": ("век", "-й"),
-        "века": ("века", "-го"),
-        "веку": ("веку", "-му"),
-        "веке": ("веке", "-м"),
-        "веком": ("веком", "-м"),
-        "веками": ("веками", "-ми"),
-        "веках": ("веках", "-х"),
-        "столетие": ("столетие", "-е"),
-        "столетия": ("столетия", "-го"),
-        "столетию": ("столетию", "-му"),
-        "столетии": ("столетии", "-м"),
-        "столетием": ("столетием", "-м"),
-        "столетиях": ("столетиях", "-х"),
-        "тысячелетие": ("тысячелетие", "-е"),
-        "тысячелетия": ("тысячелетия", "-го"),
-        "тысячелетию": ("тысячелетию", "-му"),
-        "тысячелетии": ("тысячелетии", "-м"),
-        "тысячелетием": ("тысячелетием", "-м"),
-        "тысячелетиях": ("тысячелетиях", "-х"),
-        "глава": ("глава", "-я"),
-        "главы": ("главы", "-й"),
-        "главе": ("главе", "-й"),
-        "главу": ("главу", "-ю"),
-        "главой": ("главой", "-й"),
-        "главами": ("главами", "-ми"),
-        "главах": ("главах", "-х"),
-        "раздел": ("раздел", "-й"),
-        "раздела": ("раздела", "-го"),
-        "разделе": ("разделе", "-м"),
-        "разделу": ("разделу", "-му"),
-        "часть": ("часть", "-я"),
-        "части": ("части", "-й"),
-        "частью": ("частью", "-й"),
-        "том": ("том", "-й"),
-        "тома": ("тома", "-го"),
-        "томе": ("томе", "-м"),
-        "томом": ("томом", "-м"),
-        "книга": ("книга", "-я"),
-        "книги": ("книги", "-й"),
-        "книге": ("книге", "-й"),
-        "книгой": ("книгой", "-й"),
-        "квартал": ("квартал", "-й"),
-        "квартала": ("квартала", "-го"),
-        "кварталу": ("кварталу", "-му"),
-        "квартале": ("квартале", "-м"),
-        "кварталом": ("кварталом", "-м"),
-        "кв.": ("квартал", "-й"),
-        "кв": ("квартал", "-й"),
-        "в": ("век", "-й"),
+def _shared_ordinal_from_word(number: int, word: str) -> str | None:
+    noun_parses = [
+        candidate
+        for candidate in get_morph().parse(word.lower())
+        if "NOUN" in candidate.tag
+    ]
+    if not noun_parses:
+        return None
+
+    inanimate_parses = [candidate for candidate in noun_parses if "inan" in candidate.tag]
+    noun_parse = inanimate_parses[0] if inanimate_parses else noun_parses[0]
+    case = "loct" if "loc2" in noun_parse.tag else (noun_parse.tag.case or "nomn")
+    gender = noun_parse.tag.gender or "masc"
+    generation_case = case
+    if case == "accs" and gender in {"masc", "neut"} and "inan" in noun_parse.tag:
+        generation_case = "nomn"
+
+    kwargs = {
+        "lang": "ru",
+        "to": "ordinal",
+        "case": _CASE_TO_NUM2WORDS.get(generation_case, "nominative"),
+        "gender": _GENDER_TO_NUM2WORDS.get(gender, "m"),
     }
-    suffixes_regex = "|".join(map(re.escape, words.keys()))
+    try:
+        return num2words.num2words(number, **kwargs)
+    except Exception:
+        try:
+            return num2words.num2words(number, lang="ru", to="ordinal")
+        except Exception:
+            return None
+
+
+def convert_shared_roman_words(text: str) -> str:
+    suffixes_regex = "|".join(map(re.escape, _ROMAN_SHARED_WORD_SUFFIXES.keys()))
+    pattern = re.compile(
+        rf"\b(?P<series>[IVXLCDM]+(?:\s*(?:,\s*|\s+и\s+)[IVXLCDM]+)+)\s+(?P<suffix>{suffixes_regex})(?!\w)"
+    )
+
+    def repl(match: re.Match[str]) -> str:
+        matched_suffix = match.group("suffix").lower()
+        rendered_word = match.group("suffix")
+        _, ending = _ROMAN_SHARED_WORD_SUFFIXES[matched_suffix]
+        parts = _ROMAN_SHARED_SEPARATOR_PATTERN.split(match.group("series"))
+        rendered_parts: list[str] = []
+        for part in parts:
+            if not part:
+                continue
+            if _ROMAN_SHARED_SEPARATOR_PATTERN.fullmatch(part):
+                rendered_parts.append(part)
+                continue
+            try:
+                number = roman.fromRoman(part.upper())
+            except roman.InvalidRomanNumeralError:
+                return match.group(0)
+            ordinal = _shared_ordinal_from_word(number, rendered_word)
+            if ordinal is None:
+                rendered_parts.append(f"{number}{ending}")
+            else:
+                rendered_parts.append(ordinal)
+        return f"{''.join(rendered_parts)} {rendered_word}"
+
+    return pattern.sub(repl, text)
+
+
+def convert_roman_words(text: str) -> str:
+    suffixes_regex = "|".join(map(re.escape, _ROMAN_WORD_SUFFIXES.keys()))
     pattern = rf"\b([IVXLCDM]+)\s*({suffixes_regex})(?!\w)"
 
     def repl(match: re.Match[str]) -> str:
@@ -169,7 +246,7 @@ def convert_roman_words(text: str) -> str:
         matched_suffix = match.group(2).lower()
         if matched_suffix in {"в.", "в"}:
             return _expand_century_abbreviation(text, match, number)
-        target_word, ending = words[matched_suffix]
+        target_word, ending = _ROMAN_WORD_SUFFIXES[matched_suffix]
         return f"{number}{ending} {target_word}"
 
     return re.sub(pattern, repl, text)
@@ -364,6 +441,7 @@ def normalize_roman(text: str, options: NormalizeOptions | None = None) -> str:
         return text
     text = normalize_cyrillic_roman(text)
     text = convert_roman_century_ranges(text)
+    text = convert_shared_roman_words(text)
     text = convert_roman_words(text)
     text = convert_roman_names(text)
     text = convert_heading_roman_numerals(text)

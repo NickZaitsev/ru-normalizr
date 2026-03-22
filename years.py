@@ -429,9 +429,7 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         elif word:
             word_lower = word.lower()
             if word_lower in ("г.", "г"):
-                case = PREPOSITIONS_TO_CASE.get(
-                    prep.lower(), "nomn"
-                )
+                case = PREPOSITIONS_TO_CASE.get(prep.lower(), "nomn") if prep else "nomn"
             else:
                 case = _resolve_explicit_year_word_case(prep, word)
         elif prep:
@@ -462,9 +460,7 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         if word:
             word_lower = word.lower()
             if word_lower in ("г.", "г"):
-                case = PREPOSITIONS_TO_CASE.get(
-                    prep.lower(), "nomn"
-                )
+                case = PREPOSITIONS_TO_CASE.get(prep.lower(), "nomn") if prep else "nomn"
             else:
                 case = _resolve_explicit_year_word_case(prep, word)
         elif prep:

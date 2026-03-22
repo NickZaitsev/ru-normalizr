@@ -110,6 +110,16 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             ),
             "Ее расцвет пришелся на третье тысячелетие до нашей эры, а около тысяча девятисотого года до нашей эры эта цивилизация погибла.",
         )
+        self.assertEqual(
+            normalize(
+                "В V и IV тысячелетиях до н. э. в Плодородном полумесяце один за другим возникают города."
+            ),
+            "В пятом и четвёртом тысячелетиях до нашей эры в Плодородном полумесяце один за другим возникают города.",
+        )
+        self.assertEqual(
+            normalize("В V и IV веках до н. э. такие случаи были редки."),
+            "В пятом и четвёртом веках до нашей эры такие случаи были редки.",
+        )
 
     def test_normalize_fixes_suffixed_era_year_and_keeps_terminal_dot(self):
         self.assertEqual(
