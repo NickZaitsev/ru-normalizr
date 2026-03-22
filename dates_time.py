@@ -68,6 +68,18 @@ NUMERIC_DATE_PATTERN = re.compile(
     r"\b(?P<day>0?[1-9]|[12]\d|3[01])\.(?P<month>0?[1-9]|1[0-2])\.(?P<year>\d{2,4})\b"
 )
 TIME_PATTERN = re.compile(r"\b(?P<hour>[01]?\d|2[0-3]):(?P<minute>[0-5]\d)\b")
+DOTTED_TIME_PATTERN = re.compile(
+    r"\b(?P<hour>[01]?\d|2[0-3])\.(?P<minute>[0-5]\d)\b",
+    re.IGNORECASE,
+)
+DOTTED_TIME_LEFT_CONTEXT_PATTERN = re.compile(
+    r"(?:^|[\s(\"«])(?:в|во|к|около)\s*$",
+    re.IGNORECASE,
+)
+DOTTED_TIME_RIGHT_CONTEXT_PATTERN = re.compile(
+    r"^\s*(?:утр(?:ом|а)?|вечер(?:ом|а)?|ноч(?:ью|и)?|дн(?:ём|ем)?|час(?:ов|а)?\b)",
+    re.IGNORECASE,
+)
 
 
 def _day_to_ordinal_genitive(day: int) -> str | None:
@@ -180,7 +192,7 @@ def normalize_dates(text: str) -> str:
 
 
 def normalize_time(text: str) -> str:
-    def repl(match: re.Match[str]) -> str:
+    def render_time(match: re.Match[str]) -> str:
         hour = int(match.group("hour"))
         minute_str = match.group("minute")
         try:
@@ -201,7 +213,18 @@ def normalize_time(text: str) -> str:
                 minute_words = minute_str
         return f"{hour_words}, {minute_words}"
 
-    return TIME_PATTERN.sub(repl, text)
+    def render_dotted_time(match: re.Match[str]) -> str:
+        left_context = text[max(0, match.start() - 16) : match.start()]
+        right_context = text[match.end() : match.end() + 24]
+        if not (
+            DOTTED_TIME_LEFT_CONTEXT_PATTERN.search(left_context)
+            or DOTTED_TIME_RIGHT_CONTEXT_PATTERN.search(right_context)
+        ):
+            return match.group(0)
+        return render_time(match)
+
+    text = TIME_PATTERN.sub(render_time, text)
+    return DOTTED_TIME_PATTERN.sub(render_dotted_time, text)
 
 
 def normalize_dates_and_time(text: str, options: NormalizeOptions | None = None) -> str:

@@ -79,6 +79,13 @@ SENTENCE_SPACE_AFTER_PATTERN = re.compile(r"(?<=[.!?…])(?=[\"(«„“]?[A-ZА
 CYRILLIC_COMBINING_STRESS_PATTERN = re.compile(
     r"([АЕЁИОУЫЭЮЯаеёиоуыэюя])([\u0300\u0301])"
 )
+ZERO_WIDTH_FORMATTING_PATTERN = re.compile(r"[\u200B\u200C\u200D\u2060\uFEFF]")
+PAGE_ABBREVIATION_PATTERN = re.compile(r"\b[сp]\.\s*(?=\d)", re.IGNORECASE)
+APPROXIMATE_ABBREVIATION_PATTERN = re.compile(r"\bок\.\s*(?=\d)", re.IGNORECASE)
+ERA_ABBREVIATION_PATTERN = re.compile(
+    r"(?<!\w)(?P<abbr>до\s+н\.?\s*э\.?|н\.?\s*э\.?)(?P<tail>\s*)",
+    re.IGNORECASE,
+)
 
 
 def normalize_ascii_quote_pairs(text: str) -> str:
@@ -113,6 +120,41 @@ def normalize_punctuation_spacing(text: str) -> str:
 
 def normalize_cyrillic_combining_stress_marks(text: str) -> str:
     return CYRILLIC_COMBINING_STRESS_PATTERN.sub(r"+\1", text)
+
+
+def remove_zero_width_formatting(text: str) -> str:
+    return ZERO_WIDTH_FORMATTING_PATTERN.sub("", text)
+
+
+def normalize_era_abbreviations(text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        abbr = match.group("abbr")
+        tail = match.group("tail")
+        expansion = "до нашей эры" if abbr.lower().startswith("до") else "нашей эры"
+        rest = text[match.end() :]
+        stripped_rest = rest.lstrip()
+        keep_terminal_dot = False
+        if abbr.rstrip().endswith("."):
+            keep_terminal_dot = (
+                not stripped_rest
+                or "\n" in tail
+                or (stripped_rest[:1] and stripped_rest[:1].isupper())
+            )
+            if (
+                stripped_rest[:1] in '"»”)]}'
+                and len(stripped_rest) > 1
+                and stripped_rest[1:2].isupper()
+            ):
+                keep_terminal_dot = True
+        return f"{expansion}{'.' if keep_terminal_dot else ''}{tail}"
+
+    return ERA_ABBREVIATION_PATTERN.sub(repl, text)
+
+
+def normalize_numeric_abbreviations(text: str) -> str:
+    text = PAGE_ABBREVIATION_PATTERN.sub("страница ", text)
+    text = APPROXIMATE_ABBREVIATION_PATTERN.sub("около ", text)
+    return normalize_era_abbreviations(text)
 
 
 def normalize_explicit_dashes(text: str) -> str:

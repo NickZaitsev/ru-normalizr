@@ -38,6 +38,7 @@ from .preprocess_utils import (
     normalize_cyrillic_combining_stress_marks,
     normalize_explicit_dashes,
     normalize_linebreaks,
+    normalize_numeric_abbreviations,
     normalize_punctuation_spacing,
     normalize_spaced_ascii_hyphens,
     normalize_unicode_fractions,
@@ -46,6 +47,7 @@ from .preprocess_utils import (
     protect_unit_slashes,
     remove_decorative_separators,
     remove_numeric_footnotes,
+    remove_zero_width_formatting,
     restore_letter_hyphens,
     restore_paragraph_breaks,
 )
@@ -189,6 +191,7 @@ class PipelineNormalizer:
         text = normalize_linebreaks(
             text, keep_paragraph_placeholders=keep_paragraph_placeholders
         )
+        text = remove_zero_width_formatting(text)
         text = normalize_cyrillic_combining_stress_marks(text)
         text = protect_letter_hyphens(text)
         text = text.replace("◦", " ")
@@ -202,6 +205,7 @@ class PipelineNormalizer:
         text = normalize_ascii_quote_pairs(text)
         text = normalize_punctuation_spacing(text)
         text = expand_years_ago_abbreviation(text)
+        text = normalize_numeric_abbreviations(text)
         text = protect_negative_numbers(text)
         text = normalize_explicit_dashes(text)
         text = convert_bracketed_numbers(text, self.options)

@@ -22,7 +22,6 @@ from .constants import (
     REAL_WORD_POS,
     RU_LETTER_NAMES,
     RU_VOWELS,
-    RUSSIAN_NAME_TOKEN,
 )
 from .numerals._helpers import safe_inflect
 from .options import NormalizeOptions
@@ -243,13 +242,8 @@ def expand_person_initials(text: str) -> str:
             return True, ""
         if stripped[0] in ".!?…":
             return True, ""
-        if stripped[0] in ",;:":
-            return False, ""
-
-        if re.match(rf"^\s+{RUSSIAN_NAME_TOKEN}\s+[А-ЯЁ]\.\s*[А-ЯЁ]\.", tail):
-            return False, ","
         if stripped[0].islower() or stripped[0].isdigit():
-            return False, ","
+            return False, ""
         return True, ""
 
     def repl_surname_initials(match):
@@ -279,7 +273,7 @@ def expand_person_initials(text: str) -> str:
                 else "."
             )
             return f"{surname} {i1}{terminal}"
-        return f"{surname}, {i1}{non_final_tail}"
+        return f"{surname}, {i1},{non_final_tail}"
 
     def repl_initials_surname(match):
         i1 = initial_name(match.group("i1"))
@@ -293,7 +287,7 @@ def expand_person_initials(text: str) -> str:
                 else "."
             )
             return f"{i1} {i2} {surname}{terminal}"
-        return f"{i1}, {i2}, {surname}{non_final_tail}"
+        return f"{i1} {i2} {surname}{non_final_tail}"
 
     def repl_single_initial_surname(match):
         surname = match.group("surname")
@@ -308,7 +302,7 @@ def expand_person_initials(text: str) -> str:
                 else "."
             )
             return f"{i1} {surname}{terminal}"
-        return f"{i1}, {surname}{non_final_tail}"
+        return f"{i1} {surname}{non_final_tail}"
 
     text = PERSON_SURNAME_INITIALS_PATTERN.sub(repl_surname_initials, text)
     text = PERSON_INITIALS_SURNAME_PATTERN.sub(repl_initials_surname, text)

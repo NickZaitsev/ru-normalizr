@@ -72,6 +72,24 @@ _REGNAL_CASE_TO_NUM2WORDS = {
     "loct": "prepositional",
 }
 _REGNAL_GENDER_TO_NUM2WORDS = {"masc": "m", "femn": "f", "neut": "n"}
+_CENTURY_WORD_TO_CASE = {
+    "в.": "nomn",
+    "век": "nomn",
+    "века": "gent",
+    "веку": "datv",
+    "веке": "loct",
+    "веком": "ablt",
+    "веками": "ablt",
+    "веках": "loct",
+}
+_CENTURY_CASE_TO_WORD_FORM = {
+    "nomn": "век",
+    "gent": "века",
+    "datv": "веку",
+    "accs": "век",
+    "ablt": "веком",
+    "loct": "веке",
+}
 
 
 def _expand_century_abbreviation(text: str, match: re.Match[str], number: int) -> str:
@@ -103,6 +121,12 @@ def convert_roman_words(text: str) -> str:
         "столетии": ("столетии", "-м"),
         "столетием": ("столетием", "-м"),
         "столетиях": ("столетиях", "-х"),
+        "тысячелетие": ("тысячелетие", "-е"),
+        "тысячелетия": ("тысячелетия", "-го"),
+        "тысячелетию": ("тысячелетию", "-му"),
+        "тысячелетии": ("тысячелетии", "-м"),
+        "тысячелетием": ("тысячелетием", "-м"),
+        "тысячелетиях": ("тысячелетиях", "-х"),
         "глава": ("глава", "-я"),
         "главы": ("главы", "-й"),
         "главе": ("главе", "-й"),
@@ -149,6 +173,49 @@ def convert_roman_words(text: str) -> str:
         return f"{number}{ending} {target_word}"
 
     return re.sub(pattern, repl, text)
+
+
+def convert_roman_century_ranges(text: str) -> str:
+    pattern = re.compile(
+        r"\b(?P<prep>с|со|от)\s+(?P<left>[IVXLCDM]+)\s+(?P<mid>до|по)\s+(?P<right>[IVXLCDM]+)\s+(?P<word>век(?:а|у|е|ом|ами|ах)?|в\.)(?!\w)",
+        re.IGNORECASE,
+    )
+    case_map = {
+        "nomn": "nominative",
+        "gent": "genitive",
+        "datv": "dative",
+        "accs": "accusative",
+        "ablt": "instrumental",
+        "loct": "prepositional",
+    }
+
+    def ordinal(number: int, case: str) -> str:
+        try:
+            return num2words.num2words(
+                number, lang="ru", to="ordinal", case=case_map.get(case, "nominative")
+            )
+        except Exception:
+            return num2words.num2words(number, lang="ru", to="ordinal")
+
+    def repl(match: re.Match[str]) -> str:
+        try:
+            left_number = roman.fromRoman(match.group("left").upper())
+            right_number = roman.fromRoman(match.group("right").upper())
+        except roman.InvalidRomanNumeralError:
+            return match.group(0)
+        word = match.group("word").lower()
+        right_case = _CENTURY_WORD_TO_CASE.get(word, "nomn")
+        century_word = (
+            _CENTURY_CASE_TO_WORD_FORM.get(right_case, "век")
+            if word == "в."
+            else match.group("word")
+        )
+        return (
+            f"{match.group('prep')} {ordinal(left_number, 'gent')} "
+            f"{match.group('mid')} {ordinal(right_number, right_case)} {century_word}"
+        )
+
+    return pattern.sub(repl, text)
 
 
 def convert_roman_names(text: str) -> str:
@@ -296,6 +363,7 @@ def normalize_roman(text: str, options: NormalizeOptions | None = None) -> str:
     if not active.enable_roman_normalization:
         return text
     text = normalize_cyrillic_roman(text)
+    text = convert_roman_century_ranges(text)
     text = convert_roman_words(text)
     text = convert_roman_names(text)
     text = convert_heading_roman_numerals(text)

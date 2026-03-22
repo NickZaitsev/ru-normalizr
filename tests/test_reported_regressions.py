@@ -1,0 +1,134 @@
+import unittest
+
+from ru_normalizr import NormalizeOptions, normalize
+
+
+class RuNormalizrReportedRegressionTests(unittest.TestCase):
+    def test_tts_single_initials_do_not_inject_commas_inside_sentence(self):
+        self.assertEqual(
+            normalize(
+                "американский сейсмолог Ч. Рихтер для определения",
+                NormalizeOptions.tts(),
+            ),
+            "американский сейсмолог чэ Рихтер для определения",
+        )
+
+    def test_normalize_preserves_zero_width_stress_garbage(self):
+        self.assertEqual(
+            normalize("Фри\u200cдрих А\u200cвгуст фон Ха\u200cйек."),
+            "Фридрих Август фон Хайек.",
+        )
+
+    def test_normalize_fixes_reported_numeric_unit_range(self):
+        self.assertEqual(
+            normalize("Предполагается, что идеальные сферы диаметром 2-6 футов"),
+            "Предполагается, что идеальные сферы диаметром двух — шести футов",
+        )
+
+    def test_normalize_expands_page_reference_before_numeric_range(self):
+        self.assertEqual(
+            normalize("радиационные пояса [Земля и Вселенная, 1980, N2, с.22-25]"),
+            "радиационные пояса (Земля и Вселенная, одна тысяча девятьсот восемьдесят, N два, страница двадцать два — двадцать пять)",
+        )
+
+    def test_normalize_fixes_bce_and_ce_year_phrases(self):
+        self.assertEqual(
+            normalize(
+                "Согласно буддистской традиции, Гаутама, родившийся около 500 года до н. э., был принцем небольшого гималайского королевства."
+            ),
+            "Согласно буддистской традиции, Гаутама, родившийся около пятисотого года до нашей эры, был принцем небольшого гималайского королевства.",
+        )
+        self.assertEqual(
+            normalize(
+                "(ок. 120 до н. э.), Галлию ради безопасности Прованса (ок. 50 до н. э.) и Британию ради безопасности Галлии (ок. 50 н. э.)."
+            ),
+            "(около сто двадцатого года до нашей эры), Галлию ради безопасности Прованса (около пятидесятого года до нашей эры) и Британию ради безопасности Галлии (около пятидесятого года нашей эры).",
+        )
+
+    def test_normalize_fixes_parenthesized_years_and_regnal_names(self):
+        self.assertEqual(
+            normalize(
+                "Наполеоновская военная машина, сокрушившая армии всей Европы под Аустерлицем (1805), была вооружена примерно так же, как армия казненного Людовика XVI."
+            ),
+            "Наполеоновская военная машина, сокрушившая армии всей Европы под Аустерлицем (тысяча восемьсот пятый), была вооружена примерно так же, как армия казненного Людовика шестнадцатого.",
+        )
+
+    def test_normalize_fixes_century_ranges(self):
+        self.assertEqual(
+            normalize("С XVI по XVIII век цинга унесла жизни примерно двух миллионов моряков."),
+            "С шестнадцатого по восемнадцатый век цинга унесла жизни примерно двух миллионов моряков.",
+        )
+        self.assertEqual(
+            normalize("С XVI по XVIII в. цинга унесла жизни примерно двух миллионов моряков."),
+            "С шестнадцатого по восемнадцатый век цинга унесла жизни примерно двух миллионов моряков.",
+        )
+        self.assertEqual(
+            normalize("С XVI по XIX век из Африки в Америку завезли примерно десять миллионов рабов."),
+            "С шестнадцатого по девятнадцатый век из Африки в Америку завезли примерно десять миллионов рабов.",
+        )
+
+    def test_normalize_fixes_millennium_and_era_years(self):
+        self.assertEqual(
+            normalize(
+                "Ее расцвет пришелся на III тысячелетие до н. э., а около 1900 года до н. э. эта цивилизация погибла."
+            ),
+            "Ее расцвет пришелся на третье тысячелетие до нашей эры, а около тысяча девятисотого года до нашей эры эта цивилизация погибла.",
+        )
+
+    def test_normalize_fixes_suffixed_era_year_and_keeps_terminal_dot(self):
+        self.assertEqual(
+            normalize(
+                "Монументальная Бехистунская надпись высотой 15 метров и 25 метров шириной была выбита в скале по приказу царя Дария I примерно в 500-м году до н. э."
+            ),
+            "Монументальная Бехистунская надпись высотой пятнадцать метров и двадцать пять метров шириной была выбита в скале по приказу царя Дария первого примерно в пятисотом году до нашей эры.",
+        )
+
+    def test_normalize_keeps_plain_cardinal_limit_after_do(self):
+        self.assertEqual(
+            normalize("Цена одной акции упала с 10 000 ливров до 1000"),
+            "Цена одной акции упала с десяти тысяч ливров до одной тысячи",
+        )
+
+    def test_normalize_supports_dotted_clock_times(self):
+        self.assertEqual(
+            normalize(
+                "В 8.00 утром 26 сентября 1943 года сотни вспышек озарили горизонт."
+            ),
+            "В восемь, ноль ноль утром двадцать шестого сентября тысяча девятьсот сорок третьего года сотни вспышек озарили горизонт.",
+        )
+
+    def test_normalize_dotted_clock_times_do_not_hijack_plain_decimals(self):
+        self.assertEqual(
+            normalize("Цена: 3.50 руб."),
+            "Цена: три целых пятьдесят сотых рубля.",
+        )
+        self.assertEqual(
+            normalize("масса 2.15 кг"),
+            "масса две целых пятнадцать сотых килограмма",
+        )
+
+    def test_normalize_keeps_era_terminal_punctuation_only_when_present(self):
+        self.assertEqual(
+            normalize("около 50 н. э"),
+            "около пятидесятого года нашей эры",
+        )
+        self.assertEqual(
+            normalize("около 50 н. э."),
+            "около пятидесятого года нашей эры.",
+        )
+        self.assertEqual(
+            normalize("Инцидент случился около 50 н. э. Никто не пострадал."),
+            "Инцидент случился около пятидесятого года нашей эры. Никто не пострадал.",
+        )
+
+    def test_normalize_keeps_military_ordinals_out_of_year_rules(self):
+        self.assertEqual(
+            normalize(
+                "В 3-й горнострелковой дивизии подобный стиль руководства был частью ее боевого характера."
+            ),
+            "В третьей горнострелковой дивизии подобный стиль руководства был частью ее боевого характера.",
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()
