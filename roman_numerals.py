@@ -10,6 +10,7 @@ from .numerals._helpers import get_numeral_case
 from .numerals._hyphen import is_safe_numeric_hyphen_unit
 from .options import NormalizeOptions
 from .ordinal_utils import (
+    choose_noun_parse,
     noun_parse_case,
     render_ordinal,
     render_ordinal_from_noun_word,
@@ -156,6 +157,25 @@ def _expand_century_abbreviation(text: str, match: re.Match[str], number: int) -
     return f"{number}{ending} {century_word}"
 
 
+def _render_shared_ordinal_in_context(
+    text: str,
+    match: re.Match[str],
+    number: int,
+    noun_word: str,
+) -> str | None:
+    noun_parse = choose_noun_parse(noun_word)
+    if noun_parse is None:
+        return None
+    left_context = text[max(0, match.start() - 60) : match.start()]
+    right_context = text[match.end() : match.end() + 60]
+    left_tokens = simple_tokenize(left_context)
+    tokens = left_tokens + [str(number), noun_word] + simple_tokenize(right_context)
+    case = get_numeral_case(tokens, len(left_tokens))
+    gender = noun_parse.tag.gender or "masc"
+    inanimate = "inan" in noun_parse.tag
+    return render_ordinal(number, case=case, gender=gender, inanimate=inanimate)
+
+
 def convert_shared_roman_words(text: str) -> str:
     suffixes_regex = "|".join(map(re.escape, _ROMAN_SHARED_WORD_SUFFIXES.keys()))
     pattern = re.compile(
@@ -178,11 +198,18 @@ def convert_shared_roman_words(text: str) -> str:
                 number = roman.fromRoman(part.upper())
             except roman.InvalidRomanNumeralError:
                 return match.group(0)
-            ordinal = render_ordinal_from_noun_word(
+            ordinal = _render_shared_ordinal_in_context(
+                text,
+                match,
                 number,
                 rendered_word,
-                singularize_plural=True,
             )
+            if ordinal is None:
+                ordinal = render_ordinal_from_noun_word(
+                    number,
+                    rendered_word,
+                    singularize_plural=True,
+                )
             if ordinal is None:
                 rendered_parts.append(f"{number}{ending}")
             else:

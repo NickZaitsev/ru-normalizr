@@ -65,6 +65,12 @@ class RuNormalizrStageTests(unittest.TestCase):
             "В пятом, четвёртом и третьем веках такие случаи были редки.",
         )
 
+    def test_roman_stage_reads_shared_century_series_in_accusative_context(self):
+        self.assertEqual(
+            normalize_roman("За XV и XVI века европейцы успели проплыть вокруг Африки."),
+            "За пятнадцатый и шестнадцатый века европейцы успели проплыть вокруг Африки.",
+        )
+
     def test_roman_stage_keeps_plain_single_letter_and_normalizes_heading_context(self):
         self.assertEqual(
             normalize_roman("Буква V и глава IV."),
