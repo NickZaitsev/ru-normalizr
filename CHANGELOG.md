@@ -35,6 +35,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Stop unconditional language-abbreviation replacements such as `нем.` and `лат.` from misreading sentence-final pronoun forms like `в нем. Когда...`, while keeping contextual expansions such as `нем. слово` and `от лат. homo`
 - Normalize measurement ranges with spelled-out multiword units such as `1200-1400 кубических сантиметров`, so dimensional contexts like `объемом ...` no longer fall back to an incorrect instrumental numeral form
 - Keep inanimate accusative ordinals such as `XX век` and `3-й фильм` in the nominative-looking form (`двадцатый век`, `третий фильм`) instead of the animate accusative/genitive form (`двадцатого`, `третьего`)
+- Normalize shared-era ancient year ranges such as `12500-9500 до н. э.` as year ranges instead of plain numbers, and avoid malformed large ordinals like `двенадцатый тысяч ...` for years above 9999
+- Extend era handling to English historical markers such as `BC`, `BCE`, `AD`, and `CE`, and route shared-era ranges through the existing year logic for forms like `с 12500 по 9500 до н. э.`
 
 ## [0.1.4] - 2026-03-15
 ### Changed
