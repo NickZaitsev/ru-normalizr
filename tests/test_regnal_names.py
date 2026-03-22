@@ -18,6 +18,14 @@ class RuNormalizrRegnalNameTests(unittest.TestCase):
             normalize_roman("при Дарии I"),
             "при Дарии первом",
         )
+        self.assertEqual(
+            normalize_roman("к Георгу VI"),
+            "к Георгу шестому",
+        )
+        self.assertEqual(
+            normalize_roman("о Георге VI"),
+            "о Георге шестом",
+        )
 
     def test_normalize_reads_regnal_names_as_ordinals(self):
         self.assertEqual(
@@ -35,6 +43,14 @@ class RuNormalizrRegnalNameTests(unittest.TestCase):
         self.assertEqual(
             normalize("При Дарии I были реформы."),
             "При Дарии первом были реформы.",
+        )
+        self.assertEqual(
+            normalize("К Георгу VI обратились с просьбой."),
+            "К Георгу шестому обратились с просьбой.",
+        )
+        self.assertEqual(
+            normalize("О Георге VI говорили часто."),
+            "О Георге шестом говорили часто.",
         )
 
 

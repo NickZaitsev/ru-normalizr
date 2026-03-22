@@ -86,6 +86,10 @@ class RuNormalizrStageTests(unittest.TestCase):
             normalize_roman("К XV и XVI векам сложились новые маршруты."),
             "К пятнадцатому и шестнадцатому векам сложились новые маршруты.",
         )
+        self.assertEqual(
+            normalize_roman("Моряки XV и XVI веков хорошо знали маршруты."),
+            "Моряки пятнадцатого и шестнадцатого веков хорошо знали маршруты.",
+        )
 
     def test_roman_stage_reads_century_abbreviation_in_context(self):
         self.assertEqual(
@@ -108,6 +112,32 @@ class RuNormalizrStageTests(unittest.TestCase):
             normalize_roman("Наследие XXI века ощущается до сих пор."),
             "Наследие двадцать первого века ощущается до сих пор.",
         )
+        self.assertEqual(
+            normalize_roman("От XVI до XVIII в. менялись маршруты."),
+            "От шестнадцатого до восемнадцатого века менялись маршруты.",
+        )
+        self.assertEqual(
+            normalize_roman("В XV-XVI вв. менялись маршруты."),
+            "В пятнадцатом — шестнадцатом веках менялись маршруты.",
+        )
+
+    def test_roman_stage_reads_quarter_abbreviations_in_context(self):
+        self.assertEqual(
+            normalize_roman("IV кв."),
+            "четвёртый квартал",
+        )
+        self.assertEqual(
+            normalize_roman("В IV кв. выросла выручка."),
+            "В четвёртом квартале выросла выручка.",
+        )
+        self.assertEqual(
+            normalize_roman("О IV кв. говорили долго."),
+            "О четвёртом квартале говорили долго.",
+        )
+        self.assertEqual(
+            normalize_roman("К IV кв. подготовят отчет."),
+            "К четвёртому кварталу подготовят отчет.",
+        )
 
     def test_roman_stage_reads_hyphenated_roman_ranges_in_context(self):
         self.assertEqual(
@@ -117,6 +147,14 @@ class RuNormalizrStageTests(unittest.TestCase):
         self.assertEqual(
             normalize_roman("В III-IV тысячелетиях до н. э. распространялись ранние культуры."),
             "В третьем — четвёртом тысячелетиях до н. э. распространялись ранние культуры.",
+        )
+        self.assertEqual(
+            normalize_roman("Моряки XV-XVI веков хорошо знали маршруты."),
+            "Моряки пятнадцатого — шестнадцатого веков хорошо знали маршруты.",
+        )
+        self.assertEqual(
+            normalize_roman("IV-V кварталах"),
+            "четвёртом — пятом кварталах",
         )
 
     def test_roman_stage_reads_left_shared_heading_series(self):
@@ -144,12 +182,44 @@ class RuNormalizrStageTests(unittest.TestCase):
             normalize_roman("Из разделов IV и V убрали повторы."),
             "Из четвёртого и пятого разделов убрали повторы.",
         )
+        self.assertEqual(
+            normalize_roman("Главы IV-V были переработаны."),
+            "Четвёртая — пятая главы были переработаны.",
+        )
+        self.assertEqual(
+            normalize_roman("В главах IV-V описаны реформы."),
+            "В четвёртой — пятой главах описаны реформы.",
+        )
+        self.assertEqual(
+            normalize_roman("Из разделов IV-V убрали повторы."),
+            "Из четвёртого — пятого разделов убрали повторы.",
+        )
+        self.assertEqual(
+            normalize_roman("Главы IV, V и VI были переработаны."),
+            "Четвёртая, пятая и шестая главы были переработаны.",
+        )
 
     def test_roman_stage_keeps_plain_single_letter_and_normalizes_heading_context(self):
         self.assertEqual(
             normalize_roman("Буква V и глава IV."),
             "Буква V и глава четвёртая.",
         )
+
+    def test_roman_stage_falls_back_cleanly_for_plain_and_unsupported_roman_tokens(self):
+        self.assertEqual(normalize_roman("XVI"), "16")
+        self.assertEqual(normalize_roman("MMXXIV"), "2024")
+        self.assertEqual(normalize_roman("xiv"), "xiv")
+        self.assertEqual(normalize_roman("XvI"), "XvI")
+        self.assertEqual(normalize_roman("ХVI век"), "шестнадцатый век")
+        self.assertEqual(normalize_roman("Дом XV и XVI"), "Дом 15 и 16")
+        self.assertEqual(normalize_roman("Дом XV-XVI"), "Дом 15-16")
+        self.assertEqual(normalize_roman("Глава XvI"), "Глава XvI")
+        self.assertEqual(normalize_roman("IIII"), "IIII")
+        self.assertEqual(normalize_roman("IIII-IV век"), "IIII-IV век")
+
+    def test_roman_stage_respects_disabled_option(self):
+        options = NormalizeOptions(enable_roman_normalization=False)
+        self.assertEqual(normalize_roman("Глава IV.", options), "Глава IV.")
 
     def test_dates_time_stage(self):
         self.assertEqual(
