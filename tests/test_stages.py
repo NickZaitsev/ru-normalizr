@@ -53,6 +53,24 @@ class RuNormalizrStageTests(unittest.TestCase):
             "DC MD CV CI DI MC CM MM",
         )
 
+    def test_roman_stage_reads_shared_millennium_series_as_ordinals(self):
+        self.assertEqual(
+            normalize_roman("В V и IV тысячелетиях до н. э."),
+            "В пятом и четвёртом тысячелетиях до н. э.",
+        )
+
+    def test_roman_stage_reads_shared_century_series_with_commas(self):
+        self.assertEqual(
+            normalize_roman("В V, IV и III веках такие случаи были редки."),
+            "В пятом, четвёртом и третьем веках такие случаи были редки.",
+        )
+
+    def test_roman_stage_does_not_promote_single_letter_roman_without_shared_context(self):
+        self.assertEqual(
+            normalize_roman("Буква V и глава IV."),
+            "Буква V и глава 4.",
+        )
+
     def test_dates_time_stage(self):
         self.assertEqual(
             normalize_dates_and_time("Встреча в 10:07."),
