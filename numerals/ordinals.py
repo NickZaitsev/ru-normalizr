@@ -258,6 +258,19 @@ def normalize_ordinals(text: str) -> str:
         case = get_numeral_case(
             tokens_left + [num_str] + tokens_right, len(tokens_left)
         )
+
+        def first_noun_right():
+            for token in tokens_right[:4]:
+                clean = token.strip(".,!?;:")
+                if not clean:
+                    continue
+                parsed = morph.parse(clean)[0]
+                if "NOUN" in parsed.tag:
+                    return parsed
+                if parsed.tag.POS in {"VERB", "INFN"}:
+                    break
+            return None
+
         if suffix in ("я", "яя"):
             gender = "femn"
         elif suffix in ("е", "ее"):
@@ -294,6 +307,18 @@ def normalize_ordinals(text: str) -> str:
                 p_next = morph.parse(next_clean)[0]
                 if "sing" in p_next.tag and "neut" in p_next.tag:
                     plural = False
+
+        generation_case = case
+        right_noun = first_noun_right()
+        if (
+            case == "accs"
+            and not plural
+            and gender in {"masc", "neut"}
+            and right_noun is not None
+            and "inan" in right_noun.tag
+        ):
+            generation_case = "nomn"
+
         cases_map = {
             "nomn": "nominative",
             "gent": "genitive",
@@ -303,9 +328,9 @@ def normalize_ordinals(text: str) -> str:
             "loct": "prepositional",
         }
         gender_map = {"masc": "m", "femn": "f", "neut": "n"}
-        if case in cases_map:
+        if generation_case in cases_map:
             try:
-                kwargs = {"case": cases_map[case]}
+                kwargs = {"case": cases_map[generation_case]}
                 if not is_cardinal_suffix:
                     kwargs["to"] = "ordinal"
                 if plural:
@@ -327,7 +352,7 @@ def normalize_ordinals(text: str) -> str:
         parsed = morph.parse(words[-1])
         if parsed:
             p = parsed[0]
-            target_tags = {case}
+            target_tags = {generation_case}
             if plural:
                 target_tags.add("plur")
             elif gender:

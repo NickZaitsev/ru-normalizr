@@ -133,6 +133,16 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             "В третьей горнострелковой дивизии подобный стиль руководства был частью ее боевого характера.",
         )
 
+    def test_normalize_keeps_inanimate_accusative_ordinals_non_animate(self):
+        self.assertEqual(
+            normalize("За весь XX век этот уровень не превысил 5% — в самом кровавом веке,"),
+            "За весь двадцатый век этот уровень не превысил пять процентов — в самом кровавом веке,",
+        )
+        self.assertEqual(
+            normalize("Он видел 3-й фильм подряд."),
+            "Он видел третий фильм подряд.",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

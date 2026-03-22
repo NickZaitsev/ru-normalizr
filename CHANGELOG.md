@@ -34,6 +34,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Normalize smart single quotation marks such as `‘...’` to ASCII quote pairs when they act as surrounding quotes, while keeping intra-word apostrophes like `rock’n’roll` unchanged
 - Stop unconditional language-abbreviation replacements such as `нем.` and `лат.` from misreading sentence-final pronoun forms like `в нем. Когда...`, while keeping contextual expansions such as `нем. слово` and `от лат. homo`
 - Normalize measurement ranges with spelled-out multiword units such as `1200-1400 кубических сантиметров`, so dimensional contexts like `объемом ...` no longer fall back to an incorrect instrumental numeral form
+- Keep inanimate accusative ordinals such as `XX век` and `3-й фильм` in the nominative-looking form (`двадцатый век`, `третий фильм`) instead of the animate accusative/genitive form (`двадцатого`, `третьего`)
 
 ## [0.1.4] - 2026-03-15
 ### Changed
