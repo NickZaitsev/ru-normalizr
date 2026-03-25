@@ -35,6 +35,12 @@ class RuNormalizrStageTests(unittest.TestCase):
             "Фотокамера 35-ММ.",
         )
 
+    def test_roman_stage_keeps_cyrillic_caps_interjection_out_of_roman(self):
+        self.assertEqual(
+            normalize_roman("— ММММ, — простонала она."),
+            "— ММММ, — простонала она.",
+        )
+
     def test_roman_stage_keeps_title_case_see_abbreviation(self):
         self.assertEqual(
             normalize_roman("См. главу IV."),
