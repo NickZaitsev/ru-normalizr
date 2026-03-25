@@ -82,6 +82,8 @@ _ROMAN_ABBREVIATION_TO_CONTEXT = {
 }
 _ROMAN_SHARED_SEPARATOR_PATTERN = re.compile(r"(\s*,\s*|\s+и\s+)")
 _ROMAN_CONTEXT_WORD_PATTERN = r"[A-Za-zА-ЯЁа-яё]+\.?"
+_ROMAN_CYRILLIC_LOOKALIKE_CHARS = frozenset("ХхСсІіМм")
+_ROMAN_LATIN_CHARS = frozenset("IVXLCDM")
 
 
 def _split_context_word_punctuation(word: str) -> tuple[str, str]:
@@ -676,6 +678,10 @@ def normalize_cyrillic_roman(text: str) -> str:
             if re.search(r"\d+(?:[.,]\d+)?\s*[-–—]?\s*$", left_context):
                 return word
         if not any(char in "ХхСсІіМм" for char in word):
+            return word
+        if not any(char in _ROMAN_LATIN_CHARS for char in word) and all(
+            char in _ROMAN_CYRILLIC_LOOKALIKE_CHARS for char in word
+        ):
             return word
         latin_word = "".join(cyrillic_to_latin.get(char, char) for char in word).upper()
         try:

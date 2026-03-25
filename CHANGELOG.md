@@ -39,6 +39,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Refresh README Python examples so Roman heading outputs such as `Глава IV.` match the current ordinal normalization (`Глава четвёртая.`)
 
 ### Fixed
+- Stop treating pure Cyrillic all-caps lookalike tokens such as `ММММ` as Roman numerals, so interjections and dialogue fragments no longer normalize to values like `четыре тысячи` while mixed-script OCR-like forms such as `ХVI` still work
 - Fall back to the bundled latinization dictionary when a requested latinization dictionary filename is missing, so IPA fallback still rewrites unknown Latin words instead of leaving them unchanged
 - Fix some 'к → Кельвин' and 'м в → милливольт' misnormalization errors. Add regression coverage for ambiguous single-letter units and compound unit boundaries such as `км ч`, `квт ч`, `fps`, `mph`, `kbps`, `об мин`, and `ммоль л`
 - Preserve bracketed year-like values during TTS link removal
