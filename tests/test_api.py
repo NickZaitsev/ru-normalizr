@@ -601,6 +601,16 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertEqual(normalize("Св. Георгия"), "Святого Георгия")
         self.assertEqual(normalize("и т.д. и т.п."), "и так далее и тому подобное.")
 
+    def test_normalize_expands_numeric_reference_abbreviations_before_numerals(self):
+        self.assertEqual(
+            normalize("ст. 49 УК РФ"),
+            "статья сорок девять уголовный кодекс российской федерации",
+        )
+        self.assertEqual(
+            normalize("см. рис. 2 и табл. 3, стр. 4"),
+            "смотри рисунок два и таблица три, страница четыре",
+        )
+
     def test_normalize_expands_english_titles_before_latinization(self):
         self.assertEqual(normalize("Mr. Поппер ?"), "мистер Поппер?")
         self.assertEqual(normalize("Mrs. Поппер ?"), "миссис Поппер?")

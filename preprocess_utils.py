@@ -87,6 +87,10 @@ CYRILLIC_COMBINING_STRESS_PATTERN = re.compile(
 )
 ZERO_WIDTH_FORMATTING_PATTERN = re.compile(r"[\u200B\u200C\u200D\u2060\uFEFF]")
 PAGE_ABBREVIATION_PATTERN = re.compile(r"\b[сp]\.\s*(?=\d)", re.IGNORECASE)
+PAGE_FULL_ABBREVIATION_PATTERN = re.compile(r"\bстр\.\s*(?=\d)", re.IGNORECASE)
+ARTICLE_ABBREVIATION_PATTERN = re.compile(r"\bст\.\s*(?=\d)", re.IGNORECASE)
+FIGURE_ABBREVIATION_PATTERN = re.compile(r"\bрис\.\s*(?=\d)", re.IGNORECASE)
+TABLE_ABBREVIATION_PATTERN = re.compile(r"\bтабл\.\s*(?=\d)", re.IGNORECASE)
 APPROXIMATE_ABBREVIATION_PATTERN = re.compile(r"\bок\.\s*(?=\d)", re.IGNORECASE)
 ERA_ABBREVIATION_PATTERN = re.compile(
     r"(?<!\w)(?P<abbr>до\s+н\.?\s*э\.?|н\.?\s*э\.?)(?P<tail>\s*)",
@@ -161,6 +165,10 @@ def normalize_era_abbreviations(text: str) -> str:
 
 def normalize_numeric_abbreviations(text: str) -> str:
     text = PAGE_ABBREVIATION_PATTERN.sub("страница ", text)
+    text = PAGE_FULL_ABBREVIATION_PATTERN.sub("страница ", text)
+    text = ARTICLE_ABBREVIATION_PATTERN.sub("статья ", text)
+    text = FIGURE_ABBREVIATION_PATTERN.sub("рисунок ", text)
+    text = TABLE_ABBREVIATION_PATTERN.sub("таблица ", text)
     text = APPROXIMATE_ABBREVIATION_PATTERN.sub("около ", text)
     return normalize_era_abbreviations(text)
 

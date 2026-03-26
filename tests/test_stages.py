@@ -419,6 +419,16 @@ class RuNormalizrStageTests(unittest.TestCase):
             "https://milk.org/a1?b=23.",
         )
 
+    def test_preprocess_stage_expands_numeric_reference_abbreviations(self):
+        normalizer = Normalizer()
+        self.assertEqual(
+            normalizer.run_stage(
+                "preprocess",
+                "ст. 15, рис. 2, табл. 3, с. 4, p. 5, стр. 6",
+            ),
+            "статья 15, рисунок 2, таблица 3, страница 4, страница 5, страница 6",
+        )
+
     def test_abbreviation_stage(self):
         self.assertEqual(
             expand_abbreviations("т. д."),
@@ -469,10 +479,14 @@ class RuNormalizrStageTests(unittest.TestCase):
             "Автор чэ Рихтер.",
         )
 
-    def test_abbreviation_stage_expands_article_only_before_digit(self):
+    def test_abbreviation_stage_expands_generic_reference_and_legal_abbreviations(self):
         self.assertEqual(
-            expand_abbreviations("ст. 15 УК РФ"),
-            "статья 15 уголовный кодекс российской федерации",
+            expand_abbreviations("табл."),
+            "таблица",
+        )
+        self.assertEqual(
+            expand_abbreviations("УК РФ"),
+            "уголовный кодекс российской федерации",
         )
 
     def test_abbreviation_stage_normalizes_ampersand_contextually(self):
