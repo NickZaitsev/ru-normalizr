@@ -22,6 +22,7 @@ from .constants import (
     REAL_WORD_POS,
     RU_LETTER_NAMES,
     RU_VOWELS,
+    RUSSIAN_NAME_TOKEN,
 )
 from .numerals._helpers import safe_inflect
 from .options import NormalizeOptions
@@ -58,6 +59,9 @@ _LANGUAGE_ORIGIN_PATTERN = re.compile(
     rf"(?<!\w)(?P<prep>от|из|с|со)\s+(?P<abbr>{'|'.join(sorted((re.escape(key) for key in _LANGUAGE_ORIGIN_ABBREVIATIONS), key=len, reverse=True))})"
     r"(?P<space>\s+)(?P<word>[^\s.,;:!?()\"\[\]{}«»]+)",
     re.IGNORECASE,
+)
+_FOLLOWING_NAME_TOKEN_PATTERN = re.compile(
+    rf"^\s+(?P<token>{RUSSIAN_NAME_TOKEN})(?![A-Za-zА-Яа-яЁё])"
 )
 
 
@@ -237,6 +241,27 @@ def expand_person_initials(text: str) -> str:
             return False
         return True
 
+    def is_confident_person_name_token(token: str) -> bool:
+        parsed = get_morph().parse(token)
+        if not parsed:
+            return False
+        meaningful = [
+            candidate
+            for candidate in parsed
+            if "PNCT" not in candidate_grammemes(candidate)
+        ]
+        return any(
+            marker in candidate_grammemes(candidate)
+            for candidate in meaningful
+            for marker in ("Surn", "Name", "Patr")
+        )
+
+    def has_following_person_name_token(match_end: int) -> bool:
+        match = _FOLLOWING_NAME_TOKEN_PATTERN.match(text[match_end:])
+        if match is None:
+            return False
+        return is_confident_person_name_token(match.group("token"))
+
     def choose_tail(match_end: int) -> tuple[bool, str]:
         tail = text[match_end:]
         stripped = tail.lstrip()
@@ -249,6 +274,8 @@ def expand_person_initials(text: str) -> str:
         return True, ""
 
     def repl_surname_initials(match):
+        if has_following_person_name_token(match.end()):
+            return match.group(0)
         surname = match.group("surname")
         i1 = initial_name(match.group("i1"))
         i2 = initial_name(match.group("i2"))
@@ -263,6 +290,8 @@ def expand_person_initials(text: str) -> str:
         return f"{surname}, {i1}, {i2}{non_final_tail}"
 
     def repl_surname_single_initial(match):
+        if has_following_person_name_token(match.end()):
+            return match.group(0)
         surname = match.group("surname")
         if not is_likely_person_name_token(surname):
             return match.group(0)

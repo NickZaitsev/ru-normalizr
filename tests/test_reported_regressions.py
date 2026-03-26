@@ -4,6 +4,19 @@ from ru_normalizr import NormalizeOptions, normalize
 
 
 class RuNormalizrReportedRegressionTests(unittest.TestCase):
+    def test_tts_initials_after_role_title_do_not_insert_dot_before_surname(self):
+        self.assertEqual(
+            normalize("Редактор Е. Харитонова", NormalizeOptions.tts()),
+            "Редактор ее Харитонова.",
+        )
+        self.assertEqual(
+            normalize(
+                "Редактор Е. Харитонова\n\nКорректор Е. Харитонова",
+                NormalizeOptions.tts(),
+            ),
+            "Редактор ее Харитонова.\n\nКорректор ее Харитонова.",
+        )
+
     def test_tts_single_initials_do_not_inject_commas_inside_sentence(self):
         self.assertEqual(
             normalize(

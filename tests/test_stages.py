@@ -459,6 +459,16 @@ class RuNormalizrStageTests(unittest.TestCase):
             "Ч. Рихтер",
         )
 
+    def test_abbreviation_stage_does_not_split_role_title_and_initial_from_surname(self):
+        self.assertEqual(
+            expand_abbreviations("Редактор Е. Харитонова", NormalizeOptions.tts()),
+            "Редактор ее Харитонова.",
+        )
+        self.assertEqual(
+            expand_abbreviations("Автор Ч. Рихтер", NormalizeOptions.tts()),
+            "Автор чэ Рихтер.",
+        )
+
     def test_abbreviation_stage_expands_article_only_before_digit(self):
         self.assertEqual(
             expand_abbreviations("ст. 15 УК РФ"),

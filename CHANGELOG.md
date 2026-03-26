@@ -7,6 +7,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## Unreleased
 ### Changed
 - Speed up IPA latinization on large texts with many distinct Latin tokens by batching `eng_to_ipa` lookups and batched dictionary fallback rewrites instead of resolving every token separately
+### Fixed
+- Stop surname-first initials expansion from hijacking role/title + initial + surname lines such as `Редактор Е. Харитонова`, so TTS output no longer inserts a stray dot before the surname
 
 ## [0.2.0] - 2026-03-22
 ### Added
