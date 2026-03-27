@@ -942,6 +942,10 @@ class RuNormalizrApiTests(unittest.TestCase):
             normalize("С. Петербург красив.", NormalizeOptions.tts()),
             "С. Петербург красив.",
         )
+        self.assertEqual(
+            normalize("Е. Харитонова", NormalizeOptions.tts()),
+            "ее Харитонова.",
+        )
 
     def test_safe_mode_keeps_caps_and_letter_abbreviations_conservative(self):
         self.assertEqual(normalize("ГЛАВА IV.", NormalizeOptions.safe()), "ГЛАВА четвёртая.")

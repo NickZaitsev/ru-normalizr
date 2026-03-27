@@ -26,6 +26,15 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             "американский сейсмолог чэ Рихтер для определения",
         )
 
+    def test_tts_single_initial_lists_keep_commas_and_natural_vowel_initials(self):
+        self.assertEqual(
+            normalize(
+                "В АПРЕЛЕ 1982 ГОДА были арестованы «молодые социалисты» Б. Кагарлицкий[10], П. Кудюкин, А. Фадин, Ю. Хавкин, В. Чернецкий, А. Шилков, а позже – М. Ривкин.",
+                NormalizeOptions.tts(),
+            ),
+            'В АПРЕЛЕ тысяча девятьсот восемьдесят второго ГОДА были арестованы "молодые социалисты" бэ Кагарлицкий, пэ Кудюкин, аа Фадин, юю Хавкин, вэ Чернецкий, аа Шилков, а позже — эм Ривкин.',
+        )
+
     def test_normalize_keeps_exact_todo_examples_stable(self):
         self.assertEqual(
             normalize(

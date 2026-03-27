@@ -479,6 +479,15 @@ class RuNormalizrStageTests(unittest.TestCase):
             "Автор чэ Рихтер.",
         )
 
+    def test_abbreviation_stage_keeps_single_initial_lists_inside_sentence(self):
+        self.assertEqual(
+            expand_abbreviations(
+                "Б. Кагарлицкий, П. Кудюкин, А. Фадин, Ю. Хавкин, В. Чернецкий, А. Шилков, а позже — М. Ривкин.",
+                NormalizeOptions.tts(),
+            ),
+            "бэ Кагарлицкий, пэ Кудюкин, аа Фадин, юю Хавкин, вэ Чернецкий, аа Шилков, а позже — эм Ривкин.",
+        )
+
     def test_abbreviation_stage_expands_generic_reference_and_legal_abbreviations(self):
         self.assertEqual(
             expand_abbreviations("табл."),
