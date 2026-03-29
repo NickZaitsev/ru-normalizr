@@ -35,6 +35,15 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             'В АПРЕЛЕ тысяча девятьсот восемьдесят второго ГОДА были арестованы "молодые социалисты" бэ Кагарлицкий, пэ Кудюкин, аа Фадин, юю Хавкин, вэ Чернецкий, аа Шилков, а позже — эм Ривкин.',
         )
 
+    def test_tts_initials_before_quoted_title_do_not_inject_sentence_dot(self):
+        self.assertEqual(
+            normalize(
+                'О книге Л. Мизеса "Либерализм в классической традиции".',
+                NormalizeOptions.tts(),
+            ),
+            'О книге эл Мизеса "Либерализм в классической традиции".',
+        )
+
     def test_normalize_keeps_exact_todo_examples_stable(self):
         self.assertEqual(
             normalize(

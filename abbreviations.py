@@ -267,6 +267,8 @@ def expand_person_initials(text: str) -> str:
         stripped = tail.lstrip()
         if not stripped:
             return True, ""
+        if stripped[0] in "\"'«»“”„‟‚‘’‹›([{":
+            return False, ""
         while stripped and stripped[0] in "\"'»”)]}":
             stripped = stripped[1:].lstrip()
         if not stripped:
