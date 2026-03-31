@@ -4,6 +4,42 @@ from ru_normalizr import NormalizeOptions, normalize
 
 
 class RuNormalizrReportedRegressionTests(unittest.TestCase):
+    def test_normalize_fixes_reported_people_count_and_large_decimal_denominators(self):
+        self.assertEqual(
+            normalize("89 человек."),
+            "восемьдесят девять человек.",
+        )
+        self.assertEqual(
+            normalize("699 человек... 89 человек... 56 людей..."),
+            "шестьсот девяносто девять человек восемьдесят девять человек пятьдесят шесть людей...",
+        )
+        self.assertEqual(
+            normalize("0,000000003."),
+            "ноль целых три миллиардных.",
+        )
+        self.assertEqual(
+            normalize("0,000000000003"),
+            "ноль целых три триллионных",
+        )
+        self.assertEqual(
+            normalize("4,00000000000003."),
+            "четыре целых три стотриллионных.",
+        )
+
+    def test_normalize_keeps_ordinal_suffix_hyphen_forms_for_ordinal_stage(self):
+        self.assertEqual(
+            normalize("Анне 2-ой. Матильде 4-ой."),
+            "Анне вторая. Матильде четвёртой.",
+        )
+        self.assertEqual(
+            normalize("на 5-ой минуте, полз 2-ю минуту"),
+            "на пятой минуте, полз вторую минуту",
+        )
+        self.assertEqual(
+            normalize("1-ю тонну. 2-ю тонну. 5-ю тонну."),
+            "первую тонну. Вторую тонну. Пятую тонну.",
+        )
+
     def test_tts_initials_after_role_title_do_not_insert_dot_before_surname(self):
         self.assertEqual(
             normalize("Редактор Е. Харитонова", NormalizeOptions.tts()),

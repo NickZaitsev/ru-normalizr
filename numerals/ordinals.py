@@ -264,9 +264,52 @@ def normalize_ordinals(text: str) -> str:
                     break
             return None
 
-        if suffix in ("я", "яя"):
+        def nearest_word_left():
+            for token in reversed(tokens_left):
+                clean = token.strip(".,!?;:")
+                if not clean:
+                    continue
+                parsed = morph.parse(clean)[0]
+                if parsed.tag.POS in {"NOUN", "NPRO"} or "Name" in parsed.tag:
+                    return parsed
+            return None
+
+        suffix_case_gender = {
+            "го": ("gent", "masc"),
+            "ого": ("gent", "masc"),
+            "му": ("datv", "masc"),
+            "ому": ("datv", "masc"),
+            "м": ("loct", "masc"),
+            "ом": ("loct", "masc"),
+            "ым": ("ablt", "masc"),
+            "й": ("nomn", "masc"),
+            "ый": ("nomn", "masc"),
+            "ий": ("nomn", "masc"),
+            "ая": ("nomn", "femn"),
+            "я": ("nomn", "femn"),
+            "ую": ("accs", "femn"),
+            "ю": ("accs", "femn"),
+            "ое": ("nomn", "neut"),
+            "ее": ("nomn", "neut"),
+            "е": ("nomn", "neut"),
+            "ой": (None, "femn"),
+            "ых": ("gent", "plur"),
+            "ые": ("nomn", "plur"),
+            "ыми": ("ablt", "plur"),
+        }
+        if suffix in suffix_case_gender:
+            forced_case, forced_gender = suffix_case_gender[suffix]
+            if forced_case is not None:
+                case = forced_case
+            if forced_gender is not None:
+                gender = forced_gender
+        if suffix == "ой":
+            left_word = nearest_word_left()
+            if left_word is not None and left_word.tag.case in {"gent", "datv", "ablt", "loct"}:
+                case = left_word.tag.case
+        if suffix in ("я", "яя", "ая", "ую", "ю"):
             gender = "femn"
-        elif suffix in ("е", "ее"):
+        elif suffix in ("е", "ее", "ое"):
             gender = "neut"
         elif suffix == "й" and tokens_right:
             p_next = morph.parse(tokens_right[0].strip(".,!?;:"))[0]

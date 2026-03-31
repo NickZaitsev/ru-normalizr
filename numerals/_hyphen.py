@@ -6,7 +6,29 @@ from typing import Literal
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ._constants import UNIT_TOKEN_FRAGMENT, UNITS_DATA
 
-ORDINAL_SUFFIXES = {"й", "я", "е", "го", "му", "м", "ю", "ее", "ий", "ая", "ое"}
+ORDINAL_SUFFIXES = {
+    "й",
+    "я",
+    "е",
+    "го",
+    "му",
+    "м",
+    "ю",
+    "ее",
+    "ий",
+    "ая",
+    "ое",
+    "ой",
+    "ый",
+    "ого",
+    "ому",
+    "ом",
+    "ым",
+    "ую",
+    "ых",
+    "ыми",
+    "ые",
+}
 CARDINAL_CASE_SUFFIXES = {"ти", "ми", "х", "мя", "и"}
 AMBIGUOUS_SINGLE_LETTER_HYPHEN_UNITS = {"г", "л", "м", "н", "р", "с", "т", "ф", "ч"}
 NUMERIC_UNIT_HYPHEN_PATTERN = re.compile(

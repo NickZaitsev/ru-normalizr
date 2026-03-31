@@ -18,6 +18,7 @@ from ._helpers import (
     build_number_token,
     detokenize,
     get_numeral_case,
+    noun_number_form,
     get_target_tags_for_number,
     inflect_numeral_string,
     inflect_unit_lemma,
@@ -163,6 +164,18 @@ def normalize_cardinal_numerals(text: str) -> str:
         candidate = parsed[0]
         return "NOUN" in candidate.tag and candidate.normal_form == expected_lemma
 
+    def inflect_countable_unit(lemma: str, value: int, case: str, gender: str) -> str:
+        if lemma != "человек":
+            return inflect_unit_lemma(lemma, get_target_tags_for_number(value, case, gender))
+        if case in {"nomn", "accs"}:
+            form = noun_number_form(value)
+            if form == "one":
+                return "человек"
+            if form == "few":
+                return "человека"
+            return "человек"
+        return inflect_unit_lemma(lemma, get_target_tags_for_number(value, case, gender))
+
     i = 0
     while i < len(tokens):
         token = tokens[i]
@@ -298,9 +311,7 @@ def normalize_cardinal_numerals(text: str) -> str:
                     inflect_numeral_string(clean_token, target_num_case, u_gender),
                     is_negative,
                 )
-                inflected_unit = inflect_unit_lemma(
-                    lemma, get_target_tags_for_number(val, case, u_gender)
-                )
+                inflected_unit = inflect_countable_unit(lemma, val, case, u_gender)
                 full_unit = inflected_unit + (f" {u_suffix[0]}" if u_suffix else "")
                 match_unit = (
                     re.search(re.escape(next_token_lower), noun_token, re.IGNORECASE)

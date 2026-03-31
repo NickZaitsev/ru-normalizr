@@ -8,6 +8,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ### Changed
 - Speed up IPA latinization on large texts with many distinct Latin tokens by batching `eng_to_ipa` lookups and batched dictionary fallback rewrites instead of resolving every token separately
 ### Fixed
+- Keep counted `человек` in numeral phrases (`89 человек`) from incorrectly switching to the suppletive plural noun `людей`
+- Extend decimal denominator names for deeper fractional precision (e.g., `0,000000003` → `... миллиардных`, `0,000000000003` → `... триллионных`)
+- Preserve hyphenated ordinal-suffix forms such as `2-ой` and `5-ой` for the ordinal stage so they no longer collapse into bare cardinal numerals
 - Stop surname-first initials expansion from hijacking role/title + initial + surname lines such as `Редактор Е. Харитонова`, so TTS output no longer inserts a stray dot before the surname
 - Keep initials-first name lists inside the sentence without injecting `.,` before commas or dashes
 - Expand numeric reference abbreviations such as `ст.`, `рис.`, `стр.`, and `табл.` during preprocess before numeral reading, so full-pipeline outputs no longer miss forms like `ст. 49 УК РФ` after the number has already been normalized
