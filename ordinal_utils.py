@@ -3,16 +3,16 @@ from __future__ import annotations
 import num2words
 
 from ._morph import get_morph
+from .numerals._num2words import (
+    CASE_TO_NUM2WORDS as _CASE_TO_NUM2WORDS,
+)
+from .numerals._num2words import (
+    ORDINAL_GENDER_TO_NUM2WORDS,
+    resolve_num2words_case,
+)
 
-CASE_TO_NUM2WORDS = {
-    "nomn": "nominative",
-    "gent": "genitive",
-    "datv": "dative",
-    "accs": "accusative",
-    "ablt": "instrumental",
-    "loct": "prepositional",
-}
-GENDER_TO_NUM2WORDS = {"masc": "m", "femn": "f", "neut": "n"}
+CASE_TO_NUM2WORDS = _CASE_TO_NUM2WORDS
+GENDER_TO_NUM2WORDS = ORDINAL_GENDER_TO_NUM2WORDS
 
 
 def noun_parse_case(noun_parse) -> str:
@@ -31,6 +31,152 @@ def choose_noun_parse(word: str, prefer_inanimate: bool = True):
     return inanimate_parses[0] if inanimate_parses else noun_parses[0]
 
 
+def find_first_noun_right(tokens_right: list[str], suffix: str):
+    morph = get_morph()
+    for token in tokens_right[:4]:
+        if any(char in token for char in ".!?…"):
+            break
+        clean = token.strip(".,!?;:")
+        if not clean:
+            continue
+        parsed = morph.parse(clean)
+        noun_candidates = [
+            candidate for candidate in parsed if "NOUN" in candidate.tag
+        ]
+        noun_candidate = None
+        if suffix in {"е", "ые", "их", "х", "ми"}:
+            noun_candidate = next(
+                (
+                    candidate
+                    for candidate in noun_candidates
+                    if "sing" in candidate.tag and "neut" in candidate.tag
+                ),
+                None,
+            )
+            if noun_candidate is None:
+                noun_candidate = next(
+                    (
+                        candidate
+                        for candidate in noun_candidates
+                        if "plur" in candidate.tag
+                    ),
+                    None,
+                )
+        if noun_candidate is None:
+            noun_candidate = noun_candidates[0] if noun_candidates else None
+        if noun_candidate is not None:
+            return noun_candidate
+        if parsed and parsed[0].tag.POS in {"VERB", "INFN"}:
+            break
+    return None
+
+
+def find_left_name_anchor(tokens_left: list[str]):
+    morph = get_morph()
+    for token in reversed(tokens_left[-4:]):
+        clean = token.strip(".,!?;:«»\"'()[]{}")
+        if not clean:
+            continue
+        parsed = morph.parse(clean)
+        name_candidates = [
+            candidate
+            for candidate in parsed
+            if "NOUN" in candidate.tag
+            and "anim" in candidate.tag
+            and any(marker in candidate.tag for marker in ("Name", "Surn", "Patr"))
+        ]
+        noun_candidate = next(
+            (
+                candidate
+                for candidate in name_candidates
+                if "Fixd" not in candidate.tag
+            ),
+            None,
+        )
+        if noun_candidate is None:
+            noun_candidate = name_candidates[0] if name_candidates else None
+        if noun_candidate is not None:
+            return noun_candidate
+    return None
+
+
+def normalize_ordinal_suffix_defaults(
+    case: str,
+    suffix: str,
+) -> tuple[str, str | None, bool]:
+    default_case = case
+    default_gender: str | None = "masc"
+    default_plural = False
+    if suffix in {"я", "ая"}:
+        default_gender = "femn"
+        default_case = "nomn"
+    elif suffix in {"е", "ее", "ое"}:
+        default_gender = "neut"
+        default_case = "nomn"
+    elif suffix in {"ые", "их"}:
+        default_gender = None
+        default_case = "nomn"
+        default_plural = True
+    elif suffix in {"го", "ого"}:
+        default_case = "gent"
+    elif suffix in {"му", "ому"}:
+        default_case = "datv"
+    elif suffix in {"м", "ом", "ем"}:
+        default_case = "loct"
+    elif suffix in {"ю", "ую"}:
+        default_case = "accs"
+        default_gender = "femn"
+    elif suffix in {"ей"}:
+        default_case = "ablt" if case == "ablt" else "loct"
+        default_gender = "femn"
+    elif suffix in {"ым", "им"}:
+        default_case = "ablt"
+    return default_case, default_gender, default_plural
+
+
+def resolve_ordinal_suffix_case(
+    case: str,
+    suffix: str,
+    tokens_right: list[str],
+    gender: str,
+) -> tuple[str, str]:
+    morph = get_morph()
+    case_from_suffix = None
+    resolved_gender = gender
+    if suffix in {"го", "ого"}:
+        case_from_suffix = "gent"
+    elif suffix in {"му", "ому"}:
+        case_from_suffix = "datv"
+    elif suffix in {"ю", "ую"}:
+        case_from_suffix = "accs"
+        resolved_gender = "femn"
+    if suffix in {"м", "ом", "ем"}:
+        if tokens_right:
+            next_parse = morph.parse(tokens_right[0].strip(".,!?;:"))[0]
+            case_from_suffix = "loct" if "sing" in next_parse.tag else "datv"
+        else:
+            case_from_suffix = "loct"
+    return case_from_suffix or case, resolved_gender
+
+
+def resolve_ordinal_plural(
+    suffix: str,
+    case: str,
+    tokens_right: list[str],
+) -> bool:
+    morph = get_morph()
+    plural = suffix in ("х", "ми", "е", "м", "ые", "их") and not (
+        suffix == "м" and case == "loct"
+    )
+    if suffix in {"е", "ее", "ое"} and tokens_right:
+        next_clean = tokens_right[0].strip(".,!?;:")
+        if next_clean:
+            next_parse = morph.parse(next_clean)[0]
+            if "sing" in next_parse.tag and "neut" in next_parse.tag:
+                plural = False
+    return plural
+
+
 def render_ordinal(
     number: int,
     case: str = "nomn",
@@ -45,7 +191,7 @@ def render_ordinal(
     kwargs: dict[str, str | bool] = {
         "lang": "ru",
         "to": "ordinal",
-        "case": CASE_TO_NUM2WORDS.get(generation_case, "nominative"),
+        "case": resolve_num2words_case(generation_case),
     }
     if plural:
         kwargs["plural"] = True

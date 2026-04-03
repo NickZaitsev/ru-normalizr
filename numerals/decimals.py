@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 
+import num2words
+
 from .._morph import get_morph
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_context import simple_tokenize
@@ -20,6 +22,58 @@ DECIMAL_PATTERN = re.compile(
 
 
 def normalize_decimals(text: str) -> str:
+    morph = get_morph()
+
+    def inflect_fraction_numerator(num_str: str, case: str) -> str:
+        try:
+            value = int(num_str)
+        except ValueError:
+            return num_str
+        words = inflect_numeral_string(num_str, case)
+        if value == 0:
+            return words
+        last_word = words.split()[-1]
+        parsed_last = morph.parse(last_word)
+        if not parsed_last:
+            return words
+        target_tags = None
+        if value % 10 == 1 and value % 100 != 11:
+            target_tags = {case, "femn", "sing"}
+        elif value % 10 == 2 and value % 100 != 12 and case in {"nomn", "accs"}:
+            target_tags = {case, "femn"}
+        if not target_tags:
+            return words
+        inflected = parsed_last[0].inflect(target_tags)
+        if not inflected:
+            return words
+        parts = words.split()
+        parts[-1] = inflected.word
+        return " ".join(parts)
+
+    def render_fraction_order_words(digits: int, frac_val: int, case: str) -> str:
+        if digits <= 0:
+            return ""
+        try:
+            base = num2words.num2words(10**digits, lang="ru", to="ordinal")
+        except Exception:
+            base = {
+                1: "десятая",
+                2: "сотая",
+                3: "тысячная",
+                4: "десятитысячная",
+                5: "стотысячная",
+                6: "миллионная",
+            }.get(digits, "десятитысячная")
+        parsed = morph.parse(base)
+        if not parsed:
+            return base
+        tags = (
+            {case, "femn", "sing"}
+            if frac_val % 10 == 1 and frac_val % 100 != 11
+            else ({"gent", "plur"} if case in ["nomn", "accs"] else {case, "plur"})
+        )
+        return safe_inflect(parsed[0], tags, fallback_word=base)
+
     def is_ambiguous_preposition_token(token: str) -> bool:
         clean = token.lower().strip('.,:;!"«»()[]{}')
         return bool(clean) and " " not in clean and clean in PREP_CASE
@@ -56,16 +110,6 @@ def normalize_decimals(text: str) -> str:
         int_val = int(int_part_s)
         frac_val = int(frac_part_s)
         digits = len(frac_part_s)
-        order_names = {
-            1: "десятая",
-            2: "сотая",
-            3: "тысячная",
-            4: "десятитысячная",
-            5: "стотысячная",
-            6: "миллионная",
-        }
-        order_name_base = order_names.get(digits, "десятитысячная")
-        morph = get_morph()
         int_words = inflect_numeral_string(int_part_s, case, gender="femn")
         p_cel = morph.parse("целая")[0]
         tags_cel = (
@@ -74,14 +118,8 @@ def normalize_decimals(text: str) -> str:
             else ({"gent", "plur"} if case in ["nomn", "accs"] else {case, "plur"})
         )
         cel_words = safe_inflect(p_cel, tags_cel)
-        frac_words = inflect_numeral_string(frac_part_s, case, gender="femn")
-        p_order = morph.parse(order_name_base)[0]
-        tags_order = (
-            {case, "femn", "sing"}
-            if frac_val % 10 == 1 and frac_val % 100 != 11
-            else ({"gent", "plur"} if case in ["nomn", "accs"] else {case, "plur"})
-        )
-        order_words = safe_inflect(p_order, tags_order)
+        frac_words = inflect_fraction_numerator(frac_part_s, case)
+        order_words = render_fraction_order_words(digits, frac_val, case)
         result = f"{int_words} {cel_words} {frac_words} {order_words}"
         if unit_raw:
             unit_dot = match.group("unit_dot")

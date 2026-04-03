@@ -6,6 +6,11 @@ import re
 import num2words
 
 from ._morph import get_morph
+from .abbreviation_context import (
+    allows_short_abbreviated_year,
+    has_mass_measurement_context,
+)
+from .numerals._num2words import resolve_num2words_case
 from .options import NormalizeOptions
 from .text_context import normalize_context_token, simple_tokenize
 from .years_context import (
@@ -151,14 +156,6 @@ def _resolve_explicit_year_word_case(prep: str | None, word: str) -> str:
 @functools.lru_cache(maxsize=1024)
 def year_to_ordinal_words(year: int, case: str = "nomn", plural: bool = False) -> str:
     normalized_case = "nomn" if case == "accs" and not plural else case
-    cases_map = {
-        "nomn": "nominative",
-        "gent": "genitive",
-        "datv": "dative",
-        "accs": "accusative",
-        "ablt": "instrumental",
-        "loct": "prepositional",
-    }
     if year >= 10000 and not plural and year % 1000:
         high = (year // 1000) * 1000
         tail = year % 1000
@@ -166,19 +163,20 @@ def year_to_ordinal_words(year: int, case: str = "nomn", plural: bool = False) -
             high_words = num2words.num2words(
                 high,
                 lang="ru",
-                case=cases_map.get(normalized_case, "nominative"),
+                case=resolve_num2words_case(normalized_case),
             )
             tail_words = year_to_ordinal_words(tail, normalized_case)
             return f"{high_words} {tail_words}"
         except Exception:
             pass
-    if normalized_case in cases_map:
+    num2words_case = resolve_num2words_case(normalized_case, default="")
+    if num2words_case:
         try:
             return num2words.num2words(
                 year,
                 lang="ru",
                 to="ordinal",
-                case=cases_map[normalized_case],
+                case=num2words_case,
                 plural=plural,
             )
         except Exception:
@@ -211,20 +209,21 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
     if not active.enable_year_normalization:
         return text
 
+    pattern_entry_boundary = r"(?<!\w)"
     pattern_range_decade = re.compile(
-        r"(?:(?P<prep>в|во|к|ко|с|со|до|от|на|за)\s+)?(?P<year1>\d{2,4})\s*(?:[-–—]|,)\s*(?P<year2>\d{2,4})[-–—](?P<suffix>е|х|м|ми)(?:\s+(?P<word>год[а-яё]*\b))?",
+        rf"{pattern_entry_boundary}(?:(?P<prep>в|во|к|ко|с|со|до|от|на|за)\s+)?(?P<year1>\d{2,4})\s*(?:[-–—]|,)\s*(?P<year2>\d{2,4})[-–—](?P<suffix>е|х|м|ми)(?:\s+(?P<word>год[а-яё]*\b))?",
         re.IGNORECASE | re.UNICODE,
     )
     pattern_s_po = re.compile(
-        rf"(?P<prep>с|со|от)\s+(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<mid>до|по)\s+(?P<year2>{YEAR_ANY_NUMBER_PATTERN})(?!\d)(?:\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?(?:\s+(?P<era>{ERA_REGEX}))?",
+        rf"{pattern_entry_boundary}(?P<prep>с|со|от)\s+(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<mid>до|по)\s+(?P<year2>{YEAR_ANY_NUMBER_PATTERN})(?!\d)(?:\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?(?:\s+(?P<era>{ERA_REGEX}))?",
         re.IGNORECASE | re.UNICODE,
     )
     pattern_range = re.compile(
-        rf"(?:(?P<prep>с|со|из|от|в|во)\s+)?(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s*[-–—]\s*(?P<year2>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))(?:\s+(?P<era>{ERA_REGEX}))?",
+        rf"{pattern_entry_boundary}(?:(?P<prep>с|со|из|от|в|во)\s+)?(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s*[-–—]\s*(?P<year2>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))(?:\s+(?P<era>{ERA_REGEX}))?",
         re.IGNORECASE | re.UNICODE,
     )
     pattern_multiple_years = re.compile(
-        rf"(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<years>{YEAR_RANGE_NUMBER_PATTERN}(?:\s*,\s*{YEAR_RANGE_NUMBER_PATTERN})*\s+и\s+{YEAR_RANGE_NUMBER_PATTERN})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w))",
+        rf"{pattern_entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<years>{YEAR_RANGE_NUMBER_PATTERN}(?:\s*,\s*{YEAR_RANGE_NUMBER_PATTERN})*\s+и\s+{YEAR_RANGE_NUMBER_PATTERN})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w))",
         re.IGNORECASE | re.UNICODE,
     )
     pattern_suffix = re.compile(
@@ -236,15 +235,15 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         re.IGNORECASE | re.UNICODE,
     )
     pattern_era_year = re.compile(
-        rf"(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year>{YEAR_ANY_NUMBER_PATTERN})(?:\s*[-–—](?P<suffix>{YEAR_SUFFIX_REGEX}))?(?:\s+(?P<word>год[а-яё]*\b|г\.?(?!\w)))?\s+(?P<era>{ERA_REGEX})",
+        rf"{pattern_entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year>{YEAR_ANY_NUMBER_PATTERN})(?:\s*[-–—](?P<suffix>{YEAR_SUFFIX_REGEX}))?(?:\s+(?P<word>год[а-яё]*\b|г\.?(?!\w)))?\s+(?P<era>{ERA_REGEX})",
         re.IGNORECASE | re.UNICODE,
     )
     pattern_era_range_shared = re.compile(
-        rf"(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s*[-–—]\s*(?P<year2>{YEAR_ANY_NUMBER_PATTERN})(?:\s+(?P<word>год[а-яё]*\b|г\.?(?!\w)))?\s+(?P<era>{ERA_REGEX})",
+        rf"{pattern_entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s*[-–—]\s*(?P<year2>{YEAR_ANY_NUMBER_PATTERN})(?:\s+(?P<word>год[а-яё]*\b|г\.?(?!\w)))?\s+(?P<era>{ERA_REGEX})",
         re.IGNORECASE | re.UNICODE,
     )
     pattern_year_word = re.compile(
-        rf"(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
+        rf"{pattern_entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
         re.IGNORECASE | re.UNICODE,
     )
     explicit_year_word_tail_pattern = re.compile(
@@ -256,7 +255,7 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         re.IGNORECASE | re.UNICODE,
     )
     pattern_ot_do_implicit = re.compile(
-        rf"(?P<prep>с|со|от)\s+(?P<year1>{YEAR_RANGE_NUMBER_PATTERN})\s+(?P<mid>до|по)\s+(?P<year2>{YEAR_RANGE_NUMBER_PATTERN})(?!\d)",
+        rf"{pattern_entry_boundary}(?P<prep>с|со|от)\s+(?P<year1>{YEAR_RANGE_NUMBER_PATTERN})\s+(?P<mid>до|по)\s+(?P<year2>{YEAR_RANGE_NUMBER_PATTERN})(?!\d)",
         re.IGNORECASE | re.UNICODE,
     )
     pattern_prep_year_implicit = re.compile(
@@ -359,8 +358,8 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         year = int(m.group(1))
         suffix = m.group(2).lower()
         word = m.group(3)
-        plural = suffix in PLURAL_SUFFIXES
         case = infer_suffix_case(m, suffix)
+        plural = suffix in PLURAL_SUFFIXES and not (suffix == "м" and case == "loct")
         if plural:
             if year < 100 and not word:
                 return m.group(0)
@@ -375,7 +374,7 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         result = year_to_ordinal_words(year, case, plural)
         if word:
             word_lower = word.lower()
-            if word_lower == "г.":
+            if word_lower in ("г.", "г"):
                 word_norm = "год"
                 inflected = YEAR_WORD_FORMS.get((word_norm, case), word_norm)
             elif re.fullmatch(YEAR_PLURAL_ABBREV_REGEX, word_lower):
@@ -508,7 +507,7 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         year = int(m.group("year"))
         word = m.group("word")
         word_lower = word.lower()
-        if word_lower == "г.":
+        if word_lower in ("г.", "г"):
             word_norm = "год"
             is_abbrev = True
             plural = False
@@ -521,8 +520,16 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
             is_abbrev = False
             plural = word_lower in ("годы", "годов", "годам", "годами", "годах")
 
-        is_year_prepositional = word_lower == "году" and prep
+        is_year_prepositional = word_lower == "году"
         if not is_year_prepositional and year < 1000 and not is_abbrev:
+            return m.group(0)
+        if is_abbrev and has_mass_measurement_context(text, m.start()):
+            return m.group(0)
+        if is_abbrev and year < 1000 and not allows_short_abbreviated_year(
+            text,
+            m.end(),
+            prep,
+        ):
             return m.group(0)
         if not is_abbrev:
             case = _resolve_explicit_year_word_case(prep, word)

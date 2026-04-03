@@ -13,6 +13,7 @@ from ..preprocess_utils import (
 )
 from ..text_context import PUNCT_STRIP, normalize_context_token
 from ._constants import ENTITY_DEFAULT_CASE, ENTITY_KEYWORDS, PREP_CASE, TIME_WORDS, VERB_CASE
+from ._num2words import CARDINAL_GENDER_TO_NUM2WORDS, resolve_num2words_case
 
 SENTENCE_PUNCTUATION_PATTERN = re.compile(r"\s+([.,!?;:])")
 POINT_NUMBER_SPACING_PATTERN = re.compile(r"(?<=\.) (?=\d)")
@@ -203,22 +204,14 @@ def inflect_numeral_string(num_str: str, case: str, gender: str | None = None) -
         value = int(num_str)
     except ValueError:
         return num_str
-    cases_map = {
-        "nomn": "nominative",
-        "gent": "genitive",
-        "datv": "dative",
-        "accs": "accusative",
-        "ablt": "instrumental",
-        "loct": "prepositional",
-    }
-    n2w_gender_map = {"masc": "masculine", "femn": "feminine", "neut": "neuter"}
-    if case in cases_map:
+    num2words_case = resolve_num2words_case(case, default="")
+    if num2words_case:
         try:
-            kwargs: dict[str, Any] = {"case": cases_map[case]}
+            kwargs: dict[str, Any] = {"case": num2words_case}
             if gender == "plur":
                 kwargs["plural"] = True
-            elif gender in n2w_gender_map:
-                kwargs["gender"] = n2w_gender_map[gender]
+            elif gender in CARDINAL_GENDER_TO_NUM2WORDS:
+                kwargs["gender"] = CARDINAL_GENDER_TO_NUM2WORDS[gender]
             return num2words.num2words(value, lang="ru", **kwargs)
         except Exception:
             pass
@@ -461,6 +454,20 @@ def get_numeral_case(tokens: list[str], idx: int) -> str:
                 noun_case = p_right.tag.case
                 if noun_case in {"datv", "ablt", "loct"} or "loc2" in p_right.tag:
                     return "loct" if noun_case == "loct" or "loc2" in p_right.tag else noun_case
+
+    if idx > 0:
+        right_boundary = idx + 1 >= len(tokens) or any(
+            char in tokens[idx + 1] for char in ",.;:!?…"
+        )
+        if right_boundary:
+            for back in range(idx - 1, max(-1, idx - 4), -1):
+                left_token = normalize_context_token(tokens[back])
+                if not left_token or left_token in {"уже", "теперь"}:
+                    continue
+                p_left = morph.parse(left_token)[0]
+                if p_left.tag.case == "datv" and p_left.tag.POS in {"NPRO", "NOUN"}:
+                    return "datv"
+                break
 
     if idx == 0 or any(char in tokens[idx - 1] for char in ".!?"):
         return "nomn"

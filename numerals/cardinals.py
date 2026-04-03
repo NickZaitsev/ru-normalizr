@@ -21,6 +21,7 @@ from ._helpers import (
     get_target_tags_for_number,
     inflect_numeral_string,
     inflect_unit_lemma,
+    noun_number_form,
     parse_integer_token,
     safe_inflect,
     should_consume_abbreviation_dot,
@@ -298,9 +299,13 @@ def normalize_cardinal_numerals(text: str) -> str:
                     inflect_numeral_string(clean_token, target_num_case, u_gender),
                     is_negative,
                 )
-                inflected_unit = inflect_unit_lemma(
-                    lemma, get_target_tags_for_number(val, case, u_gender)
-                )
+                if lemma == "человек" and case in {"nomn", "accs"}:
+                    unit_form = noun_number_form(val)
+                    inflected_unit = "человека" if unit_form == "few" else "человек"
+                else:
+                    inflected_unit = inflect_unit_lemma(
+                        lemma, get_target_tags_for_number(val, case, u_gender)
+                    )
                 full_unit = inflected_unit + (f" {u_suffix[0]}" if u_suffix else "")
                 match_unit = (
                     re.search(re.escape(next_token_lower), noun_token, re.IGNORECASE)

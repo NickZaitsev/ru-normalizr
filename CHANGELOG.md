@@ -11,6 +11,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Stop surname-first initials expansion from hijacking role/title + initial + surname lines such as `Редактор Е. Харитонова`, so TTS output no longer inserts a stray dot before the surname
 - Keep initials-first name lists inside the sentence without injecting `.,` before commas or dashes
 - Expand numeric reference abbreviations such as `ст.`, `рис.`, `стр.`, and `табл.` during preprocess before numeral reading, so full-pipeline outputs no longer miss forms like `ст. 49 УК РФ` after the number has already been normalized
+- Fix reported numeral normalization regressions around `человек` counting forms, long decimal denominators, glued and hyphenated ordinal suffixes (`41м`, `21ом`, `1-ую`, `3ее`, `II-я`), `г.р.`/mass `г.` disambiguation, and compound adjective readings such as `5и ступенчатая` and `1 комнатная`
+- Stop year regexes from matching inside preceding words, so abbreviated mass contexts such as `вес 123 г.` and `масса 237 г.` no longer get misread as years
 
 ## [0.2.0] - 2026-03-22
 ### Added

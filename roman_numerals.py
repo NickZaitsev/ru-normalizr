@@ -13,6 +13,7 @@ from .ordinal_utils import (
     choose_noun_parse,
     noun_parse_case,
     render_ordinal,
+    render_ordinal_from_noun_parse,
     render_ordinal_from_noun_word,
 )
 from .text_context import normalize_context_token, simple_tokenize
@@ -542,7 +543,7 @@ def convert_left_shared_hyphenated_roman_ranges(text: str) -> str:
 
 
 def convert_roman_names(text: str) -> str:
-    pattern = r"\b(?P<name>[А-ЯЁ][а-яё]+)\s+(?P<roman>[IVXLCDM]+)\b"
+    pattern = r"\b(?P<name>[А-ЯЁ][а-яё]+)\s+(?P<roman>[IVXLCDM]+)(?![-–—][а-яА-ЯёЁ])\b"
 
     def pick_name_parse(match: re.Match[str]):
         name = match.group("name")
@@ -589,6 +590,28 @@ def convert_roman_names(text: str) -> str:
         return f"{match.group('name')} {render_ordinal(number, case=case, gender=gender)}"
 
     return re.sub(pattern, repl, text)
+
+
+def convert_suffixed_roman_regnal_names(text: str) -> str:
+    pattern = re.compile(
+        r"\b(?P<name>[А-ЯЁ][а-яё]+)\s+(?P<roman>[IVXLCDM]+)[-–—](?P<suffix>[а-яё]{1,4})\b",
+        re.IGNORECASE,
+    )
+
+    def repl(match: re.Match[str]) -> str:
+        try:
+            number = roman.fromRoman(match.group("roman").upper())
+        except roman.InvalidRomanNumeralError:
+            return match.group(0)
+        noun_parse = choose_noun_parse(match.group("name"), prefer_inanimate=False)
+        if noun_parse is None or "anim" not in noun_parse.tag:
+            return match.group(0)
+        return (
+            f"{match.group('name')} "
+            f"{render_ordinal_from_noun_parse(number, noun_parse, singularize_plural=True)}"
+        )
+
+    return pattern.sub(repl, text)
 
 
 def convert_heading_roman_numerals(text: str) -> str:
@@ -704,6 +727,7 @@ def normalize_roman(text: str, options: NormalizeOptions | None = None) -> str:
     text = convert_left_shared_hyphenated_roman_ranges(text)
     text = convert_left_shared_roman_words(text)
     text = convert_roman_words(text)
+    text = convert_suffixed_roman_regnal_names(text)
     text = convert_roman_names(text)
     text = convert_heading_roman_numerals(text)
     text = convert_other_roman_numerals(text)

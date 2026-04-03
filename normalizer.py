@@ -16,6 +16,7 @@ from .latinization import DEFAULT_DICTIONARIES_PATH, apply_latinization
 from .numbering import convert_bracketed_numbers, convert_line_numbering
 from .numerals import (
     ALL_UNITS,
+    normalize_compound_numeric_adjectives,
     normalize_decimals,
     normalize_fractions,
     normalize_hyphenated_words,
@@ -24,6 +25,7 @@ from .numerals import (
     normalize_ordinals,
 )
 from .numerals._hyphen import (
+    ORDINAL_SUFFIXES,
     normalize_numeric_unit_hyphen_links,
     normalize_spaced_numeric_hyphen_words,
 )
@@ -63,6 +65,8 @@ DECORATIVE_MARKER_PATTERN = re.compile(r"(?:[*=_~+#\-\xad\u2010-\u2015]\s*){5,}"
 ASTERISK_SEPARATOR_PATTERN = re.compile(r"(?:\*\s*){3,}")
 CURRENCY_AMOUNT_PATTERN = re.compile(r"([$€₽])\s?(\d+(?:[.,]\d+)?)")
 DEGREE_SPACING_PATTERN = re.compile(r"(\d)°")
+LEADING_LETTER_DIGIT_PATTERN = re.compile(r"(?<=[а-яА-ЯёЁa-zA-Z])(\d+)")
+GLUED_NUMBER_WORD_PATTERN = re.compile(r"(\d+)([а-яА-ЯёЁa-zA-Z+]{1,})")
 
 GLUED_PREPOSITIONS = {
     "до",
@@ -102,6 +106,7 @@ GLUED_PREPOSITIONS = {
     "около",
     "свыше",
 }
+GLUED_NUMERIC_SUFFIXES = ORDINAL_SUFFIXES | {"ти", "ми", "х", "у"}
 
 
 class PipelineNormalizer:
@@ -255,6 +260,7 @@ class PipelineNormalizer:
         text = normalize_math_symbols(text)
         text = normalize_spaced_numeric_hyphen_words(text)
         text = normalize_numeric_unit_hyphen_links(text)
+        text = normalize_compound_numeric_adjectives(text)
         text = normalize_decimals(text)
         text = normalize_fractions(text)
         text = normalize_hyphenated_words(text)
@@ -291,42 +297,40 @@ class PipelineNormalizer:
         text = normalize_sentence_start_caps(text)
         return restore_paragraph_breaks(text)
 
+    def _classify_glued_numeric_rhs(self, word: str) -> str:
+        word_lower = word.lower()
+        if word == "k":
+            return "thousand_suffix"
+        if word_lower in GLUED_NUMERIC_SUFFIXES or word_lower in {"о", "а"}:
+            return "hyphen"
+        if word_lower in ALL_UNITS or word_lower in GLUED_PREPOSITIONS:
+            return "space"
+
+        parsed = get_morph().parse(word_lower)[0]
+        if "ADJF" in parsed.tag:
+            return "hyphen"
+        if "NOUN" in parsed.tag:
+            return "space"
+        return "hyphen"
+
     def _fix_glued_numbers(self, text: str) -> str:
         def fix_glued(match: re.Match[str]) -> str:
             num, word = match.group(1), match.group(2)
-            word_lower = word.lower()
-            if word == "k":
+            rhs_kind = self._classify_glued_numeric_rhs(word)
+            if rhs_kind == "thousand_suffix":
                 return f"{num} тыс"
-            if word_lower in {
-                "ти",
-                "ми",
-                "го",
-                "му",
-                "м",
-                "х",
-                "я",
-                "е",
-                "й",
-                "о",
-                "а",
-            }:
+            if rhs_kind == "hyphen":
                 return f"{num}-{word}"
-            if word_lower in ALL_UNITS or word_lower in GLUED_PREPOSITIONS:
-                return f"{num} {word}"
-
-            parsed = get_morph().parse(word_lower)[0]
-            if "ADJF" in parsed.tag:
-                return f"{num}-{word}"
-            if "NOUN" in parsed.tag:
+            if rhs_kind == "space":
                 return f"{num} {word}"
             return f"{num}-{word}"
 
-        text = re.sub(r"(?<=[а-яА-ЯёЁa-zA-Z])(\d+)", r" \1", text)
+        text = LEADING_LETTER_DIGIT_PATTERN.sub(r" \1", text)
         previous = None
         iteration = 0
         while previous != text and iteration < 5:
             previous = text
-            text = re.sub(r"(\d+)([а-яА-ЯёЁa-zA-Z+]{1,})", fix_glued, text)
+            text = GLUED_NUMBER_WORD_PATTERN.sub(fix_glued, text)
             iteration += 1
         return text
 

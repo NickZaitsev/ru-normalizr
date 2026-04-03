@@ -142,6 +142,14 @@ class RuNormalizrApiTests(unittest.TestCase):
     def test_preprocess_text_is_exported(self):
         self.assertIn("10 кг", preprocess_text("10кг"))
 
+    def test_preprocess_text_preserves_glued_number_classification_behaviour(self):
+        self.assertEqual(preprocess_text("10кг"), "10 кг")
+        self.assertEqual(preprocess_text("250k"), "250 тыс")
+        self.assertEqual(preprocess_text("7до"), "7 до")
+        self.assertEqual(preprocess_text("41м"), "41-м")
+        self.assertEqual(preprocess_text("1ая"), "1-ая")
+        self.assertEqual(preprocess_text("5и"), "5-и")
+
     def test_preprocess_text_inserts_legacy_dot_before_uppercase_line(self):
         self.assertEqual(
             preprocess_text(

@@ -13,6 +13,7 @@ from .cardinals import (
 from .decimals import normalize_decimals
 from .fractions import normalize_fractions
 from .ordinals import (
+    normalize_compound_numeric_adjectives,
     normalize_heading_numbers,
     normalize_heading_ranges,
     normalize_hyphenated_words,
@@ -43,6 +44,7 @@ __all__ = [
     "ALL_UNITS",
     "get_numeral_case",
     "normalize_all_digits_everywhere",
+    "normalize_compound_numeric_adjectives",
     "normalize_cardinal_numerals",
     "normalize_decimals",
     "normalize_fractions",

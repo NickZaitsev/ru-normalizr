@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import re
 
+from .abbreviation_context import (
+    normalize_birth_year_abbreviations,
+    normalize_mass_gram_abbreviations,
+)
 from .constants import CLEANUP_REPLACEMENTS, UNICODE_FRACTIONS
 
 ASCII_DASH_SPACE_PATTERN = re.compile(r" - ")
@@ -96,8 +100,6 @@ ERA_ABBREVIATION_PATTERN = re.compile(
     r"(?<!\w)(?P<abbr>до\s+н\.?\s*э\.?|н\.?\s*э\.?)(?P<tail>\s*)",
     re.IGNORECASE,
 )
-
-
 def normalize_ascii_quote_pairs(text: str) -> str:
     replacements = (
         ("``", '"'),
@@ -164,6 +166,8 @@ def normalize_era_abbreviations(text: str) -> str:
 
 
 def normalize_numeric_abbreviations(text: str) -> str:
+    text = normalize_birth_year_abbreviations(text)
+    text = normalize_mass_gram_abbreviations(text)
     text = PAGE_ABBREVIATION_PATTERN.sub("страница ", text)
     text = PAGE_FULL_ABBREVIATION_PATTERN.sub("страница ", text)
     text = ARTICLE_ABBREVIATION_PATTERN.sub("статья ", text)

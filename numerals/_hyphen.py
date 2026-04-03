@@ -6,8 +6,33 @@ from typing import Literal
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ._constants import UNIT_TOKEN_FRAGMENT, UNITS_DATA
 
-ORDINAL_SUFFIXES = {"й", "я", "е", "го", "му", "м", "ю", "ее", "ий", "ая", "ое"}
-CARDINAL_CASE_SUFFIXES = {"ти", "ми", "х", "мя", "и"}
+ORDINAL_SUFFIXES = {
+    "й",
+    "ый",
+    "ий",
+    "ой",
+    "я",
+    "ая",
+    "е",
+    "ее",
+    "ое",
+    "ые",
+    "ых",
+    "ыми",
+    "го",
+    "ого",
+    "му",
+    "ому",
+    "м",
+    "ом",
+    "ем",
+    "ю",
+    "ую",
+    "ей",
+    "ым",
+    "им",
+}
+CARDINAL_CASE_SUFFIXES = {"ти", "ми", "х", "мя", "и", "у"}
 AMBIGUOUS_SINGLE_LETTER_HYPHEN_UNITS = {"г", "л", "м", "н", "р", "с", "т", "ф", "ч"}
 NUMERIC_UNIT_HYPHEN_PATTERN = re.compile(
     rf"(?<![\d{re.escape(NEGATIVE_NUMBER_PLACEHOLDER)}])"
@@ -27,6 +52,8 @@ NumericHyphenKind = Literal["unit", "ordinal_suffix", "cardinal_case_suffix", "w
 
 def is_safe_numeric_hyphen_unit(unit_raw: str) -> bool:
     unit_key = unit_raw.lower().strip(".")
+    if unit_key in ORDINAL_SUFFIXES or unit_key in CARDINAL_CASE_SUFFIXES:
+        return False
     if unit_key not in UNITS_DATA:
         return False
     if len(unit_key) == 1 and unit_key in AMBIGUOUS_SINGLE_LETTER_HYPHEN_UNITS:

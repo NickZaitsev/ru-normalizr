@@ -644,7 +644,7 @@ DECIMAL_PATTERN = re.compile(
 )
 FRACTION_PATTERN = re.compile(r"(?<![\d,])(\d+)/(\d+)(?![\d,])")
 HYPHENATED_WORD_PATTERN = re.compile(r"(?<![\d])(\d+)-([а-яА-ЯёЁ]{1,})")
-ORDINAL_PATTERN = re.compile(r"(\d+)-([а-яА-ЯёЁ]{1,3})\b", re.IGNORECASE | re.UNICODE)
+ORDINAL_PATTERN = re.compile(r"(\d+)-([а-яА-ЯёЁ]{1,4})\b", re.IGNORECASE | re.UNICODE)
 STANDALONE_CURRENCY_PATTERN = re.compile(r"(?<!\S)([$€£¥₽₴₸₺₹¢])(?!\S)")
 DIGIT_PATTERN = re.compile(r"\d+")
 

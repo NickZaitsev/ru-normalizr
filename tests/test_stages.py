@@ -429,6 +429,17 @@ class RuNormalizrStageTests(unittest.TestCase):
             "статья 15, рисунок 2, таблица 3, страница 4, страница 5, страница 6",
         )
 
+    def test_preprocess_stage_expands_birth_year_and_mass_gram_abbreviations(self):
+        normalizer = Normalizer()
+        self.assertEqual(
+            normalizer.run_stage("preprocess", "55 г.р. 55 г. р."),
+            "55 г. рождения. 55 г. рождения.",
+        )
+        self.assertEqual(
+            normalizer.run_stage("preprocess", "вес 123 г. масса 237г."),
+            "вес 123 грамм масса 237 грамм",
+        )
+
     def test_abbreviation_stage(self):
         self.assertEqual(
             expand_abbreviations("т. д."),
@@ -586,6 +597,14 @@ class RuNormalizrStageTests(unittest.TestCase):
         self.assertIn(
             "году книга",
             normalize_years("В 1981 г. книга вышла."),
+        )
+
+    def test_year_stage_keeps_abbreviated_mass_contexts_out_of_year_rules(self):
+        self.assertEqual(normalize_years("вес 123 г."), "вес 123 г.")
+        self.assertEqual(normalize_years("масса 237 г."), "масса 237 г.")
+        self.assertEqual(
+            normalize_years("55 г. рождения."),
+            "пятьдесят пятого года рождения.",
         )
 
     def test_year_stage_normalizes_clean_implicit_year_phrase(self):
