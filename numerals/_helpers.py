@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Any
 
 import num2words
@@ -31,7 +32,31 @@ def is_integer_token(token: str) -> bool:
     clean_token = token.strip(PUNCT_STRIP)
     if clean_token.startswith(NEGATIVE_NUMBER_PLACEHOLDER):
         clean_token = clean_token[len(NEGATIVE_NUMBER_PLACEHOLDER) :]
-    return clean_token.isdigit()
+    return _normalize_unicode_integer_text(clean_token) is not None
+
+
+def _normalize_unicode_integer_text(text: str) -> str | None:
+    if not text:
+        return None
+
+    if text.isascii() and text.isdigit():
+        return text
+
+    normalized_digits: list[str] = []
+    for char in text:
+        digit = unicodedata.digit(char, None)
+        if digit is None:
+            break
+        normalized_digits.append(str(digit))
+    else:
+        return "".join(normalized_digits)
+
+    if len(text) == 1:
+        numeric_value = unicodedata.numeric(text, None)
+        if numeric_value is not None and float(numeric_value).is_integer() and numeric_value >= 0:
+            return str(int(numeric_value))
+
+    return None
 
 
 def parse_integer_token(token: str) -> tuple[bool, str] | None:
@@ -39,9 +64,10 @@ def parse_integer_token(token: str) -> tuple[bool, str] | None:
     is_negative = clean_token.startswith(NEGATIVE_NUMBER_PLACEHOLDER)
     if is_negative:
         clean_token = clean_token[len(NEGATIVE_NUMBER_PLACEHOLDER) :]
-    if not clean_token.isdigit():
+    normalized = _normalize_unicode_integer_text(clean_token)
+    if normalized is None:
         return None
-    return is_negative, clean_token
+    return is_negative, normalized
 
 
 def build_number_token(
@@ -51,6 +77,12 @@ def build_number_token(
         f"{NEGATIVE_NUMBER_PLACEHOLDER}{clean_token}" if is_negative else clean_token
     )
     result = token.replace(source, replacement, 1)
+    if result == token:
+        stripped_source = token.strip(PUNCT_STRIP)
+        if stripped_source:
+            result = token.replace(stripped_source, replacement, 1)
+        else:
+            result = replacement
     if is_negative:
         return f"минус {result}"
     return result

@@ -278,6 +278,16 @@ class RuNormalizrStageTests(unittest.TestCase):
             "двести пятьдесят долларов",
         )
 
+    def test_numeral_stage_normalizes_unicode_integer_symbols(self):
+        self.assertEqual(
+            normalize_numerals("① кг"),
+            "один килограмм",
+        )
+        self.assertEqual(
+            normalize_numerals("⑳"),
+            "двадцать",
+        )
+
     def test_numeral_stage_normalizes_heading_single_number_as_ordinal(self):
         self.assertEqual(
             normalize_numerals("глава 10"),
