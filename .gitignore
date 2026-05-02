@@ -11,4 +11,7 @@ dist/
 .tmp_dist/
 *.whl
 *.tar.gz
-TODO.txt
+TODO.txt\
+.venv
+banchmarks
+test_dan.py

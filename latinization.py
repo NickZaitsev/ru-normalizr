@@ -8,7 +8,7 @@ from .dictionary import DictionaryNormalizer
 
 DEFAULT_DICTIONARIES_PATH = Path(__file__).resolve().parent / "dictionaries"
 DEFAULT_LATINIZATION_DICTIONARIES_PATH = DEFAULT_DICTIONARIES_PATH / "latinization"
-LATIN_TOKEN_PATTERN = re.compile(r"[A-Za-z][A-Za-z'\-]*")
+LATIN_TOKEN_PATTERN = re.compile(r"[A-Za-z][A-Za-z0-9'\-]*")
 IPA_BATCH_SIZE = 800
 IPA_BATCH_THRESHOLD = 24
 DICTIONARY_FALLBACK_BATCH_THRESHOLD = 8

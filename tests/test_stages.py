@@ -249,6 +249,12 @@ class RuNormalizrStageTests(unittest.TestCase):
             "Встреча в десять, ноль семь.",
         )
 
+    def test_dates_time_stage_supports_slash_dates_and_seconds(self):
+        self.assertEqual(
+            normalize_dates_and_time("Собрание 15/04/2024 в 10:07:09."),
+            "Собрание пятнадцатого апреля две тысячи двадцать четвёртого года в десять, ноль семь, девять.",
+        )
+
     def test_dates_time_stage_normalizes_listed_days_in_text_date(self):
         self.assertEqual(
             normalize_dates_and_time("Эти объекты наблюдались 15 и 25 апреля."),
@@ -423,11 +429,26 @@ class RuNormalizrStageTests(unittest.TestCase):
             "https двоеточие слэш слэш milk точка org слэш a один вопрос b равно два три.",
         )
 
+    def test_url_stage_rewrites_emails_and_phone_like_numbers(self):
+        normalizer = Normalizer(NormalizeOptions.tts())
+        self.assertEqual(
+            normalizer.run_stage("urls", "mail test@example.com"),
+            "mail test собака example точка com",
+        )
+        self.assertEqual(
+            normalizer.run_stage("urls", "Тел.: +7 (999) 123-45-67"),
+            "Тел.: плюс семь девять девять девять один два три четыре пять шесть семь",
+        )
+
     def test_url_stage_is_disabled_outside_tts_by_default(self):
         self.assertEqual(
             normalize_urls("https://milk.org/a1?b=23.", enabled=False),
             "https://milk.org/a1?b=23.",
         )
+
+    def test_latinization_stage_supports_mixed_latin_tokens_with_trailing_digits(self):
+        normalizer = Normalizer(NormalizeOptions.tts())
+        self.assertEqual(normalizer.run_stage("latinization", "Wi-Fi6"), "ви-фи6")
 
     def test_preprocess_stage_expands_numeric_reference_abbreviations(self):
         normalizer = Normalizer()
@@ -448,6 +469,10 @@ class RuNormalizrStageTests(unittest.TestCase):
         self.assertEqual(
             normalizer.run_stage("preprocess", "вес 123 г. масса 237г."),
             "вес 123 грамм масса 237 грамм",
+        )
+        self.assertEqual(
+            normalizer.run_stage("preprocess", "ул. Ленина, д. 5"),
+            "ул. Ленина, дом 5",
         )
 
     def test_abbreviation_stage(self):

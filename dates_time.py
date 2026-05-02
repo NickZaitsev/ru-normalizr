@@ -67,13 +67,19 @@ MONTHS_GENT_BY_NUMBER = {
 NUMERIC_DATE_PATTERN = re.compile(
     r"\b(?P<day>0?[1-9]|[12]\d|3[01])\.(?P<month>0?[1-9]|1[0-2])\.(?P<year>\d{2,4})\b"
 )
+NUMERIC_DATE_SLASH_PATTERN = re.compile(
+    r"\b(?P<day>0?[1-9]|[12]\d|3[01])/(?P<month>0?[1-9]|1[0-2])/(?P<year>\d{2,4})\b"
+)
 TIME_PATTERN = re.compile(r"\b(?P<hour>[01]?\d|2[0-3]):(?P<minute>[0-5]\d)\b")
+TIME_WITH_SECONDS_PATTERN = re.compile(
+    r"\b(?P<hour>[01]?\d|2[0-3]):(?P<minute>[0-5]\d):(?P<second>[0-5]\d)\b"
+)
 DOTTED_TIME_PATTERN = re.compile(
     r"\b(?P<hour>[01]?\d|2[0-3])\.(?P<minute>[0-5]\d)\b",
     re.IGNORECASE,
 )
 DOTTED_TIME_LEFT_CONTEXT_PATTERN = re.compile(
-    r"(?:^|[\s(\"«])(?:в|во|к|около)\s*$",
+    r"(?:^|[\s(\"«])(?:в|во|к|около|время)\s*$",
     re.IGNORECASE,
 )
 DOTTED_TIME_RIGHT_CONTEXT_PATTERN = re.compile(
@@ -188,10 +194,20 @@ def normalize_dates(text: str) -> str:
             year_words = num2words.num2words(year, lang="ru", to="ordinal")
         return f"{day_words} {MONTHS_GENT_BY_NUMBER.get(month, str(month))} {year_words} года"
 
-    return NUMERIC_DATE_PATTERN.sub(repl, text)
+    text = NUMERIC_DATE_PATTERN.sub(repl, text)
+    return NUMERIC_DATE_SLASH_PATTERN.sub(repl, text)
 
 
 def normalize_time(text: str) -> str:
+    def render_time_with_seconds(match: re.Match[str]) -> str:
+        base = render_time(match)
+        second_value = int(match.group("second"))
+        try:
+            second_words = num2words.num2words(second_value, lang="ru")
+        except Exception:
+            second_words = match.group("second")
+        return f"{base}, {second_words}"
+
     def render_time(match: re.Match[str]) -> str:
         hour = int(match.group("hour"))
         minute_str = match.group("minute")
@@ -223,6 +239,7 @@ def normalize_time(text: str) -> str:
             return match.group(0)
         return render_time(match)
 
+    text = TIME_WITH_SECONDS_PATTERN.sub(render_time_with_seconds, text)
     text = TIME_PATTERN.sub(render_time, text)
     return DOTTED_TIME_PATTERN.sub(render_dotted_time, text)
 

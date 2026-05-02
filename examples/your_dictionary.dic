@@ -6,9 +6,9 @@
 # Copy this file into `dictionaries/` if you want the rules to auto-apply locally.
 #
 # Examples:
-# *Tube=тюб
-# Open*=оупен
-# YouTube=ютуб
-# OpenAI=оупэнэйай
+ *Tube=тюб
+ Open*=оупен
+ YouTube=ютуб
+ OpenAI=оупэнэйай
 ########################################################################################
 # You can add .dic files to this folder and rules would be applied automatically

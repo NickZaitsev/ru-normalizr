@@ -5,9 +5,15 @@ All notable changes to `ru-normalizr` will be documented in this file.
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
 ## Unreleased
+### Added
+- Add a TTS multi-expected regression suite for high-variance normalization cases (`input -> [allowed_outputs]`) with stage-level triage assertions, covering URLs, emails, phone numbers, slash dates, mixed Latin+Cyrillic text, and address abbreviations
 ### Changed
 - Speed up IPA latinization on large texts with many distinct Latin tokens by batching `eng_to_ipa` lookups and batched dictionary fallback rewrites instead of resolving every token separately
 ### Fixed
+- Normalize explicit email addresses and phone-like numbers in the early TTS URL stage, so contact data is read as spoken separators/digits instead of leaking raw symbols
+- Expand `д.` before digits to `дом` in preprocess (`д. 5` -> `дом 5`) to improve address normalization in running text
+- Extend date/time normalization for `dd/mm/yyyy` dates, `hh:mm:ss` timestamps, and broader dotted-time left context (including `время ...`)
+- Accept trailing digits in Latin tokens during latinization (e.g. mixed forms such as `Wi-Fi6`) to improve mixed Latin+Cyrillic handling
 - Stop surname-first initials expansion from hijacking role/title + initial + surname lines such as `Редактор Е. Харитонова`, so TTS output no longer inserts a stray dot before the surname
 - Keep initials-first name lists inside the sentence without injecting `.,` before commas or dashes
 - Expand numeric reference abbreviations such as `ст.`, `рис.`, `стр.`, and `табл.` during preprocess before numeral reading, so full-pipeline outputs no longer miss forms like `ст. 49 УК РФ` after the number has already been normalized
