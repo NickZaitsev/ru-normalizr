@@ -9,7 +9,6 @@ import num2words
 from .._morph import parse_word
 from ..preprocess_utils import (
     NEGATIVE_NUMBER_PLACEHOLDER,
-    PARAGRAPH_BREAK_PLACEHOLDER,
     normalize_ascii_quote_pairs,
 )
 from ..text_context import PUNCT_STRIP, normalize_context_token
@@ -208,7 +207,7 @@ def should_consume_abbreviation_dot(tokens: list[str], dot_index: int) -> bool:
     if dot_index + 1 >= len(tokens):
         return False
     next_token = tokens[dot_index + 1]
-    if "\n" in next_token or PARAGRAPH_BREAK_PLACEHOLDER in next_token:
+    if "\n" in next_token:
         return False
     if next_token in {",", ";", ":", ")", "]", "}", "»", '"', "”"}:
         return True
@@ -517,7 +516,7 @@ def detokenize(tokens: list[str]) -> str:
     for token in tokens:
         if not token:
             continue
-        if "\n" in token or PARAGRAPH_BREAK_PLACEHOLDER in token:
+        if "\n" in token:
             parts.append(token)
             previous_was_newline = True
             continue

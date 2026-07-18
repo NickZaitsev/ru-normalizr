@@ -683,7 +683,6 @@ def normalize_cyrillic_roman(text: str) -> str:
         "С": "C",
         "с": "C",
         "І": "I",
-        "l": "I",
         "і": "I",
         "М": "M",
         "м": "M",

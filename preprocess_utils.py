@@ -40,7 +40,6 @@ INLINE_LINEBREAK_SPACE_PATTERN = re.compile(
 )
 LETTER_HYPHEN_PLACEHOLDER = "\ue000"
 NEGATIVE_NUMBER_PLACEHOLDER = "\ue001"
-PARAGRAPH_BREAK_PLACEHOLDER = "\ue002"
 UNIT_SLASH_PLACEHOLDER = "\ue003"
 
 
@@ -229,16 +228,11 @@ def apply_cleanup_replacements(text: str) -> str:
     return text
 
 
-def restore_paragraph_breaks(text: str) -> str:
-    return text
-
-
 def _insert_boundary_dot(match: re.Match[str]) -> str:
     return f"{match.group('prev')}.{match.group('break')}"
 
 
-def normalize_linebreaks(text: str, keep_paragraph_placeholders: bool = False) -> str:
-    del keep_paragraph_placeholders
+def normalize_linebreaks(text: str) -> str:
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = TRAILING_SPACE_BEFORE_NEWLINE_PATTERN.sub("\n", text)
     text = LEADING_SPACE_AFTER_NEWLINE_PATTERN.sub("\n", text)
@@ -291,7 +285,6 @@ def classify_bracketed_numeric_content(content: str) -> str:
 
 def remove_numeric_footnotes(
     text: str,
-    keep_paragraph_placeholders: bool = False,
     ignore_interval: tuple[int, int] | None = None,
 ) -> str:
     pairs = {"[": "]", "<": ">", "(": ")", "{": "}", "«": "»"}
@@ -315,9 +308,7 @@ def remove_numeric_footnotes(
     text = MULTI_SPACE_PATTERN.sub(" ", text)
     text = SPACE_BEFORE_CLOSE_BRACKET_PATTERN.sub(r"\1", text)
     text = SPACE_AFTER_OPEN_BRACKET_PATTERN.sub(r"\1", text)
-    return normalize_linebreaks(
-        text, keep_paragraph_placeholders=keep_paragraph_placeholders
-    ).strip()
+    return normalize_linebreaks(text).strip()
 
 
 def clean_numbers(text: str) -> str:

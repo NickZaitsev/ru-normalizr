@@ -45,15 +45,18 @@ _SINGLE_TOKEN_EN_LETTER_NAMES = frozenset(
     value.lower() for value in EN_LETTER_NAMES.values() if " " not in value
 )
 _LANGUAGE_ORIGIN_ABBREVIATIONS = {
-    "англ.": "английский",
-    "руск.": "русский",
-    "рус.": "русский",
-    "немецк.": "немецкий",
-    "нем.": "немецкий",
-    "франц.": "французский",
-    "греч.": "греческий",
-    "латин.": "латинский",
-    "лат.": "латинский",
+    key: ADJECTIVE_ABBREVIATION_EXPANSIONS[key]
+    for key in (
+        "англ.",
+        "руск.",
+        "рус.",
+        "немецк.",
+        "нем.",
+        "франц.",
+        "греч.",
+        "латин.",
+        "лат.",
+    )
 }
 _LANGUAGE_ORIGIN_PATTERN = re.compile(
     rf"(?<!\w)(?P<prep>от|из|с|со)\s+(?P<abbr>{'|'.join(sorted((re.escape(key) for key in _LANGUAGE_ORIGIN_ABBREVIATIONS), key=len, reverse=True))})"

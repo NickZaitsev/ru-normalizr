@@ -653,9 +653,6 @@ UNIT_TOKEN_FRAGMENT = (
 NUMERIC_UNIT_RANGE_PATTERN = re.compile(
     rf"(?<!\d)(?P<left>\d+)\s*[—–-]\s*(?P<right>\d+)\s*(?P<unit>{UNIT_TOKEN_FRAGMENT}(?:\s+[^\W\d_]+){{0,2}})(?!\w)"
 )
-DECIMAL_PATTERN = re.compile(
-    rf"(?<!\d)(?P<num>(?:-|\\ue001)?\d+[.,]\d+)(?:\s*(?P<unit>{UNIT_TOKEN_FRAGMENT})(?P<unit_dot>\.)?)?(?:\s+(?P<unit2>{UNIT_TOKEN_FRAGMENT})(?P<unit2_dot>\.)?)?(?!\d)"
-)
 FRACTION_PATTERN = re.compile(r"(?<![\d,])(\d+)/(\d+)(?![\d,])")
 HYPHENATED_WORD_PATTERN = re.compile(r"(?<![\d])(\d+)-([а-яА-ЯёЁ]{1,})")
 ORDINAL_PATTERN = re.compile(r"(\d+)-([а-яА-ЯёЁ]{1,4})\b", re.IGNORECASE | re.UNICODE)
