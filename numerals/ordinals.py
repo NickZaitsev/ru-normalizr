@@ -81,6 +81,10 @@ HEADING_SINGLE_PATTERN = re.compile(
     rf"\b(?P<head>{SINGULAR_HEADING_WORDS_PATTERN})\s+(?P<number>\d+)\b",
     re.IGNORECASE | re.UNICODE,
 )
+ABBREVIATED_HEADING_RANGE_PATTERN = re.compile(
+    r"\b(?P<head>гл)\.\s*(?P<left>\d+)\s*[–—-]\s*(?P<right>\d+)\b",
+    re.IGNORECASE | re.UNICODE,
+)
 ABBREVIATED_HEADING_PATTERN = re.compile(
     r"\b(?P<head>гл)\.\s*(?P<number>\d+)\b",
     re.IGNORECASE | re.UNICODE,
@@ -167,15 +171,66 @@ def _heading_parse(text: str, match_start: int, head: str):
 
 
 def normalize_heading_ranges(text: str) -> str:
+    def render_range(head: str, noun_parse, left: int, right: int) -> str:
+        gender = noun_parse.tag.gender if noun_parse and noun_parse.tag.gender else "masc"
+        left_ordinal = _ordinal_words(left, "gent", gender)
+        right_case = "accs" if gender == "femn" else "nomn"
+        right_ordinal = _ordinal_words(right, right_case, gender)
+        rendered_head = head
+        if noun_parse:
+            target_case = noun_parse.tag.case or "nomn"
+            plural_head = noun_parse.inflect({target_case, "plur"})
+            if plural_head:
+                rendered_head = plural_head.word
+                if head[:1].isupper():
+                    rendered_head = rendered_head.capitalize()
+        return (
+            f"{rendered_head} {_pick_range_preposition(left_ordinal)} "
+            f"{left_ordinal} по {right_ordinal}"
+        )
+
     def repl(match: re.Match[str]) -> str:
         head = match.group("head")
         noun_parse = _heading_parse(text, match.start(), head)
-        gender = noun_parse.tag.gender if noun_parse and noun_parse.tag.gender else "masc"
-        left_ordinal = _ordinal_words(int(match.group("left")), "gent", gender)
-        right_case = "accs" if gender == "femn" else "nomn"
-        right_ordinal = _ordinal_words(int(match.group("right")), right_case, gender)
-        return f"{head} {_pick_range_preposition(left_ordinal)} {left_ordinal} по {right_ordinal}"
+        return render_range(
+            head, noun_parse, int(match.group("left")), int(match.group("right"))
+        )
 
+    def abbreviated_repl(match: re.Match[str]) -> str:
+        left_context = text[max(0, match.start() - 40) : match.start()]
+        left_tokens = simple_tokenize(left_context)
+        left_word = next(
+            (
+                token.lower()
+                for token in reversed(left_tokens)
+                if any(char.isalpha() for char in token)
+            ),
+            "",
+        )
+        target_case = HEADING_CONTEXT_CASES.get(left_word, "nomn")
+        noun_parse = next(
+            (
+                candidate
+                for candidate in parse_word("глава")
+                if "NOUN" in candidate.tag
+                and "nomn" in candidate.tag
+                and "inan" in candidate.tag
+            ),
+            None,
+        )
+        if noun_parse is None:
+            return match.group(0)
+        inflected_noun = noun_parse.inflect({target_case, "plur"})
+        if inflected_noun is None:
+            return match.group(0)
+        left_ordinal = _ordinal_words(int(match.group("left")), "gent", "femn")
+        right_ordinal = _ordinal_words(int(match.group("right")), "accs", "femn")
+        return (
+            f"{inflected_noun.word} {_pick_range_preposition(left_ordinal)} "
+            f"{left_ordinal} по {right_ordinal}"
+        )
+
+    text = ABBREVIATED_HEADING_RANGE_PATTERN.sub(abbreviated_repl, text)
     return HEADING_RANGE_PATTERN.sub(repl, text)
 
 
