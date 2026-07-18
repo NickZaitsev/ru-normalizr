@@ -11,6 +11,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Load the small bundled dictionaries directly instead of reading or writing executable pickle caches beside installed package files
 - Speed up IPA latinization on large texts with many distinct Latin tokens by batching `eng_to_ipa` lookups and batched dictionary fallback rewrites instead of resolving every token separately
 ### Fixed
+- Stop grammatical case from leaking across `равно` onto arithmetic results, so currency results remain nominative regardless of the left operand's fraction form
 - Remove copyright symbols during cleanup instead of replacing them with stray sentence-ending dots
 - Inflect abbreviated chapter references such as `см. гл. 5` and `в гл. 3` before the general abbreviation stage turns their numbers into bare cardinals
 - Normalize prose date ranges such as `с 5 по 10 января` with ordinal day forms appropriate to both prepositions

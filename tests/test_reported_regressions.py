@@ -5,6 +5,21 @@ from ru_normalizr.numerals._constants import UNITS_DATA
 
 
 class RuNormalizrReportedRegressionTests(unittest.TestCase):
+    def test_equals_blocks_case_leak_onto_arithmetic_result(self):
+        expressions = (
+            "9 × 11 = 73 ₽",
+            "9 × 11.01 = 73 ₽",
+            "9 × 11.1 = 73 ₽",
+            "9 × 11.0 = 73 ₽",
+            "9 × 11.2 = 73 ₽",
+            "9 × 11.02 = 73 ₽",
+        )
+        for expression in expressions:
+            with self.subTest(expression=expression):
+                self.assertTrue(normalize(expression).endswith("равно семьдесят три рубля"))
+
+        self.assertEqual(normalize("не более 73 рублей"), "не более семидесяти трёх рублей")
+
     def test_copyright_symbol_does_not_create_sentence_dot(self):
         self.assertEqual(normalize("© 2024 Компания"), "две тысячи двадцать четыре Компания")
         self.assertEqual(normalize("Текст © автора"), "Текст автора")
