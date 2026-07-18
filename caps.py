@@ -6,8 +6,12 @@ from ._morph import parse_word
 from .constants import KNOWN_ABBREVIATIONS
 
 _LINE_SPLIT_PATTERN = re.compile(r"(\n)")
+_FIRST_WORD_CAPS_PATTERN = re.compile(
+    r"^([^\S\r\n]*)([A-ZА-ЯЁ]{2,})(?=\b|\s|[.,!?;:])", re.MULTILINE
+)
 _SENTENCE_START_PATTERN = re.compile(
-    r"(?P<punct>[.!?…])(?P<prefix>[\s\"'«»„“”()\[\]{}]*)(?P<letter>[a-zA-Zа-яА-ЯёЁ])"
+    r"(?P<punct>[.!?…])(?P<prefix>(?:(?=[^\r\n])\s|[\"'«»„“”()\[\]{}])*)"
+    r"(?P<letter>[a-zA-Zа-яА-ЯёЁ])"
 )
 _CAPS_CONNECTORS = {"А", "В", "И", "К", "О", "С", "У"}
 
@@ -16,26 +20,19 @@ def normalize_first_word_caps(text: str, enabled: bool = True) -> str:
     if not enabled:
         return text
 
-    parts = _LINE_SPLIT_PATTERN.split(text)
-    first_word_pattern = re.compile(r"^(\s*)([A-ZА-ЯЁ]{2,})(?=\b|\s|[.,!?;:])")
+    def normalize_line_start(match: re.Match[str]) -> str:
+        line_end = text.find("\n", match.end())
+        rest = text[match.end() : line_end if line_end >= 0 else len(text)]
+        word = match.group(2)
+        if (
+            word not in KNOWN_ABBREVIATIONS
+            and len(word) > 3
+            and any(char.isalpha() or char.isdigit() for char in rest)
+        ):
+            return match.group(1) + word.capitalize()
+        return match.group(0)
 
-    for idx in range(0, len(parts), 2):
-        line = parts[idx]
-        match = first_word_pattern.match(line)
-        if match:
-            word = match.group(2)
-            rest = line[match.end() :]
-            has_following_letter_or_digit = any(
-                char.isalpha() or char.isdigit() for char in rest
-            )
-            if (
-                word not in KNOWN_ABBREVIATIONS
-                and len(word) > 3
-                and has_following_letter_or_digit
-            ):
-                parts[idx] = match.group(1) + word.capitalize() + line[match.end() :]
-
-    return "".join(parts)
+    return _FIRST_WORD_CAPS_PATTERN.sub(normalize_line_start, text)
 
 
 def normalize_sentence_start_caps(text: str, enabled: bool = True) -> str:
@@ -54,15 +51,23 @@ def normalize_sentence_start_caps(text: str, enabled: bool = True) -> str:
             return match.group(0)
         return f"{punctuation}{prefix}{letter.upper()}"
 
-    parts = _LINE_SPLIT_PATTERN.split(text)
-    for idx in range(0, len(parts), 2):
-        parts[idx] = _SENTENCE_START_PATTERN.sub(uppercase_sentence_start, parts[idx])
-    return "".join(parts)
+    return _SENTENCE_START_PATTERN.sub(uppercase_sentence_start, text)
+
+
+def _letters_only(token: str) -> str:
+    return "".join(
+        char
+        for char in token
+        if ("A" <= char <= "Z")
+        or ("a" <= char <= "z")
+        or ("А" <= char <= "я")
+        or char in "Ёё"
+    )
 
 
 def _is_caps_token(token: str) -> bool:
     """Check if a whitespace-split token is an all-caps non-abbreviation word."""
-    letters_only = re.sub(r"[^a-zA-Zа-яА-ЯёЁ]", "", token)
+    letters_only = _letters_only(token)
     return (
         len(letters_only) >= 2
         and letters_only.isupper()
@@ -71,7 +76,7 @@ def _is_caps_token(token: str) -> bool:
 
 
 def _is_caps_connector(token: str) -> bool:
-    letters_only = re.sub(r"[^a-zA-Zа-яА-ЯёЁ]", "", token)
+    letters_only = _letters_only(token)
     return letters_only in _CAPS_CONNECTORS
 
 
@@ -119,7 +124,7 @@ def _normalize_inline_caps(line: str) -> str:
 
 def _lowercase_preserve_abbrevs(token: str) -> str:
     """Lowercase a token, but preserve known abbreviation substrings."""
-    letters = re.sub(r"[^a-zA-Zа-яА-ЯёЁ]", "", token)
+    letters = _letters_only(token)
     if letters.isupper() and letters in KNOWN_ABBREVIATIONS:
         return token
     return token.lower()
@@ -133,7 +138,7 @@ def _restore_known_abbreviations(original: str, lowered: str) -> str:
         return lowered
     vowels = set("АЕЁИОУЫЭЮЯ")
     for i, orig_tok in enumerate(orig_tokens):
-        letters = re.sub(r"[^a-zA-Zа-яА-ЯёЁ]", "", orig_tok)
+        letters = _letters_only(orig_tok)
         if not letters or not letters.isupper():
             continue
         upper_letters = letters.upper()
@@ -162,7 +167,8 @@ def normalize_caps_lines(
         line = parts[idx]
         letters = [char for char in line if char.isalpha()]
         if len(letters) >= min_length:
-            caps_ratio = sum(1 for char in letters if char.isupper()) / len(letters)
+            uppercase_count = sum(1 for char in letters if char.isupper())
+            caps_ratio = uppercase_count / len(letters)
             if caps_ratio >= caps_threshold:
                 stripped = line.strip()
                 lowered = stripped.lower()
@@ -177,5 +183,9 @@ def normalize_caps_lines(
                     + line[len(line.rstrip()) :]
                 )
                 continue
+            if uppercase_count < 4:
+                continue
+        elif sum(1 for char in letters if char.isupper()) < 4:
+            continue
         parts[idx] = _normalize_inline_caps(line)
     return "".join(parts)

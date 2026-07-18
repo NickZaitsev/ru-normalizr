@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## Unreleased
 
 ### Changed
+- Batch sentence-capitalization scans and skip inline all-caps tokenization when a line cannot contain an all-caps run
 - Make numeral context lookup linear and cache rendered numeral forms, substantially improving number-dense text throughput
 - Reuse the shared morphology parse cache across Roman, decimal, fraction, ordinal, year, and abbreviation stages
 - Skip year, date, numeral, and literal abbreviation scans when their input contains no relevant candidates

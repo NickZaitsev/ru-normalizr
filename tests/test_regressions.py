@@ -200,6 +200,12 @@ class RuNormalizrRegressionTests(unittest.TestCase):
 
         self.assertLess(normalize_token.call_count, 10_000)
 
+    def test_sentence_caps_normalization_uses_one_batched_substitution(self):
+        self.assertEqual(
+            normalize("первая. вторая\nтретья. четвёртая"),
+            "первая. Вторая третья. Четвёртая",
+        )
+
     def test_rendered_numeral_forms_are_cached(self):
         _helpers.inflect_numeral_string.cache_clear()
         try:
