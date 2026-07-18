@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## Unreleased
 ### Changed
+- Cache immutable morphology parse results in numeral and caps hot paths, cutting a 5 KB number-dense normalization benchmark from about 303 ms to 75 ms
 - Cache the compiled year-pattern set, roughly halving repeated `normalize_years` call overhead on a short-year microbenchmark
 - Load the small bundled dictionaries directly instead of reading or writing executable pickle caches beside installed package files
 - Speed up IPA latinization on large texts with many distinct Latin tokens by batching `eng_to_ipa` lookups and batched dictionary fallback rewrites instead of resolving every token separately

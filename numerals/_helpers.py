@@ -6,7 +6,7 @@ from typing import Any
 
 import num2words
 
-from .._morph import get_morph
+from .._morph import parse_word
 from ..preprocess_utils import (
     NEGATIVE_NUMBER_PLACEHOLDER,
     PARAGRAPH_BREAK_PLACEHOLDER,
@@ -135,10 +135,9 @@ def safe_inflect(
 
 
 def inflect_unit_lemma(lemma: str, target_tags: set[str]) -> str:
-    morph = get_morph()
 
     def pick_preferred_parse(word: str) -> Any | None:
-        parsed = morph.parse(word)
+        parsed = parse_word(word)
         if not parsed:
             return None
         for candidate in parsed:
@@ -253,7 +252,6 @@ def inflect_numeral_string(num_str: str, case: str, gender: str | None = None) -
         return num_str
     if case == "nomn" and gender is None:
         return " ".join(words)
-    morph = get_morph()
     magnitudes = {
         "тысяча": "femn",
         "миллион": "masc",
@@ -263,11 +261,11 @@ def inflect_numeral_string(num_str: str, case: str, gender: str | None = None) -
     }
 
     def get_magnitude_gender(word_str: str) -> str | None:
-        return magnitudes.get(morph.parse(word_str)[0].normal_form)
+        return magnitudes.get(parse_word(word_str)[0].normal_form)
 
     inflected_words: list[str] = []
     for index, word in enumerate(words):
-        parsed = morph.parse(word)
+        parsed = parse_word(word)
         p = parsed[0] if parsed else None
         if not p:
             inflected_words.append(word)
@@ -342,7 +340,6 @@ def _get_preposition_before_number(tokens: list[str], idx: int) -> tuple[str, st
 
 
 def get_numeral_case(tokens: list[str], idx: int) -> str:
-    morph = get_morph()
     is_range_start = idx < len(tokens) - 1 and tokens[idx + 1] in {"-", "–", "—"}
 
     def unit_hint(number_index: int) -> str | None:
@@ -366,7 +363,7 @@ def get_numeral_case(tokens: list[str], idx: int) -> str:
     if is_range_start and idx > 0:
         prev_token = tokens[idx - 1].strip(".,!?;:")
         if prev_token:
-            p_prev = morph.parse(prev_token)[0]
+            p_prev = parse_word(prev_token)[0]
             prev_case = "loct" if "loc2" in p_prev.tag else p_prev.tag.case
             if prev_case:
                 if is_case_reliable_noun(p_prev):
@@ -391,7 +388,7 @@ def get_numeral_case(tokens: list[str], idx: int) -> str:
             for j in range(idx + 1, min(len(tokens), idx + 6)):
                 if any(char in tokens[j] for char in ".!?;:,"):
                     break
-                p = morph.parse(tokens[j])[0]
+                p = parse_word(tokens[j])[0]
                 if is_case_reliable_noun(p):
                     if p.tag.case == "loct" or "loc2" in p.tag:
                         return "loct"
@@ -405,7 +402,7 @@ def get_numeral_case(tokens: list[str], idx: int) -> str:
                 if "VERB" in p.tag or "INFN" in p.tag:
                     break
             for j in range(idx + 1, min(len(tokens), idx + 4)):
-                p = morph.parse(tokens[j])[0]
+                p = parse_word(tokens[j])[0]
                 word_norm = p.normal_form
                 if word_norm in set(TIME_WORDS) | {
                     "январь",
@@ -445,13 +442,13 @@ def get_numeral_case(tokens: list[str], idx: int) -> str:
 
     blocked_by_noun = False
     for i in range(idx - 1, max(-1, idx - 3), -1):
-        p = morph.parse(tokens[i])[0]
+        p = parse_word(tokens[i])[0]
         if p.tag.POS == "NOUN":
             blocked_by_noun = True
             break
 
     for i in range(max(0, idx - 2), idx):
-        p = morph.parse(tokens[i])[0]
+        p = parse_word(tokens[i])[0]
         if blocked_by_noun and p.tag.POS in {"ADJF", "PRTF"}:
             continue
         if p.tag.POS in {"ADJF", "PRTF"} and p.tag.case:
@@ -459,7 +456,7 @@ def get_numeral_case(tokens: list[str], idx: int) -> str:
 
     for i in range(idx - 1, max(-1, idx - 5), -1):
         word_left = tokens[i].lower().strip(".,!?;:")
-        p_verb = morph.parse(word_left)[0]
+        p_verb = parse_word(word_left)[0]
         if p_verb.normal_form in VERB_CASE:
             return VERB_CASE[p_verb.normal_form]
         if any(char in tokens[i] for char in ".!?"):
@@ -468,7 +465,7 @@ def get_numeral_case(tokens: list[str], idx: int) -> str:
     if idx < len(tokens) - 1:
         word_right = tokens[idx + 1].lower().strip(".,!?;:")
         if word_right:
-            p_right = morph.parse(word_right)[0]
+            p_right = parse_word(word_right)[0]
             noun_case = p_right.tag.case
             if not (
                 is_case_reliable_noun(p_right)
@@ -481,7 +478,7 @@ def get_numeral_case(tokens: list[str], idx: int) -> str:
     if idx < len(tokens) - 1:
         word_right = tokens[idx + 1].lower().strip(".,!?;:")
         if word_right:
-            p_right = morph.parse(word_right)[0]
+            p_right = parse_word(word_right)[0]
             if is_case_reliable_noun(p_right):
                 noun_case = p_right.tag.case
                 if noun_case in {"datv", "ablt", "loct"} or "loc2" in p_right.tag:
@@ -496,7 +493,7 @@ def get_numeral_case(tokens: list[str], idx: int) -> str:
                 left_token = normalize_context_token(tokens[back])
                 if not left_token or left_token in {"уже", "теперь"}:
                     continue
-                p_left = morph.parse(left_token)[0]
+                p_left = parse_word(left_token)[0]
                 if p_left.tag.case == "datv" and p_left.tag.POS in {"NPRO", "NOUN"}:
                     return "datv"
                 break
