@@ -11,6 +11,14 @@ from ._constants import (
 
 MATH_EXPRESSION_CHAR_PATTERN = re.compile(r"[0-9A-Za-zА-Яа-яЁё_,.%()+\-/*^°№]")
 APPROXIMATE_NUMBER_PATTERN = re.compile(r"(?<!\w)~\s*(?=(?:\ue001)?\d)")
+BINARY_MATH_OPERATOR_PATTERN = re.compile(
+    r"(?<=\d)\s*(?P<operator>[+−^])\s*(?=\d)"
+)
+BINARY_MATH_OPERATOR_READINGS = {
+    "+": " плюс ",
+    "−": " минус ",
+    "^": " в степени ",
+}
 
 
 def _extract_math_expression_side(text: str, start: int, step: int) -> str:
@@ -86,6 +94,10 @@ def normalize_greek_letters(text: str) -> str:
 def normalize_math_symbols(text: str) -> str:
     text = _normalize_contextual_equals(text)
     text = APPROXIMATE_NUMBER_PATTERN.sub("примерно ", text)
+    text = BINARY_MATH_OPERATOR_PATTERN.sub(
+        lambda match: BINARY_MATH_OPERATOR_READINGS[match.group("operator")],
+        text,
+    )
     for char, replacement in MATH_SYMBOLS.items():
         text = text.replace(char, replacement)
     return text

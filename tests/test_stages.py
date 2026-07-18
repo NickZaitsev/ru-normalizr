@@ -450,7 +450,7 @@ class RuNormalizrStageTests(unittest.TestCase):
 
     def test_math_symbol_stage_reads_equals_when_one_side_contains_digits(self):
         self.assertEqual(normalize_math_symbols("t=10"), "t равно 10")
-        self.assertEqual(normalize_math_symbols("x=(2+3)"), "x равно (2+3)")
+        self.assertEqual(normalize_math_symbols("x=(2+3)"), "x равно (2 плюс 3)")
         self.assertEqual(normalize_math_symbols("x = y"), "x = y")
         self.assertEqual(normalize_math_symbols("======"), "======")
 

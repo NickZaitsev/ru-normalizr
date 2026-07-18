@@ -18,6 +18,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Load the small bundled dictionaries directly instead of reading or writing executable pickle caches beside installed package files
 - Speed up IPA latinization on large texts with many distinct Latin tokens by batching `eng_to_ipa` lookups and batched dictionary fallback rewrites instead of resolving every token separately
 ### Fixed
+- Preserve `человек` after decimal multipliers and verbalize binary math operators without losing adjacent ellipses
 - Keep source punctuation when expanding initials, use undoubled Cyrillic vowel names, and inflect `см.` references accusatively
 - Replace known-wrong dictionary latinization snapshots with lexical pronunciations for common English words
 - Pronounce Latin letter suffixes in alphanumeric model names by their English names

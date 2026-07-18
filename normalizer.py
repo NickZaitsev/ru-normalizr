@@ -45,12 +45,14 @@ from .preprocess_utils import (
     normalize_punctuation_spacing,
     normalize_spaced_ascii_hyphens,
     normalize_unicode_fractions,
+    protect_binary_math_operators,
     protect_letter_hyphens,
     protect_negative_numbers,
     protect_unit_slashes,
     remove_decorative_separators,
     remove_numeric_footnotes,
     remove_zero_width_formatting,
+    restore_binary_math_operators,
     restore_letter_hyphens,
 )
 from .roman_numerals import normalize_roman
@@ -218,6 +220,7 @@ class PipelineNormalizer:
         if apply_caps_normalization:
             text = self._run_caps_normalization(text)
         text = PARTICLE_PATTERN.sub("-", text)
+        text = protect_binary_math_operators(text)
         text = apply_cleanup_replacements(text)
         text = normalize_unicode_fractions(text)
         text = text.translate(
@@ -227,6 +230,7 @@ class PipelineNormalizer:
         text = DEGREE_SPACING_PATTERN.sub(r"\1 °", text)
         text = clean_numbers(text)
         text = self._fix_glued_numbers(text)
+        text = restore_binary_math_operators(text)
         text = restore_letter_hyphens(text)
         return text
 
