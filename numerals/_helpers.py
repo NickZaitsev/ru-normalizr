@@ -572,7 +572,10 @@ def get_numeral_case(
     for i in range(idx - 1, max(left_scan_start - 1, idx - 5), -1):
         word_left = tokens[i].lower().strip(".,!?;:")
         p_verb = parse_word(word_left)[0]
-        if p_verb.normal_form in VERB_CASE:
+        # Full participles ("ожидаемый", "требуемый") are attributive modifiers of
+        # a following noun, not governors of the numeral's case; leave them to the
+        # adjective scan so the numeral stays in its predicate (nominative) case.
+        if p_verb.tag.POS != "PRTF" and p_verb.normal_form in VERB_CASE:
             return VERB_CASE[p_verb.normal_form]
         if any(char in tokens[i] for char in ".!?"):
             break
