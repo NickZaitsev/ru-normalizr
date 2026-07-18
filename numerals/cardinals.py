@@ -30,19 +30,6 @@ from ._helpers import (
     should_keep_tokenized_decimal_unit_dot,
 )
 
-GENITIVE_RANGE_CONTEXT_STEMS = (
-    "диаметр",
-    "объем",
-    "объём",
-    "ширин",
-    "высот",
-    "длин",
-    "глубин",
-    "радиус",
-    "толщин",
-    "размер",
-)
-
 
 def _resolve_range_unit_info(unit_raw: str):
     unit_lower = unit_raw.lower().strip(".")
@@ -391,9 +378,6 @@ def normalize_numeric_unit_ranges(text: str) -> str:
         context = text[max(0, match.start() - 40) : match.start()]
         tokens_left = simple_tokenize(context)
         case = get_numeral_case(tokens_left + [left], len(tokens_left))
-        normalized_context = " ".join(tokens_left[-6:]).lower()
-        if any(stem in normalized_context for stem in GENITIVE_RANGE_CONTEXT_STEMS):
-            case = "gent"
         lemma, u_gender, _, *u_suffix = unit_info
 
         def numeral_for_range(value_text: str) -> str:
