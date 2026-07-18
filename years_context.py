@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from ._morph import get_morph
+from ._morph import parse_word
 from .numerals._constants import ALL_UNITS, CURRENCY_STANDALONE, ENTITY_KEYWORDS
 from .text_context import normalize_context_token, simple_tokenize
 
@@ -56,7 +56,7 @@ def is_plausible_year(value: int) -> bool:
 def _is_non_year_following_token(token: str) -> bool:
     if token in _NON_YEAR_LEXICON:
         return True
-    parsed = get_morph().parse(token)
+    parsed = parse_word(token)
     if not parsed:
         return False
     lemma = parsed[0].normal_form

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import num2words
 
-from ._morph import get_morph
+from ._morph import parse_word
 from .numerals._num2words import (
     CASE_TO_NUM2WORDS as _CASE_TO_NUM2WORDS,
 )
@@ -21,7 +21,7 @@ def noun_parse_case(noun_parse) -> str:
 
 def choose_noun_parse(word: str, prefer_inanimate: bool = True):
     noun_parses = [
-        candidate for candidate in get_morph().parse(word.lower()) if "NOUN" in candidate.tag
+        candidate for candidate in parse_word(word.lower()) if "NOUN" in candidate.tag
     ]
     if not noun_parses:
         return None
@@ -32,14 +32,13 @@ def choose_noun_parse(word: str, prefer_inanimate: bool = True):
 
 
 def find_first_noun_right(tokens_right: list[str], suffix: str):
-    morph = get_morph()
     for token in tokens_right[:4]:
         if any(char in token for char in ".!?…"):
             break
         clean = token.strip(".,!?;:")
         if not clean:
             continue
-        parsed = morph.parse(clean)
+        parsed = parse_word(clean)
         noun_candidates = [
             candidate for candidate in parsed if "NOUN" in candidate.tag
         ]
@@ -72,12 +71,11 @@ def find_first_noun_right(tokens_right: list[str], suffix: str):
 
 
 def find_left_name_anchor(tokens_left: list[str]):
-    morph = get_morph()
     for token in reversed(tokens_left[-4:]):
         clean = token.strip(".,!?;:«»\"'()[]{}")
         if not clean:
             continue
-        parsed = morph.parse(clean)
+        parsed = parse_word(clean)
         name_candidates = [
             candidate
             for candidate in parsed
@@ -140,7 +138,6 @@ def resolve_ordinal_suffix_case(
     tokens_right: list[str],
     gender: str,
 ) -> tuple[str, str]:
-    morph = get_morph()
     case_from_suffix = None
     resolved_gender = gender
     if suffix in {"го", "ого"}:
@@ -152,7 +149,7 @@ def resolve_ordinal_suffix_case(
         resolved_gender = "femn"
     if suffix in {"м", "ом", "ем"}:
         if tokens_right:
-            next_parse = morph.parse(tokens_right[0].strip(".,!?;:"))[0]
+            next_parse = parse_word(tokens_right[0].strip(".,!?;:"))[0]
             case_from_suffix = "loct" if "sing" in next_parse.tag else "datv"
         else:
             case_from_suffix = "loct"
@@ -164,14 +161,13 @@ def resolve_ordinal_plural(
     case: str,
     tokens_right: list[str],
 ) -> bool:
-    morph = get_morph()
     plural = suffix in ("х", "ми", "е", "м", "ые", "их") and not (
         suffix == "м" and case == "loct"
     )
     if suffix in {"е", "ее", "ое"} and tokens_right:
         next_clean = tokens_right[0].strip(".,!?;:")
         if next_clean:
-            next_parse = morph.parse(next_clean)[0]
+            next_parse = parse_word(next_clean)[0]
             if "sing" in next_parse.tag and "neut" in next_parse.tag:
                 plural = False
     return plural
@@ -212,7 +208,7 @@ def render_ordinal(
     if not words:
         return ordinal
 
-    parsed = get_morph().parse(words[-1])
+    parsed = parse_word(words[-1])
     if not parsed:
         return ordinal
 

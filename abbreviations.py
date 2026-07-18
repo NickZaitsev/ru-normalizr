@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from ._morph import get_morph
+from ._morph import parse_word
 from .abbreviation_rules import (
     ABBREVIATION_PATTERNS,
     ADJECTIVE_ABBREVIATION_EXPANSIONS,
@@ -102,11 +102,9 @@ def _expand_contextual_etc_abbreviations(text: str) -> str:
 
 
 def _expand_contextual_adjective_abbreviations(text: str) -> str:
-    morph = get_morph()
-
     def choose_head_noun(phrase: str):
         for word in phrase.split():
-            parsed = morph.parse(word.lower())
+            parsed = parse_word(word.lower())
             noun_candidate = next(
                 (candidate for candidate in parsed if "NOUN" in candidate.tag),
                 None,
@@ -116,7 +114,7 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
         return None
 
     def inflect_adjective(lemma: str, noun_parse) -> str:
-        parsed = morph.parse(lemma)
+        parsed = parse_word(lemma)
         adjective_parse = next(
             (
                 candidate
@@ -165,8 +163,6 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
 
 
 def _expand_language_origin_abbreviations(text: str) -> str:
-    morph = get_morph()
-
     def has_non_cyrillic_word(word: str) -> bool:
         letters = [char for char in word if char.isalpha()]
         return bool(letters) and not any(
@@ -177,7 +173,7 @@ def _expand_language_origin_abbreviations(text: str) -> str:
         parsed = next(
             (
                 candidate
-                for candidate in morph.parse(lemma)
+                for candidate in parse_word(lemma)
                 if candidate.tag.POS in {"ADJF", "PRTF"}
             ),
             None,
@@ -217,7 +213,7 @@ def expand_person_initials(text: str) -> str:
         return frozenset(grammemes)
 
     def is_likely_person_name_token(token: str) -> bool:
-        parsed = get_morph().parse(token)
+        parsed = parse_word(token)
         if not parsed:
             return True
         meaningful = [
@@ -245,7 +241,7 @@ def expand_person_initials(text: str) -> str:
         return True
 
     def is_confident_person_name_token(token: str) -> bool:
-        parsed = get_morph().parse(token)
+        parsed = parse_word(token)
         if not parsed:
             return False
         meaningful = [
@@ -371,7 +367,7 @@ def expand_letter_abbreviations(text: str) -> str:
 
         if all(char in RU_LETTER_NAMES for char in letters_upper):
             if not is_dotted:
-                parsed = get_morph().parse(joined_key.lower())[0]
+                parsed = parse_word(joined_key.lower())[0]
                 if parsed.tag.POS in REAL_WORD_POS and "Abbr" not in parsed.tag:
                     return token
             if not is_dotted:

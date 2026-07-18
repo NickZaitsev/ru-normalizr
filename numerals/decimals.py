@@ -4,7 +4,7 @@ import re
 
 import num2words
 
-from .._morph import get_morph
+from .._morph import parse_word
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_context import simple_tokenize
 from ._constants import PREP_CASE, UNIT_TOKEN_FRAGMENT, resolve_unit_info
@@ -22,8 +22,6 @@ DECIMAL_PATTERN = re.compile(
 
 
 def normalize_decimals(text: str) -> str:
-    morph = get_morph()
-
     def inflect_fraction_numerator(num_str: str, case: str) -> str:
         try:
             value = int(num_str)
@@ -33,7 +31,7 @@ def normalize_decimals(text: str) -> str:
         if value == 0:
             return words
         last_word = words.split()[-1]
-        parsed_last = morph.parse(last_word)
+        parsed_last = parse_word(last_word)
         if not parsed_last:
             return words
         target_tags = None
@@ -64,7 +62,7 @@ def normalize_decimals(text: str) -> str:
                 5: "стотысячная",
                 6: "миллионная",
             }.get(digits, "десятитысячная")
-        parsed = morph.parse(base)
+        parsed = parse_word(base)
         if not parsed:
             return base
         tags = (
@@ -111,7 +109,7 @@ def normalize_decimals(text: str) -> str:
         frac_val = int(frac_part_s)
         digits = len(frac_part_s)
         int_words = inflect_numeral_string(int_part_s, case, gender="femn")
-        p_cel = morph.parse("целая")[0]
+        p_cel = parse_word("целая")[0]
         tags_cel = (
             {case, "femn", "sing"}
             if int_val % 10 == 1 and int_val % 100 != 11

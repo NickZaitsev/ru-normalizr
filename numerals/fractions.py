@@ -4,7 +4,7 @@ import re
 
 import num2words
 
-from .._morph import get_morph
+from .._morph import parse_word
 from ._constants import FRACTION_PATTERN
 
 GENITIVE_FRACTION_CONTEXT_PATTERN = re.compile(r"\b(с|со|от|до|из|без|у)\s+$")
@@ -31,15 +31,14 @@ def normalize_fractions(text: str) -> str:
             num_text = num2words.num2words(num, lang="ru")
         except Exception:
             return match.group(0)
-        morph = get_morph()
         if case != "nomn":
             num_text = " ".join(
                 (p.inflect({case}).word if p.inflect({case}) else part)
                 for part in num_text.split()
-                for p in [morph.parse(part)[0]]
+                for p in [parse_word(part)[0]]
             )
         last_num_word = num_text.split()[-1]
-        p_last = morph.parse(last_num_word)[0]
+        p_last = parse_word(last_num_word)[0]
         if num % 10 == 1 and num % 100 != 11:
             inf = p_last.inflect({case, "femn", "sing"})
             if inf:
@@ -57,7 +56,7 @@ def normalize_fractions(text: str) -> str:
         except Exception:
             return match.group(0)
         words = denom_text.split()
-        p = morph.parse(words[-1])[0]
+        p = parse_word(words[-1])[0]
         is_sing_1 = num % 10 == 1 and num % 100 != 11
         inflected = p.inflect(
             {case, "femn", "sing"}

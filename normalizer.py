@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from ._morph import get_morph
+from ._morph import parse_word
 from .abbreviations import expand_abbreviations
 from .caps import (
     normalize_caps_lines,
@@ -299,7 +299,7 @@ class PipelineNormalizer:
         if word_lower in ALL_UNITS or word_lower in GLUED_PREPOSITIONS:
             return "space"
 
-        parsed = get_morph().parse(word_lower)[0]
+        parsed = parse_word(word_lower)[0]
         if "ADJF" in parsed.tag:
             return "hyphen"
         if "NOUN" in parsed.tag:

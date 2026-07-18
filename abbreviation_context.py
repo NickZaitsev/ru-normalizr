@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from ._morph import get_morph
+from ._morph import parse_word
 
 BIRTH_YEAR_ABBREVIATION_PATTERN = re.compile(
     r"(?<!\w)(?P<year>\d{2,4})\s*г\.\s*р\.(?!\w)",
@@ -80,7 +80,7 @@ def has_mass_measurement_context(source_text: str, match_start: int) -> bool:
         if normalize_context_token(token)
     ]
     for token in reversed(left_tokens[-3:]):
-        parsed = get_morph().parse(token)
+        parsed = parse_word(token)
         if not parsed:
             continue
         candidate = next(
