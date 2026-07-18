@@ -32,6 +32,30 @@ x=Икс,
 y=Уай,
 z=Зэт,
 
+# Common words whose English pronunciation cannot be recovered reliably from
+# the productive spelling rules below. Keep these whole-word rules first.
+windows=виндоус
+server=сервер
+updates=апдейтс
+improve=импрув
+browser=браузер
+security=секьюрити
+download=даунлоуд
+archives=аркайвз
+mobile=мобайл
+device=дивайс
+devices=дивайсиз
+code=коуд
+engineering=энджиниринг
+support=сапорт
+platform=платформ
+platforms=платформз
+network=нетворк
+source=сорс
+review=ривью
+stable=стейбл
+remote=римоут
+
 *ph*=ф
 
 ca*=ка
