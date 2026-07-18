@@ -16,6 +16,7 @@ from ._constants import (
     resolve_unit_info,
 )
 from ._helpers import (
+    _build_numeral_token_context,
     build_number_token,
     detokenize,
     get_numeral_case,
@@ -108,6 +109,7 @@ def _resolve_range_unit_info(unit_raw: str):
 
 def normalize_cardinal_numerals(text: str) -> str:
     tokens = simple_tokenize(text)
+    token_context = _build_numeral_token_context(tokens)
     result_tokens: list[str] = []
 
     def is_word_token(token: str) -> bool:
@@ -182,7 +184,7 @@ def normalize_cardinal_numerals(text: str) -> str:
 
         is_negative, clean_token = parsed_num
         val = int(clean_token)
-        case = get_numeral_case(tokens, i)
+        case = get_numeral_case(tokens, i, _context=token_context)
         inflected_num = inflect_numeral_string(clean_token, case)
         num_words = build_number_token(token, clean_token, inflected_num, is_negative)
 

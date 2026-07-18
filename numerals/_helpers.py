@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import functools
 import re
 import unicodedata
+from dataclasses import dataclass
 from typing import Any
 
 import num2words
@@ -26,6 +28,21 @@ DOT_COMMA_PATTERN = re.compile(r"\.,")
 OPEN_BRACKET_SPACING_PATTERN = re.compile(r"([\(\[\{])\s+")
 CLOSE_BRACKET_SPACING_PATTERN = re.compile(r"\s+([\)\]\}])")
 WORD_RANGE_HYPHEN_PATTERN = re.compile(r"(?<=[A-Za-zА-Яа-яЁё]) - (?=[A-Za-zА-Яа-яЁё])")
+
+
+@dataclass(frozen=True, slots=True)
+class _NumeralTokenContext:
+    left_scan_starts: tuple[int, ...]
+
+
+def _build_numeral_token_context(tokens: list[str]) -> _NumeralTokenContext:
+    left_scan_starts: list[int] = []
+    current_start = 0
+    for position, token in enumerate(tokens):
+        left_scan_starts.append(current_start)
+        if normalize_context_token(token) in NUMERAL_CONTEXT_BARRIERS:
+            current_start = position + 1
+    return _NumeralTokenContext(tuple(left_scan_starts))
 
 
 def is_integer_token(token: str) -> bool:
@@ -230,6 +247,7 @@ def should_keep_decimal_unit_dot(rest: str) -> bool:
     return not (next_char.islower() or next_char.isdigit())
 
 
+@functools.lru_cache(maxsize=16384)
 def inflect_numeral_string(num_str: str, case: str, gender: str | None = None) -> str:
     try:
         value = int(num_str)
@@ -341,13 +359,16 @@ def _get_preposition_before_number(tokens: list[str], idx: int) -> tuple[str, st
     return None
 
 
-def get_numeral_case(tokens: list[str], idx: int) -> str:
+def get_numeral_case(
+    tokens: list[str],
+    idx: int,
+    *,
+    _context: _NumeralTokenContext | None = None,
+) -> str:
+    if _context is None:
+        _context = _build_numeral_token_context(tokens)
     is_range_start = idx < len(tokens) - 1 and tokens[idx + 1] in {"-", "–", "—"}
-    left_scan_start = 0
-    for position in range(idx - 1, -1, -1):
-        if normalize_context_token(tokens[position]) in NUMERAL_CONTEXT_BARRIERS:
-            left_scan_start = position + 1
-            break
+    left_scan_start = _context.left_scan_starts[idx]
 
     def unit_hint(number_index: int) -> str | None:
         if number_index + 1 >= len(tokens):
@@ -363,9 +384,9 @@ def get_numeral_case(tokens: list[str], idx: int) -> str:
             if any(char in tokens[back] for char in ".!?;:"):
                 break
             if is_integer_token(tokens[back]) and unit_hint(back) == current_hint:
-                return get_numeral_case(tokens, back)
+                return get_numeral_case(tokens, back, _context=_context)
     if idx > 1 and tokens[idx - 1] in {"-", "–", "—"} and is_integer_token(tokens[idx - 2]):
-        return get_numeral_case(tokens, idx - 2)
+        return get_numeral_case(tokens, idx - 2, _context=_context)
 
     if is_range_start and idx > 0:
         prev_token = tokens[idx - 1].strip(".,!?;:")

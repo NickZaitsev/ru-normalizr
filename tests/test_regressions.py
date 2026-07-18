@@ -11,7 +11,8 @@ from ru_normalizr.latinization import (
     _resolve_unknown_latin_fallbacks,
     apply_latinization,
 )
-from ru_normalizr.numerals import _constants, get_numeral_case, simple_tokenize
+from ru_normalizr.numerals import _constants, _helpers, get_numeral_case, simple_tokenize
+from ru_normalizr.numerals.cardinals import normalize_cardinal_numerals
 
 
 class _FakeTag:
@@ -132,6 +133,29 @@ class RuNormalizrRegressionTests(unittest.TestCase):
             with self.subTest(marker=marker):
                 tokens = simple_tokenize(f"скорость {marker} 8 км/ч")
                 self.assertEqual(get_numeral_case(tokens, tokens.index("8")), "gent")
+
+    def test_number_dense_context_normalization_is_linear_in_token_count(self):
+        text = "В 1995 году 125 человек купили 25 книг. " * 100
+
+        with patch.object(
+            _helpers,
+            "normalize_context_token",
+            wraps=_helpers.normalize_context_token,
+        ) as normalize_token:
+            normalize_cardinal_numerals(text)
+
+        self.assertLess(normalize_token.call_count, 10_000)
+
+    def test_rendered_numeral_forms_are_cached(self):
+        _helpers.inflect_numeral_string.cache_clear()
+        try:
+            first = _helpers.inflect_numeral_string("125", "nomn", "masc")
+            second = _helpers.inflect_numeral_string("125", "nomn", "masc")
+
+            self.assertEqual(first, second)
+            self.assertEqual(_helpers.inflect_numeral_string.cache_info().hits, 1)
+        finally:
+            _helpers.inflect_numeral_string.cache_clear()
 
     def test_normalize_amount_with_thousands_abbreviation_after_na_summu(self):
         self.assertEqual(
