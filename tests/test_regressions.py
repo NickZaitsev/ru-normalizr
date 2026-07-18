@@ -160,6 +160,17 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         finally:
             _helpers.inflect_numeral_string.cache_clear()
 
+    def test_dotted_units_do_not_detokenize_each_remaining_text_tail(self):
+        text = "Вес 5 кг. Далее измерили ещё 7 кг. " * 100
+
+        with patch(
+            "ru_normalizr.numerals.cardinals.detokenize",
+            wraps=_helpers.detokenize,
+        ) as detokenize_text:
+            normalize_cardinal_numerals(text)
+
+        detokenize_text.assert_called_once()
+
     def test_normalize_amount_with_thousands_abbreviation_after_na_summu(self):
         self.assertEqual(
             normalize(

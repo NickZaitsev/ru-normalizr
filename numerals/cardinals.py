@@ -27,7 +27,7 @@ from ._helpers import (
     parse_integer_token,
     safe_inflect,
     should_consume_abbreviation_dot,
-    should_keep_decimal_unit_dot,
+    should_keep_tokenized_decimal_unit_dot,
 )
 
 GENITIVE_RANGE_CONTEXT_STEMS = (
@@ -317,8 +317,9 @@ def normalize_cardinal_numerals(text: str) -> str:
                         + full_unit
                         + noun_token[match_unit.end() :]
                     )
-                if preserve_unit_dot and should_keep_decimal_unit_dot(
-                    detokenize(tokens[i + 1 + unit_token_span :])
+                if preserve_unit_dot and should_keep_tokenized_decimal_unit_dot(
+                    tokens,
+                    i + 1 + unit_token_span,
                 ):
                     full_unit += "."
                 result_tokens.extend([num_words, full_unit])
