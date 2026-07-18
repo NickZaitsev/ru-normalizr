@@ -261,8 +261,33 @@ def should_keep_tokenized_decimal_unit_dot(tokens: list[str], start_index: int) 
     return True
 
 
+def inflect_numeral_string(
+    num_str: str,
+    case: str,
+    gender: str | None = None,
+    animate: bool | None = None,
+) -> str:
+    """Render a numeral after canonicalizing pymorphy grammeme values.
+
+    ``pymorphy3`` may return string-like typed grammemes whose equality operator
+    raises when compared with a grammeme from another category (for example,
+    ``masc == "plur"``).  Keeping those objects out of both the implementation and
+    its cache key makes rendering independent of call order.
+    """
+    normalized_case = str(case)
+    normalized_gender = str(gender) if gender is not None else None
+    return _inflect_numeral_string_cached(
+        num_str, normalized_case, normalized_gender, animate
+    )
+
+
 @functools.lru_cache(maxsize=16384)
-def inflect_numeral_string(num_str: str, case: str, gender: str | None = None) -> str:
+def _inflect_numeral_string_cached(
+    num_str: str,
+    case: str,
+    gender: str | None = None,
+    animate: bool | None = None,
+) -> str:
     try:
         value = int(num_str)
     except ValueError:
@@ -275,6 +300,8 @@ def inflect_numeral_string(num_str: str, case: str, gender: str | None = None) -
                 kwargs["plural"] = True
             elif gender in CARDINAL_GENDER_TO_NUM2WORDS:
                 kwargs["gender"] = CARDINAL_GENDER_TO_NUM2WORDS[gender]
+            if animate is not None:
+                kwargs["animate"] = animate
             return num2words.num2words(value, lang="ru", **kwargs)
         except Exception:
             pass
@@ -330,6 +357,10 @@ def inflect_numeral_string(num_str: str, case: str, gender: str | None = None) -
                     continue
             inflected_words.append(word)
     return " ".join(inflected_words)
+
+
+inflect_numeral_string.cache_clear = _inflect_numeral_string_cached.cache_clear  # type: ignore[attr-defined]
+inflect_numeral_string.cache_info = _inflect_numeral_string_cached.cache_info  # type: ignore[attr-defined]
 
 
 def get_target_tags_for_number(
