@@ -325,6 +325,18 @@ class RuNormalizrStageTests(unittest.TestCase):
             normalize_numerals("в гл. 3 говорится"),
             "в главе третьей говорится",
         )
+
+    def test_numeral_stage_preserves_abbreviated_chapter_ranges(self):
+        self.assertEqual(
+            normalize_numerals("гл. 1-3"),
+            "главы с первой по третью",
+        )
+        self.assertEqual(
+            normalize_numerals("см. гл. 10-12"),
+            "см. главы с десятой по двенадцатую",
+        )
+
+    def test_numeral_stage_normalizes_other_heading_numbers(self):
         self.assertEqual(
             normalize_numerals("раздел 3"),
             "раздел третий",

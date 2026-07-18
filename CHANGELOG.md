@@ -17,6 +17,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Load the small bundled dictionaries directly instead of reading or writing executable pickle caches beside installed package files
 - Speed up IPA latinization on large texts with many distinct Latin tokens by batching `eng_to_ipa` lookups and batched dictionary fallback rewrites instead of resolving every token separately
 ### Fixed
+- Preserve range semantics for abbreviated chapter references instead of normalizing only the first endpoint
 - Preserve and inflect bare years in prose date ranges such as `с 25 по 31 декабря 2023`
 - Make numeral inflection deterministic across normalization calls by canonicalizing pymorphy grammeme values before cached rendering
 - Stop grammatical case from leaking across `равно` onto arithmetic results, so currency results remain nominative regardless of the left operand's fraction form
