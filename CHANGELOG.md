@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## Unreleased
 
 ### Changed
+- Normalize quote variants and linebreak runs with guarded, consolidated scans
 - Skip dictionary wildcard rules when their required literal fragment is absent
 - Batch sentence-capitalization scans and skip inline all-caps tokenization when a line cannot contain an all-caps run
 - Make numeral context lookup linear and cache rendered numeral forms, substantially improving number-dense text throughput

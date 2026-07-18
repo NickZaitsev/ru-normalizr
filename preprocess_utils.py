@@ -118,6 +118,11 @@ CYRILLIC_COMBINING_STRESS_PATTERN = re.compile(
     r"([АЕЁИОУЫЭЮЯаеёиоуыэюя])([\u0300\u0301])"
 )
 ZERO_WIDTH_FORMATTING_PATTERN = re.compile(r"[\u200B\u200C\u200D\u2060\uFEFF]")
+LINEBREAK_RUN_PATTERN = re.compile(r"\n(?:[ \t]*\n)*[ \t]*")
+LEGACY_LINE_START_PATTERN = re.compile(r'(?:["«„“]\s*)?[А-ЯЁA-Z0-9]')
+QUOTE_PAIR_REPLACEMENTS = (("``", '"'), ("''", '"'), ("‘‘", '"'), ("’’", '"'), ("´´", '"'))
+QUOTE_VARIANT_PATTERN = re.compile(r"[«»“”„‟〝〞＂]")
+QUOTE_CANDIDATES = frozenset('"\'`´«»‘’‚‛‹›“”„‟〝〞＂')
 PAGE_ABBREVIATION_PATTERN = re.compile(r"\b[сp]\.\s*(?=\d)", re.IGNORECASE)
 PAGE_FULL_ABBREVIATION_PATTERN = re.compile(r"\bстр\.\s*(?=\d)", re.IGNORECASE)
 ARTICLE_ABBREVIATION_PATTERN = re.compile(r"\bст\.\s*(?=\d)", re.IGNORECASE)
@@ -147,24 +152,11 @@ ERA_ABBREVIATION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 def normalize_ascii_quote_pairs(text: str) -> str:
-    replacements = (
-        ("``", '"'),
-        ("''", '"'),
-        ("‘‘", '"'),
-        ("’’", '"'),
-        ("´´", '"'),
-        ("«", '"'),
-        ("»", '"'),
-        ("“", '"'),
-        ("”", '"'),
-        ("„", '"'),
-        ("‟", '"'),
-        ("〝", '"'),
-        ("〞", '"'),
-        ("＂", '"'),
-    )
-    for old, new in replacements:
+    if QUOTE_CANDIDATES.isdisjoint(text):
+        return text
+    for old, new in QUOTE_PAIR_REPLACEMENTS:
         text = text.replace(old, new)
+    text = QUOTE_VARIANT_PATTERN.sub('"', text)
     text = OPEN_SINGLE_QUOTE_PATTERN.sub(r'\g<prefix>"', text)
     text = CLOSE_SINGLE_QUOTE_PATTERN.sub('"', text)
     text = SPACE_INSIDE_QUOTES_PATTERN.sub(r'\1"\2"', text)
@@ -300,14 +292,30 @@ def _insert_boundary_dot(match: re.Match[str]) -> str:
 
 
 def normalize_linebreaks(text: str) -> str:
+    if "\n" not in text and "\r" not in text:
+        return text
+
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = TRAILING_SPACE_BEFORE_NEWLINE_PATTERN.sub("\n", text)
-    text = LEADING_SPACE_AFTER_NEWLINE_PATTERN.sub("\n", text)
-    text = EXCESSIVE_LINEBREAKS_PATTERN.sub("\n\n", text)
-    text = LEGACY_PARAGRAPH_BREAK_DOT_PATTERN.sub(_insert_boundary_dot, text)
-    text = LEGACY_LINEBREAK_DOT_PATTERN.sub(_insert_boundary_dot, text)
-    text = INLINE_LINEBREAK_SPACE_PATTERN.sub(" ", text)
-    return text
+
+    def normalize_run(match: re.Match[str]) -> str:
+        raw = match.group(0)
+        break_count = raw.count("\n")
+        linebreak = "\n\n" if break_count >= 2 else "\n"
+        previous = text[match.start() - 1] if match.start() else ""
+        has_tail = match.end() < len(text)
+        next_is_legacy_start = bool(LEGACY_LINE_START_PATTERN.match(text, match.end()))
+        if (
+            previous
+            and previous not in '\n.!?…,:;–-"\''
+            and next_is_legacy_start
+        ):
+            return f".{linebreak}"
+        if break_count == 1 and previous and has_tail and not next_is_legacy_start:
+            return " "
+        return linebreak
+
+    return LINEBREAK_RUN_PATTERN.sub(normalize_run, text)
 
 
 def remove_decorative_separators(text: str) -> str:
