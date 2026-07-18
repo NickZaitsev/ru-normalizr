@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## Unreleased
 
 ### Changed
+- Make initial pronunciation configurable: TTS mode doubles isolated Cyrillic vowel initials and adds surname-first speech pauses, while default and safe modes preserve ordinary Russian letter names and source punctuation
 - Reject lowercase inline-cap tokens before extracting their letters
 - Convert line numbering with one multiline substitution instead of one regex call per line
 - Avoid integer parsing for numeral-stage tokens that cannot begin a number

@@ -570,7 +570,7 @@ class RuNormalizrStageTests(unittest.TestCase):
     def test_abbreviation_stage_does_not_split_role_title_and_initial_from_surname(self):
         self.assertEqual(
             expand_abbreviations("Редактор Е. Харитонова", NormalizeOptions.tts()),
-            "Редактор е Харитонова.",
+            "Редактор ее Харитонова.",
         )
         self.assertEqual(
             expand_abbreviations("Автор Ч. Рихтер", NormalizeOptions.tts()),
@@ -583,7 +583,35 @@ class RuNormalizrStageTests(unittest.TestCase):
                 "Б. Кагарлицкий, П. Кудюкин, А. Фадин, Ю. Хавкин, В. Чернецкий, А. Шилков, а позже — М. Ривкин.",
                 NormalizeOptions.tts(),
             ),
-            "бэ Кагарлицкий, пэ Кудюкин, а Фадин, ю Хавкин, вэ Чернецкий, а Шилков, а позже — эм Ривкин.",
+            "бэ Кагарлицкий, пэ Кудюкин, аа Фадин, юю Хавкин, вэ Чернецкий, аа Шилков, а позже — эм Ривкин.",
+        )
+
+    def test_abbreviation_stage_configures_initial_vowels_and_pauses_independently(self):
+        safe_with_initials = NormalizeOptions.safe(enable_initials_expansion=True)
+        double_without_commas = NormalizeOptions.tts(
+            initials_vowel_mode="double",
+            initials_pause_mode="preserve",
+        )
+        single_with_commas = NormalizeOptions.tts(
+            initials_vowel_mode="single",
+            initials_pause_mode="comma",
+        )
+
+        self.assertEqual(
+            expand_abbreviations("Е. Харитонова и Рихтер Ч. работали", safe_with_initials),
+            "е Харитонова и Рихтер чэ работали",
+        )
+        self.assertEqual(
+            expand_abbreviations("Е. Харитонова и Рихтер Ч. работали", double_without_commas),
+            "ее Харитонова и Рихтер чэ работали",
+        )
+        self.assertEqual(
+            expand_abbreviations("Е. Харитонова и Рихтер Ч. работали", single_with_commas),
+            "е Харитонова и Рихтер, чэ, работали",
+        )
+        self.assertEqual(
+            expand_abbreviations("Рихтер Ч. А. разработал", NormalizeOptions.tts()),
+            "Рихтер, чэ, аа, разработал",
         )
 
     def test_abbreviation_stage_expands_generic_reference_and_legal_abbreviations(self):

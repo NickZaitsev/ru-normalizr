@@ -112,6 +112,8 @@ from ru_normalizr import NormalizeOptions, normalize
 options = NormalizeOptions.tts(
     latinization_backend="ipa",
     enable_latinization_stress_marks=True,
+    initials_vowel_mode="double",  # "single" для обычных названий гласных
+    initials_pause_mode="comma",   # "preserve" без дополнительных пауз
 )
 
 print(normalize("YouTube в 2024 г.", options))
@@ -338,6 +340,8 @@ from ru_normalizr import NormalizeOptions, normalize
 options = NormalizeOptions.tts(
     latinization_backend="ipa",
     enable_latinization_stress_marks=True,
+    initials_vowel_mode="double",  # use "single" for ordinary vowel names
+    initials_pause_mode="comma",   # use "preserve" for source punctuation
 )
 
 print(normalize("YouTube в 2024 г.", options))

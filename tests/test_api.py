@@ -967,7 +967,7 @@ class RuNormalizrApiTests(unittest.TestCase):
         )
         self.assertEqual(
             normalize("Рихтер Ч. разработал шкалу.", NormalizeOptions.tts()),
-            "Рихтер чэ разработал шкалу.",
+            "Рихтер, чэ, разработал шкалу.",
         )
         self.assertEqual(
             normalize("С. Петербург красив.", NormalizeOptions.tts()),
@@ -975,7 +975,7 @@ class RuNormalizrApiTests(unittest.TestCase):
         )
         self.assertEqual(
             normalize("Е. Харитонова", NormalizeOptions.tts()),
-            "е Харитонова.",
+            "ее Харитонова.",
         )
 
     def test_safe_mode_keeps_caps_and_letter_abbreviations_conservative(self):
@@ -988,6 +988,8 @@ class RuNormalizrApiTests(unittest.TestCase):
 
         self.assertFalse(safe.enable_caps_normalization)
         self.assertFalse(safe.enable_initials_expansion)
+        self.assertEqual(safe.initials_vowel_mode, "single")
+        self.assertEqual(safe.initials_pause_mode, "preserve")
         self.assertFalse(safe.enable_letter_abbreviation_expansion)
         self.assertFalse(safe.enable_latinization)
         self.assertFalse(safe.enable_url_normalization)
@@ -995,6 +997,8 @@ class RuNormalizrApiTests(unittest.TestCase):
 
         self.assertTrue(tts.enable_caps_normalization)
         self.assertTrue(tts.enable_initials_expansion)
+        self.assertEqual(tts.initials_vowel_mode, "double")
+        self.assertEqual(tts.initials_pause_mode, "comma")
         self.assertTrue(tts.enable_letter_abbreviation_expansion)
         self.assertTrue(tts.enable_latinization)
         self.assertTrue(tts.enable_url_normalization)
@@ -1022,6 +1026,8 @@ class RuNormalizrApiTests(unittest.TestCase):
         )
         self.assertEqual(default.enable_years_ago_expansion, safe.enable_years_ago_expansion)
         self.assertEqual(default.enable_initials_expansion, safe.enable_initials_expansion)
+        self.assertEqual(default.initials_vowel_mode, safe.initials_vowel_mode)
+        self.assertEqual(default.initials_pause_mode, safe.initials_pause_mode)
         self.assertEqual(
             default.enable_letter_abbreviation_expansion,
             safe.enable_letter_abbreviation_expansion,

@@ -90,17 +90,17 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
     def test_tts_initials_after_role_title_do_not_insert_dot_before_surname(self):
         self.assertEqual(
             normalize("Редактор Е. Харитонова", NormalizeOptions.tts()),
-            "Редактор е Харитонова.",
+            "Редактор ее Харитонова.",
         )
         self.assertEqual(
             normalize(
                 "Редактор Е. Харитонова\n\nКорректор Е. Харитонова",
                 NormalizeOptions.tts(),
             ),
-            "Редактор е Харитонова.\n\nКорректор е Харитонова.",
+            "Редактор ее Харитонова.\n\nКорректор ее Харитонова.",
         )
 
-    def test_tts_single_initials_do_not_inject_commas_inside_sentence(self):
+    def test_tts_single_initials_add_surname_first_speech_pauses(self):
         self.assertEqual(
             normalize(
                 "американский сейсмолог Ч. Рихтер для определения",
@@ -109,13 +109,13 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             "американский сейсмолог чэ Рихтер для определения",
         )
 
-    def test_tts_single_initial_lists_keep_commas_and_natural_vowel_initials(self):
+    def test_tts_single_initial_lists_keep_commas_and_double_vowel_initials(self):
         self.assertEqual(
             normalize(
                 "В АПРЕЛЕ 1982 ГОДА были арестованы «молодые социалисты» Б. Кагарлицкий[10], П. Кудюкин, А. Фадин, Ю. Хавкин, В. Чернецкий, А. Шилков, а позже – М. Ривкин.",
                 NormalizeOptions.tts(),
             ),
-            'В АПРЕЛЕ тысяча девятьсот восемьдесят второго ГОДА были арестованы "молодые социалисты" бэ Кагарлицкий, пэ Кудюкин, а Фадин, ю Хавкин, вэ Чернецкий, а Шилков, а позже — эм Ривкин.',
+            'В АПРЕЛЕ тысяча девятьсот восемьдесят второго ГОДА были арестованы "молодые социалисты" бэ Кагарлицкий, пэ Кудюкин, аа Фадин, юю Хавкин, вэ Чернецкий, аа Шилков, а позже — эм Ривкин.',
         )
 
     def test_tts_initials_before_quoted_title_do_not_inject_sentence_dot(self):
