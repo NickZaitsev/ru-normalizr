@@ -224,7 +224,7 @@ class RuNormalizrApiTests(unittest.TestCase):
             preprocess_text(
                 "АВТОМОБИЛЬ С КОМПЬЮТЕРНЫМ УПРАВЛЕНИЕМ ТРАНСМИССИЕЙ, выпустила на рынок японская компания."
             , NormalizeOptions.tts()),
-            "Автомобиль С Компьютерным управлением трансмиссией, выпустила на рынок японская компания.",
+            "Автомобиль с компьютерным управлением трансмиссией, выпустила на рынок японская компания.",
         )
 
     def test_preprocess_text_normalizes_caps_heading_with_multiple_words(self):
@@ -232,7 +232,17 @@ class RuNormalizrApiTests(unittest.TestCase):
             preprocess_text(
                 "АВТОРУЧКА С КЕРАМИЧЕСКИМ ПЕРОМ, выпустила на рынок японская компания."
             , NormalizeOptions.tts()),
-            "Авторучка С Керамическим пером, выпустила на рынок японская компания.",
+            "Авторучка с керамическим пером, выпустила на рынок японская компания.",
+        )
+
+    def test_preprocess_text_keeps_lowercase_continuation_after_embedded_question(self):
+        self.assertEqual(
+            preprocess_text('вопрос "сколько?" заставляет думать'),
+            'вопрос "сколько?" заставляет думать',
+        )
+        self.assertEqual(
+            preprocess_text('Он спросил: "Сколько?" Затем ушёл.'),
+            'Он спросил: "Сколько?" Затем ушёл.',
         )
 
     def test_preprocess_text_normalizes_caps_heading_without_parentheses(self):

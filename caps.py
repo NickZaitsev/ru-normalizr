@@ -7,8 +7,9 @@ from .constants import KNOWN_ABBREVIATIONS
 
 _LINE_SPLIT_PATTERN = re.compile(r"(\n)")
 _SENTENCE_START_PATTERN = re.compile(
-    r"((?<=[.!?…])(?:[\s\"'«»„“”()\[\]{}]*))([a-zA-Zа-яА-ЯёЁ])"
+    r"(?P<punct>[.!?…])(?P<prefix>[\s\"'«»„“”()\[\]{}]*)(?P<letter>[a-zA-Zа-яА-ЯёЁ])"
 )
+_CAPS_CONNECTORS = {"А", "В", "И", "К", "О", "С", "У"}
 
 
 def normalize_first_word_caps(text: str, enabled: bool = True) -> str:
@@ -42,9 +43,16 @@ def normalize_sentence_start_caps(text: str, enabled: bool = True) -> str:
         return text
 
     def uppercase_sentence_start(match: re.Match[str]) -> str:
-        prefix = match.group(1)
-        letter = match.group(2)
-        return f"{prefix}{letter.upper()}"
+        punctuation = match.group("punct")
+        prefix = match.group("prefix")
+        letter = match.group("letter")
+        if (
+            punctuation in {"?", "!"}
+            and any(quote in prefix for quote in ('"', "'", "»", "”"))
+            and letter.islower()
+        ):
+            return match.group(0)
+        return f"{punctuation}{prefix}{letter.upper()}"
 
     parts = _LINE_SPLIT_PATTERN.split(text)
     for idx in range(0, len(parts), 2):
@@ -60,6 +68,11 @@ def _is_caps_token(token: str) -> bool:
         and letters_only.isupper()
         and letters_only not in KNOWN_ABBREVIATIONS
     )
+
+
+def _is_caps_connector(token: str) -> bool:
+    letters_only = re.sub(r"[^a-zA-Zа-яА-ЯёЁ]", "", token)
+    return letters_only in _CAPS_CONNECTORS
 
 
 def _normalize_inline_caps(line: str) -> str:
@@ -82,6 +95,8 @@ def _normalize_inline_caps(line: str) -> str:
                     continue
                 if _is_caps_token(tokens[j]):
                     caps_count += 1
+                    j += 1
+                elif _is_caps_connector(tokens[j]):
                     j += 1
                 else:
                     break
