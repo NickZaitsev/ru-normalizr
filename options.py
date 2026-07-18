@@ -6,6 +6,8 @@ from typing import Literal, Optional
 
 NormalizeMode = Literal["safe", "tts"]
 LatinizationBackend = Literal["ipa", "dictionary"]
+InitialsVowelMode = Literal["single", "double"]
+InitialsPauseMode = Literal["preserve", "comma"]
 
 _SAFE_MODE_DEFAULTS = {
     "enable_caps_normalization": False,
@@ -20,6 +22,8 @@ _SAFE_MODE_DEFAULTS = {
     "enable_contextual_abbreviation_expansion": True,
     "enable_years_ago_expansion": True,
     "enable_initials_expansion": False,
+    "initials_vowel_mode": "single",
+    "initials_pause_mode": "preserve",
     "enable_letter_abbreviation_expansion": False,
     "enable_dictionary_normalization": True,
     "enable_latinization": False,
@@ -40,6 +44,8 @@ _TTS_MODE_DEFAULTS = {
     "enable_contextual_abbreviation_expansion": True,
     "enable_years_ago_expansion": True,
     "enable_initials_expansion": True,
+    "initials_vowel_mode": "double",
+    "initials_pause_mode": "comma",
     "enable_letter_abbreviation_expansion": True,
     "enable_dictionary_normalization": True,
     "enable_latinization": True,
@@ -71,6 +77,8 @@ class NormalizeOptions:
     enable_contextual_abbreviation_expansion: bool
     enable_years_ago_expansion: bool
     enable_initials_expansion: bool
+    initials_vowel_mode: InitialsVowelMode
+    initials_pause_mode: InitialsPauseMode
     enable_letter_abbreviation_expansion: bool
     enable_dictionary_normalization: bool
     enable_latinization: bool
@@ -98,6 +106,8 @@ class NormalizeOptions:
         enable_contextual_abbreviation_expansion: bool | None = None,
         enable_years_ago_expansion: bool | None = None,
         enable_initials_expansion: bool | None = None,
+        initials_vowel_mode: InitialsVowelMode | None = None,
+        initials_pause_mode: InitialsPauseMode | None = None,
         enable_letter_abbreviation_expansion: bool | None = None,
         enable_dictionary_normalization: bool | None = None,
         enable_latinization: bool | None = None,
@@ -124,6 +134,8 @@ class NormalizeOptions:
             "enable_contextual_abbreviation_expansion": enable_contextual_abbreviation_expansion,
             "enable_years_ago_expansion": enable_years_ago_expansion,
             "enable_initials_expansion": enable_initials_expansion,
+            "initials_vowel_mode": initials_vowel_mode,
+            "initials_pause_mode": initials_pause_mode,
             "enable_letter_abbreviation_expansion": enable_letter_abbreviation_expansion,
             "enable_dictionary_normalization": enable_dictionary_normalization,
             "enable_latinization": enable_latinization,

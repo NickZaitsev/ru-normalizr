@@ -21,12 +21,13 @@ from .constants import (
     PERSON_SURNAME_INITIALS_PATTERN,
     PERSON_SURNAME_SINGLE_INITIAL_PATTERN,
     REAL_WORD_POS,
+    RU_DOUBLED_VOWEL_INITIAL_NAMES,
     RU_LETTER_NAMES,
     RU_VOWELS,
     RUSSIAN_NAME_TOKEN,
 )
 from .numerals._helpers import safe_inflect
-from .options import NormalizeOptions
+from .options import InitialsPauseMode, InitialsVowelMode, NormalizeOptions
 
 _ETC_ABBREVIATION_PATTERN = re.compile(
     r"(?<!\w)(?P<abbr>т\.?\s*[дп]\.)(?P<tail>\s*)(?!\w)", re.IGNORECASE
@@ -203,9 +204,26 @@ def _expand_language_origin_abbreviations(text: str) -> str:
     return _LANGUAGE_ORIGIN_PATTERN.sub(repl, text)
 
 
-def expand_person_initials(text: str) -> str:
+def expand_person_initials(
+    text: str,
+    *,
+    vowel_mode: InitialsVowelMode = "single",
+    pause_mode: InitialsPauseMode = "preserve",
+) -> str:
     def initial_name(ch: str) -> str:
+        if vowel_mode == "double":
+            doubled_name = RU_DOUBLED_VOWEL_INITIAL_NAMES.get(ch.upper())
+            if doubled_name is not None:
+                return doubled_name
         return RU_LETTER_NAMES.get(ch.upper(), ch.lower())
+
+    def pause_separated(*parts: str) -> str:
+        separator = ", " if pause_mode == "comma" else " "
+        return separator.join(parts)
+
+    def surname_first_non_final(*parts: str) -> str:
+        expanded = pause_separated(*parts)
+        return f"{expanded}," if pause_mode == "comma" else expanded
 
     def candidate_grammemes(candidate) -> frozenset[str]:
         grammemes = getattr(candidate.tag, "grammemes", None)
@@ -295,7 +313,7 @@ def expand_person_initials(text: str) -> str:
                 else "."
             )
             return f"{surname} {i1} {i2}{terminal}"
-        return f"{surname} {i1} {i2}{non_final_tail}"
+        return f"{surname_first_non_final(surname, i1, i2)}{non_final_tail}"
 
     def repl_surname_single_initial(match):
         if has_following_person_name_token(match.end()):
@@ -312,7 +330,7 @@ def expand_person_initials(text: str) -> str:
                 else "."
             )
             return f"{surname} {i1}{terminal}"
-        return f"{surname} {i1}{non_final_tail}"
+        return f"{surname_first_non_final(surname, i1)}{non_final_tail}"
 
     def repl_initials_surname(match):
         i1 = initial_name(match.group("i1"))
@@ -460,7 +478,11 @@ def expand_abbreviations(text: str, options: NormalizeOptions | None = None) -> 
                 text = updated
                 folded_text = text.casefold()
     if active.enable_initials_expansion:
-        text = expand_person_initials(text)
+        text = expand_person_initials(
+            text,
+            vowel_mode=active.initials_vowel_mode,
+            pause_mode=active.initials_pause_mode,
+        )
     if active.enable_letter_abbreviation_expansion:
         text = expand_letter_abbreviations(text)
     return _normalize_contextual_ampersands(text, active)
