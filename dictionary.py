@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 import logging
-import pickle
 import re
 import threading
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
-_DICTIONARY_CACHE_VERSION = "v2"
-
 
 def _compile_simple_mapping_patterns(
     mapping: dict[str, str],
@@ -48,68 +45,8 @@ class DictionaryNormalizer:
         self._runtime_file_rules: list[tuple[str, Any]] = []
         self._total_dic = 0
 
-        if not self._try_load_from_cache():
-            self._load_all_dictionaries()
-            self._save_to_cache()
+        self._load_all_dictionaries()
         self._build_runtime_rules()
-
-    def _get_cache_path(self) -> Path:
-        base = f"dictionaries_{_DICTIONARY_CACHE_VERSION}"
-        if self.include_only_files:
-            import hashlib
-
-            digest = hashlib.md5(
-                ",".join(sorted(self.include_only_files)).encode()
-            ).hexdigest()[:8]
-            base += f"_include_{digest}"
-        elif self.exclude_files:
-            import hashlib
-
-            digest = hashlib.md5(
-                ",".join(sorted(self.exclude_files)).encode()
-            ).hexdigest()[:8]
-            base += f"_exclude_{digest}"
-        return self.dictionaries_path / f"{base}.pkl"
-
-    def _try_load_from_cache(self) -> bool:
-        cache_path = self._get_cache_path()
-        if not cache_path.exists():
-            return False
-        try:
-            cache_mtime = cache_path.stat().st_mtime
-            for dic_file in self.dictionaries_path.rglob("*.dic"):
-                if dic_file.stat().st_mtime > cache_mtime:
-                    return False
-            with cache_path.open("rb") as fh:
-                data = pickle.load(fh)
-            if data.get("cache_version") != _DICTIONARY_CACHE_VERSION:
-                return False
-            if set(data.get("exclude_files", [])) != self.exclude_files:
-                return False
-            if set(data.get("include_only_files", [])) != self.include_only_files:
-                return False
-            self._file_rules = data["rules"]
-            self._total_dic = data["dic_count"]
-            return True
-        except Exception as exc:
-            logger.warning("Failed to load dictionary cache %s: %s", cache_path, exc)
-            return False
-
-    def _save_to_cache(self) -> None:
-        try:
-            with self._get_cache_path().open("wb") as fh:
-                pickle.dump(
-                    {
-                        "rules": self._file_rules,
-                        "dic_count": self._total_dic,
-                        "cache_version": _DICTIONARY_CACHE_VERSION,
-                        "exclude_files": list(self.exclude_files),
-                        "include_only_files": list(self.include_only_files),
-                    },
-                    fh,
-                )
-        except Exception as exc:
-            logger.warning("Failed to save dictionary cache: %s", exc)
 
     def _load_all_dictionaries(self) -> None:
         if not self.dictionaries_path.exists():
