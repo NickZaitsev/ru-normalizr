@@ -4,7 +4,7 @@ import re
 
 import num2words
 
-from .._morph import get_morph
+from .._morph import parse_word
 from ..text_context import simple_tokenize
 from ._constants import (
     DIGIT_PATTERN,
@@ -53,11 +53,10 @@ def _resolve_range_unit_info(unit_raw: str):
     if len(parts) < 2:
         return None
 
-    morph = get_morph()
     noun_parse = next(
         (
             candidate
-            for candidate in morph.parse(parts[-1])
+            for candidate in parse_word(parts[-1])
             if "NOUN" in candidate.tag
         ),
         None,
@@ -69,7 +68,7 @@ def _resolve_range_unit_info(unit_raw: str):
         head_parse = next(
             (
                 candidate
-                for candidate in morph.parse(parts[0])
+                for candidate in parse_word(parts[0])
                 if candidate.tag.POS in {"ADJF", "PRTF"}
             ),
             None,
@@ -81,7 +80,7 @@ def _resolve_range_unit_info(unit_raw: str):
         first_parse = next(
             (
                 candidate
-                for candidate in morph.parse(parts[0])
+                for candidate in parse_word(parts[0])
                 if candidate.tag.POS in {"ADJF", "PRTF"}
             ),
             None,
@@ -89,7 +88,7 @@ def _resolve_range_unit_info(unit_raw: str):
         second_parse = next(
             (
                 candidate
-                for candidate in morph.parse(parts[1])
+                for candidate in parse_word(parts[1])
                 if candidate.tag.POS in {"ADJF", "PRTF"}
             ),
             None,
@@ -108,7 +107,6 @@ def _resolve_range_unit_info(unit_raw: str):
 
 
 def normalize_cardinal_numerals(text: str) -> str:
-    morph = get_morph()
     tokens = simple_tokenize(text)
     result_tokens: list[str] = []
 
@@ -167,7 +165,7 @@ def normalize_cardinal_numerals(text: str) -> str:
         token_lower = tokens[token_index].lower().strip('.,:;!"«»()[]{}')
         if not token_lower:
             return False
-        parsed = morph.parse(token_lower)
+        parsed = parse_word(token_lower)
         if not parsed:
             return False
         candidate = parsed[0]
@@ -193,8 +191,8 @@ def normalize_cardinal_numerals(text: str) -> str:
             noun_token = tokens[i + 2]
             clean_adj = adj_token.lower().strip('.,:;!"«»()[]{}')
             clean_noun = noun_token.lower().strip('.,:;!"«»()[]{}')
-            p_adj = morph.parse(clean_adj)[0]
-            p_noun = morph.parse(clean_noun)[0]
+            p_adj = parse_word(clean_adj)[0]
+            p_noun = parse_word(clean_noun)[0]
             if ("ADJF" in p_adj.tag or "PRTF" in p_adj.tag) and "NOUN" in p_noun.tag:
                 gender = p_noun.tag.gender
                 is_anim = "anim" in p_noun.tag
@@ -266,7 +264,7 @@ def normalize_cardinal_numerals(text: str) -> str:
                 ):
                     multiplier_token = tokens[i + 2]
                     multiplier_lower = multiplier_token.lower().strip('.,:;!"«»()[]{}')
-                    p_multiplier = morph.parse(multiplier_lower)[0]
+                    p_multiplier = parse_word(multiplier_lower)[0]
                     if (
                         "NOUN" in p_multiplier.tag
                         and p_multiplier.normal_form in multipliers
@@ -338,7 +336,7 @@ def normalize_cardinal_numerals(text: str) -> str:
                     nn_unit_info = resolve_unit_info(next_next_token)
                     if nn_unit_info:
                         nn_lemma, _, _, *nn_suffix = nn_unit_info
-                        p_nn = morph.parse(nn_lemma)[0]
+                        p_nn = parse_word(nn_lemma)[0]
                         nn_inflected = safe_inflect(p_nn, {"gent", "plur"})
                         if nn_suffix:
                             nn_inflected += f" {nn_suffix[0]}"
@@ -348,7 +346,7 @@ def normalize_cardinal_numerals(text: str) -> str:
                 i += step
                 continue
 
-            p_noun = morph.parse(next_token_lower)[0]
+            p_noun = parse_word(next_token_lower)[0]
             if "NOUN" in p_noun.tag:
                 gender = TIME_WORDS.get(next_token_lower, p_noun.tag.gender)
                 is_anim = "anim" in p_noun.tag
