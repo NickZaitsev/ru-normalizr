@@ -5,6 +5,10 @@ from ru_normalizr.numerals._constants import UNITS_DATA
 
 
 class RuNormalizrReportedRegressionTests(unittest.TestCase):
+    def test_copyright_symbol_does_not_create_sentence_dot(self):
+        self.assertEqual(normalize("© 2024 Компания"), "две тысячи двадцать четыре Компания")
+        self.assertEqual(normalize("Текст © автора"), "Текст автора")
+
     def test_abbreviated_chapter_number_is_inflected_before_abbreviation_stage(self):
         self.assertEqual(
             normalize("См. гл. 5 и рис. 3."),
