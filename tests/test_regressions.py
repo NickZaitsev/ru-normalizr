@@ -200,6 +200,16 @@ class RuNormalizrRegressionTests(unittest.TestCase):
 
         self.assertLess(normalize_token.call_count, 10_000)
 
+    def test_cardinal_stage_only_parses_numeric_token_candidates(self):
+        text = "Слова не должны попадать в числовой парсер 125 раз подряд."
+        with patch(
+            "ru_normalizr.numerals.cardinals.parse_integer_token",
+            wraps=_helpers.parse_integer_token,
+        ) as parse_integer:
+            normalize_cardinal_numerals(text)
+
+        parse_integer.assert_called_once_with("125")
+
     def test_sentence_caps_normalization_uses_one_batched_substitution(self):
         self.assertEqual(
             normalize("первая. вторая\nтретья. четвёртая"),

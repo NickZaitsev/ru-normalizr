@@ -5,7 +5,8 @@ import re
 import num2words
 
 from .._morph import parse_word
-from ..text_context import simple_tokenize
+from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
+from ..text_context import PUNCT_STRIP, simple_tokenize
 from ._constants import (
     DIGIT_PATTERN,
     NUMERIC_UNIT_RANGE_PATTERN,
@@ -163,6 +164,18 @@ def normalize_cardinal_numerals(text: str) -> str:
     i = 0
     while i < len(tokens):
         token = tokens[i]
+        first_char = token[:1]
+        is_numeric_candidate = first_char.isnumeric() or first_char == NEGATIVE_NUMBER_PLACEHOLDER
+        if not is_numeric_candidate and first_char in PUNCT_STRIP:
+            stripped_candidate = token.strip(PUNCT_STRIP)
+            is_numeric_candidate = bool(stripped_candidate) and (
+                stripped_candidate[0].isnumeric()
+                or stripped_candidate.startswith(NEGATIVE_NUMBER_PLACEHOLDER)
+            )
+        if not is_numeric_candidate:
+            result_tokens.append(token)
+            i += 1
+            continue
         parsed_num = parse_integer_token(token)
         if parsed_num is None:
             result_tokens.append(token)
