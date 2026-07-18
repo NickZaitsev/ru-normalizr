@@ -96,6 +96,11 @@ PAGE_FULL_ABBREVIATION_PATTERN = re.compile(r"\bстр\.\s*(?=\d)", re.IGNORECAS
 ARTICLE_ABBREVIATION_PATTERN = re.compile(r"\bст\.\s*(?=\d)", re.IGNORECASE)
 FIGURE_ABBREVIATION_PATTERN = re.compile(r"\bрис\.\s*(?=\d)", re.IGNORECASE)
 TABLE_ABBREVIATION_PATTERN = re.compile(r"\bтабл\.\s*(?=\d)", re.IGNORECASE)
+REFERENCE_DIRECTIVE_PATTERN = re.compile(
+    r"\bсм\.(?P<body>\s*(?:рис\.|табл\.|стр\.)\s*\d+"
+    r"(?:\s*(?:,|и)\s*(?:рис\.|табл\.|стр\.)\s*\d+)*)",
+    re.IGNORECASE,
+)
 APPROXIMATE_ABBREVIATION_PATTERN = re.compile(r"\bок\.\s*(?=\d)", re.IGNORECASE)
 BIBLIOGRAPHIC_NUMBER_ABBREVIATIONS = (
     (re.compile(r"(?<!\w)Т\.\s*(?=\d)"), "том "),
@@ -180,12 +185,27 @@ def normalize_era_abbreviations(text: str) -> str:
 
 
 def normalize_numeric_abbreviations(text: str) -> str:
+    def reference_directive_repl(match: re.Match[str]) -> str:
+        noun_forms = {
+            "рис.": "рисунок",
+            "табл.": "таблицу",
+            "стр.": "страницу",
+        }
+        body = re.sub(
+            r"\b(?:рис\.|табл\.|стр\.)",
+            lambda noun_match: noun_forms[noun_match.group(0).lower()],
+            match.group("body"),
+            flags=re.IGNORECASE,
+        )
+        return f"см.{body}"
+
     def legal_article_repl(match: re.Match[str]) -> str:
         expansion = LEGAL_CODE_GENITIVE_EXPANSIONS[match.group("code").lower()]
         return f"статья {match.group('number')} {expansion}"
 
     text = normalize_birth_year_abbreviations(text)
     text = normalize_mass_gram_abbreviations(text)
+    text = REFERENCE_DIRECTIVE_PATTERN.sub(reference_directive_repl, text)
     text = PAGE_ABBREVIATION_PATTERN.sub("страница ", text)
     text = PAGE_FULL_ABBREVIATION_PATTERN.sub("страница ", text)
     text = ARTICLE_ABBREVIATION_PATTERN.sub("статья ", text)
