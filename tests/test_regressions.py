@@ -132,6 +132,28 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         tokens = simple_tokenize("отмена из-за 5 ошибок")
         self.assertEqual(get_numeral_case(tokens, tokens.index("5")), "gent")
 
+    def test_preposition_case_does_not_cross_a_verb(self):
+        tokens = simple_tokenize("из-за которой упустили 150 тысяч долларов")
+        self.assertEqual(get_numeral_case(tokens, tokens.index("150")), "nomn")
+        self.assertEqual(
+            normalize("из-за которой упустили 150 тысяч долларов."),
+            "из-за которой упустили сто пятьдесят тысяч долларов.",
+        )
+
+    def test_quantity_governing_noun_requests_genitive(self):
+        tokens = simple_tokenize("огорчение от потери 100 долларов")
+        self.assertEqual(get_numeral_case(tokens, tokens.index("100")), "gent")
+        self.assertEqual(
+            normalize("огорчение от потери 100 долларов"),
+            "огорчение от потери ста долларов",
+        )
+
+    def test_unrelated_genitive_noun_does_not_govern_measurement(self):
+        self.assertEqual(
+            normalize("рост человека 180 см"),
+            "рост человека сто восемьдесят сантиметров",
+        )
+
     def test_comparative_quantifiers_use_genitive_case(self):
         for marker in self.COMPARATIVE_GENITIVE_MARKERS:
             with self.subTest(marker=marker):
