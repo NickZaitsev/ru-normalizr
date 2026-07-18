@@ -484,6 +484,16 @@ class RuNormalizrStageTests(unittest.TestCase):
             "с 5 по 10 человек",
         )
 
+    def test_dates_time_stage_preserves_year_in_prose_date_range(self):
+        self.assertEqual(
+            normalize_dates_and_time("с 25 по 31 декабря 2023"),
+            "с двадцать пятого по тридцать первое декабря две тысячи двадцать третьего года",
+        )
+        self.assertEqual(
+            normalize_dates_and_time("с 5 по 10 января 2024 года"),
+            "с пятого по десятое января две тысячи двадцать четвёртого года",
+        )
+
     def test_abbreviation_stage(self):
         self.assertEqual(
             expand_abbreviations("т. д."),
