@@ -450,6 +450,24 @@ class RuNormalizrStageTests(unittest.TestCase):
             "вес 123 грамм масса 237 грамм.",
         )
 
+    def test_dates_time_stage_normalizes_prose_date_ranges(self):
+        self.assertEqual(
+            normalize_dates_and_time("С 5 по 10 января будут праздники."),
+            "С пятого по десятое января будут праздники.",
+        )
+        self.assertEqual(
+            normalize_dates_and_time("со 2 по 8 марта"),
+            "со второго по восьмое марта",
+        )
+        self.assertEqual(
+            normalize_dates_and_time("с 1 до 15 июня"),
+            "с первого до пятнадцатого июня",
+        )
+        self.assertEqual(
+            normalize_dates_and_time("с 5 по 10 человек"),
+            "с 5 по 10 человек",
+        )
+
     def test_abbreviation_stage(self):
         self.assertEqual(
             expand_abbreviations("т. д."),
