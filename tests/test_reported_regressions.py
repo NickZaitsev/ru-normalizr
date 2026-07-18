@@ -589,6 +589,15 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
         self.assertEqual(normalize("с 3 друзьями"), "с тремя друзьями")
         self.assertEqual(normalize("перед 8 марта"), "перед восьмым марта")
 
+    def test_normalize_bibliographic_volume_and_number_abbreviations(self):
+        self.assertEqual(
+            normalize("в журнале (1984. Т. 34)"),
+            "в журнале (одна тысяча девятьсот восемьдесят четыре. Том тридцать четыре)",
+        )
+        self.assertEqual(normalize("Vol. 34, No. 2"), "том тридцать четыре, номер два")
+        self.assertEqual(normalize("P. 5, С. 6"), "страница пять, страница шесть")
+        self.assertEqual(normalize("масса 5 т"), "масса пять тонн")
+
     def test_normalize_fixes_reported_compound_numeric_adjectives_and_regnal_suffixes(self):
         self.assertEqual(
             normalize(

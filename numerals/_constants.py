@@ -452,7 +452,6 @@ UNITS_DATA = {
     "г": ("грамм", "masc", "measure"),
     "грамм": ("грамм", "masc", "measure"),
     "гр": ("грамм", "masc", "measure"),
-    "т": ("тонна", "femn", "measure"),
     "тонна": ("тонна", "femn", "measure"),
     "мг": ("миллиграмм", "masc", "measure"),
     "мкг": ("микрограмм", "masc", "measure"),
@@ -619,6 +618,7 @@ UNITS_DATA = {
 # SI prefixes and symbols are case-sensitive: folding мА/кА to ма/ка would
 # make ordinary lowercase words look like electrical units.
 CASE_SENSITIVE_UNITS_DATA = {
+    "т": ("тонна", "femn", "measure"),
     "°С": ("градус", "masc", "measure", "Цельсия"),
     "°К": ("градус", "masc", "measure", "Кельвина"),
     "мкА": ("микроампер", "masc", "measure"),
