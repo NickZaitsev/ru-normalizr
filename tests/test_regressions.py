@@ -88,6 +88,8 @@ class RuNormalizrRegressionTests(unittest.TestCase):
             )
 
     def test_dictionary_latinization_expected_output_for_long_english_text(self):
+        # TASK-12 option (a): fallback output is checked against deliberate
+        # pronunciations, not snapshots of the productive rules' mistakes.
         text = (
             "Windows Server updates improve browser security, download archives, "
             "and home page access for mobile devices."
@@ -95,9 +97,35 @@ class RuNormalizrRegressionTests(unittest.TestCase):
 
         self.assertEqual(
             apply_latinization(text, enabled=True, backend="dictionary"),
-            "виндаус сервэр апдэйтс импров браусэр секюрити, даунлооад "
-            "аркхивэс, энд хоум пэйдж эксесс фор мобил дэвисес.",
+            "виндоус сервер апдейтс импрув браузер секьюрити, даунлоуд "
+            "аркайвз, энд хоум пэйдж эксесс фор мобайл дивайсиз.",
         )
+
+    def test_dictionary_latinization_common_word_ground_truth(self):
+        pronunciations = {
+            "support": "сапорт",
+            "platform": "платформ",
+            "download": "даунлоуд",
+            "device": "дивайс",
+            "code": "коуд",
+            "improve": "импрув",
+            "engineering": "энджиниринг",
+            "browser": "браузер",
+            "security": "секьюрити",
+            "mobile": "мобайл",
+            "archives": "аркайвз",
+            "windows": "виндоус",
+            "server": "сервер",
+            "network": "нетворк",
+            "review": "ривью",
+        }
+
+        for word, expected in pronunciations.items():
+            with self.subTest(word=word):
+                self.assertEqual(
+                    apply_latinization(word, enabled=True, backend="dictionary"),
+                    expected,
+                )
 
     def test_dictionary_latinization_rewrites_all_ascii_letters_in_long_english_text(self):
         text = (
@@ -307,12 +335,12 @@ class RuNormalizrRegressionTests(unittest.TestCase):
             "в более чем шестидесяти странах",
         )
 
-    def test_dictionary_latinization_regressions_keep_current_duplicate_rule_behavior(self):
+    def test_dictionary_latinization_keeps_productive_and_lexical_rules_working(self):
         options = NormalizeOptions(enable_latinization=True, latinization_backend="dictionary")
 
         self.assertEqual(
             apply_latinization("engineering", enabled=True, backend="dictionary"),
-            "энджинИаинг",
+            "энджиниринг",
         )
         self.assertEqual(
             apply_latinization("school", enabled=True, backend="dictionary"),
@@ -320,9 +348,9 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         )
         self.assertEqual(
             apply_latinization("server", enabled=True, backend="dictionary"),
-            "сервэр",
+            "сервер",
         )
-        self.assertEqual(normalize("engineering", options), "энджинИаинг")
+        self.assertEqual(normalize("engineering", options), "энджиниринг")
 
     def test_normalize_with_dictionary_backend_removes_ascii_letters_from_long_english_text(self):
         options = NormalizeOptions(
@@ -350,8 +378,8 @@ class RuNormalizrRegressionTests(unittest.TestCase):
 
         self.assertEqual(
             result,
-            "Сегодня виндаус сервэр обновил браусэр секюрити, а саппот тим "
-            "рэвью логс и пишет стэбл кодэ для рэмоут плэтфом.",
+            "Сегодня виндоус сервер обновил браузер секьюрити, а сапорт тим "
+            "ривью логс и пишет стейбл коуд для римоут платформ.",
         )
         self.assertNotRegex(result, r"[A-Za-z]")
         self.assertIn("Сегодня", result)
