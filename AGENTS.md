@@ -56,3 +56,5 @@ No trivial, obvious, or temporary notes in this file.
 
 - Mixed-case SI symbols must use the exact-case resolver; see
   [case-sensitive units](docs/agents/case-sensitive-units.md).
+- Numeral context and dotted-unit boundary checks must stay linear; see
+  [performance invariants](docs/agents/performance-invariants.md).
