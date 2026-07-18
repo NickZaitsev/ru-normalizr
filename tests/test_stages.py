@@ -689,6 +689,22 @@ class RuNormalizrStageTests(unittest.TestCase):
             "а в тысяча девятьсот девяностые годы началась новая волна обсуждений.",
         )
 
+    def test_year_stage_does_not_treat_comma_enumerations_as_decade_ranges(self):
+        self.assertEqual(
+            normalize_years("маршруты 10, 20-е отменены"),
+            "маршруты 10, 20-е отменены",
+        )
+        self.assertEqual(
+            normalize_years("страницы 10, 12-е издания"),
+            "страницы 10, 12-е издания",
+        )
+
+    def test_year_stage_allows_comma_decade_ranges_with_year_context(self):
+        self.assertEqual(
+            normalize_years("в 60, 70-е годы"),
+            "в шестидесятые — семидесятые годы",
+        )
+
     def test_year_stage_keeps_measurement_contexts_out_of_implicit_year_rules(self):
         self.assertEqual(normalize_years("от 1 до 9"), "от 1 до 9")
         self.assertEqual(normalize_years("от 90 до 99"), "от 90 до 99")
