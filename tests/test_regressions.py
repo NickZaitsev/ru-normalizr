@@ -517,6 +517,29 @@ class RuNormalizrRegressionTests(unittest.TestCase):
 
             mocked.assert_not_called()
 
+    def test_dictionary_regex_rules_store_required_literal_hints(self):
+        with TemporaryDirectory() as tmp_dir:
+            dic_path = Path(tmp_dir) / "rules.dic"
+            dic_path.write_text(
+                "*needle*=игла\n*definitely-absent*=нет\n",
+                encoding="utf-8",
+            )
+            normalizer = DictionaryNormalizer(dictionaries_path=tmp_dir)
+
+            regex_chunks = [
+                chunk
+                for file_type, chunks in normalizer._runtime_file_rules
+                if file_type == "dic"
+                for chunk_type, chunk in chunks
+                if chunk_type == "regex"
+            ]
+
+            self.assertTrue(regex_chunks)
+            self.assertTrue(
+                all(rule[2] for chunk in regex_chunks for rule in chunk)
+            )
+            self.assertEqual(normalizer.apply("a needle appears"), "a игла appears")
+
     def test_unit_candidate_does_not_glue_meter_and_preposition_into_millivolt(self):
         with patch.dict(
             _constants.UNITS_DATA,
