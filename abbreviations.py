@@ -4,6 +4,7 @@ import re
 
 from ._morph import parse_word
 from .abbreviation_rules import (
+    ABBREVIATION_LITERAL_HINTS,
     ABBREVIATION_PATTERNS,
     ADJECTIVE_ABBREVIATION_EXPANSIONS,
 )
@@ -393,6 +394,8 @@ def expand_letter_abbreviations(text: str) -> str:
 def _normalize_contextual_ampersands(
     text: str, options: NormalizeOptions | None = None
 ) -> str:
+    if "&" not in text:
+        return text
     active = options or NormalizeOptions()
 
     def has_ascii_letters(token: str) -> bool:
@@ -445,8 +448,17 @@ def expand_abbreviations(text: str, options: NormalizeOptions | None = None) -> 
     if active.enable_contextual_abbreviation_expansion:
         text = _expand_contextual_etc_abbreviations(text)
         text = _expand_contextual_adjective_abbreviations(text)
-        for pattern, replacement in ABBREVIATION_PATTERNS:
-            text = pattern.sub(replacement, text)
+        folded_text = text.casefold()
+        for (pattern, replacement), literal_hint in zip(
+            ABBREVIATION_PATTERNS,
+            ABBREVIATION_LITERAL_HINTS,
+        ):
+            if literal_hint is not None and literal_hint not in folded_text:
+                continue
+            updated = pattern.sub(replacement, text)
+            if updated != text:
+                text = updated
+                folded_text = text.casefold()
     if active.enable_initials_expansion:
         text = expand_person_initials(text)
     if active.enable_letter_abbreviation_expansion:

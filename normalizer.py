@@ -16,6 +16,7 @@ from .latinization import DEFAULT_DICTIONARIES_PATH, apply_latinization
 from .numbering import convert_bracketed_numbers, convert_line_numbering
 from .numerals import (
     ALL_UNITS,
+    _contains_numeral_candidates,
     normalize_compound_numeric_adjectives,
     normalize_decimals,
     normalize_fractions,
@@ -239,6 +240,8 @@ class PipelineNormalizer:
         return normalize_roman(text, self.options)
 
     def run_years(self, text: str) -> str:
+        if not any(char.isdecimal() for char in text):
+            return text
         text = normalize_years(text, self.options)
         return normalize_numeric_ranges(text)
 
@@ -250,6 +253,8 @@ class PipelineNormalizer:
     def run_numerals(self, text: str) -> str:
         if not self.options.enable_numeral_normalization:
             return text
+        if not _contains_numeral_candidates(text):
+            return normalize_numerals(text, self.options)
         text = normalize_math_symbols(text)
         text = normalize_spaced_numeric_hyphen_words(text)
         text = normalize_numeric_unit_hyphen_links(text)

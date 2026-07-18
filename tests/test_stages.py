@@ -288,6 +288,12 @@ class RuNormalizrStageTests(unittest.TestCase):
             "двадцать",
         )
 
+    def test_numeral_stage_fast_path_keeps_non_digit_candidates(self):
+        self.assertEqual(normalize_numerals("α"), "альфа")
+        self.assertEqual(normalize_numerals("$"), "доллар")
+        self.assertEqual(normalize_numerals("млн."), "миллионов.")
+        self.assertEqual(normalize_numerals("и   др."), "и другие.")
+
     def test_numeral_stage_normalizes_heading_single_number_as_ordinal(self):
         self.assertEqual(
             normalize_numerals("глава 10"),
