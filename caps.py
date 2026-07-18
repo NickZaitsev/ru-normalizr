@@ -67,6 +67,8 @@ def _letters_only(token: str) -> str:
 
 def _is_caps_token(token: str) -> bool:
     """Check if a whitespace-split token is an all-caps non-abbreviation word."""
+    if not token.isupper():
+        return False
     letters_only = _letters_only(token)
     return (
         len(letters_only) >= 2

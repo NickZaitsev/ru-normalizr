@@ -6,3 +6,5 @@
   Detokenizing the remaining suffix for every unit makes long books quadratic.
 - Word-level morphology and latinization caches must remain bounded; large batch
   paths should populate the same reusable per-word results as small paths.
+- Regex callbacks must match against the source with a start position; slicing
+  the remaining document inside every callback makes full-book scans quadratic.
