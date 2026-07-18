@@ -477,7 +477,7 @@ class RuNormalizrApiTests(unittest.TestCase):
     def test_normalize_treats_unary_minus_as_spoken_minus(self):
         self.assertEqual(
             normalize("при -20°C и -1 %"),
-            "при минус двадцати градусах Цельсия и минус один процент",
+            "при минус двадцати градусах Цельсия и минус одном проценте",
         )
 
     def test_normalize_keeps_percent_subject_after_genitive_noun_phrase(self):
@@ -622,7 +622,7 @@ class RuNormalizrApiTests(unittest.TestCase):
     def test_normalize_expands_numeric_reference_abbreviations_before_numerals(self):
         self.assertEqual(
             normalize("ст. 49 УК РФ"),
-            "статья сорок девять уголовный кодекс российской федерации",
+            "статья сорок девять уголовного кодекса российской федерации",
         )
         self.assertEqual(
             normalize("см. рис. 2 и табл. 3, стр. 4"),

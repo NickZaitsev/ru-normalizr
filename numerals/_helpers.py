@@ -431,20 +431,11 @@ def get_numeral_case(
     is_range_start = idx < len(tokens) - 1 and tokens[idx + 1] in {"-", "–", "—"}
     left_scan_start = _context.left_scan_starts[idx]
 
-    def unit_hint(number_index: int) -> str | None:
-        if number_index + 1 >= len(tokens):
-            return None
-        hint = normalize_context_token(tokens[number_index + 1])
-        if hint == "°" and number_index + 2 < len(tokens):
-            return hint + normalize_context_token(tokens[number_index + 2])
-        return hint or None
-
     if idx > 1 and tokens[idx - 1] == "и":
-        current_hint = unit_hint(idx)
         for back in range(idx - 2, max(-1, idx - 6), -1):
             if any(char in tokens[back] for char in ".!?;:"):
                 break
-            if is_integer_token(tokens[back]) and unit_hint(back) == current_hint:
+            if is_integer_token(tokens[back]):
                 return get_numeral_case(tokens, back, _context=_context)
     if idx > 1 and tokens[idx - 1] in {"-", "–", "—"} and is_integer_token(tokens[idx - 2]):
         return get_numeral_case(tokens, idx - 2, _context=_context)

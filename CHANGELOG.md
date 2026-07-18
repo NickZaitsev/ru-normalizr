@@ -17,6 +17,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Load the small bundled dictionaries directly instead of reading or writing executable pickle caches beside installed package files
 - Speed up IPA latinization on large texts with many distinct Latin tokens by batching `eng_to_ipa` lookups and batched dictionary fallback rewrites instead of resolving every token separately
 ### Fixed
+- Align measurement ranges, coordinated units, and legal article citations with their governing-case conventions
 - Keep standalone numeric dates out of line-number parsing and normalize `HH:MM:SS` with explicit time units
 - Preserve lowercase continuations after embedded quoted questions and normalize ALL-CAPS phrases across short connecting words
 - Disambiguate case-sensitive tonne symbols from bibliographic `Т.` and normalize `Vol.`/`No.` citation abbreviations before numeral rendering

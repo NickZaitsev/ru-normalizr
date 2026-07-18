@@ -102,6 +102,14 @@ BIBLIOGRAPHIC_NUMBER_ABBREVIATIONS = (
     (re.compile(r"(?<!\w)Vol\.\s*(?=\d)", re.IGNORECASE), "том "),
     (re.compile(r"(?<!\w)No\.\s*(?=\d)", re.IGNORECASE), "номер "),
 )
+LEGAL_ARTICLE_REFERENCE_PATTERN = re.compile(
+    r"\b(?:ст\.|статья)\s*(?P<number>\d+)\s+(?P<code>УК|АК)\s+РФ\b",
+    re.IGNORECASE,
+)
+LEGAL_CODE_GENITIVE_EXPANSIONS = {
+    "ук": "уголовного кодекса российской федерации",
+    "ак": "арбитражного кодекса российской федерации",
+}
 ERA_ABBREVIATION_PATTERN = re.compile(
     r"(?<!\w)(?P<abbr>до\s+н\.?\s*э\.?|н\.?\s*э\.?)(?P<tail>\s*)",
     re.IGNORECASE,
@@ -172,6 +180,10 @@ def normalize_era_abbreviations(text: str) -> str:
 
 
 def normalize_numeric_abbreviations(text: str) -> str:
+    def legal_article_repl(match: re.Match[str]) -> str:
+        expansion = LEGAL_CODE_GENITIVE_EXPANSIONS[match.group("code").lower()]
+        return f"статья {match.group('number')} {expansion}"
+
     text = normalize_birth_year_abbreviations(text)
     text = normalize_mass_gram_abbreviations(text)
     text = PAGE_ABBREVIATION_PATTERN.sub("страница ", text)
@@ -182,6 +194,7 @@ def normalize_numeric_abbreviations(text: str) -> str:
     text = APPROXIMATE_ABBREVIATION_PATTERN.sub("около ", text)
     for pattern, replacement in BIBLIOGRAPHIC_NUMBER_ABBREVIATIONS:
         text = pattern.sub(replacement, text)
+    text = LEGAL_ARTICLE_REFERENCE_PATTERN.sub(legal_article_repl, text)
     return normalize_era_abbreviations(text)
 
 
