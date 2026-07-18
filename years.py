@@ -205,64 +205,83 @@ def normalize_numeric_ranges(text: str) -> str:
     return NUMERIC_RANGE_PATTERN.sub(lambda m: f"{m.group(1)}, {m.group(2)}", text)
 
 
+@functools.lru_cache(maxsize=1)
+def _year_patterns() -> tuple[re.Pattern[str], ...]:
+    entry_boundary = r"(?<!\w)"
+    flags = re.IGNORECASE | re.UNICODE
+    return (
+        re.compile(
+            rf"{entry_boundary}(?:(?P<prep>в|во|к|ко|с|со|до|от|на|за)\s+)?(?P<year1>\d{{2,4}})\s*(?:[-–—]|,)\s*(?P<year2>\d{{2,4}})[-–—](?P<suffix>е|х|м|ми)(?:\s+(?P<word>год[а-яё]*\b))?",
+            flags,
+        ),
+        re.compile(
+            rf"{entry_boundary}(?P<prep>с|со|от)\s+(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<mid>до|по)\s+(?P<year2>{YEAR_ANY_NUMBER_PATTERN})(?!\d)(?:\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?(?:\s+(?P<era>{ERA_REGEX}))?",
+            flags,
+        ),
+        re.compile(
+            rf"{entry_boundary}(?:(?P<prep>с|со|из|от|в|во)\s+)?(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s*[-–—]\s*(?P<year2>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))(?:\s+(?P<era>{ERA_REGEX}))?",
+            flags,
+        ),
+        re.compile(
+            rf"{entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<years>{YEAR_RANGE_NUMBER_PATTERN}(?:\s*,\s*{YEAR_RANGE_NUMBER_PATTERN})*\s+и\s+{YEAR_RANGE_NUMBER_PATTERN})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w))",
+            flags,
+        ),
+        re.compile(
+            rf"(?:^|(?<=\s)|(?<=[«\"'(]))(\d+)[-–—]({YEAR_SUFFIX_REGEX})(?![а-яА-ЯёЁ\d])(?:\s+(год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?",
+            flags,
+        ),
+        re.compile(
+            r"(?P<open>[\(\[])(?P<year>1\d{3}|20\d{2})(?P<close>[\)\]])",
+            flags,
+        ),
+        re.compile(
+            rf"{entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year>{YEAR_ANY_NUMBER_PATTERN})(?:\s*[-–—](?P<suffix>{YEAR_SUFFIX_REGEX}))?(?:\s+(?P<word>год[а-яё]*\b|г\.?(?!\w)))?\s+(?P<era>{ERA_REGEX})",
+            flags,
+        ),
+        re.compile(
+            rf"{entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s*[-–—]\s*(?P<year2>{YEAR_ANY_NUMBER_PATTERN})(?:\s+(?P<word>год[а-яё]*\b|г\.?(?!\w)))?\s+(?P<era>{ERA_REGEX})",
+            flags,
+        ),
+        re.compile(
+            rf"{entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
+            flags,
+        ),
+        re.compile(
+            rf"\s*(?:год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
+            flags,
+        ),
+        re.compile(rf"\s*[-–—](?:{YEAR_SUFFIX_REGEX})\b", flags),
+        re.compile(
+            rf"{entry_boundary}(?P<prep>с|со|от)\s+(?P<year1>{YEAR_RANGE_NUMBER_PATTERN})\s+(?P<mid>до|по)\s+(?P<year2>{YEAR_RANGE_NUMBER_PATTERN})(?!\d)",
+            flags,
+        ),
+        re.compile(
+            rf"\b(?P<prep>{YEAR_IMPLICIT_PREP_REGEX})\s+(?P<year>{YEAR_IMPLICIT_PREP_PATTERN})(?!\d)",
+            flags,
+        ),
+    )
+
+
 def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
     active = options or NormalizeOptions()
     if not active.enable_year_normalization:
         return text
 
-    pattern_entry_boundary = r"(?<!\w)"
-    pattern_range_decade = re.compile(
-        rf"{pattern_entry_boundary}(?:(?P<prep>в|во|к|ко|с|со|до|от|на|за)\s+)?(?P<year1>\d{2,4})\s*(?:[-–—]|,)\s*(?P<year2>\d{2,4})[-–—](?P<suffix>е|х|м|ми)(?:\s+(?P<word>год[а-яё]*\b))?",
-        re.IGNORECASE | re.UNICODE,
-    )
-    pattern_s_po = re.compile(
-        rf"{pattern_entry_boundary}(?P<prep>с|со|от)\s+(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<mid>до|по)\s+(?P<year2>{YEAR_ANY_NUMBER_PATTERN})(?!\d)(?:\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?(?:\s+(?P<era>{ERA_REGEX}))?",
-        re.IGNORECASE | re.UNICODE,
-    )
-    pattern_range = re.compile(
-        rf"{pattern_entry_boundary}(?:(?P<prep>с|со|из|от|в|во)\s+)?(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s*[-–—]\s*(?P<year2>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))(?:\s+(?P<era>{ERA_REGEX}))?",
-        re.IGNORECASE | re.UNICODE,
-    )
-    pattern_multiple_years = re.compile(
-        rf"{pattern_entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<years>{YEAR_RANGE_NUMBER_PATTERN}(?:\s*,\s*{YEAR_RANGE_NUMBER_PATTERN})*\s+и\s+{YEAR_RANGE_NUMBER_PATTERN})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w))",
-        re.IGNORECASE | re.UNICODE,
-    )
-    pattern_suffix = re.compile(
-        rf"(?:^|(?<=\s)|(?<=[«\"'(]))(\d+)[-–—]({YEAR_SUFFIX_REGEX})(?![а-яА-ЯёЁ\d])(?:\s+(год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?",
-        re.IGNORECASE | re.UNICODE,
-    )
-    pattern_parenthesized_year = re.compile(
-        r"(?P<open>[\(\[])(?P<year>1\d{3}|20\d{2})(?P<close>[\)\]])",
-        re.IGNORECASE | re.UNICODE,
-    )
-    pattern_era_year = re.compile(
-        rf"{pattern_entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year>{YEAR_ANY_NUMBER_PATTERN})(?:\s*[-–—](?P<suffix>{YEAR_SUFFIX_REGEX}))?(?:\s+(?P<word>год[а-яё]*\b|г\.?(?!\w)))?\s+(?P<era>{ERA_REGEX})",
-        re.IGNORECASE | re.UNICODE,
-    )
-    pattern_era_range_shared = re.compile(
-        rf"{pattern_entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s*[-–—]\s*(?P<year2>{YEAR_ANY_NUMBER_PATTERN})(?:\s+(?P<word>год[а-яё]*\b|г\.?(?!\w)))?\s+(?P<era>{ERA_REGEX})",
-        re.IGNORECASE | re.UNICODE,
-    )
-    pattern_year_word = re.compile(
-        rf"{pattern_entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
-        re.IGNORECASE | re.UNICODE,
-    )
-    explicit_year_word_tail_pattern = re.compile(
-        rf"\s*(?:год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
-        re.IGNORECASE | re.UNICODE,
-    )
-    year_suffix_tail_pattern = re.compile(
-        rf"\s*[-–—](?:{YEAR_SUFFIX_REGEX})\b",
-        re.IGNORECASE | re.UNICODE,
-    )
-    pattern_ot_do_implicit = re.compile(
-        rf"{pattern_entry_boundary}(?P<prep>с|со|от)\s+(?P<year1>{YEAR_RANGE_NUMBER_PATTERN})\s+(?P<mid>до|по)\s+(?P<year2>{YEAR_RANGE_NUMBER_PATTERN})(?!\d)",
-        re.IGNORECASE | re.UNICODE,
-    )
-    pattern_prep_year_implicit = re.compile(
-        rf"\b(?P<prep>{YEAR_IMPLICIT_PREP_REGEX})\s+(?P<year>{YEAR_IMPLICIT_PREP_PATTERN})(?!\d)",
-        re.IGNORECASE | re.UNICODE,
-    )
+    (
+        pattern_range_decade,
+        pattern_s_po,
+        pattern_range,
+        pattern_multiple_years,
+        pattern_suffix,
+        pattern_parenthesized_year,
+        pattern_era_year,
+        pattern_era_range_shared,
+        pattern_year_word,
+        explicit_year_word_tail_pattern,
+        year_suffix_tail_pattern,
+        pattern_ot_do_implicit,
+        pattern_prep_year_implicit,
+    ) = _year_patterns()
 
     def infer_suffix_case(match: re.Match[str], suffix: str) -> str:
         default_case = YEAR_SUFFIX_TO_CASE.get(suffix, "nomn")
