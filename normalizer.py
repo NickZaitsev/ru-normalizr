@@ -215,7 +215,8 @@ class PipelineNormalizer:
         text = text.replace(UNIT_SLASH_PLACEHOLDER, "/")
         text = normalize_ascii_quote_pairs(text)
         text = normalize_punctuation_spacing(text)
-        text = expand_years_ago_abbreviation(text)
+        if self.options.enable_years_ago_expansion:
+            text = expand_years_ago_abbreviation(text)
         text = normalize_numeric_abbreviations(text)
         text = protect_negative_numbers(text)
         text = normalize_explicit_dashes(text)

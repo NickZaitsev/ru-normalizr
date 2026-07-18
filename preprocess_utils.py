@@ -52,8 +52,10 @@ def protect_unit_slashes(text: str) -> str:
 
     return UNIT_SLASH_PATTERN.sub(repl, text)
 YEARS_AGO_ABBREVIATION_PATTERN = re.compile(
-    r"(?<!\w)л\.?\s*н\.(?P<tail>\s*)",
-    re.IGNORECASE,
+    r"(?P<quantity>(?<!\w)(?:\d+(?:[.,]\d+)?|тыс(?:\.|яч[а-яё]*)?|млн\.?|"
+    r"миллион[а-яё]*|млрд\.?|миллиард[а-яё]*|несколько|много)\s+)"
+    r"л\.?\s*н\.(?P<tail>\s*)",
+    re.UNICODE,
 )
 UNARY_MINUS_NUMBER_PATTERN = re.compile(
     r"(?P<prefix>^|[(\[{«]|(?<!\d)\s)(?P<sign>[−-])(?P<space>\s*)(?P<number>\d+(?:[.,]\d+)?)"
@@ -204,17 +206,13 @@ def restore_letter_hyphens(text: str) -> str:
 
 def expand_years_ago_abbreviation(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
+        quantity = match.group("quantity")
         tail = match.group("tail")
         next_char_index = match.end()
         next_char = text[next_char_index] if next_char_index < len(text) else ""
-        if (
-            not next_char
-            or next_char == "\n"
-            or next_char.isalnum()
-            or next_char.isalpha()
-        ):
-            return f"лет назад.{tail}"
-        return f"лет назад{tail}"
+        if not next_char or next_char == "\n" or next_char.isalnum():
+            return f"{quantity}лет назад.{tail}"
+        return f"{quantity}лет назад{tail}"
 
     return YEARS_AGO_ABBREVIATION_PATTERN.sub(repl, text)
 

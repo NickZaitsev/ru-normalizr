@@ -997,6 +997,7 @@ class RuNormalizrApiTests(unittest.TestCase):
             default.enable_contextual_abbreviation_expansion,
             safe.enable_contextual_abbreviation_expansion,
         )
+        self.assertEqual(default.enable_years_ago_expansion, safe.enable_years_ago_expansion)
         self.assertEqual(default.enable_initials_expansion, safe.enable_initials_expansion)
         self.assertEqual(
             default.enable_letter_abbreviation_expansion,

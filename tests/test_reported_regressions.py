@@ -4,6 +4,28 @@ from ru_normalizr import NormalizeOptions, normalize
 
 
 class RuNormalizrReportedRegressionTests(unittest.TestCase):
+    def test_years_ago_expansion_does_not_destroy_person_initials(self):
+        safe = NormalizeOptions.safe()
+
+        self.assertNotIn("лет назад", normalize("Л. Н. Толстой родился в 1828 году.", safe))
+        self.assertNotIn("лет назад", normalize("Роман написал Л.Н. Толстой.", safe))
+        self.assertNotIn("лет назад", normalize("л. н. Толстой", safe))
+        self.assertIn(
+            "пять миллионов лет назад",
+            normalize("Это было 5 млн л. н. примерно.", safe),
+        )
+
+    def test_years_ago_expansion_can_be_disabled(self):
+        options = NormalizeOptions.safe(enable_years_ago_expansion=False)
+
+        self.assertNotIn("лет назад", normalize("Это было 5 млн л. н. примерно.", options))
+
+    def test_tts_person_initials_are_not_rewritten_as_years_ago(self):
+        result = normalize("Л. Н. Толстой", NormalizeOptions.tts())
+
+        self.assertNotIn("лет назад", result)
+        self.assertIn("Толстой", result)
+
     def test_tts_initials_after_role_title_do_not_insert_dot_before_surname(self):
         self.assertEqual(
             normalize("Редактор Е. Харитонова", NormalizeOptions.tts()),
