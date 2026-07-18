@@ -295,7 +295,7 @@ def expand_person_initials(text: str) -> str:
                 else "."
             )
             return f"{surname} {i1} {i2}{terminal}"
-        return f"{surname}, {i1}, {i2}{non_final_tail}"
+        return f"{surname} {i1} {i2}{non_final_tail}"
 
     def repl_surname_single_initial(match):
         if has_following_person_name_token(match.end()):
@@ -312,7 +312,7 @@ def expand_person_initials(text: str) -> str:
                 else "."
             )
             return f"{surname} {i1}{terminal}"
-        return f"{surname}, {i1},{non_final_tail}"
+        return f"{surname} {i1}{non_final_tail}"
 
     def repl_initials_surname(match):
         i1 = initial_name(match.group("i1"))

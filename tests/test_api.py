@@ -626,8 +626,21 @@ class RuNormalizrApiTests(unittest.TestCase):
         )
         self.assertEqual(
             normalize("см. рис. 2 и табл. 3, стр. 4"),
-            "смотри рисунок два и таблица три, страница четыре",
+            "смотри рисунок два и таблицу три, страницу четыре",
         )
+
+    def test_normalize_uses_consistent_byte_counting_forms(self):
+        cases = {
+            "1 байт": "один байт",
+            "2 байта": "два байта",
+            "5 байтов": "пять байтов",
+            "1 МБ": "один мегабайт",
+            "2 МБ": "два мегабайта",
+            "5 МБ": "пять мегабайтов",
+        }
+        for source, expected in cases.items():
+            with self.subTest(source=source):
+                self.assertEqual(normalize(source), expected)
 
     def test_normalize_expands_english_titles_before_latinization(self):
         self.assertEqual(normalize("Mr. Поппер ?"), "мистер Поппер?")
@@ -944,7 +957,7 @@ class RuNormalizrApiTests(unittest.TestCase):
         )
 
     def test_tts_expands_unknown_cyrillic_letter_abbreviations(self):
-        self.assertEqual(normalize("ЦРУ", NormalizeOptions.tts()), "цэ эр уу")
+        self.assertEqual(normalize("ЦРУ", NormalizeOptions.tts()), "цэ эр у")
         self.assertEqual(normalize("ФБР", NormalizeOptions.tts()), "эф бэ эр")
 
     def test_tts_expands_single_person_initials_without_touching_non_person_tokens(self):
@@ -954,7 +967,7 @@ class RuNormalizrApiTests(unittest.TestCase):
         )
         self.assertEqual(
             normalize("Рихтер Ч. разработал шкалу.", NormalizeOptions.tts()),
-            "Рихтер, чэ, разработал шкалу.",
+            "Рихтер чэ разработал шкалу.",
         )
         self.assertEqual(
             normalize("С. Петербург красив.", NormalizeOptions.tts()),
@@ -962,7 +975,7 @@ class RuNormalizrApiTests(unittest.TestCase):
         )
         self.assertEqual(
             normalize("Е. Харитонова", NormalizeOptions.tts()),
-            "ее Харитонова.",
+            "е Харитонова.",
         )
 
     def test_safe_mode_keeps_caps_and_letter_abbreviations_conservative(self):

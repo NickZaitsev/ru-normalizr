@@ -90,14 +90,14 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
     def test_tts_initials_after_role_title_do_not_insert_dot_before_surname(self):
         self.assertEqual(
             normalize("Редактор Е. Харитонова", NormalizeOptions.tts()),
-            "Редактор ее Харитонова.",
+            "Редактор е Харитонова.",
         )
         self.assertEqual(
             normalize(
                 "Редактор Е. Харитонова\n\nКорректор Е. Харитонова",
                 NormalizeOptions.tts(),
             ),
-            "Редактор ее Харитонова.\n\nКорректор ее Харитонова.",
+            "Редактор е Харитонова.\n\nКорректор е Харитонова.",
         )
 
     def test_tts_single_initials_do_not_inject_commas_inside_sentence(self):
@@ -115,7 +115,7 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
                 "В АПРЕЛЕ 1982 ГОДА были арестованы «молодые социалисты» Б. Кагарлицкий[10], П. Кудюкин, А. Фадин, Ю. Хавкин, В. Чернецкий, А. Шилков, а позже – М. Ривкин.",
                 NormalizeOptions.tts(),
             ),
-            'В АПРЕЛЕ тысяча девятьсот восемьдесят второго ГОДА были арестованы "молодые социалисты" бэ Кагарлицкий, пэ Кудюкин, аа Фадин, юю Хавкин, вэ Чернецкий, аа Шилков, а позже — эм Ривкин.',
+            'В АПРЕЛЕ тысяча девятьсот восемьдесят второго ГОДА были арестованы "молодые социалисты" бэ Кагарлицкий, пэ Кудюкин, а Фадин, ю Хавкин, вэ Чернецкий, а Шилков, а позже — эм Ривкин.',
         )
 
     def test_tts_initials_before_quoted_title_do_not_inject_sentence_dot(self):
