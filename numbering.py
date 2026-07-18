@@ -42,7 +42,7 @@ def convert_line_numbering(text: str) -> str:
         converted = convert_numeric_sequence(match.group(2)).capitalize()
         return f"{match.group(1)}{converted}.{match.group(3)}"
 
-    pattern = r"^([ \t]*)([IVXLCDM]+\.|[\d]+(?:\.[\d]+)*\.)([ \t]*)"
+    pattern = r"^([ \t]*)([IVXLCDM]+\.|[\d]+(?:\.[\d]+)*\.)(?!\d)([ \t]*)"
     return "\n".join(
         re.sub(pattern, convert_numbering, line, flags=re.IGNORECASE)
         for line in text.split("\n")

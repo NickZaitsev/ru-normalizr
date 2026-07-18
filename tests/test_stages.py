@@ -249,6 +249,21 @@ class RuNormalizrStageTests(unittest.TestCase):
             "Встреча в десять, ноль семь.",
         )
 
+    def test_dates_time_stage_normalizes_standalone_date_and_clock_seconds(self):
+        self.assertEqual(
+            normalize_dates_and_time("12.05.2025"),
+            "двенадцатого мая две тысячи двадцать пятого года",
+        )
+        self.assertEqual(
+            normalize_dates_and_time("в 10:07:30"),
+            "в десять часов семь минут тридцать секунд",
+        )
+
+    def test_preprocess_does_not_treat_standalone_date_as_line_numbering(self):
+        self.assertEqual(
+            Normalizer().run_stage("preprocess", "12.05.2025"), "12.05.2025"
+        )
+
     def test_dates_time_stage_normalizes_listed_days_in_text_date(self):
         self.assertEqual(
             normalize_dates_and_time("Эти объекты наблюдались 15 и 25 апреля."),
