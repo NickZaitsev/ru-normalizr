@@ -211,7 +211,7 @@ def _year_patterns() -> tuple[re.Pattern[str], ...]:
     flags = re.IGNORECASE | re.UNICODE
     return (
         re.compile(
-            rf"{entry_boundary}(?:(?P<prep>в|во|к|ко|с|со|до|от|на|за)\s+)?(?P<year1>\d{{2,4}})\s*(?:[-–—]|,)\s*(?P<year2>\d{{2,4}})[-–—](?P<suffix>е|х|м|ми)(?:\s+(?P<word>год[а-яё]*\b))?",
+            rf"{entry_boundary}(?:(?P<prep>в|во|к|ко|с|со|до|от|на|за)\s+)?(?P<year1>\d{{2,4}})\s*(?P<separator>[-–—]|,)\s*(?P<year2>\d{{2,4}})[-–—](?P<suffix>е|х|м|ми)(?:\s+(?P<word>год[а-яё]*\b))?",
             flags,
         ),
         re.compile(
@@ -311,6 +311,8 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         return default_case
 
     def replace_range_decade(m: re.Match[str]) -> str:
+        if m.group("separator") == "," and not m.group("word"):
+            return m.group(0)
         case = YEAR_SUFFIX_TO_CASE.get(m.group("suffix").lower(), "nomn")
         result = (
             (f"{m.group('prep')} " if m.group("prep") else "")
