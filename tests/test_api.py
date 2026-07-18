@@ -1172,6 +1172,24 @@ class RuNormalizrCliTests(unittest.TestCase):
 
         self.assertIn("Глава четвёртая.", completed.stdout)
 
+    def test_cli_check_mode_rejects_output_file(self):
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "ru_normalizr",
+                "--check",
+                "--output",
+                "result.txt",
+                "Глава IV.",
+            ],
+            text=True,
+            capture_output=True,
+        )
+
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("--check cannot be combined with --output", completed.stderr)
+
     def test_cli_can_write_output_to_file(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             output_path = Path(tmp_dir) / "normalized.txt"

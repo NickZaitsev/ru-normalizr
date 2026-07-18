@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## Unreleased
 ### Changed
+- Make CLI `--check` an explicit stdout mode that rejects conflicting `--output`, and correct the documented `python -m ru_normalizr` module command
 - Cache immutable morphology parse results in numeral and caps hot paths, cutting a 5 KB number-dense normalization benchmark from about 303 ms to 75 ms
 - Cache the compiled year-pattern set, roughly halving repeated `normalize_years` call overhead on a short-year microbenchmark
 - Load the small bundled dictionaries directly instead of reading or writing executable pickle caches beside installed package files
