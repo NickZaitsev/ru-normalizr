@@ -28,7 +28,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--output", help="Write normalized text to file instead of stdout."
     )
     parser.add_argument(
-        "--check", action="store_true", help="Normalize input and print the result."
+        "--check",
+        action="store_true",
+        help="Print the normalized result to stdout (the default without --output).",
     )
     parser.add_argument(
         "--mode",
@@ -61,6 +63,8 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.check and args.output:
+        parser.error("--check cannot be combined with --output")
     text = _read_input(args)
     options = NormalizeOptions(
         mode=args.mode,

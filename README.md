@@ -70,7 +70,7 @@ ru-normalizr --mode tts --file ./sample.txt --output ./sample.normalized.txt
 
 Если команда `ru_normalizr` не работает, добавьте перед ней `python -m`, например:
 ```bash
-python -m ru-normalizr "Глава IV. Встреча в 10:07." --mode tts
+python -m ru_normalizr "Глава IV. Встреча в 10:07." --mode tts
 ```
 
 Полезные флаги:
@@ -294,7 +294,7 @@ ru-normalizr --mode tts --file ./sample.txt --output ./sample.normalized.txt
 If the `ru_normalizr` command does not work, prepend it with `python -m`, for example:
 
 ```bash
-python -m ru-normalizr "Глава IV. Встреча в 10:07." --mode tts
+python -m ru_normalizr "Глава IV. Встреча в 10:07." --mode tts
 ```
 
 Useful flags:
