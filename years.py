@@ -5,7 +5,7 @@ import re
 
 import num2words
 
-from ._morph import get_morph
+from ._morph import parse_word
 from .abbreviation_context import (
     allows_short_abbreviated_year,
     has_mass_measurement_context,
@@ -189,7 +189,7 @@ def year_to_ordinal_words(year: int, case: str = "nomn", plural: bool = False) -
     words = ordinal.split()
     if not words:
         return ordinal
-    parsed = get_morph().parse(words[-1])
+    parsed = parse_word(words[-1])
     if not parsed:
         return ordinal
     tags = {normalized_case, "plur" if plural else "masc"}

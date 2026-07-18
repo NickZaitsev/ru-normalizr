@@ -77,7 +77,10 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         return "token" + "".join(reversed(letters))
 
     def test_single_initial_geographical_name_check_does_not_call_tag_contains_for_pnct(self):
-        with patch("ru_normalizr.abbreviations.get_morph", return_value=_FakeMorph()):
+        with patch(
+            "ru_normalizr.abbreviations.parse_word",
+            side_effect=lambda token: tuple(_FakeMorph().parse(token)),
+        ):
             self.assertEqual(
                 expand_abbreviations("С. Петербург", NormalizeOptions.tts()),
                 "С. Петербург",

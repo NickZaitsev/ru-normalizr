@@ -4,7 +4,7 @@ import re
 
 import num2words
 
-from .._morph import get_morph
+from .._morph import parse_word
 from ..ordinal_utils import (
     find_first_noun_right,
     find_left_name_anchor,
@@ -125,7 +125,7 @@ def _pick_range_preposition(first_ordinal: str) -> str:
 
 
 def _heading_parse(text: str, match_start: int, head: str):
-    parsed = [candidate for candidate in get_morph().parse(head.lower()) if "NOUN" in candidate.tag]
+    parsed = [candidate for candidate in parse_word(head.lower()) if "NOUN" in candidate.tag]
     if not parsed:
         return None
     inanimate = [candidate for candidate in parsed if "inan" in candidate.tag]
@@ -193,7 +193,7 @@ def normalize_heading_numbers(text: str) -> str:
         )
         target_case = HEADING_CONTEXT_CASES.get(left_word, "nomn")
         noun_parse = next(
-            (candidate for candidate in get_morph().parse("глава") if "NOUN" in candidate.tag),
+            (candidate for candidate in parse_word("глава") if "NOUN" in candidate.tag),
             None,
         )
         if noun_parse is None:
@@ -244,7 +244,6 @@ def normalize_compound_numeric_adjectives(text: str) -> str:
 
 def normalize_hyphenated_words(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
-        morph = get_morph()
         num_str = match.group(1)
         word = match.group(2)
         word_lower = word.lower()
@@ -299,7 +298,7 @@ def normalize_hyphenated_words(text: str) -> str:
             case = context_case if context_case in ("gent", "loct") else "gent"
         else:
             case = context_case
-        p_word = morph.parse(word_lower)[0]
+        p_word = parse_word(word_lower)[0]
         is_adj_like = "ADJF" in p_word.tag or word_lower.endswith(
             (
                 "дневный",
