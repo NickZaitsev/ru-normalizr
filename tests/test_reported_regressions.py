@@ -503,7 +503,7 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
     def test_normalize_fixes_reported_year_suffix_and_abbreviation_cases(self):
         self.assertEqual(
             normalize("и теперь мне уже 35,"),
-            "и теперь мне уже тридцати пяти,",
+            "и теперь мне уже тридцать пять,",
         )
         self.assertEqual(
             normalize("в 41м году,"),

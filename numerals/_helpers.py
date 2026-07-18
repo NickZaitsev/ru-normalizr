@@ -20,6 +20,15 @@ from ._num2words import CARDINAL_GENDER_TO_NUM2WORDS, resolve_num2words_case
 SENTENCE_PUNCTUATION_PATTERN = re.compile(r"\s+([.,!?;:])")
 POINT_NUMBER_SPACING_PATTERN = re.compile(r"(?<=\.) (?=\d)")
 NUMERAL_CONTEXT_BARRIERS = {"равно", "="}
+MORPHOLOGICAL_CONTEXT_BARRIER_POS = {"VERB", "INFN", "GRND"}
+GENITIVE_QUANTITY_GOVERNORS = {
+    "выигрыш",
+    "количество",
+    "потеря",
+    "сумма",
+    "стоимость",
+    "цена",
+}
 POINT_WORD_PATTERN = re.compile(r"(точка [а-яё]+)\. (?=[а-яё])", flags=re.IGNORECASE)
 REPEATED_PUNCTUATION_PATTERN = re.compile(r"([,!?;:])\1+")
 DOUBLE_DOT_PATTERN = re.compile(r"(?<!\.)\.\.(?!\.)")
@@ -392,12 +401,19 @@ def _get_preposition_before_number(tokens: list[str], idx: int) -> tuple[str, st
             token in NUMERAL_CONTEXT_BARRIERS for token in prep_tokens
         ):
             continue
+        if any(
+            parse_word(token)[0].tag.POS in MORPHOLOGICAL_CONTEXT_BARRIER_POS
+            for token in prep_tokens
+        ):
+            continue
         phrase = " ".join(prep_tokens)
         if phrase in PREP_CASE:
             return phrase, PREP_CASE[phrase]
     for i in range(idx - 1, max(-1, idx - 3), -1):
         word_left = normalize_context_token(tokens[i])
         if word_left == "чем" or word_left in NUMERAL_CONTEXT_BARRIERS:
+            break
+        if parse_word(word_left)[0].tag.POS in MORPHOLOGICAL_CONTEXT_BARRIER_POS:
             break
         if word_left in PREP_CASE:
             return word_left, PREP_CASE[word_left]
@@ -450,6 +466,17 @@ def get_numeral_case(
                 if p_prev.tag.POS in {"ADJF", "PRTF"}:
                     return prev_case
 
+    if idx > 0:
+        immediate_left = normalize_context_token(tokens[idx - 1])
+        if immediate_left:
+            left_noun = parse_word(immediate_left)[0]
+            if (
+                is_case_reliable_noun(left_noun)
+                and left_noun.normal_form in GENITIVE_QUANTITY_GOVERNORS
+                and left_noun.tag.case in {"nomn", "gent"}
+            ):
+                return "gent"
+
     prep_match = _get_preposition_before_number(tokens, idx)
     if prep_match is not None:
         word_left, prep_case = prep_match
@@ -457,6 +484,11 @@ def get_numeral_case(
             for k in range(idx + 1, min(len(tokens), idx + 5)):
                 if tokens[k].lower() in {"до", "по"}:
                     return "gent"
+                right_parse = parse_word(tokens[k])[0]
+                if is_case_reliable_noun(right_parse):
+                    if right_parse.tag.case == "ablt":
+                        return "ablt"
+                    break
         if word_left in {"в", "на"}:
             for j in range(idx + 1, min(len(tokens), idx + 6)):
                 if any(char in tokens[j] for char in ".!?;:,"):
@@ -514,13 +546,17 @@ def get_numeral_case(
         return prep_case
 
     blocked_by_noun = False
+    local_left_scan_start = left_scan_start
     for i in range(idx - 1, max(left_scan_start - 1, idx - 3), -1):
         p = parse_word(tokens[i])[0]
+        if p.tag.POS in MORPHOLOGICAL_CONTEXT_BARRIER_POS:
+            local_left_scan_start = i + 1
+            break
         if p.tag.POS == "NOUN":
             blocked_by_noun = True
             break
 
-    for i in range(max(left_scan_start, idx - 2), idx):
+    for i in range(max(local_left_scan_start, idx - 2), idx):
         p = parse_word(tokens[i])[0]
         if blocked_by_noun and p.tag.POS in {"ADJF", "PRTF"}:
             continue
@@ -568,7 +604,7 @@ def get_numeral_case(
                     continue
                 p_left = parse_word(left_token)[0]
                 if p_left.tag.case == "datv" and p_left.tag.POS in {"NPRO", "NOUN"}:
-                    return "datv"
+                    return "nomn"
                 break
 
     if idx == 0 or any(char in tokens[idx - 1] for char in ".!?"):
