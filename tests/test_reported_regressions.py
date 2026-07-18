@@ -318,11 +318,11 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
         )
         self.assertEqual(
             normalize("С XVI по XVIII вв. менялись маршруты."),
-            "С шестнадцатого по восемнадцатый века менялись маршруты.",
+            "С шестнадцатого по восемнадцатый век менялись маршруты.",
         )
         self.assertEqual(
             normalize("От XVI до XVIII вв. менялись маршруты."),
-            "От шестнадцатого до восемнадцатого веков менялись маршруты.",
+            "От шестнадцатого до восемнадцатого века менялись маршруты.",
         )
 
     def test_normalize_reads_quarter_abbreviations_in_context(self):
