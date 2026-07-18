@@ -4,7 +4,7 @@ import re
 from typing import Literal
 
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
-from ._constants import UNIT_TOKEN_FRAGMENT, UNITS_DATA
+from ._constants import UNIT_TOKEN_FRAGMENT, resolve_unit_info
 
 ORDINAL_SUFFIXES = {
     "й",
@@ -54,7 +54,7 @@ def is_safe_numeric_hyphen_unit(unit_raw: str) -> bool:
     unit_key = unit_raw.lower().strip(".")
     if unit_key in ORDINAL_SUFFIXES or unit_key in CARDINAL_CASE_SUFFIXES:
         return False
-    if unit_key not in UNITS_DATA:
+    if resolve_unit_info(unit_raw) is None:
         return False
     if len(unit_key) == 1 and unit_key in AMBIGUOUS_SINGLE_LETTER_HYPHEN_UNITS:
         return False

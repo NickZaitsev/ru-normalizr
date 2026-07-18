@@ -7,7 +7,7 @@ import num2words
 from .._morph import get_morph
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_context import simple_tokenize
-from ._constants import PREP_CASE, UNIT_TOKEN_FRAGMENT, UNITS_DATA
+from ._constants import PREP_CASE, UNIT_TOKEN_FRAGMENT, resolve_unit_info
 from ._helpers import (
     get_numeral_case,
     inflect_numeral_string,
@@ -133,15 +133,13 @@ def normalize_decimals(text: str) -> str:
                     combined_candidates.append(f"{unit_raw}.{unit2_raw}")
                 combined_candidates.append(f"{unit_raw}{unit2_raw}")
                 for candidate_raw in combined_candidates:
-                    candidate_key = candidate_raw.lower().strip(".")
-                    unit_info = UNITS_DATA.get(candidate_key)
+                    unit_info = resolve_unit_info(candidate_raw)
                     if unit_info:
                         unit_consumes_second_token = True
                         break
             if unit_info is None:
-                unit_lower = unit_raw.lower().strip(".")
                 if not should_skip_unit_candidate(unit_raw, text[match.end("unit") :]):
-                    unit_info = UNITS_DATA.get(unit_lower)
+                    unit_info = resolve_unit_info(unit_raw)
             unit2_processed = False
             if unit_info:
                 lemma, _, _, *u_suffix = unit_info
@@ -151,8 +149,7 @@ def normalize_decimals(text: str) -> str:
                 if unit_consumes_second_token:
                     unit2_processed = True
                 elif unit2_raw:
-                    unit2_lower = unit2_raw.lower().strip(".")
-                    unit2_info = UNITS_DATA.get(unit2_lower)
+                    unit2_info = resolve_unit_info(unit2_raw)
                     multipliers = {"тысяча", "миллион", "миллиард", "триллион"}
                     if lemma in multipliers and unit2_info:
                         lemma2, _, _, *suffix2 = unit2_info

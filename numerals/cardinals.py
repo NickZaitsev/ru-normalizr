@@ -13,6 +13,7 @@ from ._constants import (
     PREP_CASE,
     TIME_WORDS,
     UNITS_DATA,
+    resolve_unit_info,
 )
 from ._helpers import (
     build_number_token,
@@ -44,7 +45,7 @@ GENITIVE_RANGE_CONTEXT_STEMS = (
 
 def _resolve_range_unit_info(unit_raw: str):
     unit_lower = unit_raw.lower().strip(".")
-    direct = UNITS_DATA.get(unit_lower)
+    direct = resolve_unit_info(unit_raw)
     if direct is not None:
         return direct
 
@@ -118,6 +119,14 @@ def normalize_cardinal_numerals(text: str) -> str:
         clean = token.lower().strip('.,:;!"«»()[]{}')
         return bool(clean) and " " not in clean and clean in PREP_CASE
 
+    def inanimate_cardinal_case(value: int, case: str) -> str:
+        if case != "accs":
+            return case
+        final_group_needs_accusative = value % 10 == 1 and value % 100 != 11
+        thousands = (value // 1000) % 1000
+        thousands_need_accusative = thousands % 10 == 1 and thousands % 100 != 11
+        return "accs" if final_group_needs_accusative or thousands_need_accusative else "nomn"
+
     def should_skip_unit_candidate(start_index: int, token_span: int, unit_raw: str) -> bool:
         chunk = tokens[start_index : start_index + token_span]
         if (
@@ -144,7 +153,7 @@ def normalize_cardinal_numerals(text: str) -> str:
                 break
             candidate_raw = "".join(chunk)
             candidate_key = candidate_raw.lower().strip(".")
-            if candidate_key in UNITS_DATA:
+            if resolve_unit_info(candidate_raw) is not None:
                 if should_skip_unit_candidate(
                     start_index, end_index - start_index, candidate_raw
                 ):
@@ -213,7 +222,7 @@ def normalize_cardinal_numerals(text: str) -> str:
             unit_raw = noun_token
             if next_token_lower == "°" and i + 2 < len(tokens):
                 degree_suffix = tokens[i + 2].lower().strip('.,:;!"«»()[]{}')
-                if degree_suffix in {"c", "k", "f"}:
+                if degree_suffix in {"c", "k", "f", "с", "к", "ф"}:
                     next_token_lower = f"°{degree_suffix}"
                     noun_token = f"{noun_token}{tokens[i + 2]}"
                     unit_raw = noun_token
@@ -223,7 +232,7 @@ def normalize_cardinal_numerals(text: str) -> str:
             if should_skip_unit_candidate(i + 1, unit_token_span, unit_raw):
                 unit_info = None
             else:
-                unit_info = UNITS_DATA.get(next_token_lower)
+                unit_info = resolve_unit_info(unit_raw)
             if unit_info:
                 preserve_unit_dot = (
                     unit_raw.endswith(".")
@@ -262,12 +271,7 @@ def normalize_cardinal_numerals(text: str) -> str:
                         "NOUN" in p_multiplier.tag
                         and p_multiplier.normal_form in multipliers
                     ):
-                        target_num_case = case
-                        if case == "accs":
-                            rem100 = val % 100
-                            rem10 = val % 10
-                            if rem10 in (2, 3, 4) and rem100 not in (12, 13, 14):
-                                target_num_case = "nomn"
+                        target_num_case = inanimate_cardinal_case(val, case)
                         multiplier_gender = p_multiplier.tag.gender or "masc"
                         num_words = build_number_token(
                             token,
@@ -287,12 +291,7 @@ def normalize_cardinal_numerals(text: str) -> str:
                         i += 4 if is_redundant_unit_token(i + 3, lemma) else 3
                         continue
 
-                target_num_case = case
-                if case == "accs":
-                    rem100 = val % 100
-                    rem10 = val % 10
-                    if rem10 in (2, 3, 4) and rem100 not in (12, 13, 14):
-                        target_num_case = "nomn"
+                target_num_case = inanimate_cardinal_case(val, case)
                 num_words = build_number_token(
                     token,
                     clean_token,
@@ -336,8 +335,7 @@ def normalize_cardinal_numerals(text: str) -> str:
                     step += 1
                 if lemma in multipliers and i + 2 < len(tokens):
                     next_next_token = tokens[i + 2]
-                    nn_token_lower = next_next_token.lower().strip('.,:;!"«»()[]{}')
-                    nn_unit_info = UNITS_DATA.get(nn_token_lower)
+                    nn_unit_info = resolve_unit_info(next_next_token)
                     if nn_unit_info:
                         nn_lemma, _, _, *nn_suffix = nn_unit_info
                         p_nn = morph.parse(nn_lemma)[0]
