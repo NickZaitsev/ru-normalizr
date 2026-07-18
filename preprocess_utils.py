@@ -97,6 +97,11 @@ ARTICLE_ABBREVIATION_PATTERN = re.compile(r"\bст\.\s*(?=\d)", re.IGNORECASE)
 FIGURE_ABBREVIATION_PATTERN = re.compile(r"\bрис\.\s*(?=\d)", re.IGNORECASE)
 TABLE_ABBREVIATION_PATTERN = re.compile(r"\bтабл\.\s*(?=\d)", re.IGNORECASE)
 APPROXIMATE_ABBREVIATION_PATTERN = re.compile(r"\bок\.\s*(?=\d)", re.IGNORECASE)
+BIBLIOGRAPHIC_NUMBER_ABBREVIATIONS = (
+    (re.compile(r"(?<!\w)Т\.\s*(?=\d)"), "том "),
+    (re.compile(r"(?<!\w)Vol\.\s*(?=\d)", re.IGNORECASE), "том "),
+    (re.compile(r"(?<!\w)No\.\s*(?=\d)", re.IGNORECASE), "номер "),
+)
 ERA_ABBREVIATION_PATTERN = re.compile(
     r"(?<!\w)(?P<abbr>до\s+н\.?\s*э\.?|н\.?\s*э\.?)(?P<tail>\s*)",
     re.IGNORECASE,
@@ -175,6 +180,8 @@ def normalize_numeric_abbreviations(text: str) -> str:
     text = FIGURE_ABBREVIATION_PATTERN.sub("рисунок ", text)
     text = TABLE_ABBREVIATION_PATTERN.sub("таблица ", text)
     text = APPROXIMATE_ABBREVIATION_PATTERN.sub("около ", text)
+    for pattern, replacement in BIBLIOGRAPHIC_NUMBER_ABBREVIATIONS:
+        text = pattern.sub(replacement, text)
     return normalize_era_abbreviations(text)
 
 

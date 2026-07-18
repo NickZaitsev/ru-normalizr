@@ -469,6 +469,8 @@ def get_numeral_case(
     if idx > 0:
         immediate_left = normalize_context_token(tokens[idx - 1])
         if immediate_left:
+            if immediate_left in {"том", "номер"}:
+                return "nomn"
             left_noun = parse_word(immediate_left)[0]
             if (
                 is_case_reliable_noun(left_noun)
