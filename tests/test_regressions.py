@@ -7,6 +7,7 @@ from ru_normalizr import NormalizeOptions, normalize
 from ru_normalizr.abbreviations import expand_abbreviations
 from ru_normalizr.dictionary import DictionaryNormalizer
 from ru_normalizr.latinization import (
+    _clear_latinization_word_caches,
     _resolve_unknown_latin_fallback,
     _resolve_unknown_latin_fallbacks,
     apply_latinization,
@@ -326,6 +327,7 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         self.assertEqual(calls, ["mystery", "мистери"])
 
     def test_ipa_latinization_batches_large_eng_to_ipa_lookups(self):
+        _clear_latinization_word_caches()
         words = [self._alpha_word(index) for index in range(1700)]
         calls: list[list[str]] = []
 
@@ -343,13 +345,20 @@ class RuNormalizrRegressionTests(unittest.TestCase):
                 enabled=True,
                 backend="ipa",
             )
+            repeated_result = apply_latinization(
+                " ".join(words),
+                enabled=True,
+                backend="ipa",
+            )
 
         self.assertEqual(len(calls), 3)
         self.assertTrue(all(len(chunk) <= 800 for chunk in calls))
+        self.assertEqual(repeated_result, result)
         self.assertEqual(len(result.split()), len(words))
         self.assertNotRegex(result, r"[A-Za-z]")
 
     def test_unknown_latin_fallback_batches_dictionary_rewrite_for_many_words(self):
+        _clear_latinization_word_caches()
         words = tuple(self._alpha_word(index) for index in range(12))
         calls: list[str] = []
 
@@ -370,6 +379,11 @@ class RuNormalizrRegressionTests(unittest.TestCase):
                 "C:/tmp",
                 "latinization.dic",
             )
+            repeated_result = _resolve_unknown_latin_fallbacks(
+                words,
+                "C:/tmp",
+                "latinization.dic",
+            )
 
         self.assertEqual(
             result,
@@ -377,6 +391,7 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         )
         self.assertEqual(len(calls), 2)
         self.assertIn("\n", calls[0])
+        self.assertEqual(repeated_result, result)
 
     def test_dictionary_normalizer_precompiles_simple_chunks_once(self):
         with TemporaryDirectory() as tmp_dir:
