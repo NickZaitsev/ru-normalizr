@@ -145,6 +145,7 @@ def _resolve_explicit_roman_context_form(
     word: str,
     *,
     case_override: str | None = None,
+    number_override: str | None = None,
 ) -> tuple[object, str, str] | None:
     base_word, trailing_punctuation = _split_context_word_punctuation(word)
     resolved = _resolve_roman_context_noun(base_word)
@@ -157,7 +158,7 @@ def _resolve_explicit_roman_context_form(
         lemma,
         noun_parse,
         case=case,
-        abbreviation_number=abbreviation_number,
+        abbreviation_number=number_override or abbreviation_number,
     )
     return noun_parse, case, f"{rendered_word}{trailing_punctuation}"
 
@@ -472,16 +473,14 @@ def convert_roman_century_ranges(text: str) -> str:
             right_number = roman.fromRoman(match.group("right").upper())
         except roman.InvalidRomanNumeralError:
             return match.group(0)
-        normalized_word = normalize_context_token(match.group("word"))
         if match.group("mid").lower() == "до":
             right_case = "gent"
-        elif normalized_word == "вв":
-            right_case = "nomn"
         else:
-            right_case = None
+            right_case = "accs"
         resolved = _resolve_explicit_roman_context_form(
             match.group("word"),
             case_override=right_case,
+            number_override="sing",
         )
         if resolved is None:
             return match.group(0)

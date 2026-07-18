@@ -577,6 +577,8 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
     def replace_range(m: re.Match[str]) -> str:
         prep = m.group("prep")
         word = m.group("word")
+        year1 = int(m.group("year1"))
+        year2 = int(m.group("year2"))
         era_text = (
             _normalize_era_marker(m.group("era")) if m.group("era") is not None else None
         )
@@ -589,6 +591,19 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         else:
             word_norm = word
             is_abbrev = False
+        if (
+            prep is None
+            and re.fullmatch(YEAR_PLURAL_ABBREV_REGEX, word_lower)
+            and is_plausible_year(year1)
+            and is_plausible_year(year2)
+        ):
+            result = (
+                f"с {year_to_ordinal_words(year1, 'gent')} "
+                f"по {year_to_ordinal_words(year2, 'accs')} год"
+            )
+            if word.endswith(".") and should_keep_terminal_abbreviation_dot(text, m.end()):
+                result += "."
+            return result
         if word and not is_abbrev:
             case = YEAR_WORD_TO_CASE.get(word_lower, "nomn")
         elif prep:
@@ -597,7 +612,7 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
             case = "nomn"
         result = (
             (f"{prep} " if prep else "")
-            + f"{year_to_ordinal_words(int(m.group('year1')), case, True)} — {year_to_ordinal_words(int(m.group('year2')), case, True)}"
+            + f"{year_to_ordinal_words(year1, case, True)} — {year_to_ordinal_words(year2, case, True)}"
         )
         if word_norm:
             if is_abbrev:
