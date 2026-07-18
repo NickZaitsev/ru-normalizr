@@ -18,6 +18,7 @@ from ._num2words import CARDINAL_GENDER_TO_NUM2WORDS, resolve_num2words_case
 
 SENTENCE_PUNCTUATION_PATTERN = re.compile(r"\s+([.,!?;:])")
 POINT_NUMBER_SPACING_PATTERN = re.compile(r"(?<=\.) (?=\d)")
+NUMERAL_CONTEXT_BARRIERS = {"равно", "="}
 POINT_WORD_PATTERN = re.compile(r"(точка [а-яё]+)\. (?=[а-яё])", flags=re.IGNORECASE)
 REPEATED_PUNCTUATION_PATTERN = re.compile(r"([,!?;:])\1+")
 DOUBLE_DOT_PATTERN = re.compile(r"(?<!\.)\.\.(?!\.)")
@@ -325,14 +326,16 @@ def _get_preposition_before_number(tokens: list[str], idx: int) -> tuple[str, st
     for prep_len in range(max_prep_len, 1, -1):
         start = idx - prep_len
         prep_tokens = [normalize_context_token(token) for token in tokens[start:idx]]
-        if not all(prep_tokens):
+        if not all(prep_tokens) or any(
+            token in NUMERAL_CONTEXT_BARRIERS for token in prep_tokens
+        ):
             continue
         phrase = " ".join(prep_tokens)
         if phrase in PREP_CASE:
             return phrase, PREP_CASE[phrase]
     for i in range(idx - 1, max(-1, idx - 3), -1):
         word_left = normalize_context_token(tokens[i])
-        if word_left == "чем":
+        if word_left == "чем" or word_left in NUMERAL_CONTEXT_BARRIERS:
             break
         if word_left in PREP_CASE:
             return word_left, PREP_CASE[word_left]
@@ -341,6 +344,11 @@ def _get_preposition_before_number(tokens: list[str], idx: int) -> tuple[str, st
 
 def get_numeral_case(tokens: list[str], idx: int) -> str:
     is_range_start = idx < len(tokens) - 1 and tokens[idx + 1] in {"-", "–", "—"}
+    left_scan_start = 0
+    for position in range(idx - 1, -1, -1):
+        if normalize_context_token(tokens[position]) in NUMERAL_CONTEXT_BARRIERS:
+            left_scan_start = position + 1
+            break
 
     def unit_hint(number_index: int) -> str | None:
         if number_index + 1 >= len(tokens):
@@ -441,20 +449,20 @@ def get_numeral_case(tokens: list[str], idx: int) -> str:
         return prep_case
 
     blocked_by_noun = False
-    for i in range(idx - 1, max(-1, idx - 3), -1):
+    for i in range(idx - 1, max(left_scan_start - 1, idx - 3), -1):
         p = parse_word(tokens[i])[0]
         if p.tag.POS == "NOUN":
             blocked_by_noun = True
             break
 
-    for i in range(max(0, idx - 2), idx):
+    for i in range(max(left_scan_start, idx - 2), idx):
         p = parse_word(tokens[i])[0]
         if blocked_by_noun and p.tag.POS in {"ADJF", "PRTF"}:
             continue
         if p.tag.POS in {"ADJF", "PRTF"} and p.tag.case:
             return p.tag.case
 
-    for i in range(idx - 1, max(-1, idx - 5), -1):
+    for i in range(idx - 1, max(left_scan_start - 1, idx - 5), -1):
         word_left = tokens[i].lower().strip(".,!?;:")
         p_verb = parse_word(word_left)[0]
         if p_verb.normal_form in VERB_CASE:
@@ -489,7 +497,7 @@ def get_numeral_case(tokens: list[str], idx: int) -> str:
             char in tokens[idx + 1] for char in ",.;:!?…"
         )
         if right_boundary:
-            for back in range(idx - 1, max(-1, idx - 4), -1):
+            for back in range(idx - 1, max(left_scan_start - 1, idx - 4), -1):
                 left_token = normalize_context_token(tokens[back])
                 if not left_token or left_token in {"уже", "теперь"}:
                     continue
