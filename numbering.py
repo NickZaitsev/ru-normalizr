@@ -8,6 +8,14 @@ import roman
 from .options import NormalizeOptions
 from .preprocess_utils import classify_bracketed_numeric_content
 
+LINE_NUMBERING_PATTERN = re.compile(
+    r"^([ \t]*)([IVXLCDM]+\.|[\d]+(?:\.[\d]+)*\.)(?!\d)([ \t]*)",
+    re.IGNORECASE | re.MULTILINE,
+)
+BRACKETED_NUMBER_PATTERN = re.compile(
+    r"([(\[{])\s*([^()\[\]{}]+?)\*?\s*([)\]}])", re.IGNORECASE
+)
+
 
 def num_to_word(value: int) -> str:
     try:
@@ -42,18 +50,13 @@ def convert_line_numbering(text: str) -> str:
         converted = convert_numeric_sequence(match.group(2)).capitalize()
         return f"{match.group(1)}{converted}.{match.group(3)}"
 
-    pattern = r"^([ \t]*)([IVXLCDM]+\.|[\d]+(?:\.[\d]+)*\.)(?!\d)([ \t]*)"
-    return "\n".join(
-        re.sub(pattern, convert_numbering, line, flags=re.IGNORECASE)
-        for line in text.split("\n")
-    )
+    return LINE_NUMBERING_PATTERN.sub(convert_numbering, text)
 
 
 def convert_bracketed_numbers(
     text: str, options: NormalizeOptions | None = None
 ) -> str:
     active = options or NormalizeOptions()
-    pattern = r"([(\[{])\s*([^()\[\]{}]+?)\*?\s*([)\]}])"
     pairs = {"(": ")", "[": "]", "{": "}"}
 
     def repl(match: re.Match[str]) -> str:
@@ -84,4 +87,4 @@ def convert_bracketed_numbers(
             return ""
         return match.group(0)
 
-    return re.sub(pattern, repl, text, flags=re.IGNORECASE)
+    return BRACKETED_NUMBER_PATTERN.sub(repl, text)

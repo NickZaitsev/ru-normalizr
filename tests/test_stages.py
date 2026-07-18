@@ -3,7 +3,7 @@ import unittest
 from ru_normalizr import NormalizeOptions, Normalizer
 from ru_normalizr.abbreviations import expand_abbreviations
 from ru_normalizr.dates_time import normalize_dates_and_time
-from ru_normalizr.numbering import convert_bracketed_numbers
+from ru_normalizr.numbering import convert_bracketed_numbers, convert_line_numbering
 from ru_normalizr.numerals import (
     normalize_decimals,
     normalize_fractions,
@@ -262,6 +262,12 @@ class RuNormalizrStageTests(unittest.TestCase):
     def test_preprocess_does_not_treat_standalone_date_as_line_numbering(self):
         self.assertEqual(
             Normalizer().run_stage("preprocess", "12.05.2025"), "12.05.2025"
+        )
+
+    def test_line_numbering_converts_multiple_lines_in_one_pass(self):
+        self.assertEqual(
+            convert_line_numbering("1. первый\nII. второй\nбез номера"),
+            "Один. первый\nДва. второй\nбез номера",
         )
 
     def test_dates_time_stage_normalizes_listed_days_in_text_date(self):

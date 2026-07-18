@@ -7,6 +7,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## Unreleased
 
 ### Changed
+- Reject lowercase inline-cap tokens before extracting their letters
+- Convert line numbering with one multiline substitution instead of one regex call per line
 - Avoid integer parsing for numeral-stage tokens that cannot begin a number
 - Normalize quote variants and linebreak runs with guarded, consolidated scans
 - Skip dictionary wildcard rules when their required literal fragment is absent
