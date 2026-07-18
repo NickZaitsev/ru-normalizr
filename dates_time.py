@@ -250,6 +250,8 @@ def normalize_dates_and_time(text: str, options: NormalizeOptions | None = None)
     active = options or NormalizeOptions()
     if not active.enable_dates_time_normalization:
         return text
+    if not any(char.isdecimal() for char in text):
+        return text
     text = normalize_text_dates(text)
     text = normalize_dates(text)
     text = normalize_time(text)

@@ -266,6 +266,8 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
     active = options or NormalizeOptions()
     if not active.enable_year_normalization:
         return text
+    if not any(char.isdecimal() for char in text):
+        return text
 
     (
         pattern_range_decade,

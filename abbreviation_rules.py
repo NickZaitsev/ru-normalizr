@@ -110,3 +110,8 @@ ABBREVIATION_PATTERNS = [
     )
     for matcher, replacement in ABBREVIATION_RULES.items()
 ]
+
+ABBREVIATION_LITERAL_HINTS = [
+    matcher.casefold() if isinstance(matcher, str) else None
+    for matcher in ABBREVIATION_RULES
+]

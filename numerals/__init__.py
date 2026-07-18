@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from ..options import NormalizeOptions
 from ..text_context import simple_tokenize
-from ._constants import ALL_UNITS
-from ._helpers import get_numeral_case
+from ._constants import ALL_UNITS, CURRENCY_STANDALONE, GREEK_LETTERS, MATH_SYMBOLS
+from ._helpers import detokenize, get_numeral_case
 from .cardinals import (
     normalize_all_digits_everywhere,
     normalize_cardinal_numerals,
@@ -25,9 +25,32 @@ from .symbols import (
     normalize_standalone_currency,
 )
 
+_NUMERAL_TRIGGER_CHARS = frozenset(
+    (*GREEK_LETTERS, *MATH_SYMBOLS, *CURRENCY_STANDALONE)
+)
+_POST_NUMERAL_ABBREVIATION_HINTS = (
+    "тыс",
+    "млн",
+    "млрд",
+    "трлн",
+    "руб",
+    "долл",
+    "дол",
+    "др.",
+)
+
+
+def _contains_numeral_candidates(text: str) -> bool:
+    if any(char.isnumeric() or char in _NUMERAL_TRIGGER_CHARS for char in text):
+        return True
+    folded_text = text.casefold()
+    return any(hint in folded_text for hint in _POST_NUMERAL_ABBREVIATION_HINTS)
+
 
 def normalize_numerals(text: str, options: NormalizeOptions | None = None) -> str:
     del options
+    if not _contains_numeral_candidates(text):
+        return detokenize(simple_tokenize(text))
     text = normalize_heading_ranges(text)
     text = normalize_heading_numbers(text)
     text = normalize_numeric_unit_ranges(text)
