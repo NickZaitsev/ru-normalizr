@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import threading
+from collections import OrderedDict
 from functools import lru_cache
 from pathlib import Path
 
@@ -12,6 +14,11 @@ LATIN_TOKEN_PATTERN = re.compile(r"[A-Za-z][A-Za-z'\-]*")
 IPA_BATCH_SIZE = 800
 IPA_BATCH_THRESHOLD = 24
 DICTIONARY_FALLBACK_BATCH_THRESHOLD = 8
+LATINIZATION_WORD_CACHE_SIZE = 50000
+
+_ipa_word_cache: OrderedDict[str, str] = OrderedDict()
+_fallback_word_cache: OrderedDict[tuple[str, str, str], str] = OrderedDict()
+_word_cache_lock = threading.RLock()
 
 # Order matters.
 IPA_MAP = [
@@ -94,11 +101,48 @@ def _get_latin_dictionary_normalizer(
     )
 
 
-@lru_cache(maxsize=50000)
 def _ipa_convert_cached(word: str) -> str:
+    return _ipa_convert_words((word,))[word]
+
+
+def _read_ipa_word_cache(words: tuple[str, ...]) -> tuple[dict[str, str], tuple[str, ...]]:
+    resolved: dict[str, str] = {}
+    missing: list[str] = []
+    with _word_cache_lock:
+        for word in words:
+            cached = _ipa_word_cache.get(word)
+            if cached is None:
+                missing.append(word)
+                continue
+            _ipa_word_cache.move_to_end(word)
+            resolved[word] = cached
+    return resolved, tuple(missing)
+
+
+def _store_ipa_word_cache(results: dict[str, str]) -> None:
+    with _word_cache_lock:
+        for word, converted in results.items():
+            _ipa_word_cache[word] = converted
+            _ipa_word_cache.move_to_end(word)
+        while len(_ipa_word_cache) > LATINIZATION_WORD_CACHE_SIZE:
+            _ipa_word_cache.popitem(last=False)
+
+
+def _ipa_convert_words(words: tuple[str, ...]) -> dict[str, str]:
+    resolved, missing = _read_ipa_word_cache(words)
+    if not missing:
+        return resolved
+
     import eng_to_ipa as ipa
 
-    return ipa.convert(word)
+    if len(missing) <= IPA_BATCH_THRESHOLD:
+        converted = tuple(ipa.convert(word) for word in missing)
+    else:
+        converted = _ipa_convert_batch(missing)
+    fresh_results = dict(zip(missing, converted))
+    _store_ipa_word_cache(fresh_results)
+    resolved.update(fresh_results)
+    return resolved
 
 
 def _ipa_convert_batch(words: tuple[str, ...]) -> tuple[str, ...]:
@@ -135,27 +179,60 @@ def _resolve_unknown_latin_fallbacks(
     unique_words = tuple(dict.fromkeys(words))
     if not unique_words:
         return {}
-    if len(unique_words) <= DICTIONARY_FALLBACK_BATCH_THRESHOLD:
-        return {
-            word: _resolve_unknown_latin_fallback(word, dictionaries_path, filename)
-            for word in unique_words
-        }
 
-    current = "\n".join(unique_words)
-    resolved_path = Path(dictionaries_path)
-    for _ in range(6):
-        updated = _apply_dictionary_latinization(current, resolved_path, filename)
-        if updated == current:
-            break
-        current = updated
+    resolved: dict[str, str] = {}
+    missing: list[str] = []
+    with _word_cache_lock:
+        for word in unique_words:
+            key = (word, dictionaries_path, filename)
+            cached = _fallback_word_cache.get(key)
+            if cached is None:
+                missing.append(word)
+                continue
+            _fallback_word_cache.move_to_end(key)
+            resolved[word] = cached
 
-    resolved_words = current.split("\n")
-    if len(resolved_words) != len(unique_words):
-        return {
+    if not missing:
+        return resolved
+    if len(missing) <= DICTIONARY_FALLBACK_BATCH_THRESHOLD:
+        fresh_results = {
             word: _resolve_unknown_latin_fallback(word, dictionaries_path, filename)
-            for word in unique_words
+            for word in missing
         }
-    return dict(zip(unique_words, resolved_words))
+    else:
+        current = "\n".join(missing)
+        resolved_path = Path(dictionaries_path)
+        for _ in range(6):
+            updated = _apply_dictionary_latinization(current, resolved_path, filename)
+            if updated == current:
+                break
+            current = updated
+
+        resolved_words = current.split("\n")
+        if len(resolved_words) != len(missing):
+            fresh_results = {
+                word: _resolve_unknown_latin_fallback(word, dictionaries_path, filename)
+                for word in missing
+            }
+        else:
+            fresh_results = dict(zip(missing, resolved_words))
+
+    with _word_cache_lock:
+        for word, converted in fresh_results.items():
+            key = (word, dictionaries_path, filename)
+            _fallback_word_cache[key] = converted
+            _fallback_word_cache.move_to_end(key)
+        while len(_fallback_word_cache) > LATINIZATION_WORD_CACHE_SIZE:
+            _fallback_word_cache.popitem(last=False)
+    resolved.update(fresh_results)
+    return resolved
+
+
+def _clear_latinization_word_caches() -> None:
+    with _word_cache_lock:
+        _ipa_word_cache.clear()
+        _fallback_word_cache.clear()
+    _resolve_unknown_latin_fallback.cache_clear()
 
 
 def handle_long_vowels(ipa: str) -> str:
@@ -253,13 +330,7 @@ def _apply_ipa_latinization(
         return text
 
     unique_words = tuple(dict.fromkeys(match.group(0).lower() for match in matches))
-    if len(unique_words) <= IPA_BATCH_THRESHOLD:
-        ipa_results = {
-            word: _ipa_convert_cached(word)
-            for word in unique_words
-        }
-    else:
-        ipa_results = dict(zip(unique_words, _ipa_convert_batch(unique_words)))
+    ipa_results = _ipa_convert_words(unique_words)
 
     replacements: dict[str, str] = {}
     unknown_words: list[str] = []
