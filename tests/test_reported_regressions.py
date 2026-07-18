@@ -589,6 +589,27 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
         self.assertEqual(normalize("с 3 друзьями"), "с тремя друзьями")
         self.assertEqual(normalize("перед 8 марта"), "перед восьмым марта")
 
+    def test_normalize_preserves_people_lexeme_after_decimal_millions(self):
+        self.assertEqual(
+            normalize("2,5 млн человек"),
+            "две целых пять десятых миллиона человек",
+        )
+
+    def test_normalize_reads_common_binary_math_symbols(self):
+        cases = {
+            "2×3": "два умножить на три",
+            "2+3": "два плюс три",
+            "5−2": "пять минус два",
+            "8÷4": "восемь разделить на четыре",
+            "2^3": "два в степени три",
+        }
+        for source, expected in cases.items():
+            with self.subTest(source=source):
+                self.assertEqual(normalize(source), expected)
+
+    def test_normalize_preserves_ellipsis_between_adjacent_numbers(self):
+        self.assertIn("…", normalize("1…2"))
+
     def test_normalize_bibliographic_volume_and_number_abbreviations(self):
         self.assertEqual(
             normalize("в журнале (1984. Т. 34)"),

@@ -41,6 +41,15 @@ INLINE_LINEBREAK_SPACE_PATTERN = re.compile(
 LETTER_HYPHEN_PLACEHOLDER = "\ue000"
 NEGATIVE_NUMBER_PLACEHOLDER = "\ue001"
 UNIT_SLASH_PLACEHOLDER = "\ue003"
+BINARY_PLUS_PLACEHOLDER = "\ue004"
+BINARY_MINUS_PLACEHOLDER = "\ue005"
+BINARY_POWER_PLACEHOLDER = "\ue006"
+BINARY_MATH_OPERATOR_PATTERN = re.compile(r"(?<=\d)[+−^](?=\d)")
+BINARY_MATH_OPERATOR_PLACEHOLDERS = {
+    "+": BINARY_PLUS_PLACEHOLDER,
+    "−": BINARY_MINUS_PLACEHOLDER,
+    "^": BINARY_POWER_PLACEHOLDER,
+}
 
 
 def protect_unit_slashes(text: str) -> str:
@@ -50,6 +59,24 @@ def protect_unit_slashes(text: str) -> str:
         )
 
     return UNIT_SLASH_PATTERN.sub(repl, text)
+
+
+def protect_binary_math_operators(text: str) -> str:
+    return BINARY_MATH_OPERATOR_PATTERN.sub(
+        lambda match: BINARY_MATH_OPERATOR_PLACEHOLDERS[match.group(0)], text
+    )
+
+
+def restore_binary_math_operators(text: str) -> str:
+    return text.translate(
+        str.maketrans(
+            {
+                BINARY_PLUS_PLACEHOLDER: "+",
+                BINARY_MINUS_PLACEHOLDER: "−",
+                BINARY_POWER_PLACEHOLDER: "^",
+            }
+        )
+    )
 YEARS_AGO_ABBREVIATION_PATTERN = re.compile(
     r"(?P<quantity>(?<!\w)(?:\d+(?:[.,]\d+)?|тыс(?:\.|яч[а-яё]*)?|млн\.?|"
     r"миллион[а-яё]*|млрд\.?|миллиард[а-яё]*|несколько|много)\s+)"

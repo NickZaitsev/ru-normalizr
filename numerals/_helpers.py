@@ -431,6 +431,19 @@ def get_numeral_case(
     is_range_start = idx < len(tokens) - 1 and tokens[idx + 1] in {"-", "–", "—"}
     left_scan_start = _context.left_scan_starts[idx]
 
+    if (
+        idx > 1
+        and normalize_context_token(tokens[idx - 1]) == "на"
+        and normalize_context_token(tokens[idx - 2]) in {"умножить", "разделить"}
+    ):
+        return "nomn"
+    if (
+        idx > 1
+        and normalize_context_token(tokens[idx - 1]) == "степени"
+        and normalize_context_token(tokens[idx - 2]) == "в"
+    ):
+        return "nomn"
+
     if idx > 1 and tokens[idx - 1] == "и":
         for back in range(idx - 2, max(-1, idx - 6), -1):
             if any(char in tokens[back] for char in ".!?;:"):

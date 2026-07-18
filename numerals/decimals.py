@@ -151,7 +151,12 @@ def normalize_decimals(text: str) -> str:
                     multipliers = {"тысяча", "миллион", "миллиард", "триллион"}
                     if lemma in multipliers and unit2_info:
                         lemma2, _, _, *suffix2 = unit2_info
-                        result += " " + inflect_unit_lemma(lemma2, {"gent", "plur"})
+                        if lemma2 == "человек":
+                            result += " человек"
+                        else:
+                            result += " " + inflect_unit_lemma(
+                                lemma2, {"gent", "plur"}
+                            )
                         if suffix2:
                             result += " " + suffix2[0]
                         unit2_processed = True
