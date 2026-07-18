@@ -36,7 +36,7 @@ TEXT_DATE_FROM_TO_PATTERN = re.compile(
     r"\b(?P<start_prep>с|со)\s+(?P<day1>\d{1,2})\s+"
     r"(?P<end_prep>по|до)\s+(?P<day2>\d{1,2})\s+(?P<month>"
     + "|".join(MONTHS_GENT.keys())
-    + r")\b",
+    + r")(?:\s+(?P<year>\d{4})\s*(?:года?)?)?\b",
     re.IGNORECASE,
 )
 TEXT_DATE_RANGE_PATTERN = re.compile(
@@ -122,10 +122,15 @@ def normalize_text_dates(text: str) -> str:
         day2_word = _day_to_ordinal(int(match.group("day2")), case=end_case)
         if day1_word is None or day2_word is None:
             return match.group(0)
-        return (
+        result = (
             f"{match.group('start_prep')} {day1_word} {match.group('end_prep')} "
             f"{day2_word} {match.group('month').lower()}"
         )
+        if match.group("year"):
+            result += (
+                f" {year_to_ordinal_words(int(match.group('year')), case='gent')} года"
+            )
+        return result
 
     def range_repl(match: re.Match[str]) -> str:
         prep = match.group("prep")
