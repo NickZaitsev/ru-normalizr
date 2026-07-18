@@ -269,15 +269,14 @@ def get_dictionary_normalizer(
         tuple(sorted(exclude_files or [])),
         tuple(sorted(include_only_files or [])),
     )
-    if key not in _normalizers:
-        with _normalizers_lock:
-            if key not in _normalizers:
-                _normalizers[key] = DictionaryNormalizer(
-                    dictionaries_path=key[0],
-                    exclude_files=list(key[1]),
-                    include_only_files=list(key[2]),
-                )
-    return _normalizers[key]
+    with _normalizers_lock:
+        if key not in _normalizers:
+            _normalizers[key] = DictionaryNormalizer(
+                dictionaries_path=key[0],
+                exclude_files=list(key[1]),
+                include_only_files=list(key[2]),
+            )
+        return _normalizers[key]
 
 
 def apply_dictionary_rules(

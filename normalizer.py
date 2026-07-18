@@ -51,7 +51,6 @@ from .preprocess_utils import (
     remove_numeric_footnotes,
     remove_zero_width_formatting,
     restore_letter_hyphens,
-    restore_paragraph_breaks,
 )
 from .roman_numerals import normalize_roman
 from .urls import normalize_urls
@@ -145,7 +144,6 @@ class PipelineNormalizer:
         text = self.run_urls(text)
         text = self._run_preprocess_steps(
             text,
-            keep_paragraph_placeholders=True,
             apply_caps_normalization=False,
         )
         text = self.run_roman(text)
@@ -153,11 +151,10 @@ class PipelineNormalizer:
         if self.options.remove_links:
             text = remove_numeric_footnotes(
                 text,
-                keep_paragraph_placeholders=True,
                 ignore_interval=self.options.remove_links_ignore_interval,
             )
         else:
-            text = normalize_linebreaks(text, keep_paragraph_placeholders=True).strip()
+            text = normalize_linebreaks(text).strip()
         text = self.run_years(text)
         text = self.run_dates_time(text)
         text = self.run_numerals(text)
@@ -169,21 +166,19 @@ class PipelineNormalizer:
     def run_preprocess(
         self, text: str, keep_paragraph_placeholders: bool = False
     ) -> str:
+        # Retained for compatibility with the established public method signature.
+        del keep_paragraph_placeholders
         text = self._run_preprocess_steps(
             text,
-            keep_paragraph_placeholders=keep_paragraph_placeholders,
             apply_caps_normalization=True,
         )
         if self.options.remove_links:
             text = remove_numeric_footnotes(
                 text,
-                keep_paragraph_placeholders=keep_paragraph_placeholders,
                 ignore_interval=self.options.remove_links_ignore_interval,
             )
         else:
-            text = normalize_linebreaks(
-                text, keep_paragraph_placeholders=keep_paragraph_placeholders
-            ).strip()
+            text = normalize_linebreaks(text).strip()
         return text
 
     def run_urls(self, text: str) -> str:
@@ -193,15 +188,12 @@ class PipelineNormalizer:
         self,
         text: str,
         *,
-        keep_paragraph_placeholders: bool,
         apply_caps_normalization: bool,
     ) -> str:
         if text.strip().startswith("+"):
             text = " " + text.lstrip()
 
-        text = normalize_linebreaks(
-            text, keep_paragraph_placeholders=keep_paragraph_placeholders
-        )
+        text = normalize_linebreaks(text)
         text = remove_zero_width_formatting(text)
         text = normalize_cyrillic_combining_stress_marks(text)
         text = protect_letter_hyphens(text)
@@ -294,9 +286,9 @@ class PipelineNormalizer:
         text = normalize_ascii_quote_pairs(text)
         text = normalize_spaced_ascii_hyphens(text)
         text = normalize_punctuation_spacing(text)
-        text = normalize_linebreaks(text, keep_paragraph_placeholders=True)
+        text = normalize_linebreaks(text)
         text = normalize_sentence_start_caps(text)
-        return restore_paragraph_breaks(text)
+        return text
 
     def _classify_glued_numeric_rhs(self, word: str) -> str:
         word_lower = word.lower()

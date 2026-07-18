@@ -4,9 +4,8 @@ import re
 
 from ._morph import parse_word
 from .constants import KNOWN_ABBREVIATIONS
-from .preprocess_utils import PARAGRAPH_BREAK_PLACEHOLDER
 
-_LINE_SPLIT_PATTERN = re.compile(rf"(\n|{re.escape(PARAGRAPH_BREAK_PLACEHOLDER)})")
+_LINE_SPLIT_PATTERN = re.compile(r"(\n)")
 _SENTENCE_START_PATTERN = re.compile(
     r"((?<=[.!?…])(?:[\s\"'«»„“”()\[\]{}]*))([a-zA-Zа-яА-ЯёЁ])"
 )
