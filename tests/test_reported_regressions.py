@@ -591,6 +591,13 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
 
     def test_normalize_fixes_reported_compound_numeric_adjectives_and_regnal_suffixes(self):
         self.assertEqual(
+            normalize(
+                "30%-ная надбавка, 25%-ный риск, при 10%-ном росте, 99%-ный шанс, 100%-ная гарантия"
+            ),
+            "тридцатипроцентная надбавка, двадцатипятипроцентный риск, при десятипроцентном росте, девяностодевятипроцентный шанс, стопроцентная гарантия",
+        )
+        self.assertEqual(normalize("50-летний юбилей"), "пятидесятилетний юбилей")
+        self.assertEqual(
             normalize("5и ступенчатая. 2х местный. 5и местный. 1ым номером."),
             "пятиступенчатая. Двухместный. Пятиместный. Первым номером.",
         )
