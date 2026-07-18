@@ -5,6 +5,13 @@ from ru_normalizr.numerals._constants import UNITS_DATA
 
 
 class RuNormalizrReportedRegressionTests(unittest.TestCase):
+    def test_abbreviated_chapter_number_is_inflected_before_abbreviation_stage(self):
+        self.assertEqual(
+            normalize("См. гл. 5 и рис. 3."),
+            "смотри главу пятую и рисунок три.",
+        )
+        self.assertEqual(normalize("гл. без номера"), "глава без номера")
+
     def test_mixed_case_cyrillic_units_are_reachable(self):
         self.assertIn("градусов Цельсия", normalize("Температура 25 °С сегодня."))
         self.assertEqual(normalize("Ток 5 мА в цепи."), "Ток пять миллиампер в цепи.")

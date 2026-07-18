@@ -62,6 +62,8 @@ HEADING_CONTEXT_CASES = {
     "начало": "gent",
     "конец": "gent",
     "середина": "gent",
+    "см": "accs",
+    "смотри": "accs",
 }
 SINGULAR_HEADING_WORDS_PATTERN = (
     r"глава|главы|главе|главу|главой|"
@@ -77,6 +79,10 @@ HEADING_RANGE_PATTERN = re.compile(
 )
 HEADING_SINGLE_PATTERN = re.compile(
     rf"\b(?P<head>{SINGULAR_HEADING_WORDS_PATTERN})\s+(?P<number>\d+)\b",
+    re.IGNORECASE | re.UNICODE,
+)
+ABBREVIATED_HEADING_PATTERN = re.compile(
+    r"\b(?P<head>гл)\.\s*(?P<number>\d+)\b",
     re.IGNORECASE | re.UNICODE,
 )
 MONTH_GENITIVE_WORDS = {
@@ -174,6 +180,30 @@ def normalize_heading_ranges(text: str) -> str:
 
 
 def normalize_heading_numbers(text: str) -> str:
+    def abbreviated_repl(match: re.Match[str]) -> str:
+        left_context = text[max(0, match.start() - 40) : match.start()]
+        left_tokens = simple_tokenize(left_context)
+        left_word = next(
+            (
+                token.lower()
+                for token in reversed(left_tokens)
+                if any(char.isalpha() for char in token)
+            ),
+            "",
+        )
+        target_case = HEADING_CONTEXT_CASES.get(left_word, "nomn")
+        noun_parse = next(
+            (candidate for candidate in get_morph().parse("глава") if "NOUN" in candidate.tag),
+            None,
+        )
+        if noun_parse is None:
+            return match.group(0)
+        inflected_noun = noun_parse.inflect({target_case, "sing"})
+        if inflected_noun is None:
+            return match.group(0)
+        ordinal = _ordinal_words(int(match.group("number")), target_case, "femn")
+        return f"{inflected_noun.word} {ordinal}"
+
     def repl(match: re.Match[str]) -> str:
         head = match.group("head")
         noun_parse = _heading_parse(text, match.start(), head)
@@ -184,6 +214,7 @@ def normalize_heading_numbers(text: str) -> str:
         ordinal = _ordinal_words(int(match.group("number")), case, gender)
         return f"{head} {ordinal}"
 
+    text = ABBREVIATED_HEADING_PATTERN.sub(abbreviated_repl, text)
     return HEADING_SINGLE_PATTERN.sub(repl, text)
 
 
