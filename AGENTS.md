@@ -58,6 +58,7 @@ No trivial, obvious, or temporary notes in this file.
   [case-sensitive units](docs/agents/case-sensitive-units.md).
 - Numeral context and dotted-unit boundary checks must stay linear; see
   [performance invariants](docs/agents/performance-invariants.md).
-- normalize() output is order-dependent (numeral case can vary with prior calls in
-  the same process); don't trust single-run diffs — see TASK-1 in
-  [BUGFIX_PLAN_2](docs/BUGFIX_PLAN_2.md).
+- Cached numeral rendering must canonicalize pymorphy grammemes before lookup;
+  see TASK-1 in [BUGFIX_PLAN_2](docs/BUGFIX_PLAN_2.md).
+- Keep reference, range, unit, and letter-name outputs aligned with
+  [normalization conventions](docs/agents/conventions.md).
