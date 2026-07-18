@@ -53,3 +53,6 @@ Record working notes in `docs/agents/`. Before finishing, ask: "would the next
 agent make a mistake without knowing this AND is it important enough?" If yes,
 add a ≤2-line bullet here (full write-up in `docs/agents/<topic>.md`, linked).
 No trivial, obvious, or temporary notes in this file.
+
+- Mixed-case SI symbols must use the exact-case resolver; see
+  [case-sensitive units](docs/agents/case-sensitive-units.md).
