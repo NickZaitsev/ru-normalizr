@@ -589,6 +589,16 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
         self.assertEqual(normalize("с 3 друзьями"), "с тремя друзьями")
         self.assertEqual(normalize("перед 8 марта"), "перед восьмым марта")
 
+    def test_normalize_keeps_decimal_nominative_after_attributive_participle(self):
+        self.assertEqual(
+            normalize("ожидаемый процент составляет 12,5%"),
+            "ожидаемый процент составляет двенадцать целых пять десятых процента",
+        )
+        self.assertEqual(
+            normalize("требуемый объём 3,5 литра"),
+            "требуемый объём три целых пять десятых литра",
+        )
+
     def test_normalize_preserves_people_lexeme_after_decimal_millions(self):
         self.assertEqual(
             normalize("2,5 млн человек"),

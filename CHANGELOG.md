@@ -24,6 +24,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Load the small bundled dictionaries directly instead of reading or writing executable pickle caches beside installed package files
 - Speed up IPA latinization on large texts with many distinct Latin tokens by batching `eng_to_ipa` lookups and batched dictionary fallback rewrites instead of resolving every token separately
 ### Fixed
+- Keep numerals nominative after an attributive full participle (e.g. `ожидаемый процент составляет 12,5%`) instead of inheriting the participle's verb-governed case
 - Preserve `человек` after decimal multipliers and verbalize binary math operators without losing adjacent ellipses
 - Keep source punctuation when expanding initials, use undoubled Cyrillic vowel names, and inflect `см.` references accusatively
 - Replace known-wrong dictionary latinization snapshots with lexical pronunciations for common English words
