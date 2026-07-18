@@ -18,6 +18,7 @@ _SAFE_MODE_DEFAULTS = {
     "enable_numeral_normalization": True,
     "enable_abbreviation_expansion": True,
     "enable_contextual_abbreviation_expansion": True,
+    "enable_years_ago_expansion": True,
     "enable_initials_expansion": False,
     "enable_letter_abbreviation_expansion": False,
     "enable_dictionary_normalization": True,
@@ -37,6 +38,7 @@ _TTS_MODE_DEFAULTS = {
     "enable_numeral_normalization": True,
     "enable_abbreviation_expansion": True,
     "enable_contextual_abbreviation_expansion": True,
+    "enable_years_ago_expansion": True,
     "enable_initials_expansion": True,
     "enable_letter_abbreviation_expansion": True,
     "enable_dictionary_normalization": True,
@@ -67,6 +69,7 @@ class NormalizeOptions:
     enable_numeral_normalization: bool
     enable_abbreviation_expansion: bool
     enable_contextual_abbreviation_expansion: bool
+    enable_years_ago_expansion: bool
     enable_initials_expansion: bool
     enable_letter_abbreviation_expansion: bool
     enable_dictionary_normalization: bool
@@ -93,6 +96,7 @@ class NormalizeOptions:
         enable_numeral_normalization: bool | None = None,
         enable_abbreviation_expansion: bool | None = None,
         enable_contextual_abbreviation_expansion: bool | None = None,
+        enable_years_ago_expansion: bool | None = None,
         enable_initials_expansion: bool | None = None,
         enable_letter_abbreviation_expansion: bool | None = None,
         enable_dictionary_normalization: bool | None = None,
@@ -118,6 +122,7 @@ class NormalizeOptions:
             "enable_numeral_normalization": enable_numeral_normalization,
             "enable_abbreviation_expansion": enable_abbreviation_expansion,
             "enable_contextual_abbreviation_expansion": enable_contextual_abbreviation_expansion,
+            "enable_years_ago_expansion": enable_years_ago_expansion,
             "enable_initials_expansion": enable_initials_expansion,
             "enable_letter_abbreviation_expansion": enable_letter_abbreviation_expansion,
             "enable_dictionary_normalization": enable_dictionary_normalization,
