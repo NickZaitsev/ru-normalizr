@@ -8,6 +8,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ### Changed
 - Speed up IPA latinization on large texts with many distinct Latin tokens by batching `eng_to_ipa` lookups and batched dictionary fallback rewrites instead of resolving every token separately
 ### Fixed
+- Preserve sentence boundaries when expanding terminal year and gram abbreviations such as `1672 г.` and `вес 5 г.`, without retaining the abbreviation dot mid-sentence
 - Require numeric or quantity context before expanding `л. н.` as `лет назад`, preserve person initials such as `Л. Н. Толстой`, and add `enable_years_ago_expansion` to disable this expansion explicitly
 - Stop surname-first initials expansion from hijacking role/title + initial + surname lines such as `Редактор Е. Харитонова`, so TTS output no longer inserts a stray dot before the surname
 - Keep initials-first name lists inside the sentence without injecting `.,` before commas or dashes
