@@ -121,6 +121,10 @@ COMPOUND_ADJECTIVE_PATTERN = re.compile(
     rf"(?<!\d)(?P<num>\d+)(?:\s*[-–—]?\s*(?P<suffix>и|х))?\s+(?P<adj>(?:{'|'.join(COMPOUND_ADJECTIVE_STEMS)})[а-яё]*)\b",
     re.IGNORECASE | re.UNICODE,
 )
+PERCENT_COMPOUND_ADJECTIVE_PATTERN = re.compile(
+    r"(?<!\d)(?P<num>\d+)\s*%\s*[-–—]?\s*(?P<suffix>н(?:ый|ая|ое|ые|ого|ой|ому|ым|ом|ую|ых|ыми))\b",
+    re.IGNORECASE | re.UNICODE,
+)
 
 
 def _ordinal_words(num: int, case: str, gender: str | None) -> str:
@@ -290,13 +294,23 @@ def normalize_compound_numeric_adjectives(text: str) -> str:
             return "трёх"
         if value == 4:
             return "четырёх"
-        return inflect_numeral_string(num_str, "gent").replace(" ", "")
+        words = inflect_numeral_string(num_str, "gent").split()
+        if 90 < value < 100 and words[:1] == ["девяноста"]:
+            words[0] = "девяносто"
+        elif value == 100:
+            return "сто"
+        return "".join(words)
 
     def repl(match: re.Match[str]) -> str:
         prefix = numeral_prefix(match.group("num"))
         adjective = match.group("adj")
         return f"{prefix}{adjective}"
 
+    def percent_repl(match: re.Match[str]) -> str:
+        prefix = numeral_prefix(match.group("num"))
+        return f"{prefix}процент{match.group('suffix').lower()}"
+
+    text = PERCENT_COMPOUND_ADJECTIVE_PATTERN.sub(percent_repl, text)
     return COMPOUND_ADJECTIVE_PATTERN.sub(repl, text)
 
 
