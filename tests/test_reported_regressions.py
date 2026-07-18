@@ -579,8 +579,15 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             normalize(
                 "1 женщина, 2 женщины, стих об 1-ой женщине, играл с 1-ой женщиной, полюбил 1-ю женщину, цветы 7-и женщинам,"
             ),
-            "одна женщина, две женщины, стих об первой женщине, играл с первой женщиной, полюбил первую женщину, цветы семи женщинам,",
+            "одна женщина, две женщины, стих о первой женщине, играл с первой женщиной, полюбил первую женщину, цветы семи женщинам,",
         )
+
+    def test_normalize_agrees_cardinals_and_ordinals_with_local_context(self):
+        self.assertEqual(normalize("3-я глава"), "третья глава")
+        self.assertEqual(normalize("2-я мировая война"), "вторая мировая война")
+        self.assertEqual(normalize("с 5 книгами"), "с пятью книгами")
+        self.assertEqual(normalize("с 3 друзьями"), "с тремя друзьями")
+        self.assertEqual(normalize("перед 8 марта"), "перед восьмым марта")
 
     def test_normalize_fixes_reported_compound_numeric_adjectives_and_regnal_suffixes(self):
         self.assertEqual(

@@ -17,6 +17,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Load the small bundled dictionaries directly instead of reading or writing executable pickle caches beside installed package files
 - Speed up IPA latinization on large texts with many distinct Latin tokens by batching `eng_to_ipa` lookups and batched dictionary fallback rewrites instead of resolving every token separately
 ### Fixed
+- Respect feminine ordinal suffixes, instrumental noun context, date prepositions, and `о`/`об` allomorphy when resolving numeral agreement
 - Stop numeral cases from crossing intervening verbs, and recognize productive quantity-governing nouns such as `потеря` and `стоимость`
 - Require explicit year context before treating comma-separated numbers as a decade range
 - Preserve range semantics for abbreviated chapter references instead of normalizing only the first endpoint

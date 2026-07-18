@@ -52,9 +52,9 @@ TEXT_DATE_LIST_PATTERN = re.compile(
     re.IGNORECASE,
 )
 TEXT_DATE_PATTERN = re.compile(
-    r"\b(\d{1,2})\s+("
+    r"\b(?:(?P<prep>перед)\s+)?(?P<day>\d{1,2})\s+(?P<month>"
     + "|".join(MONTHS_GENT.keys())
-    + r")(?:\s+(\d{4})\s*(?:года?)?)?",
+    + r")(?:\s+(?P<year>\d{4})\s*(?:года?)?)?",
     re.IGNORECASE,
 )
 MONTHS_GENT_BY_NUMBER = {
@@ -174,13 +174,17 @@ def normalize_text_dates(text: str) -> str:
         return result
 
     def repl(match: re.Match[str]) -> str:
-        day_word = _day_to_ordinal_genitive(int(match.group(1)))
-        month = match.group(2).lower()
+        prep = match.group("prep")
+        day_case = "instrumental" if prep else "genitive"
+        day_word = _day_to_ordinal(int(match.group("day")), case=day_case)
+        month = match.group("month").lower()
         if day_word is None:
             return match.group(0)
-        result = f"{day_word} {month}"
-        if match.group(3):
-            result += f" {year_to_ordinal_words(int(match.group(3)), case='gent')} года"
+        result = f"{prep} {day_word} {month}" if prep else f"{day_word} {month}"
+        if match.group("year"):
+            result += (
+                f" {year_to_ordinal_words(int(match.group('year')), case='gent')} года"
+            )
         return result
 
     text = TEXT_DATE_FROM_TO_PATTERN.sub(from_to_repl, text)

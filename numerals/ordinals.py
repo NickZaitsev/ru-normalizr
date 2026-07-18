@@ -89,6 +89,9 @@ ABBREVIATED_HEADING_PATTERN = re.compile(
     r"\b(?P<head>гл)\.\s*(?P<number>\d+)\b",
     re.IGNORECASE | re.UNICODE,
 )
+OB_BEFORE_CONSONANT_PATTERN = re.compile(
+    r"\bоб(?=\s+[бвгджзйклмнпрстфхцчшщ])", re.IGNORECASE
+)
 MONTH_GENITIVE_WORDS = {
     "января",
     "февраля",
@@ -394,6 +397,8 @@ def _render_cardinal_suffix_number(num: int, case: str) -> str | None:
 
 
 def normalize_ordinals(text: str) -> str:
+    original_text = text
+
     def repl(match: re.Match[str]) -> str:
         num_str = match.group(1)
         suffix = match.group(2).lower()
@@ -470,4 +475,11 @@ def normalize_ordinals(text: str) -> str:
             + " "
         )
 
-    return ORDINAL_PATTERN.sub(repl, text)
+    text = ORDINAL_PATTERN.sub(repl, text)
+    if text == original_text:
+        return text
+
+    def preserve_case(match: re.Match[str], replacement: str) -> str:
+        return replacement.capitalize() if match.group(0)[:1].isupper() else replacement
+
+    return OB_BEFORE_CONSONANT_PATTERN.sub(lambda m: preserve_case(m, "о"), text)

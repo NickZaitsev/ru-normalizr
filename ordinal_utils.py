@@ -43,6 +43,15 @@ def find_first_noun_right(tokens_right: list[str], suffix: str):
             candidate for candidate in parsed if "NOUN" in candidate.tag
         ]
         noun_candidate = None
+        if suffix in {"я", "ая", "ю", "ую", "ей"}:
+            noun_candidate = next(
+                (
+                    candidate
+                    for candidate in noun_candidates
+                    if "sing" in candidate.tag and "femn" in candidate.tag
+                ),
+                None,
+            )
         if suffix in {"е", "ые", "их", "х", "ми"}:
             noun_candidate = next(
                 (
