@@ -77,7 +77,7 @@ class DictionaryNormalizer:
     def _load_dic_file(self, path: Path) -> list[tuple[str, Any]]:
         chunks: list[tuple[str, Any]] = []
         current_simple: dict[str, str] = {}
-        current_regex: list[tuple[re.Pattern[str], str]] = []
+        current_regex: list[tuple[re.Pattern[str], str, str | None]] = []
 
         def flush() -> None:
             nonlocal current_simple, current_regex
@@ -132,10 +132,16 @@ class DictionaryNormalizer:
                     pattern_str, replacement = self._dic_pattern_to_regex(
                         source, target, anchor_start
                     )
+                    literal_hint = max(
+                        (part for part in source.split("*") if part),
+                        key=len,
+                        default=None,
+                    )
                     current_regex.append(
                         (
                             re.compile(pattern_str, re.UNICODE | re.IGNORECASE),
                             replacement,
+                            literal_hint.casefold() if literal_hint else None,
                         )
                     )
                 except re.error:
@@ -227,11 +233,17 @@ class DictionaryNormalizer:
                     text,
                 )
             else:
-                for pattern, replacement in chunk_data:
+                folded_text = text.casefold()
+                for pattern, replacement, literal_hint in chunk_data:
+                    if literal_hint is not None and literal_hint not in folded_text:
+                        continue
                     try:
-                        text = pattern.sub(replacement, text)
+                        updated = pattern.sub(replacement, text)
                     except Exception:
                         continue
+                    if updated != text:
+                        text = updated
+                        folded_text = text.casefold()
         return text
 
     def apply(self, text: str, *, strip_unmatched_latin: bool = False) -> str:
