@@ -1,9 +1,25 @@
 import unittest
 
 from ru_normalizr import NormalizeOptions, normalize
+from ru_normalizr.numerals._constants import UNITS_DATA
 
 
 class RuNormalizrReportedRegressionTests(unittest.TestCase):
+    def test_mixed_case_cyrillic_units_are_reachable(self):
+        self.assertIn("градусов Цельсия", normalize("Температура 25 °С сегодня."))
+        self.assertEqual(normalize("Ток 5 мА в цепи."), "Ток пять миллиампер в цепи.")
+        self.assertEqual(
+            normalize("Батарея на 3000 мАч."),
+            "Батарея на три тысячи миллиампер-часов.",
+        )
+
+    def test_lowercase_words_do_not_become_case_sensitive_units(self):
+        self.assertEqual(normalize("Пришли 5 ма."), "Пришли пять ма.")
+        self.assertEqual(normalize("Назвали 5 ка."), "Назвали пять ка.")
+
+    def test_case_insensitive_unit_table_keys_are_lowercase(self):
+        self.assertTrue(all(key == key.lower() for key in UNITS_DATA))
+
     def test_year_and_gram_abbreviations_keep_sentence_terminal_dots(self):
         self.assertIn(
             "году. Потом",

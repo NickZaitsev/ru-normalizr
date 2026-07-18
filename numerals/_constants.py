@@ -317,8 +317,6 @@ UNITS_DATA = {
     "°c": ("градус", "masc", "measure", "Цельсия"),
     "°k": ("градус", "masc", "measure", "Кельвина"),
     "°f": ("градус", "masc", "measure", "Фаренгейта"),
-    "°С": ("градус", "masc", "measure", "Цельсия"), # russian C
-    "°К": ("градус", "masc", "measure", "Кельвина"), # russian K
     "°": ("градус", "masc", "measure"),
     "градус": ("градус", "masc", "measure"),
     # "k": ("кельвин", "masc", "measure"),
@@ -341,9 +339,6 @@ UNITS_DATA = {
     "kw": ("киловатт", "masc", "measure"),
     "mw": ("мегаватт", "masc", "measure"),
     "gw": ("гигаватт", "masc", "measure"),
-    "мкА": ("микроампер", "masc", "measure"),
-    "мА": ("миллиампер", "masc", "measure"),
-    "кА": ("килоампер", "masc", "measure"),
     "ампер": ("ампер", "masc", "measure"),
     "ω": ("ом", "masc", "measure"),
     "ом": ("ом", "masc", "measure"),
@@ -591,7 +586,6 @@ UNITS_DATA = {
     "млн€": ("миллион", "masc", "measure", "евро"),
     "тыс€": ("тысяча", "femn", "measure", "евро"),
     "mah": ("миллиампер-час", "masc", "measure"),
-    "мАч": ("миллиампер-час", "masc", "measure"),
     "ah": ("ампер-час", "masc", "measure"),
     "wh": ("ватт-час", "masc", "measure"),
     "kwh": ("киловатт-час", "masc", "measure"),
@@ -622,14 +616,34 @@ UNITS_DATA = {
     "атм": ("атмосфер", "femn", "measure"),
 }
 
+# SI prefixes and symbols are case-sensitive: folding мА/кА to ма/ка would
+# make ordinary lowercase words look like electrical units.
+CASE_SENSITIVE_UNITS_DATA = {
+    "°С": ("градус", "masc", "measure", "Цельсия"),
+    "°К": ("градус", "masc", "measure", "Кельвина"),
+    "мкА": ("микроампер", "masc", "measure"),
+    "мА": ("миллиампер", "masc", "measure"),
+    "кА": ("килоампер", "masc", "measure"),
+    "мАч": ("миллиампер-час", "masc", "measure"),
+}
+
+
+def resolve_unit_info(unit: str):
+    cleaned = unit.strip(".")
+    return CASE_SENSITIVE_UNITS_DATA.get(cleaned) or UNITS_DATA.get(cleaned.lower())
+
 ENTITY_KEYWORDS = {"percent": set(), "money": set(), "measure": set()}
-for key, val in UNITS_DATA.items():
+for key, val in (*UNITS_DATA.items(), *CASE_SENSITIVE_UNITS_DATA.items()):
     lemma, _, category, *suffix = val
-    ENTITY_KEYWORDS[category].add(key)
+    ENTITY_KEYWORDS[category].add(key.lower())
     ENTITY_KEYWORDS[category].add(lemma)
 
 ENTITY_DEFAULT_CASE = {"percent": "nomn", "money": "nomn", "measure": "nomn"}
-ALL_UNITS = set(UNITS_DATA.keys()) | {value[0] for value in UNITS_DATA.values()}
+ALL_UNITS = (
+    set(UNITS_DATA)
+    | {key.lower() for key in CASE_SENSITIVE_UNITS_DATA}
+    | {value[0] for value in (*UNITS_DATA.values(), *CASE_SENSITIVE_UNITS_DATA.values())}
+)
 
 UNIT_TOKEN_FRAGMENT = (
     r"[а-яА-ЯёЁa-zA-ZµμΩ%°$€₽]+"
