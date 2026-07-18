@@ -74,7 +74,9 @@ MONTHS_GENT_BY_NUMBER = {
 NUMERIC_DATE_PATTERN = re.compile(
     r"\b(?P<day>0?[1-9]|[12]\d|3[01])\.(?P<month>0?[1-9]|1[0-2])\.(?P<year>\d{2,4})\b"
 )
-TIME_PATTERN = re.compile(r"\b(?P<hour>[01]?\d|2[0-3]):(?P<minute>[0-5]\d)\b")
+TIME_PATTERN = re.compile(
+    r"\b(?P<hour>[01]?\d|2[0-3]):(?P<minute>[0-5]\d)(?::(?P<second>[0-5]\d))?\b"
+)
 DOTTED_TIME_PATTERN = re.compile(
     r"\b(?P<hour>[01]?\d|2[0-3])\.(?P<minute>[0-5]\d)\b",
     re.IGNORECASE,
@@ -220,9 +222,35 @@ def normalize_dates(text: str) -> str:
 
 
 def normalize_time(text: str) -> str:
+    def counted_noun(value: int, forms: tuple[str, str, str]) -> str:
+        last_two = value % 100
+        last = value % 10
+        if 11 <= last_two <= 14:
+            return forms[2]
+        if last == 1:
+            return forms[0]
+        if 2 <= last <= 4:
+            return forms[1]
+        return forms[2]
+
     def render_time(match: re.Match[str]) -> str:
         hour = int(match.group("hour"))
         minute_str = match.group("minute")
+        second_str = match.groupdict().get("second")
+        if second_str is not None:
+            minute = int(minute_str)
+            second = int(second_str)
+            try:
+                hour_words = num2words.num2words(hour, lang="ru")
+                minute_words = num2words.num2words(minute, lang="ru")
+                second_words = num2words.num2words(second, lang="ru")
+            except Exception:
+                return match.group(0)
+            return (
+                f"{hour_words} {counted_noun(hour, ('час', 'часа', 'часов'))} "
+                f"{minute_words} {counted_noun(minute, ('минута', 'минуты', 'минут'))} "
+                f"{second_words} {counted_noun(second, ('секунда', 'секунды', 'секунд'))}"
+            )
         try:
             hour_words = num2words.num2words(hour, lang="ru")
         except Exception:
