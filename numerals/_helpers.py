@@ -247,6 +247,20 @@ def should_keep_decimal_unit_dot(rest: str) -> bool:
     return not (next_char.islower() or next_char.isdigit())
 
 
+def should_keep_tokenized_decimal_unit_dot(tokens: list[str], start_index: int) -> bool:
+    for index in range(start_index, len(tokens)):
+        token = tokens[index]
+        if not token:
+            continue
+        if "\n" in token:
+            return True
+        next_char = token[:1]
+        if next_char in ".!?…":
+            return True
+        return not (next_char.islower() or next_char.isdigit())
+    return True
+
+
 @functools.lru_cache(maxsize=16384)
 def inflect_numeral_string(num_str: str, case: str, gender: str | None = None) -> str:
     try:
