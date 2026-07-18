@@ -161,6 +161,53 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         finally:
             _helpers.inflect_numeral_string.cache_clear()
 
+    def test_typed_gender_grammeme_does_not_poison_numeral_cache(self):
+        typed_gender = _helpers.parse_word("долларов")[0].tag.gender
+        self.assertIsNot(type(typed_gender), str)
+
+        _helpers.inflect_numeral_string.cache_clear()
+        try:
+            self.assertEqual(
+                _helpers.inflect_numeral_string("100", "gent", typed_gender),
+                "ста",
+            )
+            self.assertEqual(
+                _helpers.inflect_numeral_string("100", "gent", "masc"),
+                "ста",
+            )
+            self.assertEqual(_helpers.inflect_numeral_string.cache_info().hits, 1)
+        finally:
+            _helpers.inflect_numeral_string.cache_clear()
+
+    def test_accusative_animacy_is_explicit_for_gendered_cardinals(self):
+        self.assertEqual(
+            _helpers.inflect_numeral_string("1", "accs", "masc", False), "один"
+        )
+        self.assertEqual(
+            _helpers.inflect_numeral_string("1", "accs", "masc", True), "одного"
+        )
+
+    def test_numeral_output_is_independent_of_prior_normalization(self):
+        paragraph = (
+            "Он утверждал, что подарок в 10 дукатов обладает той же полезностью для "
+            "человека, уже имеющего 100 дукатов. Если функция точна, одна и та же "
+            "психологическая дистанция отделяет 100 тысяч долларов от 1 миллиона, "
+            "а 10 миллионов — от 100 миллионов долларов."
+        )
+        tail = paragraph.split(". ", 1)[1]
+
+        _helpers.inflect_numeral_string.cache_clear()
+        try:
+            paragraph_first = normalize(paragraph)
+            _helpers.inflect_numeral_string.cache_clear()
+            normalize(tail)
+            tail_first = normalize(paragraph)
+        finally:
+            _helpers.inflect_numeral_string.cache_clear()
+
+        self.assertEqual(paragraph_first, tail_first)
+        self.assertIn("от ста миллионов долларов", paragraph_first)
+
     def test_dotted_units_do_not_detokenize_each_remaining_text_tail(self):
         text = "Вес 5 кг. Далее измерили ещё 7 кг. " * 100
 

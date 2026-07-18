@@ -207,7 +207,9 @@ def normalize_cardinal_numerals(text: str) -> str:
                 num_words = build_number_token(
                     token,
                     clean_token,
-                    inflect_numeral_string(clean_token, target_num_case, gender),
+                    inflect_numeral_string(
+                        clean_token, target_num_case, gender, is_anim
+                    ),
                     is_negative,
                 )
                 result_tokens.extend([num_words, adj_token, noun_token])
@@ -277,7 +279,7 @@ def normalize_cardinal_numerals(text: str) -> str:
                             token,
                             clean_token,
                             inflect_numeral_string(
-                                clean_token, target_num_case, multiplier_gender
+                                clean_token, target_num_case, multiplier_gender, False
                             ),
                             is_negative,
                         )
@@ -295,7 +297,9 @@ def normalize_cardinal_numerals(text: str) -> str:
                 num_words = build_number_token(
                     token,
                     clean_token,
-                    inflect_numeral_string(clean_token, target_num_case, u_gender),
+                    inflect_numeral_string(
+                        clean_token, target_num_case, u_gender, False
+                    ),
                     is_negative,
                 )
                 if lemma == "человек" and case in {"nomn", "accs"}:
@@ -362,7 +366,9 @@ def normalize_cardinal_numerals(text: str) -> str:
                 num_words = build_number_token(
                     token,
                     clean_token,
-                    inflect_numeral_string(clean_token, target_num_case, gender),
+                    inflect_numeral_string(
+                        clean_token, target_num_case, gender, is_anim
+                    ),
                     is_negative,
                 )
                 result_tokens.extend([num_words, noun_token])
@@ -398,7 +404,7 @@ def normalize_numeric_unit_ranges(text: str) -> str:
                 rem10 = value % 10
                 if rem10 in (2, 3, 4) and rem100 not in (12, 13, 14):
                     target_case = "nomn"
-            return inflect_numeral_string(value_text, target_case, u_gender)
+            return inflect_numeral_string(value_text, target_case, u_gender, False)
 
         right_value = int(right)
         unit_words = inflect_unit_lemma(
