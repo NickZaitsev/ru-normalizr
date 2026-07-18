@@ -447,7 +447,7 @@ class RuNormalizrStageTests(unittest.TestCase):
         )
         self.assertEqual(
             normalizer.run_stage("preprocess", "вес 123 г. масса 237г."),
-            "вес 123 грамм масса 237 грамм",
+            "вес 123 грамм масса 237 грамм.",
         )
 
     def test_abbreviation_stage(self):

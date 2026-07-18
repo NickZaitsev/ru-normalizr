@@ -4,6 +4,25 @@ from ru_normalizr import NormalizeOptions, normalize
 
 
 class RuNormalizrReportedRegressionTests(unittest.TestCase):
+    def test_year_and_gram_abbreviations_keep_sentence_terminal_dots(self):
+        self.assertIn(
+            "году. Потом",
+            normalize("Он родился в 1672 г. Потом вырос.", NormalizeOptions.safe()),
+        )
+        self.assertTrue(
+            normalize("Он родился в 1672 г.", NormalizeOptions.safe()).endswith("году.")
+        )
+        self.assertIn(
+            "грамм. Далее",
+            normalize("Вес 5 г. Далее текст.", NormalizeOptions.safe()),
+        )
+
+    def test_year_abbreviation_dot_remains_nonterminal_mid_sentence(self):
+        result = normalize("Это случилось в 1990 г. в Москве.", NormalizeOptions.safe())
+
+        self.assertIn("году в Москве", result)
+        self.assertNotIn("году. В Москве", result)
+
     def test_years_ago_expansion_does_not_destroy_person_initials(self):
         safe = NormalizeOptions.safe()
 
@@ -470,11 +489,11 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
         )
         self.assertEqual(
             normalize("вес 123 г. вес 123г."),
-            "вес сто двадцать три грамма вес сто двадцать три грамма",
+            "вес сто двадцать три грамма вес сто двадцать три грамма.",
         )
         self.assertEqual(
             normalize("масса 237 г. масса 237г."),
-            "масса двести тридцать семь грамм масса двести тридцать семь грамм",
+            "масса двести тридцать семь грамм масса двести тридцать семь грамм.",
         )
 
     def test_normalize_fixes_reported_suffix_ordinals_and_compounds(self):

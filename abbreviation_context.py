@@ -9,9 +9,28 @@ BIRTH_YEAR_ABBREVIATION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 MASS_GRAM_ABBREVIATION_PATTERN = re.compile(
-    r"(?P<context>\b(?:вес|масса)\b\s+)(?P<num>\d+)\s*г\.?(?!\w)",
+    r"(?P<context>\b(?:вес|масса)\b\s+)(?P<num>\d+)\s*г(?P<dot>\.)?(?!\w)",
     re.IGNORECASE,
 )
+
+
+def should_keep_terminal_abbreviation_dot(source_text: str, match_end: int) -> bool:
+    rest = source_text[match_end:]
+    stripped_rest = rest.lstrip()
+    if not stripped_rest:
+        return True
+
+    leading_space = rest[: len(rest) - len(stripped_rest)]
+    if "\n" in leading_space:
+        return True
+
+    next_char = stripped_rest[:1]
+    if next_char in ".!?…" or next_char.isupper():
+        return True
+    if next_char in '"»”)]}':
+        after_closer = stripped_rest[1:].lstrip()
+        return not after_closer or after_closer[:1].isupper()
+    return False
 
 
 def normalize_birth_year_abbreviations(text: str) -> str:
@@ -24,7 +43,13 @@ def normalize_birth_year_abbreviations(text: str) -> str:
 
 
 def normalize_mass_gram_abbreviations(text: str) -> str:
-    return MASS_GRAM_ABBREVIATION_PATTERN.sub(r"\g<context>\g<num> грамм", text)
+    def repl(match: re.Match[str]) -> str:
+        keep_dot = bool(match.group("dot")) and should_keep_terminal_abbreviation_dot(
+            text, match.end()
+        )
+        return f"{match.group('context')}{match.group('num')} грамм{'.' if keep_dot else ''}"
+
+    return MASS_GRAM_ABBREVIATION_PATTERN.sub(repl, text)
 
 
 def allows_short_abbreviated_year(

@@ -9,6 +9,7 @@ from ._morph import get_morph
 from .abbreviation_context import (
     allows_short_abbreviated_year,
     has_mass_measurement_context,
+    should_keep_terminal_abbreviation_dot,
 )
 from .numerals._num2words import resolve_num2words_case
 from .options import NormalizeOptions
@@ -337,8 +338,7 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
                 word_inflected = YEAR_WORD_FORMS.get((word_norm, case2), word_norm)
             else:
                 word_inflected = word
-            tail = text[m.end() :].lstrip()
-            keep_terminal_dot = not tail or tail[:1].isupper()
+            keep_terminal_dot = should_keep_terminal_abbreviation_dot(text, m.end())
             if (
                 keep_terminal_dot
                 and word.endswith(".")
@@ -382,6 +382,8 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
                 inflected = YEAR_WORD_FORMS.get((word_norm, case), word_norm)
             else:
                 inflected = word
+            if word.endswith(".") and should_keep_terminal_abbreviation_dot(text, m.end()):
+                inflected += "."
             result += f" {inflected}"
         return result
 
@@ -541,9 +543,12 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         ordinal = year_to_ordinal_words(year, case, plural)
         prefix = f"{prep} " if prep else ""
         if is_abbrev:
-            return (
+            result = (
                 f"{prefix}{ordinal} {YEAR_WORD_FORMS.get((word_norm, case), word_norm)}"
             )
+            if word.endswith(".") and should_keep_terminal_abbreviation_dot(text, m.end()):
+                result += "."
+            return result
         return f"{prefix}{ordinal} {word}"
 
     def replace_range(m: re.Match[str]) -> str:
