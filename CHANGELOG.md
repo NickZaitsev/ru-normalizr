@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## Unreleased
 ### Changed
+- Load the small bundled dictionaries directly instead of reading or writing executable pickle caches beside installed package files
 - Speed up IPA latinization on large texts with many distinct Latin tokens by batching `eng_to_ipa` lookups and batched dictionary fallback rewrites instead of resolving every token separately
 ### Fixed
 - Remove copyright symbols during cleanup instead of replacing them with stray sentence-ending dots

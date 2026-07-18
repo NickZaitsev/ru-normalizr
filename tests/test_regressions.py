@@ -38,6 +38,20 @@ class _FakeMorph:
 
 
 class RuNormalizrRegressionTests(unittest.TestCase):
+    def test_dictionary_normalizer_does_not_write_pickle_cache(self):
+        with TemporaryDirectory() as tmp_dir:
+            dictionaries_path = Path(tmp_dir)
+            (dictionaries_path / "custom.dic").write_text(
+                "исходник=замена\n", encoding="utf-8"
+            )
+
+            first = DictionaryNormalizer(dictionaries_path=dictionaries_path)
+            second = DictionaryNormalizer(dictionaries_path=dictionaries_path)
+
+            self.assertEqual(first.apply("исходник"), "замена")
+            self.assertEqual(second.apply("исходник"), "замена")
+            self.assertEqual(list(dictionaries_path.glob("*.pkl")), [])
+
     COMPARATIVE_GENITIVE_MARKERS = (
         "не более",
         "не менее",
