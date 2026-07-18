@@ -18,6 +18,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Load the small bundled dictionaries directly instead of reading or writing executable pickle caches beside installed package files
 - Speed up IPA latinization on large texts with many distinct Latin tokens by batching `eng_to_ipa` lookups and batched dictionary fallback rewrites instead of resolving every token separately
 ### Fixed
+- Pronounce Latin letter suffixes in alphanumeric model names by their English names
 - Read explicit year and century spans with singular endpoint nouns
 - Align measurement ranges, coordinated units, and legal article citations with their governing-case conventions
 - Keep standalone numeric dates out of line-number parsing and normalize `HH:MM:SS` with explicit time units

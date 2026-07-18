@@ -6,11 +6,15 @@ from collections import OrderedDict
 from functools import lru_cache
 from pathlib import Path
 
+from .constants import EN_LETTER_NAMES
 from .dictionary import DictionaryNormalizer
 
 DEFAULT_DICTIONARIES_PATH = Path(__file__).resolve().parent / "dictionaries"
 DEFAULT_LATINIZATION_DICTIONARIES_PATH = DEFAULT_DICTIONARIES_PATH / "latinization"
 LATIN_TOKEN_PATTERN = re.compile(r"[A-Za-z][A-Za-z'\-]*")
+ALPHANUMERIC_SUFFIX_LETTER_PATTERN = re.compile(
+    r"(?:(?<=\d)|(?<=[А-Яа-яЁё]-))(?P<letter>[A-Za-z])\b"
+)
 IPA_BATCH_SIZE = 800
 IPA_BATCH_THRESHOLD = 24
 DICTIONARY_FALLBACK_BATCH_THRESHOLD = 8
@@ -369,6 +373,11 @@ def apply_latinization(
 ) -> str:
     if not enabled or not re.search(r"[A-Za-z]", text):
         return text
+
+    text = ALPHANUMERIC_SUFFIX_LETTER_PATTERN.sub(
+        lambda match: EN_LETTER_NAMES[match.group("letter").upper()],
+        text,
+    )
 
     dict_path, resolved_filename = _resolve_latinization_dictionary_source(
         dictionaries_path, dictionary_filename

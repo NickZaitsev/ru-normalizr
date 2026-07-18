@@ -1,6 +1,7 @@
 import unittest
 
 from ru_normalizr import NormalizeOptions, normalize
+from ru_normalizr.latinization import apply_latinization
 from ru_normalizr.numerals import simple_tokenize
 
 
@@ -20,7 +21,17 @@ class RuNormalizrHyphenTokenTests(unittest.TestCase):
         self.assertEqual(normalize("COVID-19", options), "ковид-девятнадцать")
         self.assertEqual(normalize("Т-34", options), "Т-тридцать четыре")
         self.assertEqual(normalize("B52G", options), "би пятьдесят два-джи")
-        self.assertEqual(normalize("Z80A", options), "зи восемьдесят-э")
+        self.assertEqual(normalize("Z80A", options), "зи восемьдесят-эй")
+
+    def test_latinization_reads_alphanumeric_suffixes_as_letter_names(self):
+        self.assertEqual(
+            apply_latinization(
+                "модель-восемьдесят-A",
+                enabled=True,
+                backend="dictionary",
+            ),
+            "модель-восемьдесят-эй",
+        )
 
     def test_normalize_distinguishes_mixed_case_and_all_caps_latin_index_tokens(self):
         options = NormalizeOptions.tts()
