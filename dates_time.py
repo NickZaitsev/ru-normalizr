@@ -32,6 +32,13 @@ TEXT_DATE_RANGE_CASES = {
     "до": "genitive",
     "от": "genitive",
 }
+TEXT_DATE_FROM_TO_PATTERN = re.compile(
+    r"\b(?P<start_prep>с|со)\s+(?P<day1>\d{1,2})\s+"
+    r"(?P<end_prep>по|до)\s+(?P<day2>\d{1,2})\s+(?P<month>"
+    + "|".join(MONTHS_GENT.keys())
+    + r")\b",
+    re.IGNORECASE,
+)
 TEXT_DATE_RANGE_PATTERN = re.compile(
     r"\b(?:(?P<prep>за|на|в|во|по|с|со|до|от)\s+)?(?P<day1>\d{1,2})\s*[–—-]\s*(?P<day2>\d{1,2})\s+(?P<month>"
     + "|".join(MONTHS_GENT.keys())
@@ -109,6 +116,17 @@ def _day_to_ordinal(day: int, case: str = "genitive") -> str | None:
 
 
 def normalize_text_dates(text: str) -> str:
+    def from_to_repl(match: re.Match[str]) -> str:
+        day1_word = _day_to_ordinal(int(match.group("day1")), case="genitive")
+        end_case = "accusative" if match.group("end_prep").lower() == "по" else "genitive"
+        day2_word = _day_to_ordinal(int(match.group("day2")), case=end_case)
+        if day1_word is None or day2_word is None:
+            return match.group(0)
+        return (
+            f"{match.group('start_prep')} {day1_word} {match.group('end_prep')} "
+            f"{day2_word} {match.group('month').lower()}"
+        )
+
     def range_repl(match: re.Match[str]) -> str:
         prep = match.group("prep")
         case = (
@@ -160,6 +178,7 @@ def normalize_text_dates(text: str) -> str:
             result += f" {year_to_ordinal_words(int(match.group(3)), case='gent')} года"
         return result
 
+    text = TEXT_DATE_FROM_TO_PATTERN.sub(from_to_repl, text)
     text = TEXT_DATE_RANGE_PATTERN.sub(range_repl, text)
     text = TEXT_DATE_LIST_PATTERN.sub(list_repl, text)
     return TEXT_DATE_PATTERN.sub(repl, text)
