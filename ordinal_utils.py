@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 import num2words
 
 from ._morph import parse_word
@@ -10,6 +12,8 @@ from .numerals._num2words import (
     ORDINAL_GENDER_TO_NUM2WORDS,
     resolve_num2words_case,
 )
+
+logger = logging.getLogger(__name__)
 
 CASE_TO_NUM2WORDS = _CASE_TO_NUM2WORDS
 GENDER_TO_NUM2WORDS = ORDINAL_GENDER_TO_NUM2WORDS
@@ -205,12 +209,13 @@ def render_ordinal(
 
     try:
         return num2words.num2words(number, **kwargs)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("num2words ordinal failed for %r (kwargs=%s): %s", number, kwargs, exc)
 
     try:
         ordinal = num2words.num2words(number, lang="ru", to="ordinal")
-    except Exception:
+    except Exception as exc:
+        logger.debug("num2words ordinal failed for %r: %s", number, exc)
         return str(number)
 
     words = ordinal.split()

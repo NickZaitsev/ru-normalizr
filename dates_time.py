@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 import re
 
 import num2words
 
 from .options import NormalizeOptions
 from .years import year_to_ordinal_words
+
+logger = logging.getLogger(__name__)
 
 MONTHS_GENT = {
     "января": 1,
@@ -98,10 +101,12 @@ def _day_to_ordinal_genitive(day: int) -> str | None:
         return num2words.num2words(
             day, lang="ru", to="ordinal", case="genitive", gender="n"
         )
-    except Exception:
+    except Exception as exc:
+        logger.debug("num2words genitive ordinal failed for day %r: %s", day, exc)
         try:
             return num2words.num2words(day, lang="ru", to="ordinal")
-        except Exception:
+        except Exception as exc:
+            logger.debug("num2words ordinal failed for day %r: %s", day, exc)
             return None
 
 
@@ -110,10 +115,12 @@ def _day_to_ordinal(day: int, case: str = "genitive") -> str | None:
         return None
     try:
         return num2words.num2words(day, lang="ru", to="ordinal", case=case, gender="n")
-    except Exception:
+    except Exception as exc:
+        logger.debug("num2words ordinal failed for day %r (case=%s): %s", day, case, exc)
         try:
             return num2words.num2words(day, lang="ru", to="ordinal")
-        except Exception:
+        except Exception as exc:
+            logger.debug("num2words ordinal failed for day %r: %s", day, exc)
             return None
 
 
@@ -208,13 +215,15 @@ def normalize_dates(text: str) -> str:
             day_words = num2words.num2words(
                 day, lang="ru", to="ordinal", case="genitive", gender="n"
             )
-        except Exception:
+        except Exception as exc:
+            logger.debug("num2words genitive ordinal failed for day %r: %s", day, exc)
             day_words = num2words.num2words(day, lang="ru", to="ordinal")
         try:
             year_words = num2words.num2words(
                 year, lang="ru", to="ordinal", case="genitive"
             )
-        except Exception:
+        except Exception as exc:
+            logger.debug("num2words genitive ordinal failed for year %r: %s", year, exc)
             year_words = num2words.num2words(year, lang="ru", to="ordinal")
         return f"{day_words} {MONTHS_GENT_BY_NUMBER.get(month, str(month))} {year_words} года"
 
@@ -244,7 +253,8 @@ def normalize_time(text: str) -> str:
                 hour_words = num2words.num2words(hour, lang="ru")
                 minute_words = num2words.num2words(minute, lang="ru")
                 second_words = num2words.num2words(second, lang="ru")
-            except Exception:
+            except Exception as exc:
+                logger.debug("num2words failed for time %02d:%02d:%02d: %s", hour, minute, second, exc)
                 return match.group(0)
             return (
                 f"{hour_words} {counted_noun(hour, ('час', 'часа', 'часов'))} "
@@ -253,19 +263,22 @@ def normalize_time(text: str) -> str:
             )
         try:
             hour_words = num2words.num2words(hour, lang="ru")
-        except Exception:
+        except Exception as exc:
+            logger.debug("num2words failed for hour %r: %s", hour, exc)
             hour_words = str(hour)
         if minute_str[0] == "0":
             try:
                 minute_words = (
                     f"ноль {num2words.num2words(int(minute_str[1]), lang='ru')}"
                 )
-            except Exception:
+            except Exception as exc:
+                logger.debug("num2words failed for minute %r: %s", minute_str, exc)
                 minute_words = f"ноль {minute_str[1]}"
         else:
             try:
                 minute_words = num2words.num2words(int(minute_str), lang="ru")
-            except Exception:
+            except Exception as exc:
+                logger.debug("num2words failed for minute %r: %s", minute_str, exc)
                 minute_words = minute_str
         return f"{hour_words}, {minute_words}"
 

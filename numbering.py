@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 
 import num2words
@@ -7,6 +8,8 @@ import roman
 
 from .options import NormalizeOptions
 from .preprocess_utils import classify_bracketed_numeric_content
+
+logger = logging.getLogger(__name__)
 
 LINE_NUMBERING_PATTERN = re.compile(
     r"^([ \t]*)([IVXLCDM]+\.|[\d]+(?:\.[\d]+)*\.)(?!\d)([ \t]*)",
@@ -20,7 +23,8 @@ BRACKETED_NUMBER_PATTERN = re.compile(
 def num_to_word(value: int) -> str:
     try:
         return num2words.num2words(value, lang="ru")
-    except Exception:
+    except Exception as exc:
+        logger.debug("num2words failed for %r: %s", value, exc)
         return str(value)
 
 
@@ -81,8 +85,8 @@ def convert_bracketed_numbers(
                     min_val, max_val = active.remove_links_ignore_interval
                     if min_val <= value <= max_val:
                         should_remove = False
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("remove_links interval check failed for %r: %s", stripped, exc)
         if should_remove:
             return ""
         return match.group(0)

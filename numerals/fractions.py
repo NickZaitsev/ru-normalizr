@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 import re
 
 import num2words
 
 from .._morph import parse_word
 from ._constants import FRACTION_PATTERN
+
+logger = logging.getLogger(__name__)
 
 GENITIVE_FRACTION_CONTEXT_PATTERN = re.compile(r"\b(с|со|от|до|из|без|у)\s+$")
 DATIVE_FRACTION_CONTEXT_PATTERN = re.compile(r"\b(к|по)\s+$")
@@ -29,7 +32,8 @@ def normalize_fractions(text: str) -> str:
             case = "loct"
         try:
             num_text = num2words.num2words(num, lang="ru")
-        except Exception:
+        except Exception as exc:
+            logger.debug("num2words failed for numerator %r: %s", num, exc)
             return match.group(0)
         if case != "nomn":
             num_text = " ".join(
@@ -53,7 +57,8 @@ def normalize_fractions(text: str) -> str:
                 num_text = " ".join(arr)
         try:
             denom_text = num2words.num2words(denom, lang="ru", to="ordinal")
-        except Exception:
+        except Exception as exc:
+            logger.debug("num2words failed for denominator %r: %s", denom, exc)
             return match.group(0)
         words = denom_text.split()
         p = parse_word(words[-1])[0]

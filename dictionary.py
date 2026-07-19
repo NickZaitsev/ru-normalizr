@@ -90,7 +90,11 @@ class DictionaryNormalizer:
                             re.UNICODE | re.IGNORECASE,
                         )
                         chunks.append(("regex_batch", (pattern, current_simple)))
-                    except Exception:
+                    except re.error as exc:
+                        logger.debug(
+                            "Falling back to simple mapping; regex batch compile failed: %s",
+                            exc,
+                        )
                         chunks.append(("simple", current_simple))
                 else:
                     chunks.append(("simple", current_simple))
@@ -239,7 +243,12 @@ class DictionaryNormalizer:
                         continue
                     try:
                         updated = pattern.sub(replacement, text)
-                    except Exception:
+                    except re.error as exc:
+                        logger.debug(
+                            "Skipping dictionary rule; pattern.sub failed for %r: %s",
+                            replacement,
+                            exc,
+                        )
                         continue
                     if updated != text:
                         text = updated
