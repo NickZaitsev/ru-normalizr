@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## Unreleased
 
+### Added
+- Declare and continuously test support for Python 3.13, and exercise `windows-latest` (the primary development OS) in CI alongside the existing Ubuntu Python 3.10–3.13 matrix; add a weekly scheduled CI run so upstream dependency releases such as `num2words` are caught by CI instead of by users
+
 ### Changed
 - Log every broad morphology/number-formatting fallback (`num2words`, pymorphy inflection, regex, `int()`) at `DEBUG` with the offending token and exception, so inflection regressions are diagnosable instead of silently producing wrong output; fallback behavior is unchanged and the normalizer still never crashes on arbitrary text
 - Make `eng_to_ipa` an optional dependency installed via the `ipa` extra (`pip install ru-normalizr[ipa]`) instead of a hard exact-pinned requirement, avoiding downstream resolver conflicts for the default `safe` mode that never uses it. When the `ipa` latinization backend is requested but `eng_to_ipa` is missing, the normalizer now emits a one-time warning and falls back to the dictionary backend instead of silently returning unlatinized text
