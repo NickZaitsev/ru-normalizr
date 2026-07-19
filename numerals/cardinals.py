@@ -5,7 +5,7 @@ import re
 
 import num2words
 
-from .._morph import parse_word
+from .._morph import first_parse, parse_word
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_context import PUNCT_STRIP, simple_tokenize
 from ._constants import (
@@ -196,8 +196,8 @@ def normalize_cardinal_numerals(text: str) -> str:
             noun_token = tokens[i + 2]
             clean_adj = adj_token.lower().strip('.,:;!"«»()[]{}')
             clean_noun = noun_token.lower().strip('.,:;!"«»()[]{}')
-            p_adj = parse_word(clean_adj)[0]
-            p_noun = parse_word(clean_noun)[0]
+            p_adj = first_parse(clean_adj)
+            p_noun = first_parse(clean_noun)
             if ("ADJF" in p_adj.tag or "PRTF" in p_adj.tag) and "NOUN" in p_noun.tag:
                 gender = p_noun.tag.gender
                 is_anim = "anim" in p_noun.tag
@@ -271,7 +271,7 @@ def normalize_cardinal_numerals(text: str) -> str:
                 ):
                     multiplier_token = tokens[i + 2]
                     multiplier_lower = multiplier_token.lower().strip('.,:;!"«»()[]{}')
-                    p_multiplier = parse_word(multiplier_lower)[0]
+                    p_multiplier = first_parse(multiplier_lower)
                     if (
                         "NOUN" in p_multiplier.tag
                         and p_multiplier.normal_form in multipliers
@@ -346,7 +346,7 @@ def normalize_cardinal_numerals(text: str) -> str:
                     nn_unit_info = resolve_unit_info(next_next_token)
                     if nn_unit_info:
                         nn_lemma, _, _, *nn_suffix = nn_unit_info
-                        p_nn = parse_word(nn_lemma)[0]
+                        p_nn = first_parse(nn_lemma)
                         nn_inflected = safe_inflect(p_nn, {"gent", "plur"})
                         if nn_suffix:
                             nn_inflected += f" {nn_suffix[0]}"
@@ -356,7 +356,7 @@ def normalize_cardinal_numerals(text: str) -> str:
                 i += step
                 continue
 
-            p_noun = parse_word(next_token_lower)[0]
+            p_noun = first_parse(next_token_lower)
             if "NOUN" in p_noun.tag:
                 gender = TIME_WORDS.get(next_token_lower, p_noun.tag.gender)
                 is_anim = "anim" in p_noun.tag

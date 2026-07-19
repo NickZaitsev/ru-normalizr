@@ -5,7 +5,7 @@ import re
 
 import num2words
 
-from .._morph import parse_word
+from .._morph import first_parse, parse_word
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_context import simple_tokenize
 from ._constants import PREP_CASE, UNIT_TOKEN_FRAGMENT, resolve_unit_info
@@ -113,7 +113,7 @@ def normalize_decimals(text: str) -> str:
         frac_val = int(frac_part_s)
         digits = len(frac_part_s)
         int_words = inflect_numeral_string(int_part_s, case, gender="femn")
-        p_cel = parse_word("целая")[0]
+        p_cel = first_parse("целая")
         tags_cel = (
             {case, "femn", "sing"}
             if int_val % 10 == 1 and int_val % 100 != 11

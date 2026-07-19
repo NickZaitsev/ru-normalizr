@@ -5,7 +5,7 @@ import re
 
 import num2words
 
-from .._morph import parse_word
+from .._morph import first_parse, parse_word
 from ..ordinal_utils import (
     find_first_noun_right,
     find_left_name_anchor,
@@ -373,7 +373,7 @@ def normalize_hyphenated_words(text: str) -> str:
             case = context_case if context_case in ("gent", "loct") else "gent"
         else:
             case = context_case
-        p_word = parse_word(word_lower)[0]
+        p_word = first_parse(word_lower)
         is_adj_like = "ADJF" in p_word.tag or word_lower.endswith(
             (
                 "дневный",
