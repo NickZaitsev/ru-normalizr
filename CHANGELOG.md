@@ -4,6 +4,11 @@ All notable changes to `ru-normalizr` will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## Unreleased
+
+### Fixed
+- Ship every bundled dictionary in the wheel by globbing `dictionaries/**/*.dic` in the package data instead of hardcoding a single file, preventing a silent `FileNotFoundError` for `pip install` users when new `.dic` files are added
+
 ## [0.3.0] - 2026-07-19
 
 ### Changed

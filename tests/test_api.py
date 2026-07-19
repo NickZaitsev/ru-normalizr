@@ -1176,6 +1176,61 @@ class RuNormalizrApiTests(unittest.TestCase):
             self.assertFalse(any(name.startswith("dist/") for name in wheel_names))
             self.assertFalse(any(name.startswith(".pytest_cache/") for name in wheel_names))
 
+    def test_wheel_includes_every_tracked_dic_file(self):
+        repo_root = _find_source_root()
+        if repo_root is None:
+            self.skipTest("source checkout not available for wheel build test")
+
+        tracked = subprocess.run(
+            ["git", "ls-files", "dictionaries/**/*.dic"],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+        )
+        if tracked.returncode != 0:
+            self.skipTest("git not available to enumerate tracked dictionaries")
+        tracked_dics = [line.strip() for line in tracked.stdout.splitlines() if line.strip()]
+        self.assertTrue(tracked_dics, "expected at least one tracked .dic file")
+
+        _clean_build_artifacts(repo_root)
+        with tempfile.TemporaryDirectory() as dist_dir:
+            try:
+                subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "pip",
+                        "wheel",
+                        "--no-deps",
+                        str(repo_root),
+                        "-w",
+                        dist_dir,
+                    ],
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                )
+            except subprocess.CalledProcessError as exc:
+                output = (exc.stdout or "") + (exc.stderr or "")
+                if (
+                    "Could not find a version that satisfies the requirement setuptools"
+                    in output
+                    or "Cannot connect to proxy" in output
+                    or "Failed to build" in output
+                ):
+                    self.skipTest(
+                        "wheel build needs external build dependencies unavailable in this environment"
+                    )
+                raise
+
+            wheel_path = next(path for path in Path(dist_dir).iterdir() if path.suffix == ".whl")
+            with zipfile.ZipFile(wheel_path) as wheel_file:
+                wheel_names = set(wheel_file.namelist())
+
+        for relative in tracked_dics:
+            with self.subTest(dic=relative):
+                self.assertIn(f"ru_normalizr/{relative}", wheel_names)
+
     def test_dictionary_rules_can_be_toggled(self):
         options = NormalizeOptions(
             enable_latinization=False,
