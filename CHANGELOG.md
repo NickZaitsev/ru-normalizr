@@ -4,7 +4,7 @@ All notable changes to `ru-normalizr` will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
-## Unreleased
+## [0.3.0] - 2026-07-19
 
 ### Changed
 - Make initial pronunciation configurable: TTS mode doubles isolated Cyrillic vowel initials and adds surname-first speech pauses, while default and safe modes preserve ordinary Russian letter names and source punctuation
