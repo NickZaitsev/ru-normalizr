@@ -4,15 +4,24 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    # Weekly run so upstream dependency releases (e.g. num2words, which has no
+    # upper bound while tests assert exact output) are caught here, not by users.
+    - cron: "0 6 * * 1"
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        os: [ubuntu-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        include:
+          # One Windows cell so the primary development OS is exercised in CI.
+          - os: windows-latest
+            python-version: "3.12"
 
     steps:
       - name: Checkout
