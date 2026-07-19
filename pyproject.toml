@@ -22,12 +22,14 @@ classifiers = [
   "Topic :: Text Processing :: Linguistic",
 ]
 dependencies = [
-  "eng_to_ipa==0.0.2",
   "num2words>=0.5.13",
   "pymorphy3>=2.0",
   "pymorphy3-dicts-ru>=2.0",
   "roman>=4.0",
 ]
+
+[project.optional-dependencies]
+ipa = ["eng_to_ipa==0.0.2"]
 
 [project.urls]
 Homepage = "https://github.com/NickZaitsev/ru-normalizr"

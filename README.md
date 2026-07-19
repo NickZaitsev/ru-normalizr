@@ -46,6 +46,16 @@
 pip install ru-normalizr
 ```
 
+IPA-бэкенд латинизации (`latinization_backend="ipa"`) требует необязательного
+пакета `eng_to_ipa`. Установите его отдельным экстра:
+
+```bash
+pip install ru-normalizr[ipa]
+```
+
+Без него запрос IPA-бэкенда один раз выдаёт предупреждение и автоматически
+переключается на словарный бэкенд латинизации.
+
 Для Windows также доступен GUI: [Скачать ru-normalizr GUI для Windows](https://github.com/NickZaitsev/ru-normalizr/releases/latest)
 
 ## Запуск из cmd или bash (CLI)
@@ -272,6 +282,16 @@ The package does not add stress marks to Russian words. For a TTS pipeline, it i
 ```bash
 pip install ru-normalizr
 ````
+
+The IPA latinization backend (`latinization_backend="ipa"`) requires the
+optional `eng_to_ipa` package. Install it as an extra:
+
+```bash
+pip install ru-normalizr[ipa]
+```
+
+Without it, requesting the IPA backend emits a one-time warning and
+automatically falls back to the dictionary latinization backend.
 
 ## Running from cmd or bash (CLI)
 

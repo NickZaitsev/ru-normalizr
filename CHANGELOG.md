@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## Unreleased
 
+### Changed
+- Make `eng_to_ipa` an optional dependency installed via the `ipa` extra (`pip install ru-normalizr[ipa]`) instead of a hard exact-pinned requirement, avoiding downstream resolver conflicts for the default `safe` mode that never uses it. When the `ipa` latinization backend is requested but `eng_to_ipa` is missing, the normalizer now emits a one-time warning and falls back to the dictionary backend instead of silently returning unlatinized text
+
 ### Fixed
 - Ship every bundled dictionary in the wheel by globbing `dictionaries/**/*.dic` in the package data instead of hardcoding a single file, preventing a silent `FileNotFoundError` for `pip install` users when new `.dic` files are added
 
