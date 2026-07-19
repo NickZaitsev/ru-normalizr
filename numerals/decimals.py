@@ -7,7 +7,7 @@ import num2words
 
 from .._morph import first_parse, parse_word
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
-from ..text_context import simple_tokenize
+from ..text_context import PUNCT_STRIP, simple_tokenize
 from ._constants import PREP_CASE, UNIT_TOKEN_FRAGMENT, resolve_unit_info
 from ._helpers import (
     get_numeral_case,
@@ -77,7 +77,7 @@ def normalize_decimals(text: str) -> str:
         return safe_inflect(parsed[0], tags, fallback_word=base)
 
     def is_ambiguous_preposition_token(token: str) -> bool:
-        clean = token.lower().strip('.,:;!"«»()[]{}')
+        clean = token.lower().strip(PUNCT_STRIP)
         return bool(clean) and " " not in clean and clean in PREP_CASE
 
     def should_skip_unit_candidate(unit_raw: str, rest: str) -> bool:
@@ -90,7 +90,7 @@ def normalize_decimals(text: str) -> str:
         return bool(re.match(r"[^\W_]", next_char, re.UNICODE))
 
     def should_skip_combined_unit_candidate(unit_parts: list[str]) -> bool:
-        cleaned_parts = [part.strip('.,:;!"«»()[]{}') for part in unit_parts]
+        cleaned_parts = [part.strip(PUNCT_STRIP) for part in unit_parts]
         return any(
             cleaned and is_ambiguous_preposition_token(cleaned)
             for cleaned in cleaned_parts[1:]
