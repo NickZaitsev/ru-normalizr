@@ -9,7 +9,7 @@ from typing import Any
 
 import num2words
 
-from .._morph import parse_word
+from .._morph import first_parse, parse_word
 from ..preprocess_utils import (
     NEGATIVE_NUMBER_PLACEHOLDER,
     normalize_ascii_quote_pairs,
@@ -333,7 +333,7 @@ def _inflect_numeral_string_cached(
     }
 
     def get_magnitude_gender(word_str: str) -> str | None:
-        return magnitudes.get(parse_word(word_str)[0].normal_form)
+        return magnitudes.get(first_parse(word_str).normal_form)
 
     inflected_words: list[str] = []
     for index, word in enumerate(words):
@@ -406,7 +406,7 @@ def _get_preposition_before_number(tokens: list[str], idx: int) -> tuple[str, st
         ):
             continue
         if any(
-            parse_word(token)[0].tag.POS in MORPHOLOGICAL_CONTEXT_BARRIER_POS
+            first_parse(token).tag.POS in MORPHOLOGICAL_CONTEXT_BARRIER_POS
             for token in prep_tokens
         ):
             continue
@@ -417,7 +417,7 @@ def _get_preposition_before_number(tokens: list[str], idx: int) -> tuple[str, st
         word_left = normalize_context_token(tokens[i])
         if word_left == "чем" or word_left in NUMERAL_CONTEXT_BARRIERS:
             break
-        if parse_word(word_left)[0].tag.POS in MORPHOLOGICAL_CONTEXT_BARRIER_POS:
+        if first_parse(word_left).tag.POS in MORPHOLOGICAL_CONTEXT_BARRIER_POS:
             break
         if word_left in PREP_CASE:
             return word_left, PREP_CASE[word_left]
@@ -460,7 +460,7 @@ def get_numeral_case(
     if is_range_start and idx > 0:
         prev_token = tokens[idx - 1].strip(".,!?;:")
         if prev_token:
-            p_prev = parse_word(prev_token)[0]
+            p_prev = first_parse(prev_token)
             prev_case = "loct" if "loc2" in p_prev.tag else p_prev.tag.case
             if prev_case:
                 if is_case_reliable_noun(p_prev):
@@ -479,7 +479,7 @@ def get_numeral_case(
         if immediate_left:
             if immediate_left in {"том", "номер"}:
                 return "nomn"
-            left_noun = parse_word(immediate_left)[0]
+            left_noun = first_parse(immediate_left)
             if (
                 is_case_reliable_noun(left_noun)
                 and left_noun.normal_form in GENITIVE_QUANTITY_GOVERNORS
@@ -494,7 +494,7 @@ def get_numeral_case(
             for k in range(idx + 1, min(len(tokens), idx + 5)):
                 if tokens[k].lower() in {"до", "по"}:
                     return "gent"
-                right_parse = parse_word(tokens[k])[0]
+                right_parse = first_parse(tokens[k])
                 if is_case_reliable_noun(right_parse):
                     if right_parse.tag.case == "ablt":
                         return "ablt"
@@ -503,7 +503,7 @@ def get_numeral_case(
             for j in range(idx + 1, min(len(tokens), idx + 6)):
                 if any(char in tokens[j] for char in ".!?;:,"):
                     break
-                p = parse_word(tokens[j])[0]
+                p = first_parse(tokens[j])
                 if is_case_reliable_noun(p):
                     if p.tag.case == "loct" or "loc2" in p.tag:
                         return "loct"
@@ -517,7 +517,7 @@ def get_numeral_case(
                 if "VERB" in p.tag or "INFN" in p.tag:
                     break
             for j in range(idx + 1, min(len(tokens), idx + 4)):
-                p = parse_word(tokens[j])[0]
+                p = first_parse(tokens[j])
                 word_norm = p.normal_form
                 if word_norm in set(TIME_WORDS) | {
                     "январь",
@@ -558,7 +558,7 @@ def get_numeral_case(
     blocked_by_noun = False
     local_left_scan_start = left_scan_start
     for i in range(idx - 1, max(left_scan_start - 1, idx - 3), -1):
-        p = parse_word(tokens[i])[0]
+        p = first_parse(tokens[i])
         if p.tag.POS in MORPHOLOGICAL_CONTEXT_BARRIER_POS:
             local_left_scan_start = i + 1
             break
@@ -567,7 +567,7 @@ def get_numeral_case(
             break
 
     for i in range(max(local_left_scan_start, idx - 2), idx):
-        p = parse_word(tokens[i])[0]
+        p = first_parse(tokens[i])
         if blocked_by_noun and p.tag.POS in {"ADJF", "PRTF"}:
             continue
         if p.tag.POS in {"ADJF", "PRTF"} and p.tag.case:
@@ -575,7 +575,7 @@ def get_numeral_case(
 
     for i in range(idx - 1, max(left_scan_start - 1, idx - 5), -1):
         word_left = tokens[i].lower().strip(".,!?;:")
-        p_verb = parse_word(word_left)[0]
+        p_verb = first_parse(word_left)
         # Full participles ("ожидаемый", "требуемый") are attributive modifiers of
         # a following noun, not governors of the numeral's case; leave them to the
         # adjective scan so the numeral stays in its predicate (nominative) case.
@@ -587,7 +587,7 @@ def get_numeral_case(
     if idx < len(tokens) - 1:
         word_right = tokens[idx + 1].lower().strip(".,!?;:")
         if word_right:
-            p_right = parse_word(word_right)[0]
+            p_right = first_parse(word_right)
             noun_case = p_right.tag.case
             if not (
                 is_case_reliable_noun(p_right)
@@ -600,7 +600,7 @@ def get_numeral_case(
     if idx < len(tokens) - 1:
         word_right = tokens[idx + 1].lower().strip(".,!?;:")
         if word_right:
-            p_right = parse_word(word_right)[0]
+            p_right = first_parse(word_right)
             if is_case_reliable_noun(p_right):
                 noun_case = p_right.tag.case
                 if noun_case in {"datv", "ablt", "loct"} or "loc2" in p_right.tag:
@@ -615,7 +615,7 @@ def get_numeral_case(
                 left_token = normalize_context_token(tokens[back])
                 if not left_token or left_token in {"уже", "теперь"}:
                     continue
-                p_left = parse_word(left_token)[0]
+                p_left = first_parse(left_token)
                 if p_left.tag.case == "datv" and p_left.tag.POS in {"NPRO", "NOUN"}:
                     return "nomn"
                 break

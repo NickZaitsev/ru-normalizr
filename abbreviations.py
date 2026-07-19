@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from ._morph import parse_word
+from ._morph import first_parse, parse_word
 from .abbreviation_rules import (
     ABBREVIATION_LITERAL_HINTS,
     ABBREVIATION_PATTERNS,
@@ -386,7 +386,7 @@ def expand_letter_abbreviations(text: str) -> str:
 
         if all(char in RU_LETTER_NAMES for char in letters_upper):
             if not is_dotted:
-                parsed = parse_word(joined_key.lower())[0]
+                parsed = first_parse(joined_key.lower())
                 if parsed.tag.POS in REAL_WORD_POS and "Abbr" not in parsed.tag:
                     return token
             if not is_dotted:

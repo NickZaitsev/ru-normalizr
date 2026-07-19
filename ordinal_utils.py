@@ -4,7 +4,7 @@ import logging
 
 import num2words
 
-from ._morph import parse_word
+from ._morph import first_parse, parse_word
 from .numerals._num2words import (
     CASE_TO_NUM2WORDS as _CASE_TO_NUM2WORDS,
 )
@@ -162,7 +162,7 @@ def resolve_ordinal_suffix_case(
         resolved_gender = "femn"
     if suffix in {"м", "ом", "ем"}:
         if tokens_right:
-            next_parse = parse_word(tokens_right[0].strip(".,!?;:"))[0]
+            next_parse = first_parse(tokens_right[0].strip(".,!?;:"))
             case_from_suffix = "loct" if "sing" in next_parse.tag else "datv"
         else:
             case_from_suffix = "loct"
@@ -180,7 +180,7 @@ def resolve_ordinal_plural(
     if suffix in {"е", "ее", "ое"} and tokens_right:
         next_clean = tokens_right[0].strip(".,!?;:")
         if next_clean:
-            next_parse = parse_word(next_clean)[0]
+            next_parse = first_parse(next_clean)
             if "sing" in next_parse.tag and "neut" in next_parse.tag:
                 plural = False
     return plural
