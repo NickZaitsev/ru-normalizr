@@ -4,6 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from . import __version__
 from .options import NormalizeOptions
 from .pipeline import normalize
 
@@ -22,6 +23,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ru-normalizr", description="Normalize Russian text."
     )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+        help="Print the installed ru-normalizr version and exit.",
+    )
     parser.add_argument("text", nargs="?", help="Inline text to normalize.")
     parser.add_argument("--file", help="Read text from file.")
     parser.add_argument(
@@ -30,7 +37,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Print the normalized result to stdout (the default without --output).",
+        help=(
+            "Print the normalized result to stdout and exit with status 1 if it "
+            "differs from the input, 0 if unchanged. Cannot be combined with --output."
+        ),
     )
     parser.add_argument(
         "--mode",
@@ -83,6 +93,8 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write(result)
         if not result.endswith("\n"):
             sys.stdout.write("\n")
+    if args.check:
+        return 1 if result != text else 0
     return 0
 
 

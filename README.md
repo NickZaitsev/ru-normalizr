@@ -88,6 +88,8 @@ python -m ru_normalizr "Глава IV. Встреча в 10:07." --mode tts
 - `--mode safe|tts`
 - `--with-latin-stress` — по возможности ставить верное удар+ение при кириллизации латиницы
 - `--keep-links` — не удалять [1], (2.5) и прочие сноски
+- `--check` — вывести результат в stdout и завершиться с кодом 1, если он отличается от входа, иначе 0 (нельзя вместе с `--output`)
+- `--version` — вывести установленную версию `ru-normalizr` и выйти
 
 ## Использование в Python
 
@@ -324,6 +326,8 @@ Useful flags:
 * `--mode safe|tts`
 * `--with-latin-stress` — add correct stress marks when possible during Latin-to-Cyrillic conversion
 * `--keep-links` — do not remove references such as `[1]`, `(2.5)`, etc.
+* `--check` — print the result to stdout and exit with status 1 if it differs from the input, 0 if unchanged (cannot be combined with `--output`)
+* `--version` — print the installed `ru-normalizr` version and exit
 
 ## Usage in Python
 
