@@ -9,6 +9,8 @@ dist/
 *.pyd
 *.pkl
 .tmp_dist/
+.coverage
+input.txt
 *.whl
 *.tar.gz
 TODO.txt
