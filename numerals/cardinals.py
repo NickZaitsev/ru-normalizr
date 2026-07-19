@@ -107,7 +107,7 @@ def normalize_cardinal_numerals(text: str) -> str:
         return bool(re.fullmatch(r"[^\W\d_]+", token, re.UNICODE))
 
     def is_ambiguous_preposition_token(token: str) -> bool:
-        clean = token.lower().strip('.,:;!"«»()[]{}')
+        clean = token.lower().strip(PUNCT_STRIP)
         return bool(clean) and " " not in clean and clean in PREP_CASE
 
     def inanimate_cardinal_case(value: int, case: str) -> str:
@@ -122,11 +122,11 @@ def normalize_cardinal_numerals(text: str) -> str:
         chunk = tokens[start_index : start_index + token_span]
         if (
             token_span == 1
-            and unit_raw == unit_raw.strip('.,:;!"«»()[]{}')
+            and unit_raw == unit_raw.strip(PUNCT_STRIP)
             and is_ambiguous_preposition_token(unit_raw)
             and start_index + token_span < len(tokens)
         ):
-            next_token = tokens[start_index + token_span].strip('.,:;!"«»()[]{}')
+            next_token = tokens[start_index + token_span].strip(PUNCT_STRIP)
             if next_token:
                 return True
         return (
@@ -155,7 +155,7 @@ def normalize_cardinal_numerals(text: str) -> str:
     def is_redundant_unit_token(token_index: int, expected_lemma: str) -> bool:
         if token_index >= len(tokens):
             return False
-        token_lower = tokens[token_index].lower().strip('.,:;!"«»()[]{}')
+        token_lower = tokens[token_index].lower().strip(PUNCT_STRIP)
         if not token_lower:
             return False
         parsed = parse_word(token_lower)
@@ -194,8 +194,8 @@ def normalize_cardinal_numerals(text: str) -> str:
         if i + 2 < len(tokens):
             adj_token = tokens[i + 1]
             noun_token = tokens[i + 2]
-            clean_adj = adj_token.lower().strip('.,:;!"«»()[]{}')
-            clean_noun = noun_token.lower().strip('.,:;!"«»()[]{}')
+            clean_adj = adj_token.lower().strip(PUNCT_STRIP)
+            clean_noun = noun_token.lower().strip(PUNCT_STRIP)
             p_adj = first_parse(clean_adj)
             p_noun = first_parse(clean_noun)
             if ("ADJF" in p_adj.tag or "PRTF" in p_adj.tag) and "NOUN" in p_noun.tag:
@@ -221,12 +221,12 @@ def normalize_cardinal_numerals(text: str) -> str:
 
         if i + 1 < len(tokens):
             noun_token = tokens[i + 1]
-            next_token_lower = noun_token.lower().strip('.,:;!"«»()[]{}')
+            next_token_lower = noun_token.lower().strip(PUNCT_STRIP)
             unit_candidate = extract_unit_candidate(i + 1)
             unit_token_span = 1
             unit_raw = noun_token
             if next_token_lower == "°" and i + 2 < len(tokens):
-                degree_suffix = tokens[i + 2].lower().strip('.,:;!"«»()[]{}')
+                degree_suffix = tokens[i + 2].lower().strip(PUNCT_STRIP)
                 if degree_suffix in {"c", "k", "f", "с", "к", "ф"}:
                     next_token_lower = f"°{degree_suffix}"
                     noun_token = f"{noun_token}{tokens[i + 2]}"
@@ -270,7 +270,7 @@ def normalize_cardinal_numerals(text: str) -> str:
                     and i + 2 < len(tokens)
                 ):
                     multiplier_token = tokens[i + 2]
-                    multiplier_lower = multiplier_token.lower().strip('.,:;!"«»()[]{}')
+                    multiplier_lower = multiplier_token.lower().strip(PUNCT_STRIP)
                     p_multiplier = first_parse(multiplier_lower)
                     if (
                         "NOUN" in p_multiplier.tag
