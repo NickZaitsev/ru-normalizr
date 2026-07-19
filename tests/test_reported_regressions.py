@@ -6,17 +6,36 @@ from ru_normalizr.numerals._constants import UNITS_DATA
 
 class RuNormalizrReportedRegressionTests(unittest.TestCase):
     def test_equals_blocks_case_leak_onto_arithmetic_result(self):
-        expressions = (
-            "9 × 11 = 73 ₽",
-            "9 × 11.01 = 73 ₽",
-            "9 × 11.1 = 73 ₽",
-            "9 × 11.0 = 73 ₽",
-            "9 × 11.2 = 73 ₽",
-            "9 × 11.02 = 73 ₽",
-        )
-        for expression in expressions:
+        # The decimal multiplier after "×" must stay nominative itself and must
+        # not leak its case onto the "= 73 ₽" result. Assert full strings so a
+        # regression in either the fraction ("две десятых" vs "двух десятых")
+        # or the result ("рубля" vs "рублей") is caught.
+        cases = {
+            "9 × 11 = 73 ₽": "девять умножить на одиннадцать равно семьдесят три рубля",
+            "9 × 11.01 = 73 ₽": (
+                "девять умножить на одиннадцать целых одна сотая "
+                "равно семьдесят три рубля"
+            ),
+            "9 × 11.1 = 73 ₽": (
+                "девять умножить на одиннадцать целых одна десятая "
+                "равно семьдесят три рубля"
+            ),
+            "9 × 11.0 = 73 ₽": (
+                "девять умножить на одиннадцать целых ноль десятых "
+                "равно семьдесят три рубля"
+            ),
+            "9 × 11.2 = 73 ₽": (
+                "девять умножить на одиннадцать целых две десятых "
+                "равно семьдесят три рубля"
+            ),
+            "9 × 11.02 = 73 ₽": (
+                "девять умножить на одиннадцать целых две сотых "
+                "равно семьдесят три рубля"
+            ),
+        }
+        for expression, expected in cases.items():
             with self.subTest(expression=expression):
-                self.assertTrue(normalize(expression).endswith("равно семьдесят три рубля"))
+                self.assertEqual(normalize(expression), expected)
 
         self.assertEqual(normalize("не более 73 рублей"), "не более семидесяти трёх рублей")
 
