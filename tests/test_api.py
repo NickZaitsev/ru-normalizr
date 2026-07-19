@@ -4,10 +4,12 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import warnings
 import zipfile
 from pathlib import Path
 
 from ru_normalizr import NormalizeOptions, Normalizer, normalize, preprocess_text
+from ru_normalizr import latinization as _latinization
 
 
 def _find_source_root() -> Path | None:
@@ -1242,6 +1244,58 @@ class RuNormalizrApiTests(unittest.TestCase):
 
         self.assertNotEqual(result, "YouTube")
         self.assertNotRegex(result, r"[A-Za-z]")
+
+
+class RuNormalizrIpaBackendTests(unittest.TestCase):
+    def setUp(self):
+        _latinization._clear_latinization_word_caches()
+        self._saved_warning_flag = _latinization._ipa_backend_warning_emitted
+        _latinization._ipa_backend_warning_emitted = False
+
+    def tearDown(self):
+        _latinization._clear_latinization_word_caches()
+        _latinization._ipa_backend_warning_emitted = self._saved_warning_flag
+
+    def test_ipa_backend_falls_back_to_dictionary_when_eng_to_ipa_missing(self):
+        options = NormalizeOptions.tts(latinization_backend="ipa")
+        saved = sys.modules.get("eng_to_ipa", "__absent__")
+        sys.modules["eng_to_ipa"] = None  # forces ImportError on `import eng_to_ipa`
+        try:
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                result = normalize("YouTube", options)
+                # Warning is emitted once telling the user how to install the extra.
+                messages = [str(w.message) for w in caught]
+        finally:
+            if saved == "__absent__":
+                del sys.modules["eng_to_ipa"]
+            else:
+                sys.modules["eng_to_ipa"] = saved
+
+        # Fell back to the dictionary backend instead of returning unlatinized text.
+        self.assertNotEqual(result, "YouTube")
+        self.assertNotRegex(result, r"[A-Za-z]")
+        self.assertTrue(any("ru-normalizr[ipa]" in message for message in messages))
+
+    def test_ipa_backend_warning_emitted_only_once(self):
+        options = NormalizeOptions.tts(latinization_backend="ipa")
+        saved = sys.modules.get("eng_to_ipa", "__absent__")
+        sys.modules["eng_to_ipa"] = None
+        try:
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                normalize("YouTube", options)
+                normalize("Facebook", options)
+                ipa_warnings = [
+                    w for w in caught if "ru-normalizr[ipa]" in str(w.message)
+                ]
+        finally:
+            if saved == "__absent__":
+                del sys.modules["eng_to_ipa"]
+            else:
+                sys.modules["eng_to_ipa"] = saved
+
+        self.assertEqual(len(ipa_warnings), 1)
 
 
 class RuNormalizrCliTests(unittest.TestCase):

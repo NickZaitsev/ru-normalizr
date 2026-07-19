@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import threading
+import warnings
 from collections import OrderedDict
 from functools import lru_cache
 from pathlib import Path
@@ -23,6 +24,26 @@ LATINIZATION_WORD_CACHE_SIZE = 50000
 _ipa_word_cache: OrderedDict[str, str] = OrderedDict()
 _fallback_word_cache: OrderedDict[tuple[str, str, str], str] = OrderedDict()
 _word_cache_lock = threading.RLock()
+
+_ipa_backend_warning_lock = threading.Lock()
+_ipa_backend_warning_emitted = False
+
+
+def _warn_missing_ipa_backend() -> None:
+    """Warn once that the optional ``eng_to_ipa`` backend is unavailable."""
+    global _ipa_backend_warning_emitted
+    with _ipa_backend_warning_lock:
+        if _ipa_backend_warning_emitted:
+            return
+        _ipa_backend_warning_emitted = True
+    warnings.warn(
+        "The 'ipa' latinization backend requires the optional 'eng_to_ipa' "
+        "package, which is not installed. Install it with "
+        "'pip install ru-normalizr[ipa]'. Falling back to the dictionary "
+        "latinization backend.",
+        RuntimeWarning,
+        stacklevel=2,
+    )
 
 # Order matters.
 IPA_MAP = [
@@ -327,7 +348,8 @@ def _apply_ipa_latinization(
     try:
         import eng_to_ipa  # noqa: F401
     except ImportError:
-        return text
+        _warn_missing_ipa_backend()
+        return _apply_dictionary_latinization(text, dictionaries_path, filename)
 
     matches = list(LATIN_TOKEN_PATTERN.finditer(text))
     if not matches:
