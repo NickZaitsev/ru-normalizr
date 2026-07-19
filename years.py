@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import logging
 import re
 
 import num2words
@@ -21,6 +22,8 @@ from .years_context import (
     is_plausible_year,
     should_treat_as_implicit_year,
 )
+
+logger = logging.getLogger(__name__)
 
 YEAR_SUFFIX_TO_CASE = {
     "ый": "nomn",
@@ -168,8 +171,8 @@ def year_to_ordinal_words(year: int, case: str = "nomn", plural: bool = False) -
             )
             tail_words = year_to_ordinal_words(tail, normalized_case)
             return f"{high_words} {tail_words}"
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("num2words failed for split year %r: %s", year, exc)
     num2words_case = resolve_num2words_case(normalized_case, default="")
     if num2words_case:
         try:
@@ -180,11 +183,12 @@ def year_to_ordinal_words(year: int, case: str = "nomn", plural: bool = False) -
                 case=num2words_case,
                 plural=plural,
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("num2words ordinal failed for year %r (case=%s): %s", year, num2words_case, exc)
     try:
         ordinal = num2words.num2words(year, lang="ru", to="ordinal")
-    except Exception:
+    except Exception as exc:
+        logger.debug("num2words ordinal failed for year %r: %s", year, exc)
         return str(year)
     words = ordinal.split()
     if not words:
@@ -523,7 +527,8 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
             return f"{m.group('open')}{year_to_ordinal_words(year)}{m.group('close')}"
         try:
             rendered = num2words.num2words(year, lang="ru")
-        except Exception:
+        except Exception as exc:
+            logger.debug("num2words failed for year %r: %s", year, exc)
             rendered = str(year)
         return f"{m.group('open')}{rendered}{m.group('close')}"
 

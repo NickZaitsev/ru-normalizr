@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 
 import num2words
@@ -30,6 +31,8 @@ from ._helpers import (
     should_consume_abbreviation_dot,
     should_keep_tokenized_decimal_unit_dot,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _resolve_range_unit_info(unit_raw: str):
@@ -441,7 +444,8 @@ def normalize_all_digits_everywhere(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
         try:
             return num2words.num2words(int(match.group(0)), lang="ru")
-        except Exception:
+        except Exception as exc:
+            logger.debug("num2words failed for %r: %s", match.group(0), exc)
             return match.group(0)
 
     return DIGIT_PATTERN.sub(repl, text)

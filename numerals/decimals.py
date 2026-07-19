@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 
 import num2words
@@ -19,6 +20,8 @@ from ._helpers import (
 DECIMAL_PATTERN = re.compile(
     rf"(?<!\d)(?P<num>(?:-|{re.escape(NEGATIVE_NUMBER_PLACEHOLDER)})?\d+[.,]\d+)(?:\s*(?P<unit>{UNIT_TOKEN_FRAGMENT})(?P<unit_dot>\.)?)?(?:\s+(?P<unit2>{UNIT_TOKEN_FRAGMENT})(?P<unit2_dot>\.)?)?(?!\d)"
 )
+
+logger = logging.getLogger(__name__)
 
 
 def normalize_decimals(text: str) -> str:
@@ -53,7 +56,8 @@ def normalize_decimals(text: str) -> str:
             return ""
         try:
             base = num2words.num2words(10**digits, lang="ru", to="ordinal")
-        except Exception:
+        except Exception as exc:
+            logger.debug("num2words failed for 10**%d ordinal: %s", digits, exc)
             base = {
                 1: "десятая",
                 2: "сотая",

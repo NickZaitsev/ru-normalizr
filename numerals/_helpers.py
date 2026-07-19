@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import logging
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -16,6 +17,8 @@ from ..preprocess_utils import (
 from ..text_context import PUNCT_STRIP, normalize_context_token
 from ._constants import ENTITY_DEFAULT_CASE, ENTITY_KEYWORDS, PREP_CASE, TIME_WORDS, VERB_CASE
 from ._num2words import CARDINAL_GENDER_TO_NUM2WORDS, resolve_num2words_case
+
+logger = logging.getLogger(__name__)
 
 SENTENCE_PUNCTUATION_PATTERN = re.compile(r"\s+([.,!?;:])")
 POINT_NUMBER_SPACING_PATTERN = re.compile(r"(?<=\.) (?=\d)")
@@ -145,8 +148,8 @@ def safe_inflect(
         inflected = parsed_word.inflect(target_tags)
         if inflected:
             return inflected.word
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("inflect failed for %r -> %s: %s", parsed_word.word, target_tags, exc)
     pos = parsed_word.tag.POS
     if (
         (pos_filter is None or pos in pos_filter)
@@ -312,11 +315,12 @@ def _inflect_numeral_string_cached(
             if animate is not None:
                 kwargs["animate"] = animate
             return num2words.num2words(value, lang="ru", **kwargs)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("num2words failed for %r (kwargs=%s): %s", value, kwargs, exc)
     try:
         words = num2words.num2words(value, lang="ru").split()
-    except Exception:
+    except Exception as exc:
+        logger.debug("num2words failed for %r: %s", value, exc)
         return num_str
     if case == "nomn" and gender is None:
         return " ".join(words)

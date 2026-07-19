@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 
 import num2words
@@ -19,6 +20,8 @@ from ._constants import HYPHENATED_WORD_PATTERN, ORDINAL_PATTERN
 from ._helpers import get_numeral_case, inflect_numeral_string
 from ._hyphen import CARDINAL_CASE_SUFFIXES, classify_numeric_hyphen_rhs
 from ._num2words import resolve_num2words_case
+
+logger = logging.getLogger(__name__)
 
 HEADING_WORDS_PATTERN = (
     r"глава|главы|главе|главу|главой|главами|главах|"
@@ -347,7 +350,8 @@ def normalize_hyphenated_words(text: str) -> str:
             return match.group(0)
         try:
             int(num_str)
-        except Exception:
+        except ValueError as exc:
+            logger.debug("int() failed for %r: %s", num_str, exc)
             return match.group(0)
         case_from_suffix = None
         if word_lower == "х":
@@ -405,7 +409,8 @@ def _render_cardinal_suffix_number(num: int, case: str) -> str | None:
             lang="ru",
             case=resolve_num2words_case(case),
         )
-    except Exception:
+    except Exception as exc:
+        logger.debug("num2words failed for %r (case=%s): %s", num, case, exc)
         return None
 
 
