@@ -1275,7 +1275,7 @@ class RuNormalizrIpaBackendTests(unittest.TestCase):
         # Fell back to the dictionary backend instead of returning unlatinized text.
         self.assertNotEqual(result, "YouTube")
         self.assertNotRegex(result, r"[A-Za-z]")
-        self.assertTrue(any("ru-normalizr[ipa]" in message for message in messages))
+        self.assertTrue(any("eng_to_ipa" in message for message in messages))
 
     def test_ipa_backend_warning_emitted_only_once(self):
         options = NormalizeOptions.tts(latinization_backend="ipa")
@@ -1287,7 +1287,7 @@ class RuNormalizrIpaBackendTests(unittest.TestCase):
                 normalize("YouTube", options)
                 normalize("Facebook", options)
                 ipa_warnings = [
-                    w for w in caught if "ru-normalizr[ipa]" in str(w.message)
+                    w for w in caught if "eng_to_ipa" in str(w.message)
                 ]
         finally:
             if saved == "__absent__":

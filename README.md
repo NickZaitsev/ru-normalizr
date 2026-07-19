@@ -46,15 +46,10 @@
 pip install ru-normalizr
 ```
 
-IPA-бэкенд латинизации (`latinization_backend="ipa"`) требует необязательного
-пакета `eng_to_ipa`. Установите его отдельным экстра:
-
-```bash
-pip install ru-normalizr[ipa]
-```
-
-Без него запрос IPA-бэкенда один раз выдаёт предупреждение и автоматически
-переключается на словарный бэкенд латинизации.
+IPA-бэкенд латинизации (`latinization_backend="ipa"`) работает из коробки:
+пакет `eng_to_ipa` входит в зависимости по умолчанию. Если по какой-то причине
+он окажется недоступен, запрос IPA-бэкенда один раз выдаёт предупреждение и
+автоматически переключается на словарный бэкенд латинизации.
 
 Для Windows также доступен GUI: [Скачать ru-normalizr GUI для Windows](https://github.com/NickZaitsev/ru-normalizr/releases/latest)
 
@@ -158,7 +153,7 @@ print(normalize("YouTube в 2024 г.", options))
 | `enable_letter_abbreviation_expansion` | `bool` | `False` | `True` | Побуквенное чтение аббревиатур (`ГИБДД` → `ги бэ дэ дэ`) |
 | `enable_dictionary_normalization` | `bool` | `True` | `True` | Применение словарных правил из пользовательских `.dic` |
 | `enable_latinization` | `bool` | `False` | `True` | Транслитерация латиницы в кириллицу |
-| `latinization_backend` | `"ipa" \| "dictionary"` | `"ipa"` | `"ipa"` | Бэкенд латинизации (IPA требует экстра `[ipa]`) |
+| `latinization_backend` | `"ipa" \| "dictionary"` | `"ipa"` | `"ipa"` | Бэкенд латинизации (IPA работает по умолчанию) |
 | `enable_latinization_stress_marks` | `bool` | `False` | `False` | Сохранять знаки ударения `+` при IPA-латинизации |
 | `latin_dictionary_filename` | `str` | `"latinization_rules.dic"` | `"latinization_rules.dic"` | Имя `.dic` в каталоге `latinization/`, используемого стадией `latinization` |
 | `dictionary_include_files` | `tuple[str, ...]` | `()` | `()` | Если задано — загружать только эти `.dic` (иначе все, кроме `latinization/`) |
@@ -360,14 +355,9 @@ The package does not add stress marks to Russian words. For a TTS pipeline, it i
 pip install ru-normalizr
 ````
 
-The IPA latinization backend (`latinization_backend="ipa"`) requires the
-optional `eng_to_ipa` package. Install it as an extra:
-
-```bash
-pip install ru-normalizr[ipa]
-```
-
-Without it, requesting the IPA backend emits a one-time warning and
+The IPA latinization backend (`latinization_backend="ipa"`) works out of the
+box: the `eng_to_ipa` package is a default dependency. If it ever becomes
+unavailable, requesting the IPA backend emits a one-time warning and
 automatically falls back to the dictionary latinization backend.
 
 ## Running from cmd or bash (CLI)
@@ -473,7 +463,7 @@ uses the **tts** column. Any option can be overridden explicitly.
 | `enable_letter_abbreviation_expansion` | `bool` | `False` | `True` | Read abbreviations letter by letter (`ГИБДД` → `ги бэ дэ дэ`) |
 | `enable_dictionary_normalization` | `bool` | `True` | `True` | Apply dictionary rewrite rules from user `.dic` files |
 | `enable_latinization` | `bool` | `False` | `True` | Transliterate Latin words into Cyrillic |
-| `latinization_backend` | `"ipa" \| "dictionary"` | `"ipa"` | `"ipa"` | Latinization backend (IPA requires the `[ipa]` extra) |
+| `latinization_backend` | `"ipa" \| "dictionary"` | `"ipa"` | `"ipa"` | Latinization backend (IPA works by default) |
 | `enable_latinization_stress_marks` | `bool` | `False` | `False` | Keep `+` stress markers when using IPA latinization |
 | `latin_dictionary_filename` | `str` | `"latinization_rules.dic"` | `"latinization_rules.dic"` | Name of the `.dic` in `latinization/` used by the `latinization` stage |
 | `dictionary_include_files` | `tuple[str, ...]` | `()` | `()` | If set, load only these `.dic` files (otherwise all except `latinization/`) |

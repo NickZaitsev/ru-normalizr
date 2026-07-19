@@ -30,17 +30,17 @@ _ipa_backend_warning_emitted = False
 
 
 def _warn_missing_ipa_backend() -> None:
-    """Warn once that the optional ``eng_to_ipa`` backend is unavailable."""
+    """Warn once that the ``eng_to_ipa`` backend is unavailable."""
     global _ipa_backend_warning_emitted
     with _ipa_backend_warning_lock:
         if _ipa_backend_warning_emitted:
             return
         _ipa_backend_warning_emitted = True
     warnings.warn(
-        "The 'ipa' latinization backend requires the optional 'eng_to_ipa' "
-        "package, which is not installed. Install it with "
-        "'pip install ru-normalizr[ipa]'. Falling back to the dictionary "
-        "latinization backend.",
+        "The 'ipa' latinization backend requires the 'eng_to_ipa' package, "
+        "which ships with ru-normalizr by default but is not importable now. "
+        "Reinstall it with 'pip install eng_to_ipa'. Falling back to the "
+        "dictionary latinization backend.",
         RuntimeWarning,
         stacklevel=2,
     )
