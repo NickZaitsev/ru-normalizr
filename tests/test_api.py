@@ -1305,10 +1305,40 @@ class RuNormalizrCliTests(unittest.TestCase):
             input="Глава IV.",
             text=True,
             capture_output=True,
-            check=True,
         )
 
         self.assertIn("Глава четвёртая.", completed.stdout)
+        # Output differs from input, so --check signals a change with status 1.
+        self.assertEqual(completed.returncode, 1)
+
+    def test_cli_check_mode_exit_code_reflects_whether_text_changed(self):
+        changed = subprocess.run(
+            [sys.executable, "-m", "ru_normalizr", "--check", "Глава IV."],
+            text=True,
+            capture_output=True,
+        )
+        self.assertEqual(changed.returncode, 1)
+        self.assertIn("Глава четвёртая.", changed.stdout)
+
+        unchanged = subprocess.run(
+            [sys.executable, "-m", "ru_normalizr", "--check", "привет мир"],
+            text=True,
+            capture_output=True,
+        )
+        self.assertEqual(unchanged.returncode, 0)
+        self.assertIn("привет мир", unchanged.stdout)
+
+    def test_cli_version_flag_prints_package_version(self):
+        from ru_normalizr import __version__
+
+        completed = subprocess.run(
+            [sys.executable, "-m", "ru_normalizr", "--version"],
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+
+        self.assertIn(__version__, completed.stdout)
 
     def test_cli_check_mode_rejects_output_file(self):
         completed = subprocess.run(
