@@ -78,7 +78,7 @@ ru-normalizr "Глава IV. Встреча в 10:07." --mode tts
 ru-normalizr --mode tts --file ./sample.txt --output ./sample.normalized.txt
 ```
 
-Если команда `ru_normalizr` не работает, добавьте перед ней `python -m`, например:
+Если команда `ru-normalizr` не работает, добавьте перед ней `python -m`, например:
 ```bash
 python -m ru_normalizr "Глава IV. Встреча в 10:07." --mode tts
 ```
@@ -132,6 +132,81 @@ print(normalize("YouTube в 2024 г.", options))
 # +ютуб в две тысячи двадцать четвёртом году.
 ```
 
+### Все опции `NormalizeOptions`
+
+Значение по умолчанию зависит от режима: `NormalizeOptions()` и
+`NormalizeOptions.safe()` используют колонку **safe**, `NormalizeOptions.tts()`
+— колонку **tts**. Любую опцию можно переопределить явно.
+
+| Опция | Тип | safe | tts | Описание |
+| --- | --- | --- | --- | --- |
+| `enable_caps_normalization` | `bool` | `False` | `True` | Нормализация ЗАГЛАВНЫХ заголовков (`ГЛАВА` → `Глава`) |
+| `enable_first_word_decap` | `bool` | `False` | `True` | Приведение первого слова предложения к строчным при нормализации капса |
+| `remove_links` | `bool` | `False` | `True` | Удаление скобочных ссылок-сносок вида `[1]`, `(2.5)` |
+| `enable_url_normalization` | `bool` | `False` | `True` | Озвучивание явных URL (`https://…`) поразрядно и по словам-разделителям |
+| `remove_links_ignore_interval` | `tuple[int, int]` | `(1000, 2200)` | `(1000, 2200)` | Диапазон чисел в скобках, которые считаются годами и не удаляются как сноски |
+| `enable_year_normalization` | `bool` | `True` | `True` | Нормализация годов, десятилетий и диапазонов лет |
+| `enable_roman_normalization` | `bool` | `True` | `True` | Обработка римских цифр |
+| `enable_dates_time_normalization` | `bool` | `True` | `True` | Нормализация дат и времени |
+| `enable_numeral_normalization` | `bool` | `True` | `True` | Нормализация числительных, порядковых форм, дробей и десятичных |
+| `enable_abbreviation_expansion` | `bool` | `True` | `True` | Раскрытие сокращений (`ул.`, `и т. д.`) |
+| `enable_contextual_abbreviation_expansion` | `bool` | `True` | `True` | Согласование прилагательных-сокращений по контексту (`гос.` → `государственного`) |
+| `enable_years_ago_expansion` | `bool` | `True` | `True` | Раскрытие `л. н.` → `лет назад` в числовом контексте |
+| `enable_initials_expansion` | `bool` | `False` | `True` | Раскрытие инициалов (`Ч.` → `чэ`) |
+| `initials_vowel_mode` | `"single" \| "double"` | `"single"` | `"double"` | При `double` удваивает одиночные гласные-инициалы (`Е.` → `ее`) |
+| `initials_pause_mode` | `"preserve" \| "comma"` | `"preserve"` | `"comma"` | При `comma` добавляет паузы-запятые вокруг инициалов в формате «Фамилия И.» |
+| `enable_letter_abbreviation_expansion` | `bool` | `False` | `True` | Побуквенное чтение аббревиатур (`ГИБДД` → `ги бэ дэ дэ`) |
+| `enable_dictionary_normalization` | `bool` | `True` | `True` | Применение словарных правил из пользовательских `.dic` |
+| `enable_latinization` | `bool` | `False` | `True` | Транслитерация латиницы в кириллицу |
+| `latinization_backend` | `"ipa" \| "dictionary"` | `"ipa"` | `"ipa"` | Бэкенд латинизации (IPA требует экстра `[ipa]`) |
+| `enable_latinization_stress_marks` | `bool` | `False` | `False` | Сохранять знаки ударения `+` при IPA-латинизации |
+| `latin_dictionary_filename` | `str` | `"latinization_rules.dic"` | `"latinization_rules.dic"` | Имя `.dic` в каталоге `latinization/`, используемого стадией `latinization` |
+| `dictionary_include_files` | `tuple[str, ...]` | `()` | `()` | Если задано — загружать только эти `.dic` (иначе все, кроме `latinization/`) |
+| `dictionary_exclude_files` | `tuple[str, ...]` | `()` | `()` | Какие `.dic` исключить из загрузки |
+| `dictionaries_path` | `Path \| None` | `None` | `None` | Корневой каталог с `.dic` (по умолчанию встроенный `dictionaries/`) |
+| `mode` | `"safe" \| "tts" \| None` | `None` | `None` | Маркер пресета; задаёт значения по умолчанию для остальных опций |
+
+## Пользовательские словари
+
+Стадия `dictionary` применяет пользовательские правила замены из `.dic`-файлов.
+Важно: по умолчанию она **не** загружает ни одного встроенного правила —
+единственный встроенный `.dic` относится к каталогу `latinization/` и
+используется стадией `latinization`, а не `dictionary`. То есть стадия
+`dictionary` существует именно для ваших собственных словарей.
+
+Формат `.dic` (см. [examples/your_dictionary.dic](examples/your_dictionary.dic)):
+
+```
+# строки, начинающиеся с #, — комментарии
+# одно правило на строку: источник=замена
+YouTube=ютуб
+OpenAI=оупэнэйай
+# `*` — подстановка для последовательности непробельных символов
+*Tube=тюб
+Open*=оупен
+```
+
+Подключить словари можно двумя способами: положить `.dic` в каталог
+`dictionaries/` пакета (загрузятся автоматически, кроме `latinization/`) или
+указать собственный каталог через `dictionaries_path`:
+
+```python
+from pathlib import Path
+from ru_normalizr import NormalizeOptions, normalize
+
+# ./my_dicts/brands.dic:
+#   YouTube=ютуб
+#   OpenAI=оупэнэйай
+options = NormalizeOptions(dictionaries_path=Path("./my_dicts"))
+
+print(normalize("YouTube и OpenAI", options))
+# ютуб и оупэнэйай
+```
+
+Из каталога можно загрузить только часть файлов через `dictionary_include_files`
+либо исключить отдельные через `dictionary_exclude_files` (имя файла или путь
+относительно `dictionaries_path`).
+
 ## Модульность
 
 `ru-normalizr` можно использовать не только как один большой black box, но и как модульный пайплайн.
@@ -145,7 +220,7 @@ print(normalize("YouTube в 2024 г.", options))
 - `dates_time` — нормализация дат и времени
 - `numerals` — нормализация числительных, порядковых форм, дробей, десятичных и других числовых выражений
 - `abbreviations` — раскрытие сокращений, инициалов и буквенных аббревиатур в зависимости от выбранного режима
-- `dictionary` — применение словарных правил и пользовательских словарей
+- `dictionary` — применение пользовательских словарных правил (встроенные правила по умолчанию не загружаются; см. [Пользовательские словари](#пользовательские-словари))
 - `latinization` — перевод латиницы в кириллицу через словарь или IPA-бэкенд
 - `finalize` — финальная чистка текста после всех преобразований: нормализация пунктуации, регистра и восстановление абзацев
 
@@ -315,7 +390,7 @@ Read text from a file and save the result to another file:
 ru-normalizr --mode tts --file ./sample.txt --output ./sample.normalized.txt
 ```
 
-If the `ru_normalizr` command does not work, prepend it with `python -m`, for example:
+If the `ru-normalizr` command does not work, prepend it with `python -m`, for example:
 
 ```bash
 python -m ru_normalizr "Глава IV. Встреча в 10:07." --mode tts
@@ -372,6 +447,81 @@ print(normalize("YouTube в 2024 г.", options))
 # +ютуб в две тысячи двадцать четвёртом году.
 ```
 
+### All `NormalizeOptions` fields
+
+The default value depends on the mode: `NormalizeOptions()` and
+`NormalizeOptions.safe()` use the **safe** column, `NormalizeOptions.tts()`
+uses the **tts** column. Any option can be overridden explicitly.
+
+| Option | Type | safe | tts | Description |
+| --- | --- | --- | --- | --- |
+| `enable_caps_normalization` | `bool` | `False` | `True` | Normalize ALL-CAPS headings (`ГЛАВА` → `Глава`) |
+| `enable_first_word_decap` | `bool` | `False` | `True` | Lowercase the first word of a sentence during caps normalization |
+| `remove_links` | `bool` | `False` | `True` | Remove bracketed reference links such as `[1]`, `(2.5)` |
+| `enable_url_normalization` | `bool` | `False` | `True` | Read explicit URLs (`https://…`) aloud by separators and digits |
+| `remove_links_ignore_interval` | `tuple[int, int]` | `(1000, 2200)` | `(1000, 2200)` | Range of bracketed numbers treated as years and kept, not removed as references |
+| `enable_year_normalization` | `bool` | `True` | `True` | Normalize years, decades, and year ranges |
+| `enable_roman_normalization` | `bool` | `True` | `True` | Roman numeral handling |
+| `enable_dates_time_normalization` | `bool` | `True` | `True` | Normalize dates and time expressions |
+| `enable_numeral_normalization` | `bool` | `True` | `True` | Normalize cardinals, ordinals, fractions, and decimals |
+| `enable_abbreviation_expansion` | `bool` | `True` | `True` | Expand abbreviations (`ул.`, `и т. д.`) |
+| `enable_contextual_abbreviation_expansion` | `bool` | `True` | `True` | Inflect adjective-like abbreviations from context (`гос.` → `государственного`) |
+| `enable_years_ago_expansion` | `bool` | `True` | `True` | Expand `л. н.` → `лет назад` in numeric context |
+| `enable_initials_expansion` | `bool` | `False` | `True` | Expand initials (`Ч.` → `чэ`) |
+| `initials_vowel_mode` | `"single" \| "double"` | `"single"` | `"double"` | With `double`, doubles isolated vowel initials (`Е.` → `ее`) |
+| `initials_pause_mode` | `"preserve" \| "comma"` | `"preserve"` | `"comma"` | With `comma`, adds comma pauses around initials in "Surname I." order |
+| `enable_letter_abbreviation_expansion` | `bool` | `False` | `True` | Read abbreviations letter by letter (`ГИБДД` → `ги бэ дэ дэ`) |
+| `enable_dictionary_normalization` | `bool` | `True` | `True` | Apply dictionary rewrite rules from user `.dic` files |
+| `enable_latinization` | `bool` | `False` | `True` | Transliterate Latin words into Cyrillic |
+| `latinization_backend` | `"ipa" \| "dictionary"` | `"ipa"` | `"ipa"` | Latinization backend (IPA requires the `[ipa]` extra) |
+| `enable_latinization_stress_marks` | `bool` | `False` | `False` | Keep `+` stress markers when using IPA latinization |
+| `latin_dictionary_filename` | `str` | `"latinization_rules.dic"` | `"latinization_rules.dic"` | Name of the `.dic` in `latinization/` used by the `latinization` stage |
+| `dictionary_include_files` | `tuple[str, ...]` | `()` | `()` | If set, load only these `.dic` files (otherwise all except `latinization/`) |
+| `dictionary_exclude_files` | `tuple[str, ...]` | `()` | `()` | Which `.dic` files to skip when loading |
+| `dictionaries_path` | `Path \| None` | `None` | `None` | Root directory of `.dic` files (defaults to the bundled `dictionaries/`) |
+| `mode` | `"safe" \| "tts" \| None` | `None` | `None` | Preset marker; sets the defaults for the remaining options |
+
+## Custom dictionaries
+
+The `dictionary` stage applies user-defined rewrite rules from `.dic` files.
+Note: by default it loads **zero** bundled rules — the only bundled `.dic`
+belongs to the `latinization/` folder and is used by the `latinization` stage,
+not `dictionary`. In other words, the `dictionary` stage exists purely for your
+own dictionaries.
+
+`.dic` format (see [examples/your_dictionary.dic](examples/your_dictionary.dic)):
+
+```
+# lines starting with # are comments
+# one rule per line: source=replacement
+YouTube=ютуб
+OpenAI=оупэнэйай
+# `*` is a wildcard for a run of non-space characters
+*Tube=тюб
+Open*=оупен
+```
+
+There are two ways to load dictionaries: drop `.dic` files into the package's
+`dictionaries/` folder (loaded automatically, except `latinization/`), or point
+`dictionaries_path` at your own folder:
+
+```python
+from pathlib import Path
+from ru_normalizr import NormalizeOptions, normalize
+
+# ./my_dicts/brands.dic:
+#   YouTube=ютуб
+#   OpenAI=оупэнэйай
+options = NormalizeOptions(dictionaries_path=Path("./my_dicts"))
+
+print(normalize("YouTube и OpenAI", options))
+# ютуб и оупэнэйай
+```
+
+You can load only some files from a folder via `dictionary_include_files`, or
+skip individual ones via `dictionary_exclude_files` (by file name or path
+relative to `dictionaries_path`).
+
 ## Modularity
 
 `ru-normalizr` can be used not only as one big black box, but also as a modular pipeline.
@@ -385,7 +535,7 @@ Individual stages are available:
 - `dates_time` — normalization of dates and time expressions
 - `numerals` — normalization of cardinal numbers, ordinal forms, fractions, decimals, and other numeric expressions
 - `abbreviations` — expansion of abbreviations, initials, and letter-by-letter abbreviations depending on the selected mode
-- `dictionary` — application of built-in and custom dictionary rules
+- `dictionary` — application of user-defined dictionary rules (no bundled rules are loaded here by default; see [Custom dictionaries](#custom-dictionaries))
 - `latinization` — conversion of Latin words into Cyrillic using either dictionary rules or the IPA backend
 - `finalize` — final cleanup after all transformations: punctuation normalization, casing fixes, and paragraph restoration
 
