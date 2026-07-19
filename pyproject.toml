@@ -46,7 +46,7 @@ include-package-data = false
 ru_normalizr = "."
 
 [tool.setuptools.package-data]
-ru_normalizr = ["py.typed", "dictionaries/latinization/latinization_rules.dic"]
+ru_normalizr = ["py.typed", "dictionaries/**/*.dic"]
 
 [tool.setuptools.exclude-package-data]
 ru_normalizr = [
