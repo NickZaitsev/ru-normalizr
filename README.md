@@ -117,7 +117,7 @@ options = NormalizeOptions.tts(
 )
 
 print(normalize("YouTube в 2024 г.", options))
-# +ютуб в две тысячи двадцать четвёртом году
+# +ютуб в две тысячи двадцать четвёртом году.
 ```
 
 ## Модульность
@@ -345,7 +345,7 @@ options = NormalizeOptions.tts(
 )
 
 print(normalize("YouTube в 2024 г.", options))
-# +ютуб в две тысячи двадцать четвёртом году
+# +ютуб в две тысячи двадцать четвёртом году.
 ```
 
 ## Modularity
