@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -87,6 +88,46 @@ def check_versions() -> int:
         )
         return 1
     print(f"Version OK: {pyproject_version}")
+    return 0
+
+
+def release_tag_name() -> str | None:
+    """Return the git tag name for the current GitHub Actions release run."""
+    ref_name = os.environ.get("GITHUB_REF_NAME", "").strip()
+    ref = os.environ.get("GITHUB_REF", "").strip()
+    if ref_name:
+        return ref_name
+    if ref.startswith("refs/tags/"):
+        return ref.removeprefix("refs/tags/")
+    return None
+
+
+def check_release_tag() -> int:
+    """Fail if the push tag (without leading v) does not match package version."""
+    code = check_versions()
+    if code:
+        return code
+
+    tag_name = release_tag_name()
+    if not tag_name:
+        sys.stderr.write(
+            "Release tag check requires GITHUB_REF_NAME or GITHUB_REF "
+            "(refs/tags/...) from a tag push.\n"
+        )
+        return 1
+
+    expected = project_version()
+    tag_version = tag_name[1:] if tag_name.startswith("v") else tag_name
+    if tag_version != expected:
+        sys.stderr.write(
+            "Release tag does not match package version:\n"
+            f"  git tag:          {tag_name}\n"
+            f"  package version:  {expected}\n"
+            f"  expected tag:     v{expected}\n"
+        )
+        return 1
+
+    print(f"Release tag OK: {tag_name} == v{expected}")
     return 0
 
 
@@ -237,7 +278,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Local developer and release helper.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    for command in ("clean", "lint", "test", "build", "check"):
+    for command in ("clean", "lint", "test", "build", "check", "check-release-tag"):
         subparsers.add_parser(command)
 
     publish_parser = subparsers.add_parser("publish")
@@ -273,6 +314,8 @@ def main(argv: list[str] | None = None) -> int:
         return build()
     if args.command == "check":
         return check()
+    if args.command == "check-release-tag":
+        return check_release_tag()
     return publish(
         remote=args.remote,
         branch=args.branch,
