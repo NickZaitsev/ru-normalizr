@@ -32,5 +32,8 @@ jobs:
       - name: Validate release
         run: python scripts/dev.py check
 
+      - name: Verify release tag matches package version
+        run: python scripts/dev.py check-release-tag
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1

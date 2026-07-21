@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## Unreleased
 
 ### Added
+- Fail the GitHub Actions release job when the pushed `v*` tag does not match the package version in `pyproject.toml` / `__init__.py`, so a mistagged push cannot publish the wrong version to PyPI
 - Add a CLI `--version` flag that prints the installed `ru-normalizr` version
 - Declare and continuously test support for Python 3.13, and exercise `windows-latest` (the primary development OS) in CI alongside the existing Ubuntu Python 3.10–3.13 matrix; add a weekly scheduled CI run so upstream dependency releases such as `num2words` are caught by CI instead of by users
 
