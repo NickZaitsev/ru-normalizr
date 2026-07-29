@@ -64,3 +64,6 @@ No trivial, obvious, or temporary notes in this file.
   [normalization conventions](docs/agents/conventions.md).
 - Only `protect_negative_numbers` may decide that `-` is a minus; a bare `-` in
   a numerals regex eats hyphens, see [unary minus](docs/agents/negative-numbers.md).
+- CI's Windows cell is cp1252 and the dev machine is cp1251, so locale-encoding
+  bugs pass locally — always pass `encoding="utf-8"`, see
+  [locale encoding](docs/agents/locale-encoding.md).
