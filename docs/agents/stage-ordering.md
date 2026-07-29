@@ -26,6 +26,12 @@ decimal; a range is a special case of two numbers. **The special case must run
 first.** `normalize_text` therefore runs `dates_time` before `years`, and
 `normalize_versions` before `normalize_decimals`.
 
+The same rule applies to authority, not just to span length: an explicit
+instruction outranks a guess. `dictionary` therefore runs before
+`latinization` — while it ran second it could not match any Latin token in TTS
+mode, because latinization had already rewritten the token into Cyrillic, so
+user rules were silently ignored in the pipeline's main mode.
+
 ## Reordering is usually right, but never free
 
 Putting the specific stage first is the correct fix, not a workaround. But a

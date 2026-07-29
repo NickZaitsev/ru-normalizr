@@ -167,8 +167,12 @@ class PipelineNormalizer:
         text = self.run_years(text)
         text = self.run_numerals(text)
         text = self.run_abbreviations(text)
-        text = self.run_latinization(text)
+        # A dictionary rule is an explicit instruction and latinization is a
+        # guess, so the dictionary goes first. Running it second left it unable
+        # to match any Latin token in TTS mode, because latinization had already
+        # rewritten the token into Cyrillic.
         text = self.run_dictionary(text)
+        text = self.run_latinization(text)
         return self.run_finalize(text)
 
     def run_preprocess(
