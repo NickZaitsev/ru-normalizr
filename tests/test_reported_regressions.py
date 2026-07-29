@@ -685,18 +685,18 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
 
     def test_hyphen_before_decimal_is_not_read_as_minus(self):
         # "GLM-5.2": the hyphen joins a model name to its version, so it must
-        # behave exactly like the integer form "GLM-5" and stay a hyphen
-        # instead of being consumed into "минус".
+        # never be consumed into "минус". The version stage then reads the
+        # dotted part component by component, see the dedicated test below.
         self.assertEqual(normalize("GLM-5"), "GLM-пять")
-        self.assertEqual(normalize("GLM-5.2"), "GLM-пять целых две десятых")
-        self.assertEqual(normalize("ГЛМ-5.2"), "ГЛМ-пять целых две десятых")
+        self.assertEqual(normalize("GLM-5.2"), "GLM пять точка два")
+        self.assertEqual(normalize("ГЛМ-5.2"), "ГЛМ пять точка два")
         self.assertEqual(
             normalize("модель-3.5 работает"),
-            "модель-три целых пять десятых работает",
+            "модель три точка пять работает",
         )
         self.assertEqual(
             normalize("GLM-5.2", NormalizeOptions.tts()),
-            "джи эл эм-пять целых две десятых",
+            "джи эл эм пять точка два",
         )
         # A real unary minus is still recognised in every position that
         # protect_negative_numbers accepts.
@@ -709,6 +709,51 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
         self.assertEqual(
             normalize("от -5.2 до 3"),
             "от минус пяти целых двух десятых до трёх",
+        )
+
+    def test_dotted_version_numbers_are_read_component_by_component(self):
+        # Three or more components cannot be a fraction, so the decimals stage
+        # used to claim the first two and leave the rest as literal text, which
+        # turned the orphaned dot into a sentence boundary and leaked the
+        # fraction's genitive across it ("три целых двенадцать сотых. Одного").
+        self.assertEqual(
+            normalize("Python 3.12.1"),
+            "Python три точка двенадцать точка один",
+        )
+        self.assertEqual(normalize("v1.2.3"), "v один точка два точка три")
+        self.assertEqual(normalize("1.0.2"), "один точка ноль точка два")
+        self.assertEqual(
+            normalize("версия 2.03.1"),
+            "версия два точка ноль три точка один",
+        )
+        self.assertEqual(
+            normalize("Python 3.12.1.", NormalizeOptions.tts()),
+            "пайсан три точка двенадцать точка один.",
+        )
+
+        # Two components read as a version only when a name claims them, which
+        # also keeps the model number out of the surrounding case agreement
+        # ("Ту-154.2" used to inflect to "сто пятьдесят четырёх целых" because
+        # pymorphy parses "Ту" as the pronoun "тот").
+        self.assertEqual(normalize("GPT-4.5"), "GPT четыре точка пять")
+        self.assertEqual(normalize("Ту-154.2"), "Ту сто пятьдесят четыре точка два")
+
+        # A bare two-component number stays a fraction, and so does a named one
+        # whose value is followed by a unit, because that is a measurement.
+        self.assertEqual(normalize("3.14"), "три целых четырнадцать сотых")
+        self.assertEqual(normalize("iOS 18.4"), "iOS восемнадцать целых четыре десятых")
+        self.assertEqual(normalize("X-1.5 кг"), "X-одна целая пять десятых килограмма")
+
+        # Integer model numbers keep their hyphen, and neither dotted dates nor
+        # European thousands separators are versions.
+        self.assertEqual(normalize("Ту-154"), "Ту-сто пятьдесят четыре")
+        self.assertEqual(
+            normalize("15.03.2021"),
+            "пятнадцатого марта две тысячи двадцать первого года",
+        )
+        self.assertEqual(
+            normalize("1.234.567"),
+            "один миллион двести тридцать четыре тысячи пятьсот шестьдесят семь",
         )
 
 
