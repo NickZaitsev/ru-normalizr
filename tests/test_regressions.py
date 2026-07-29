@@ -1,5 +1,6 @@
 import string
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -54,6 +55,29 @@ class RuNormalizrRegressionTests(unittest.TestCase):
             self.assertEqual(first.apply("исходник"), "замена")
             self.assertEqual(second.apply("исходник"), "замена")
             self.assertEqual(list(dictionaries_path.glob("*.pkl")), [])
+
+    def test_dictionary_rules_win_over_latinization_guesses(self):
+        # A dictionary rule is an explicit instruction, latinization is a guess.
+        # While the dictionary stage ran last it could never match a Latin token
+        # in TTS mode, because latinization had already rewritten it: the rule
+        # for "WireGuard" was silently ignored and the guess "вээгюад" won.
+        with TemporaryDirectory() as tmp_dir:
+            dictionaries_path = Path(tmp_dir)
+            (dictionaries_path / "custom.dic").write_text(
+                "WireGuard=вайргард\nOAuth=оауф\n", encoding="utf-8"
+            )
+            for mode in (NormalizeOptions.safe(), NormalizeOptions.tts()):
+                options = replace(mode, dictionaries_path=dictionaries_path)
+                with self.subTest(mode=options.mode):
+                    self.assertEqual(normalize("WireGuard", options), "вайргард")
+                    self.assertEqual(normalize("OAuth", options), "оауф")
+                    self.assertEqual(
+                        normalize("туннель WireGuard поднят", options),
+                        "туннель вайргард поднят",
+                    )
+            # Latin without a rule still reaches latinization in TTS mode.
+            tts = replace(NormalizeOptions.tts(), dictionaries_path=dictionaries_path)
+            self.assertNotRegex(normalize("Kubernetes", tts), r"[A-Za-z]")
 
     COMPARATIVE_GENITIVE_MARKERS = (
         "не более",
