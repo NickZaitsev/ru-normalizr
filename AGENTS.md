@@ -66,6 +66,8 @@ No trivial, obvious, or temporary notes in this file.
   [normalization conventions](docs/agents/conventions.md).
 - Only `protect_negative_numbers` may decide that `-` is a minus; a bare `-` in
   a numerals regex eats hyphens, see [unary minus](docs/agents/negative-numbers.md).
+- A known defect you are not fixing goes in `tests/test_known_gaps.py` as
+  `xfail(strict=True)`, not in prose — an accidental fix then fails the run.
 - A dot between digits is claimed by whoever runs first, so any new dotted-number
   rule goes before the decimals stage, see [version numbers](docs/agents/version-numbers.md).
 - CI's Windows cell is cp1252 and the dev machine is cp1251, so locale-encoding
