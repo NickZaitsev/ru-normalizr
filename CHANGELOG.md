@@ -21,6 +21,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Correct the console-script name in the README from `ru_normalizr` to `ru-normalizr`
 
 ### Fixed
+- Transliterate `q` in the latinization fallback rules, which mapped every ASCII letter except that one; any token `eng_to_ipa` could not resolve previously leaked a raw Latin `q` into otherwise Cyrillic output (`PostgreSQL` → `постгрэсqл`, now `постгрэскл`), leaving mixed-script text a TTS engine cannot pronounce
 - Write CLI stdout and read CLI stdin as UTF-8 regardless of the platform locale encoding, matching what `--file` and `--output` already did; previously, redirecting the CLI's output on a Windows locale whose codepage cannot represent Cyrillic (such as the `cp1252` default on English Windows) aborted with `UnicodeEncodeError` instead of printing the normalized text
 - Keep the hyphen in `name-<decimal>` tokens instead of reading it as a unary minus and swallowing the separator: `GLM-5.2` now normalizes to `GLM-пять целых две десятых` (`джи эл эм-пять целых две десятых` in TTS mode) rather than `GLM` glued to `минус …`, matching how the integer form `GLM-5` has always behaved; a genuine minus is still recognized at the start of a line, after an opening bracket, and after whitespace
 - Ship every bundled dictionary in the wheel by globbing `dictionaries/**/*.dic` in the package data instead of hardcoding a single file, preventing a silent `FileNotFoundError` for `pip install` users when new `.dic` files are added
