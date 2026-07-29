@@ -10,6 +10,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Fail the GitHub Actions release job when the pushed `v*` tag does not match the package version in `pyproject.toml` / `__init__.py`, so a mistagged push cannot publish the wrong version to PyPI
 - Add a CLI `--version` flag that prints the installed `ru-normalizr` version
 - Declare and continuously test support for Python 3.13, and exercise `windows-latest` (the primary development OS) in CI alongside the existing Ubuntu Python 3.10–3.13 matrix; add a weekly scheduled CI run so upstream dependency releases such as `num2words` are caught by CI instead of by users
+- Read the `IPsec` protocol name as `ай пи сек` in every spelling (`IPSEC`, `IPSec`, `IPsec`, `ipsec`) instead of `ай пи эс ии си` for the all-caps form and `ипсэк` for the rest. This needs an entry in two places by design: the abbreviation stage intercepts all-caps tokens and only consults `KNOWN_ABBREVIATIONS`, while mixed-case and lowercase spellings never match that pattern and are resolved by the latinization dictionary instead
 
 ### Changed
 - Give the CLI `--check` flag the conventional meaning: it still prints the normalized result to stdout, but now exits with status `1` when the output differs from the input and `0` when they are identical, so it can gate whether text needs normalization; it still cannot be combined with `--output`

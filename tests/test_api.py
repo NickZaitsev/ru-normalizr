@@ -959,6 +959,23 @@ class RuNormalizrApiTests(unittest.TestCase):
             "ги бэ дэ дэ",
         )
 
+    def test_tts_reads_ipsec_in_every_spelling(self):
+        # IPsec needs an entry in two places, and neither is redundant: the
+        # all-caps spelling is intercepted by the abbreviation stage (which
+        # only consults KNOWN_ABBREVIATIONS), while the mixed-case and
+        # lowercase spellings never match the all-caps pattern and instead
+        # reach the latinization stage, which resolves them from the .dic.
+        tts = NormalizeOptions.tts()
+        for spelling in ("IPSEC", "IPSec", "IPsec", "ipsec"):
+            with self.subTest(spelling=spelling):
+                self.assertEqual(normalize(spelling, tts), "ай пи сек")
+
+        self.assertEqual(
+            normalize("туннель IPSec настроен", tts),
+            "туннель ай пи сек настроен",
+        )
+        self.assertEqual(normalize("по IPsec.", tts), "по ай пи сек.")
+
     def test_tts_expands_unknown_cyrillic_letter_abbreviations(self):
         self.assertEqual(normalize("ЦРУ", NormalizeOptions.tts()), "цэ эр у")
         self.assertEqual(normalize("ФБР", NormalizeOptions.tts()), "эф бэ эр")
