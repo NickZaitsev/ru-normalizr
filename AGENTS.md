@@ -9,9 +9,11 @@ explicitly requested.
 
 ## Pipeline stages
 
-years/dates/time → numerals → abbreviations/initials → latinization →
+dates/time → years → numerals → abbreviations/initials → latinization →
 preprocess/cleanup. Before fixing, identify the responsible stage and read its
-tests in `tests/`. Do not edit unrelated stages.
+tests in `tests/`. Do not edit unrelated stages. Stages are greedy and claim
+text first-come-first-served, so the more specific pattern must run first — see
+[stage ordering](docs/agents/stage-ordering.md).
 
 ## Tests and completion
 

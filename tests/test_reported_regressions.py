@@ -711,6 +711,35 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             "от минус пяти целых двух десятых до трёх",
         )
 
+    def test_dotted_date_survives_a_following_era_word(self):
+        # The years stage used to run first and take "2021 года" out of the
+        # date, stranding "15.03." for the numerals stage to read as a fraction
+        # whose trailing dot then became a sentence boundary
+        # ("пятнадцать целых три сотых. Две тысячи двадцать первого года").
+        expected = "пятнадцатого марта две тысячи двадцать первого года"
+        for source in ("15.03.2021", "15.03.2021 года", "15.03.2021 г"):
+            with self.subTest(source=source):
+                self.assertEqual(normalize(source), expected)
+        self.assertEqual(normalize("15.03.2021 г."), expected + ".")
+        self.assertEqual(
+            normalize("22.06.1941 года началась война"),
+            "двадцать второго июня тысяча девятьсот сорок первого года началась война",
+        )
+        self.assertEqual(
+            normalize("договор от 01.01.2020 г. №5"),
+            "договор от первого января две тысячи двадцатого года номер пять",
+        )
+        # Bare years, year ranges and prose dates keep their previous reading.
+        self.assertEqual(normalize("в 2021 г."), "в две тысячи двадцать первом году.")
+        self.assertEqual(
+            normalize("с 2020 по 2024 год"),
+            "с две тысячи двадцатого по две тысячи двадцать четвёртый год",
+        )
+        self.assertEqual(
+            normalize("15 марта 2021 года"),
+            expected,
+        )
+
     def test_dotted_version_numbers_are_read_component_by_component(self):
         # Three or more components cannot be a fraction, so the decimals stage
         # used to claim the first two and leave the rest as literal text, which
