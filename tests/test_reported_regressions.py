@@ -631,10 +631,28 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             "5−2": "пять минус два",
             "8÷4": "восемь разделить на четыре",
             "2^3": "два в степени три",
+            "2*3": "два умножить на три",
         }
         for source, expected in cases.items():
             with self.subTest(source=source):
                 self.assertEqual(normalize(source), expected)
+
+    def test_normalize_reads_an_ascii_asterisk_as_multiplication(self):
+        # The typographic "×" was spoken but its ASCII stand-in was not, so
+        # "10 * 2 = 20" left a bare symbol in the output. Unlike "-" and "/",
+        # an asterisk between two digits has no competing meaning, so it needs
+        # no equation context.
+        self.assertEqual(normalize("10 * 2 = 20"), "десять умножить на два равно двадцать")
+        self.assertEqual(normalize("2 * 3"), "два умножить на три")
+        self.assertEqual(normalize("2*3*4"), "два умножить на три умножить на четыре")
+        # Asterisks that are not an operator keep their previous handling.
+        self.assertEqual(normalize("текст * сноска"), "текст * сноска")
+        self.assertEqual(normalize("2 звезды * 3"), "две звезды * три")
+        self.assertEqual(normalize("сноска 5*"), "сноска пять *")
+        # A slash between digits is left alone: it is also a date, a fraction
+        # and a unit denominator.
+        self.assertEqual(normalize("3/4"), "три четвёртых")
+        self.assertEqual(normalize("10 / 2 = 5"), "десять / два равно пять")
 
     def test_normalize_reads_an_ascii_hyphen_as_minus_inside_an_equation(self):
         # An ASCII "-" between two numbers is a range separator everywhere else,

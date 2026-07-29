@@ -12,12 +12,17 @@ from ._constants import (
 MATH_EXPRESSION_CHAR_PATTERN = re.compile(r"[0-9A-Za-zА-Яа-яЁё_,.%()+\-/*^°№]")
 APPROXIMATE_NUMBER_PATTERN = re.compile(r"(?<!\w)~\s*(?=(?:\ue001)?\d)")
 BINARY_MATH_OPERATOR_PATTERN = re.compile(
-    r"(?<=\d)\s*(?P<operator>[+−^])\s*(?=\d)"
+    r"(?<=\d)\s*(?P<operator>[+−^*])\s*(?=\d)"
 )
 BINARY_MATH_OPERATOR_READINGS = {
     "+": " плюс ",
     "−": " минус ",
     "^": " в степени ",
+    # Between two digits an asterisk has no competing meaning, unlike "-"
+    # (ranges) or "/" (dates, fractions, unit denominators), so it needs no
+    # equation context. Runs of asterisks are consumed by the preprocess
+    # separator rules before this point and never have digits on both sides.
+    "*": " умножить на ",
 }
 # An ASCII "-" between two numbers is a range separator everywhere except
 # inside an arithmetic expression, where it is a subtraction. An equals sign is
