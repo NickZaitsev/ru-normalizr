@@ -17,8 +17,10 @@ from ._helpers import (
     should_keep_decimal_unit_dot,
 )
 
+# A bare "-" only reads as a unary minus when nothing word-like precedes it;
+# otherwise it is a hyphen joining the number to the previous token ("GLM-5.2").
 DECIMAL_PATTERN = re.compile(
-    rf"(?<!\d)(?P<num>(?:-|{re.escape(NEGATIVE_NUMBER_PLACEHOLDER)})?\d+[.,]\d+)(?:\s*(?P<unit>{UNIT_TOKEN_FRAGMENT})(?P<unit_dot>\.)?)?(?:\s+(?P<unit2>{UNIT_TOKEN_FRAGMENT})(?P<unit2_dot>\.)?)?(?!\d)"
+    rf"(?<!\d)(?P<num>(?:(?<![^\W_])-|{re.escape(NEGATIVE_NUMBER_PLACEHOLDER)})?\d+[.,]\d+)(?:\s*(?P<unit>{UNIT_TOKEN_FRAGMENT})(?P<unit_dot>\.)?)?(?:\s+(?P<unit2>{UNIT_TOKEN_FRAGMENT})(?P<unit2_dot>\.)?)?(?!\d)"
 )
 
 logger = logging.getLogger(__name__)
