@@ -30,6 +30,20 @@ the character before the sign is not word-like — the same positions
 reachable today because `is_safe_numeric_hyphen_unit` rejects the affected
 inputs first, but it is the same latent bug.
 
+## The one exception: equations
+
+`normalize_arithmetic_minus` (`numerals/symbols.py`) is the single place allowed
+to overrule the above, and only inside an equation. An ASCII `-` between two
+numbers is a range separator everywhere else, which meant subtraction between
+two literals could not be written at all — neither `7 - 2 = 5` nor `10-5 = 5`
+produced a spoken minus, while `+` did.
+
+The equals sign is the discriminator. The equation is bounded by
+`EQUATION_PATTERN`, which requires operands to be joined by operators; the
+looser `MATH_EXPRESSION_CHAR_PATTERN` runs across a comma into following prose
+and would convert an unrelated range (`x = 5, возраст 10-20 лет`). Assigning a
+range to a variable (`x = 10-20`) stays ambiguous and reads as subtraction.
+
 ## Rule for new patterns
 
 When adding a regex that matches a signed number in the numerals stage, prefer

@@ -19,6 +19,15 @@ BINARY_MATH_OPERATOR_READINGS = {
     "−": " минус ",
     "^": " в степени ",
 }
+# An ASCII "-" between two numbers is a range separator everywhere except
+# inside an arithmetic expression, where it is a subtraction. An equals sign is
+# what tells the two apart: "10-20" is a range, "10-5 = 5" is not.
+ASCII_BINARY_MINUS_PATTERN = re.compile(r"(?<=\d)\s*-\s*(?=\d)")
+_EQUATION_OPERAND = r"\(*(?:\d+(?:[.,]\d+)?|[^\W\d_]\w*)\)*"
+EQUATION_PATTERN = re.compile(
+    rf"(?<!\w){_EQUATION_OPERAND}(?:\s*[-+*/^=]\s*{_EQUATION_OPERAND})+",
+    re.UNICODE,
+)
 
 
 def _extract_math_expression_side(text: str, start: int, step: int) -> str:
@@ -57,6 +66,39 @@ def _should_read_equals_as_ravno(text: str, idx: int) -> bool:
     return _contains_digit(left) or _contains_digit(right)
 
 
+def _equation_spans(text: str) -> list[tuple[int, int]]:
+    """Spans of chained operand/operator runs that contain an equals sign.
+
+    Deliberately narrower than :data:`MATH_EXPRESSION_CHAR_PATTERN`, which is a
+    bag of characters and would run across a comma and any following prose: in
+    ``x = 5, возраст 10-20 лет`` that reaches the range and turns it into a
+    subtraction. Requiring an operator between operands stops the expression at
+    the comma, leaving the range alone.
+    """
+    if "=" not in text:
+        return []
+    return [
+        match.span()
+        for match in EQUATION_PATTERN.finditer(text)
+        if "=" in match.group(0)
+    ]
+
+
+def normalize_arithmetic_minus(text: str) -> str:
+    """Read a hyphen between two numbers as «минус» inside an equation."""
+    spans = _equation_spans(text)
+    if not spans:
+        return text
+
+    def repl(match: re.Match[str]) -> str:
+        position = match.start()
+        if any(start <= position < end for start, end in spans):
+            return " минус "
+        return match.group(0)
+
+    return ASCII_BINARY_MINUS_PATTERN.sub(repl, text)
+
+
 def _normalize_contextual_equals(text: str) -> str:
     if "=" not in text:
         return text
@@ -92,6 +134,8 @@ def normalize_greek_letters(text: str) -> str:
 
 
 def normalize_math_symbols(text: str) -> str:
+    # Before the equals sign is spoken, while it still marks the expression.
+    text = normalize_arithmetic_minus(text)
     text = _normalize_contextual_equals(text)
     text = APPROXIMATE_NUMBER_PATTERN.sub("примерно ", text)
     text = BINARY_MATH_OPERATOR_PATTERN.sub(
