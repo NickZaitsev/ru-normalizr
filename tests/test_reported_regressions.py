@@ -683,6 +683,34 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             "Ивану третьему. Вильгельму четырнадцатому. Екатерину вторую.",
         )
 
+    def test_hyphen_before_decimal_is_not_read_as_minus(self):
+        # "GLM-5.2": the hyphen joins a model name to its version, so it must
+        # behave exactly like the integer form "GLM-5" and stay a hyphen
+        # instead of being consumed into "минус".
+        self.assertEqual(normalize("GLM-5"), "GLM-пять")
+        self.assertEqual(normalize("GLM-5.2"), "GLM-пять целых две десятых")
+        self.assertEqual(normalize("ГЛМ-5.2"), "ГЛМ-пять целых две десятых")
+        self.assertEqual(
+            normalize("модель-3.5 работает"),
+            "модель-три целых пять десятых работает",
+        )
+        self.assertEqual(
+            normalize("GLM-5.2", NormalizeOptions.tts()),
+            "джи эл эм-пять целых две десятых",
+        )
+        # A real unary minus is still recognised in every position that
+        # protect_negative_numbers accepts.
+        self.assertEqual(normalize("-5.2"), "минус пять целых две десятых")
+        self.assertEqual(normalize("(-5.2)"), "(минус пять целых две десятых)")
+        self.assertEqual(
+            normalize("5.2 и -5.2"),
+            "пять целых две десятых и минус пять целых две десятых",
+        )
+        self.assertEqual(
+            normalize("от -5.2 до 3"),
+            "от минус пяти целых двух десятых до трёх",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

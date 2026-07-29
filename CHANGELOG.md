@@ -21,6 +21,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Correct the console-script name in the README from `ru_normalizr` to `ru-normalizr`
 
 ### Fixed
+- Keep the hyphen in `name-<decimal>` tokens instead of reading it as a unary minus and swallowing the separator: `GLM-5.2` now normalizes to `GLM-пять целых две десятых` (`джи эл эм-пять целых две десятых` in TTS mode) rather than `GLM` glued to `минус …`, matching how the integer form `GLM-5` has always behaved; a genuine minus is still recognized at the start of a line, after an opening bracket, and after whitespace
 - Ship every bundled dictionary in the wheel by globbing `dictionaries/**/*.dic` in the package data instead of hardcoding a single file, preventing a silent `FileNotFoundError` for `pip install` users when new `.dic` files are added
 
 ## [0.3.0] - 2026-07-19
