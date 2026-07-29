@@ -527,6 +527,50 @@ class RuNormalizrStageTests(unittest.TestCase):
             "с пятого по десятое января две тысячи двадцать четвёртого года",
         )
 
+    def test_dates_time_stage_absorbs_the_era_tail_after_a_year(self):
+        # The era word is optional but the space in front of it is not: taking
+        # the space without the word glued the rendered date to the abbreviation
+        # that followed it ("две тысячи двадцатого годаг.").
+        self.assertEqual(
+            normalize_dates_and_time("с 1 по 5 мая 2020 г."),
+            "с первого по пятое мая две тысячи двадцатого года.",
+        )
+        for source in ("15.03.2021", "15.03.2021 года", "15.03.2021 г"):
+            with self.subTest(source=source):
+                self.assertEqual(
+                    normalize_dates_and_time(source),
+                    "пятнадцатого марта две тысячи двадцать первого года",
+                )
+        self.assertEqual(
+            normalize_dates_and_time("15-20 марта 2021 года"),
+            "пятнадцатого — двадцатого марта две тысячи двадцать первого года",
+        )
+        self.assertEqual(
+            normalize_dates_and_time("1 и 2 мая 2020 года"),
+            "первого и второго мая две тысячи двадцатого года",
+        )
+
+    def test_dates_time_stage_keeps_a_sentence_dot_taken_with_the_era_tail(self):
+        # "г." carries both the abbreviation dot and, at a sentence end, the
+        # sentence dot; swallowing the tail must not swallow the sentence.
+        self.assertEqual(
+            normalize_dates_and_time("Было 15.03.2021 г. Потом всё изменилось."),
+            "Было пятнадцатого марта две тысячи двадцать первого года. "
+            "Потом всё изменилось.",
+        )
+        self.assertEqual(
+            normalize_dates_and_time("15.03.2021 г."),
+            "пятнадцатого марта две тысячи двадцать первого года.",
+        )
+        # Mid-sentence the dot belongs to the abbreviation alone and goes away
+        # with it.
+        self.assertEqual(
+            normalize_dates_and_time("договор от 01.01.2020 г. №5"),
+            "договор от первого января две тысячи двадцатого года №5",
+        )
+        # A plural-year abbreviation is not a single-year era tail.
+        self.assertEqual(normalize_dates_and_time("2020-2024 гг."), "2020-2024 гг.")
+
     def test_abbreviation_stage(self):
         self.assertEqual(
             expand_abbreviations("т. д."),

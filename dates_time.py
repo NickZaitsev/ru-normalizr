@@ -5,6 +5,7 @@ import re
 
 import num2words
 
+from .abbreviation_context import should_keep_terminal_abbreviation_dot
 from .options import NormalizeOptions
 from .years import year_to_ordinal_words
 
@@ -24,6 +25,12 @@ MONTHS_GENT = {
     "ноября": 11,
     "декабря": 12,
 }
+# The era word is optional but the whitespace in front of it is not: consuming a
+# trailing space without the word leaves the rendered date glued to whatever
+# follows ("две тысячи двадцатого годаг."). The alternation matches the shape the
+# years stage already accepts, so both stages absorb the same trailing forms.
+YEAR_ERA_TAIL_FRAGMENT = r"(?:\s+(?P<era_word>год[а-яё]*\b|г\.?(?!\w)))?"
+YEAR_TAIL_FRAGMENT = r"(?:\s+(?P<year>\d{4})" + YEAR_ERA_TAIL_FRAGMENT + r")?"
 TEXT_DATE_RANGE_CASES = {
     "за": "accusative",
     "на": "accusative",
@@ -39,25 +46,29 @@ TEXT_DATE_FROM_TO_PATTERN = re.compile(
     r"\b(?P<start_prep>с|со)\s+(?P<day1>\d{1,2})\s+"
     r"(?P<end_prep>по|до)\s+(?P<day2>\d{1,2})\s+(?P<month>"
     + "|".join(MONTHS_GENT.keys())
-    + r")(?:\s+(?P<year>\d{4})\s*(?:года?)?)?\b",
+    + r")(?![а-яё])"
+    + YEAR_TAIL_FRAGMENT,
     re.IGNORECASE,
 )
 TEXT_DATE_RANGE_PATTERN = re.compile(
     r"\b(?:(?P<prep>за|на|в|во|по|с|со|до|от)\s+)?(?P<day1>\d{1,2})\s*[–—-]\s*(?P<day2>\d{1,2})\s+(?P<month>"
     + "|".join(MONTHS_GENT.keys())
-    + r")(?:\s+(?P<year>\d{4})\s*(?:года?)?)?",
+    + r")"
+    + YEAR_TAIL_FRAGMENT,
     re.IGNORECASE,
 )
 TEXT_DATE_LIST_PATTERN = re.compile(
     r"\b(?P<days>\d{1,2}(?:\s*(?:,|и)\s*\d{1,2})+)\s+(?P<month>"
     + "|".join(MONTHS_GENT.keys())
-    + r")(?:\s+(?P<year>\d{4})\s*(?:года?)?)?",
+    + r")"
+    + YEAR_TAIL_FRAGMENT,
     re.IGNORECASE,
 )
 TEXT_DATE_PATTERN = re.compile(
     r"\b(?:(?P<prep>перед)\s+)?(?P<day>\d{1,2})\s+(?P<month>"
     + "|".join(MONTHS_GENT.keys())
-    + r")(?:\s+(?P<year>\d{4})\s*(?:года?)?)?",
+    + r")"
+    + YEAR_TAIL_FRAGMENT,
     re.IGNORECASE,
 )
 MONTHS_GENT_BY_NUMBER = {
@@ -75,7 +86,9 @@ MONTHS_GENT_BY_NUMBER = {
     12: "декабря",
 }
 NUMERIC_DATE_PATTERN = re.compile(
-    r"\b(?P<day>0?[1-9]|[12]\d|3[01])\.(?P<month>0?[1-9]|1[0-2])\.(?P<year>\d{2,4})\b"
+    r"\b(?P<day>0?[1-9]|[12]\d|3[01])\.(?P<month>0?[1-9]|1[0-2])\.(?P<year>\d{2,4})(?!\w)"
+    + YEAR_ERA_TAIL_FRAGMENT,
+    re.IGNORECASE,
 )
 TIME_PATTERN = re.compile(
     r"\b(?P<hour>[01]?\d|2[0-3]):(?P<minute>[0-5]\d)(?::(?P<second>[0-5]\d))?\b"
@@ -124,6 +137,16 @@ def _day_to_ordinal(day: int, case: str = "genitive") -> str | None:
             return None
 
 
+def _era_tail_dot(source_text: str, match: re.Match[str]) -> str:
+    """Give back a sentence-final dot swallowed together with a «г.» tail."""
+    era_word = match.groupdict().get("era_word")
+    if not era_word or not era_word.endswith("."):
+        return ""
+    if not should_keep_terminal_abbreviation_dot(source_text, match.end()):
+        return ""
+    return "."
+
+
 def normalize_text_dates(text: str) -> str:
     def from_to_repl(match: re.Match[str]) -> str:
         day1_word = _day_to_ordinal(int(match.group("day1")), case="genitive")
@@ -139,7 +162,7 @@ def normalize_text_dates(text: str) -> str:
             result += (
                 f" {year_to_ordinal_words(int(match.group('year')), case='gent')} года"
             )
-        return result
+        return result + _era_tail_dot(text, match)
 
     def range_repl(match: re.Match[str]) -> str:
         prep = match.group("prep")
@@ -158,7 +181,7 @@ def normalize_text_dates(text: str) -> str:
             result += (
                 f" {year_to_ordinal_words(int(match.group('year')), case='gent')} года"
             )
-        return result
+        return result + _era_tail_dot(text, match)
 
     def list_repl(match: re.Match[str]) -> str:
         month = match.group("month").lower()
@@ -180,7 +203,7 @@ def normalize_text_dates(text: str) -> str:
             result += (
                 f" {year_to_ordinal_words(int(match.group('year')), case='gent')} года"
             )
-        return result
+        return result + _era_tail_dot(text, match)
 
     def repl(match: re.Match[str]) -> str:
         prep = match.group("prep")
@@ -194,7 +217,7 @@ def normalize_text_dates(text: str) -> str:
             result += (
                 f" {year_to_ordinal_words(int(match.group('year')), case='gent')} года"
             )
-        return result
+        return result + _era_tail_dot(text, match)
 
     text = TEXT_DATE_FROM_TO_PATTERN.sub(from_to_repl, text)
     text = TEXT_DATE_RANGE_PATTERN.sub(range_repl, text)
@@ -225,7 +248,11 @@ def normalize_dates(text: str) -> str:
         except Exception as exc:
             logger.debug("num2words genitive ordinal failed for year %r: %s", year, exc)
             year_words = num2words.num2words(year, lang="ru", to="ordinal")
-        return f"{day_words} {MONTHS_GENT_BY_NUMBER.get(month, str(month))} {year_words} года"
+        rendered = (
+            f"{day_words} {MONTHS_GENT_BY_NUMBER.get(month, str(month))} "
+            f"{year_words} года"
+        )
+        return rendered + _era_tail_dot(text, match)
 
     return NUMERIC_DATE_PATTERN.sub(repl, text)
 
