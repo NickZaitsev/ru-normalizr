@@ -210,8 +210,8 @@ print(normalize("YouTube и OpenAI", options))
 - `urls` — ранняя нормализация явных URL в TTS-режиме: переводит разделители в слова и читает цифры внутри ссылок поцифрово, оставляя чистую латиницу на более позднюю стадию `latinization`
 - `preprocess` — предварительная очистка текста: пробелы, переносы строк, пунктуация, часть OCR-подобных склеек, базовая подготовка перед остальной нормализацией
 - `roman` — обработка римских цифр
-- `years` — нормализация годов, десятилетий и диапазонов лет
 - `dates_time` — нормализация дат и времени
+- `years` — нормализация годов, десятилетий и диапазонов лет
 - `numerals` — нормализация числительных, порядковых форм, дробей, десятичных и других числовых выражений
 - `abbreviations` — раскрытие сокращений, инициалов и буквенных аббревиатур в зависимости от выбранного режима
 - `dictionary` — применение пользовательских словарных правил (встроенные правила по умолчанию не загружаются; см. [Пользовательские словари](#пользовательские-словари))
@@ -520,8 +520,8 @@ Individual stages are available:
 - `urls` — early normalization of explicit URLs in TTS mode: turns separators into spoken words and reads digits inside links digit-by-digit while leaving plain Latin words for the later `latinization` stage
 - `preprocess` — preliminary text cleanup: spaces, line breaks, punctuation, some OCR-like glued text, and other preparation before the main normalization stages
 - `roman` — Roman numeral handling
-- `years` — normalization of years, decades, and year ranges
 - `dates_time` — normalization of dates and time expressions
+- `years` — normalization of years, decades, and year ranges
 - `numerals` — normalization of cardinal numbers, ordinal forms, fractions, decimals, and other numeric expressions
 - `abbreviations` — expansion of abbreviations, initials, and letter-by-letter abbreviations depending on the selected mode
 - `dictionary` — application of user-defined dictionary rules (no bundled rules are loaded here by default; see [Custom dictionaries](#custom-dictionaries))
