@@ -1,3 +1,4 @@
+import string
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -139,6 +140,28 @@ class RuNormalizrRegressionTests(unittest.TestCase):
 
         self.assertNotEqual(result, text)
         self.assertNotRegex(result, r"[A-Za-z]")
+
+    def test_latinization_leaves_no_ascii_letter_for_any_grapheme(self):
+        # The rule file ends with a last-resort layer that maps every ASCII
+        # letter, but "q" was missing from it, so any token eng_to_ipa could
+        # not resolve leaked a raw Latin "q" ("PostgreSQL" -> "постгрэсqл").
+        # Checking the invariant against a prose corpus cannot catch that: the
+        # paragraph simply never contained the missing letter. Drive every
+        # letter through the fallback explicitly instead.
+        letters = string.ascii_lowercase
+        probes = [
+            template.format(letter=letter)
+            for letter in letters
+            # Nonsense tokens so eng_to_ipa misses and the .dic fallback runs.
+            for template in ("{letter}", "{letter}{letter}{letter}", "zz{letter}xq")
+        ]
+        probes += ["PostgreSQL", "SQL", "QR", "FAQ", "Qwerty", "Iraq", "quiz"]
+
+        for backend in ("ipa", "dictionary"):
+            for probe in probes:
+                with self.subTest(backend=backend, probe=probe):
+                    result = apply_latinization(probe, enabled=True, backend=backend)
+                    self.assertNotRegex(result, r"[A-Za-z]")
 
     def test_thousands_abbreviation_does_not_force_prepositional_case_after_na(self):
         tokens = simple_tokenize("выписал чек на сумму 100 тыс. долл.")
