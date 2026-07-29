@@ -636,6 +636,37 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             with self.subTest(source=source):
                 self.assertEqual(normalize(source), expected)
 
+    def test_normalize_reads_an_ascii_hyphen_as_minus_inside_an_equation(self):
+        # An ASCII "-" between two numbers is a range separator everywhere else,
+        # so subtraction between two literals could not be written at all: both
+        # "7 - 2 = 5" and "10-5 = 5" read as ranges. An equals sign is what
+        # distinguishes the two, and "+" already read correctly.
+        self.assertEqual(normalize("7 - 2 = 5"), "семь минус два равно пять")
+        self.assertEqual(normalize("10-5 = 5"), "десять минус пять равно пять")
+        self.assertEqual(
+            normalize("10-5.6 = 4.4"),
+            "десять минус пять целых шесть десятых равно четыре целых четыре десятых",
+        )
+        self.assertEqual(normalize("2 + 3 = 5"), "два плюс три равно пять")
+        # Without an equals sign the hyphen stays a range separator.
+        self.assertEqual(normalize("10-20"), "десять — двадцать")
+        self.assertEqual(normalize("возраст 10-20 лет"), "возраст десять — двадцать лет")
+        self.assertEqual(normalize("диапазон 10-20"), "диапазон десять — двадцать")
+        # An equals sign elsewhere in the text does not reach across to it: the
+        # equation ends at the comma because operands must be joined by an
+        # operator.
+        self.assertEqual(
+            normalize("x = 5, возраст 10-20 лет"),
+            "x равно пять, возраст десять — двадцать лет",
+        )
+        self.assertEqual(
+            normalize("формула 2+2=4 и диапазон 5-7"),
+            "формула два плюс два равно четыре и диапазон пять — семь",
+        )
+        # Assigning a range to a variable stays ambiguous and is read as
+        # subtraction; nothing structural separates it from "y = 10-5".
+        self.assertEqual(normalize("x = 10-20"), "x равно десять минус двадцать")
+
     def test_normalize_preserves_ellipsis_between_adjacent_numbers(self):
         self.assertIn("…", normalize("1…2"))
 
