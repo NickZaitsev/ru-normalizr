@@ -711,6 +711,42 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             "от минус пяти целых двух десятых до трёх",
         )
 
+    def test_numeric_range_keeps_its_separator_when_a_side_is_a_decimal(self):
+        # The decimals stage rendered the right operand into words and left the
+        # hyphen glued to it, at which point normalize_hyphenated_words treated
+        # "10-пять целых…" like "10-этажный" and swapped the hyphen for a space,
+        # so the two numbers ran together as one phrase.
+        self.assertEqual(normalize("10-5"), "десять — пять")
+        self.assertEqual(normalize("10-5.2"), "десять — пять целых две десятых")
+        self.assertEqual(
+            normalize("3-4.5 кг"),
+            "три — четыре целых пять десятых килограмма",
+        )
+        self.assertEqual(
+            normalize("вес 60-65.5 кг"),
+            "вес шестьдесят — шестьдесят пять целых пять десятых килограмма",
+        )
+        # A decimal on the left kept a raw hyphen with no spaces around it, which
+        # a TTS engine reads as one continuous token.
+        self.assertEqual(
+            normalize("1.5-2.5"),
+            "одна целая пять десятых — две целых пять десятых",
+        )
+        self.assertEqual(
+            normalize("температура 36.6-37.2"),
+            "температура тридцать шесть целых шесть десятых — "
+            "тридцать семь целых две десятых",
+        )
+        # A hyphen after a non-digit is not a range separator, and a genuine
+        # unary minus is still recognized.
+        self.assertEqual(normalize("GLM-5.2"), "GLM пять точка два")
+        self.assertEqual(normalize("-5.2"), "минус пять целых две десятых")
+        self.assertEqual(normalize("(-5.2)"), "(минус пять целых две десятых)")
+        self.assertEqual(
+            normalize("от -5.2 до 3"),
+            "от минус пяти целых двух десятых до трёх",
+        )
+
     def test_dotted_date_survives_a_following_era_word(self):
         # The years stage used to run first and take "2021 года" out of the
         # date, stranding "15.03." for the numerals stage to read as a fraction

@@ -19,8 +19,15 @@ from ._helpers import (
 
 # A bare "-" only reads as a unary minus when nothing word-like precedes it;
 # otherwise it is a hyphen joining the number to the previous token ("GLM-5.2").
+#
+# "range_sep" is the hyphen of a numeric range whose right side is a decimal
+# ("10-5.2", "1.5-2.5"). It has to be matched here rather than left behind,
+# because a hyphen glued to a rendered numeral is no longer recognisable as a
+# range separator: normalize_hyphenated_words treats "10-пять целых…" like
+# "10-этажный" and replaces the hyphen with a space. Re-emitting it spaced lets
+# detokenize turn it into an em dash, exactly as it already does for "10-20".
 DECIMAL_PATTERN = re.compile(
-    rf"(?<!\d)(?P<num>(?:(?<![^\W_])-|{re.escape(NEGATIVE_NUMBER_PLACEHOLDER)})?\d+[.,]\d+)(?:\s*(?P<unit>{UNIT_TOKEN_FRAGMENT})(?P<unit_dot>\.)?)?(?:\s+(?P<unit2>{UNIT_TOKEN_FRAGMENT})(?P<unit2_dot>\.)?)?(?!\d)"
+    rf"(?:(?<=\d)(?P<range_sep>-))?(?<!\d)(?P<num>(?:(?<![^\W_])-|{re.escape(NEGATIVE_NUMBER_PLACEHOLDER)})?\d+[.,]\d+)(?:\s*(?P<unit>{UNIT_TOKEN_FRAGMENT})(?P<unit_dot>\.)?)?(?:\s+(?P<unit2>{UNIT_TOKEN_FRAGMENT})(?P<unit2_dot>\.)?)?(?!\d)"
 )
 
 logger = logging.getLogger(__name__)
@@ -186,6 +193,10 @@ def normalize_decimals(text: str) -> str:
                 result += "."
         if is_negative:
             result = "минус " + result
+        if match.group("range_sep"):
+            # Spaced, not glued: detokenize converts " - " between two words
+            # into an em dash, which is how integer ranges already render.
+            result = " - " + result
         return result
 
     return DECIMAL_PATTERN.sub(repl, text)
