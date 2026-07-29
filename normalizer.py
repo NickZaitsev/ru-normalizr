@@ -24,6 +24,7 @@ from .numerals import (
     normalize_math_symbols,
     normalize_numerals,
     normalize_ordinals,
+    normalize_versions,
 )
 from .numerals._hyphen import (
     ORDINAL_SUFFIXES,
@@ -263,6 +264,7 @@ class PipelineNormalizer:
         text = normalize_spaced_numeric_hyphen_words(text)
         text = normalize_numeric_unit_hyphen_links(text)
         text = normalize_compound_numeric_adjectives(text)
+        text = normalize_versions(text)
         text = normalize_decimals(text)
         text = normalize_fractions(text)
         text = normalize_hyphenated_words(text)

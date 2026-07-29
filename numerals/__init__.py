@@ -24,6 +24,7 @@ from .symbols import (
     normalize_math_symbols,
     normalize_standalone_currency,
 )
+from .versions import normalize_versions
 
 _NUMERAL_TRIGGER_CHARS = frozenset(
     (*GREEK_LETTERS, *MATH_SYMBOLS, *CURRENCY_STANDALONE)
@@ -81,5 +82,6 @@ __all__ = [
     "normalize_ordinals",
     "normalize_remaining_post_numeral_abbreviations",
     "normalize_standalone_currency",
+    "normalize_versions",
     "simple_tokenize",
 ]
