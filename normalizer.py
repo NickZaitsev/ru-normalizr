@@ -159,8 +159,12 @@ class PipelineNormalizer:
             )
         else:
             text = normalize_linebreaks(text).strip()
-        text = self.run_years(text)
+        # A full date is the specific case and a bare year the general one, so
+        # dates_time must claim "15.03.2021 года" before the years stage takes
+        # the "2021 года" out of it and strands the "15.03." for the numerals
+        # stage to misread as a decimal fraction.
         text = self.run_dates_time(text)
+        text = self.run_years(text)
         text = self.run_numerals(text)
         text = self.run_abbreviations(text)
         text = self.run_latinization(text)
