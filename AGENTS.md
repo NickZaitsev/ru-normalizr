@@ -62,3 +62,5 @@ No trivial, obvious, or temporary notes in this file.
   see TASK-1 in [BUGFIX_PLAN_2](docs/BUGFIX_PLAN_2.md).
 - Keep reference, range, unit, and letter-name outputs aligned with
   [normalization conventions](docs/agents/conventions.md).
+- Only `protect_negative_numbers` may decide that `-` is a minus; a bare `-` in
+  a numerals regex eats hyphens, see [unary minus](docs/agents/negative-numbers.md).
