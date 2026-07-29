@@ -1,4 +1,5 @@
 import importlib.util
+import os
 import shutil
 import subprocess
 import sys
@@ -1139,7 +1140,8 @@ class RuNormalizrApiTests(unittest.TestCase):
                         "-w",
                         dist_dir,
                     ],
-                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     capture_output=True,
                     check=True,
                 )
@@ -1186,7 +1188,8 @@ class RuNormalizrApiTests(unittest.TestCase):
         tracked = subprocess.run(
             ["git", "ls-files", "dictionaries/**/*.dic"],
             cwd=repo_root,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             capture_output=True,
         )
         if tracked.returncode != 0:
@@ -1208,7 +1211,8 @@ class RuNormalizrApiTests(unittest.TestCase):
                         "-w",
                         dist_dir,
                     ],
-                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     capture_output=True,
                     check=True,
                 )
@@ -1303,7 +1307,7 @@ class RuNormalizrCliTests(unittest.TestCase):
         completed = subprocess.run(
             [sys.executable, "-m", "ru_normalizr", "--check"],
             input="Глава IV.",
-            text=True,
+            encoding="utf-8",
             capture_output=True,
         )
 
@@ -1314,7 +1318,7 @@ class RuNormalizrCliTests(unittest.TestCase):
     def test_cli_check_mode_exit_code_reflects_whether_text_changed(self):
         changed = subprocess.run(
             [sys.executable, "-m", "ru_normalizr", "--check", "Глава IV."],
-            text=True,
+            encoding="utf-8",
             capture_output=True,
         )
         self.assertEqual(changed.returncode, 1)
@@ -1322,7 +1326,7 @@ class RuNormalizrCliTests(unittest.TestCase):
 
         unchanged = subprocess.run(
             [sys.executable, "-m", "ru_normalizr", "--check", "привет мир"],
-            text=True,
+            encoding="utf-8",
             capture_output=True,
         )
         self.assertEqual(unchanged.returncode, 0)
@@ -1333,7 +1337,7 @@ class RuNormalizrCliTests(unittest.TestCase):
 
         completed = subprocess.run(
             [sys.executable, "-m", "ru_normalizr", "--version"],
-            text=True,
+            encoding="utf-8",
             capture_output=True,
             check=True,
         )
@@ -1351,7 +1355,7 @@ class RuNormalizrCliTests(unittest.TestCase):
                 "result.txt",
                 "Глава IV.",
             ],
-            text=True,
+            encoding="utf-8",
             capture_output=True,
         )
 
@@ -1370,7 +1374,7 @@ class RuNormalizrCliTests(unittest.TestCase):
                     "--output",
                     str(output_path),
                 ],
-                text=True,
+                encoding="utf-8",
                 capture_output=True,
                 check=True,
             )
@@ -1381,12 +1385,38 @@ class RuNormalizrCliTests(unittest.TestCase):
     def test_cli_tts_mode_enables_letter_abbreviation_expansion(self):
         completed = subprocess.run(
             [sys.executable, "-m", "ru_normalizr", "--mode", "tts", "ГИБДД"],
-            text=True,
+            encoding="utf-8",
             capture_output=True,
             check=True,
         )
 
         self.assertIn("ги бэ дэ дэ", completed.stdout)
+
+    def test_cli_emits_utf8_under_a_non_cyrillic_locale_encoding(self):
+        # Regression: the CLI used to encode stdout with the locale codepage,
+        # so on a Windows locale such as cp1252 -- which cannot represent
+        # Cyrillic at all -- printing a normalized result died with
+        # UnicodeEncodeError. PYTHONIOENCODING reproduces that on any platform.
+        env = dict(os.environ, PYTHONIOENCODING="cp1252")
+
+        completed = subprocess.run(
+            [sys.executable, "-m", "ru_normalizr", "--mode", "tts", "ГИБДД"],
+            encoding="utf-8",
+            capture_output=True,
+            env=env,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("ги бэ дэ дэ", completed.stdout)
+
+        piped = subprocess.run(
+            [sys.executable, "-m", "ru_normalizr", "--check"],
+            input="Глава IV.",
+            encoding="utf-8",
+            capture_output=True,
+            env=env,
+        )
+        self.assertEqual(piped.returncode, 1, piped.stderr)
+        self.assertIn("Глава четвёртая.", piped.stdout)
 
 
 if __name__ == "__main__":

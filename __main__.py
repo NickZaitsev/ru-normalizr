@@ -9,6 +9,24 @@ from .options import NormalizeOptions
 from .pipeline import normalize
 
 
+def _use_utf8_stdio() -> None:
+    """Keep stdin/stdout UTF-8 whatever the platform locale encoding is.
+
+    ``--file`` and ``--output`` are already UTF-8. Without this, a redirected
+    stdout is encoded with the locale codepage, and Windows locales such as
+    cp1252 cannot represent Cyrillic at all, so printing a normalized result
+    raises UnicodeEncodeError.
+    """
+    for stream in (sys.stdin, sys.stdout):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8")
+        except (ValueError, OSError):
+            continue
+
+
 def _read_input(args: argparse.Namespace) -> str:
     if args.file:
         return Path(args.file).read_text(encoding="utf-8")
@@ -71,6 +89,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _use_utf8_stdio()
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.check and args.output:
