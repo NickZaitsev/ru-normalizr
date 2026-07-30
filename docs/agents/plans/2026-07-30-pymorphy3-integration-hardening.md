@@ -94,13 +94,15 @@ independent strict xfail and a partial fix becomes an immediate XPASS
 failure. When an item is fixed, move its test into the regular focused suite
 rather than deleting the assertion.
 
-There is also an optional performance opportunity. The current environment
+There is also a backend migration opportunity. The current environment
 uses pure-Python `DAWG2-Python` (`pymorphy3.dawg.EXTENSION_AVAILABLE` is
 false). On this Windows/Python 3.11 environment, an isolated
 `pymorphy3[fast]==2.0.6` run installed a wheel successfully and parsed the
 same 10,000 distinct known words at approximately 146k words/s versus 21.5k
-words/s for the pure-Python backend. This is not a correctness requirement,
-and the compiled backend must remain optional.
+words/s for the pure-Python backend. The user approved making the compiled
+DAWG backend the default, but only after an isolated baseline-versus-candidate
+parity gate proves that public normalization output and public morphology
+results do not change. Performance alone is not sufficient evidence.
 
 ## Approved decisions
 
@@ -127,8 +129,13 @@ and the compiled backend must remain optional.
    changes the prefix, bit/byte meaning, or collides with another unit.
    Optional permissive aliases may remain only when they are unambiguous.
    Protect exact unit tokens before Roman-numeral recognition.
-8. Offer the compiled DAWG backend as an optional package extra and document
-   the trade-off. Keep the portable pure-Python backend as the default.
+8. Make `pymorphy3[fast]` the default dependency on supported CPython
+   platforms only after a clean-environment parity comparison against the
+   current pure-Python backend passes with zero differences. The comparison
+   must cover public `normalize()` output and the public parse/inflection
+   fields consumed by this project. If any difference remains unexplained,
+   do not switch the dependency; record the mismatch and keep the portable
+   backend while the morphology fixes proceed.
 9. Add a `<3` compatibility ceiling for both direct pymorphy packages while
    retaining the lockfile's exact resolved versions. Do not bump the project
    version as part of this work.
@@ -197,6 +204,11 @@ and the compiled backend must remain optional.
   lowercase-only private cache is output-equivalent and avoids duplicate
   entries for `Фёдор`/`фёдор`; do not fold `е` and `ё`, because strict
   candidate sets can differ.
+- `pymorphy3==2.0.6` declares `DAWG2>=0.9.0,<1.0.0` for its `fast` extra on
+  CPython and retains `dawg2-python>=0.8.0` as its portable dependency.
+  `DAWG2==0.13.3` publishes CPython 3.10-3.13 wheels for Windows, macOS,
+  manylinux, and musllinux, which covers the project's declared Python
+  versions on its mainstream platforms as of this plan.
 
 ## Completed audit coverage
 
@@ -270,7 +282,63 @@ Public pymorphy3 functionality was also evaluated rather than omitted:
 
 ## Implementation
 
-### 0. Add a single morphology-policy boundary
+### 0. Prove backend parity before changing the default
+
+Add a deterministic parity harness under `scripts/` and focused tests under
+`tests/` which can run in two clean environments:
+
+- baseline: the locked `pymorphy3==2.0.6` with `DAWG2-Python` active and
+  `pymorphy3.dawg.EXTENSION_AVAILABLE is False`;
+- candidate: the same analyzer and dictionary versions with
+  `pymorphy3[fast]` installed and
+  `pymorphy3.dawg.EXTENSION_AVAILABLE is True`.
+
+Run this gate before any parse-selection or normalization behavior changes,
+so backend parity is not confused with the intentional fixes in later
+sections. Emit stable UTF-8 JSON containing:
+
+- exact public `normalize()` results for every complete input message
+  collected by the test suite, including strict-xfail inputs;
+- ordered public parse signatures for the bounded morphology corpus:
+  surface word, `normal_form`, stringified tag, score, and `word`;
+- `inflect()` results for every supported case/number/gender combination on
+  unit lemmas, numeral words, ambiguous regression words, and generated
+  ordinal final words;
+- lexeme word/tag signatures where later domain-policy code relies on
+  `Parse.lexeme`.
+
+Build the corpus deterministically from test parameters, all `UNITS_DATA`
+tokens and lemmas, generated cardinal/ordinal boundary values, rare-case
+fixtures, unknown-word/shape fixtures, and `е`/`ё` plus case variants. Do not
+serialize private `methods_stack`, analyzer units, DAWG internals, object
+representations, or timing data. Compare the two JSON artifacts byte for byte
+after stable sorting of the corpus; preserve parse and lexeme order inside
+each entry because order is part of the behavior currently consumed by the
+project.
+
+The migration gate passes only with zero differences and with the complete
+existing test suite producing the same pass/xfail/skip outcomes in both
+environments. An XPASS, changed exception, changed fallback, missing compiled
+backend, or packaging/install failure is a failed gate. Keep any diagnostic
+artifact outside version control; commit only the harness, fixtures, and
+documented command.
+
+After the gate passes, modify `pyproject.toml` and refresh `uv.lock`:
+
+- replace the base analyzer requirement with
+  `pymorphy3[fast]>=2.0,<3`, making compiled DAWG the normal CPython backend;
+- constrain the direct Russian dictionary dependency to `>=2.0,<3`;
+- lock the resolved `DAWG2` package and retain the portable dependency pulled
+  by pymorphy3; do not add a second project-specific runtime switch.
+
+Verify fresh wheel and sdist installs on the project's supported CPython
+3.10-3.13 range, at minimum on Windows and Linux CI. Confirm
+`EXTENSION_AVAILABLE is True` in each candidate environment. If a supported
+matrix cell cannot install a published wheel and would require an
+unprovisioned compiler, treat that as a failed migration gate rather than
+silently accepting a slower or untested backend.
+
+### 1. Add a single morphology-policy boundary
 
 Modify `src/ru_normalizr/_morph.py`:
 
@@ -300,7 +368,7 @@ Replace the private `SECONDARY_CASE_TO_PRIMARY` mapping in
 `src/ru_normalizr/numerals/ordinals.py` to use the same canonical case
 function instead of local `loc2` expressions.
 
-### 1. Make ordinal disambiguation honor explicit morphology
+### 2. Make ordinal disambiguation honor explicit morphology
 
 Modify `src/ru_normalizr/ordinal_utils.py`:
 
@@ -332,7 +400,7 @@ Modify `src/ru_normalizr/numerals/ordinals.py`:
 Update Roman and heading call sites only to match the new signature. Do not
 broaden the set of text recognized as a Roman-numeral context.
 
-### 2. Select domain-correct unit parses
+### 3. Select domain-correct unit parses
 
 Introduce a typed unit descriptor in
 `src/ru_normalizr/numerals/_constants.py` (a frozen dataclass or
@@ -408,7 +476,7 @@ time:
   the collective numeral plus genitive plural `двое суток`, and five uses
   `пять суток`. Keep this descriptor-driven for future plural-only units.
 
-### 3. Tighten context parse selection without suppressing unknown words
+### 4. Tighten context parse selection without suppressing unknown words
 
 Review every remaining direct `first_parse_required()` and `parsed[0]` use in:
 
@@ -466,7 +534,7 @@ Apply the concrete outcomes of the completed review:
   on their existing all-candidate logic, changing only their shared
   canonical-case calls.
 
-### 4. Render fractions through the complete numeral path
+### 5. Render fractions through the complete numeral path
 
 Modify `src/ru_normalizr/numerals/fractions.py`:
 
@@ -482,28 +550,24 @@ Modify `src/ru_normalizr/numerals/fractions.py`:
 - add stage-level tests as well as public `normalize()` tests so ownership of
   `1000/100` cannot regress.
 
-### 5. Package compatibility and optional fast backend
-
-Modify `pyproject.toml` and refresh `uv.lock`:
-
-- constrain `pymorphy3` to `>=2.0,<3`;
-- constrain the direct Russian dictionary dependency to `>=2.0,<3`;
-- add a `fast` optional dependency which installs a compatible
-  `pymorphy3[fast]` backend without making compiled DAWG mandatory.
+### 6. Document the default compiled backend
 
 Update the Russian installation/development documentation in `README.md`:
 
-- explain that the default remains portable pure Python;
-- show how to install the project with the fast extra;
-- state that wheel availability depends on interpreter/platform and that
-  callers can verify the active backend through
+- explain that supported CPython installations use the compiled backend by
+  default after the parity gate;
+- state the supported interpreter/platform wheel matrix and that callers can
+  verify the active backend through
   `pymorphy3.dawg.EXTENSION_AVAILABLE`;
+- document that a false flag on a supported CPython installation is an
+  installation/configuration problem, not a silently supported production
+  mode;
 - report benchmark methodology, not a universal performance promise.
 
 Do not rely on the fast backend for correctness and do not create separate
 code paths based on its availability.
 
-### 6. Record the durable integration constraints
+### 7. Record the durable integration constraints
 
 Create `docs/agents/pymorphy3-integration.md` in English and list it in
 `docs/agents/README.md` with a two-sentence Russian description. Document:
@@ -514,12 +578,13 @@ Create `docs/agents/pymorphy3-integration.md` in English and list it in
 - domain parse selection rules;
 - dictionary age and semantic homonym limitations;
 - unit morphology seed validation;
-- default versus optional DAWG backend;
+- the parity gate and default compiled versus portable fallback DAWG
+  backends;
 - the reason `make_agree_with_number()` is not used globally.
 
 Update `CHANGELOG.md` under `## Unreleased` in Russian for all user-visible
-normalization corrections and the optional installation extra. Do not bump
-the package version.
+normalization corrections and the default compiled backend migration. Do not
+bump the package version.
 
 Do not add an `AGENTS.md` gotcha unless implementation reveals a new critical
 fact which meets the repository's stated criteria; propose its exact wording
@@ -577,8 +642,12 @@ Add or update tests covering:
   known words;
 - cache determinism with typed grammemes and the new selector;
 - one concurrent parse/normalize stress test using the shared analyzer;
-- parity of output under pure-Python and compiled DAWG backends when the fast
-  backend is available.
+- exact baseline-versus-candidate parity under pure-Python and compiled DAWG
+  backends, including the public normalization corpus, ordered public parse
+  signatures, inflection/lexeme signatures, exceptions, and pytest outcome
+  counts;
+- fresh-install checks which assert the compiled backend is active for every
+  supported CPython/platform matrix cell included in CI.
 
 Add a bounded inventory test over all `UNITS_DATA` descriptors which asserts:
 
@@ -597,15 +666,16 @@ uv run pytest
 ```
 
 Also run a short benchmark with 10,000 distinct known words under both
-backends when the compiled wheel is available. Record the command,
+backends after correctness parity passes. Record the command,
 interpreter, backend flag, and result in
 `docs/agents/pymorphy3-integration.md`; performance variance is not a test
 failure unless a changed selector violates an existing linearity assertion.
 
 Verify end-to-end through the public `normalize()` API, not only helper
 functions. Build both sdist and wheel after dependency metadata changes and
-inspect their metadata to confirm the default installation remains portable
-and the `fast` extra is advertised.
+inspect their metadata to confirm the default requirement includes
+`pymorphy3[fast]>=2.0,<3` and a clean supported CPython installation resolves
+and activates `DAWG2`.
 
 ## Out of scope
 
@@ -615,7 +685,8 @@ and the `fast` extra is advertised.
 - Building and distributing a custom compiled morphology dictionary.
 - Changing documented reference, range, byte-unit, or letter-name
   conventions.
-- Making a compiler toolchain or native DAWG extension mandatory.
+- Supporting a default compiled-backend migration on interpreter/platform
+  combinations outside the project's declared and verified wheel matrix.
 - Adding stress placement or pronunciation dictionaries unrelated to parse
   selection and inflection.
 - Bumping the `ru-normalizr` version or performing a release.
