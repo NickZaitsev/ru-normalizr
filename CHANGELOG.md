@@ -25,7 +25,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Correct the console-script name in the README from `ru_normalizr` to `ru-normalizr`
 
 ### Fixed
-- Декодировать вывод Git в dev-скрипте как UTF-8 независимо от системной локали, чтобы имена веток и пути с нелатинскими символами не искажались и не вызывали `UnicodeDecodeError`
+- Декодировать вывод Git в dev-скрипте как UTF-8 независимо от системной локали и безопасно заменять повреждённые байты, чтобы имена веток, пути и диагностические сообщения не искажались и не вызывали `UnicodeDecodeError`
 - Сохранять верхний регистр целиком в резервной эвристике родительного множественного для прилагательных (`НОВЫЕ` → `НОВЫХ`, а не смешанное `НОВЫх`)
 - Корректно обрабатывать обе формы результата `eng_to_ipa` — строку и список вариантов: раньше строковый ответ пакетного API сокращался до последнего символа, а список вариантов одиночного API мог попасть в строковый кеш без преобразования
 - Transliterate `q` in the latinization fallback rules, which mapped every ASCII letter except that one; any token `eng_to_ipa` could not resolve previously leaked a raw Latin `q` into otherwise Cyrillic output (`PostgreSQL` → `постгрэсqл`, now `постгрэскл`), leaving mixed-script text a TTS engine cannot pronounce
