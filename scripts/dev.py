@@ -52,6 +52,7 @@ def capture(*args: str) -> subprocess.CompletedProcess[str]:
         args,
         cwd=ROOT,
         encoding="utf-8",
+        errors="replace",
         capture_output=True,
     )
 
