@@ -1,6 +1,8 @@
 # Plan: Production readiness — layout, tooling strictness, docs cleanup, coverage
 
-Status: in progress since 2026-07-30.
+Status: implemented 2026-07-30 in branch `main`. The CI workflow was not
+pushed or run; its wheel-install smoke sequence passed locally in a fresh
+Python 3.12 environment.
 
 > Note for agents: this plan is a point-in-time snapshot — its "codebase facts" describe the code as of the date above and may be outdated. Do NOT treat it as current architecture docs; verify every fact against the actual code before relying on it.
 
@@ -122,7 +124,7 @@ Commit: `ci: smoke-тест установки колеса и .gitattributes`.
 
 - After every phase: `uv run ruff check .` (pip equivalents before phase 3), `uv run pytest -q` — 314+ passed, 2 xfailed, zero new failures. After phase 4 also `uv run pyright` → 0 errors.
 - After phase 2 (the risky one): `python scripts/dev.py check` end-to-end (clean → version sync → lint → test → build → twine check); additionally unzip the built wheel and diff its file list against the pre-migration wheel — must be identical module-for-module (`ru_normalizr/*.py`, `ru_normalizr/numerals/*.py`, `ru_normalizr/dictionaries/**/*.dic`, `py.typed`, metadata).
-- After phase 6: the CI smoke job is itself the verification — run the workflow (push or `workflow_dispatch`) and confirm all jobs green, including the wheel-install smoke.
+- After phase 6: the wheel-install smoke sequence passed locally in a fresh Python 3.12 environment. The workflow itself was not run because this task did not authorize a push; its first remote run remains the final CI-environment confirmation.
 - No paid/external APIs are involved anywhere.
 
 ## Out of scope
