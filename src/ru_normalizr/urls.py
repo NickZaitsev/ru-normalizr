@@ -6,7 +6,7 @@ URL_PATTERN = re.compile(r"(?P<url>(?:https?://|www\.)[^\s<>\"]+)", re.IGNORECAS
 ALNUM_CHUNK_PATTERN = re.compile(r"[A-Za-z0-9]+|[^A-Za-z0-9]")
 MIXED_CHUNK_PATTERN = re.compile(r"\d+|[A-Za-z]+")
 
-URL_SEPARATOR_WORDS = {
+URL_SEPARATOR_WORDS: dict[str, str] = {
     ":": "двоеточие",
     "/": "слэш",
     ".": "точка",
@@ -90,7 +90,7 @@ def _normalize_url(url: str) -> str:
             pieces.append(_normalize_alnum_chunk(chunk))
             continue
         for char in chunk:
-            pieces.append(URL_SEPARATOR_WORDS.get(char, char))
+            pieces.append(URL_SEPARATOR_WORDS.get(char) or char)
     return re.sub(r"\s+", " ", " ".join(piece for piece in pieces if piece)).strip()
 
 

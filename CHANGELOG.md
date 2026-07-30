@@ -25,6 +25,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Correct the console-script name in the README from `ru_normalizr` to `ru-normalizr`
 
 ### Fixed
+- Корректно обрабатывать обе формы результата `eng_to_ipa` — строку и список вариантов: раньше строковый ответ пакетного API сокращался до последнего символа, а список вариантов одиночного API мог попасть в строковый кеш без преобразования
 - Transliterate `q` in the latinization fallback rules, which mapped every ASCII letter except that one; any token `eng_to_ipa` could not resolve previously leaked a raw Latin `q` into otherwise Cyrillic output (`PostgreSQL` → `постгрэсqл`, now `постгрэскл`), leaving mixed-script text a TTS engine cannot pronounce
 - Write CLI stdout and read CLI stdin as UTF-8 regardless of the platform locale encoding, matching what `--file` and `--output` already did; previously, redirecting the CLI's output on a Windows locale whose codepage cannot represent Cyrillic (such as the `cp1252` default on English Windows) aborted with `UnicodeEncodeError` instead of printing the normalized text
 - Stop reading the hyphen in `name-<decimal>` tokens as a unary minus, which swallowed the separator and glued the name to `минус …` (`GLM-5.2` → `GLM минус пять целых две десятых`); a genuine minus is still recognized at the start of a line, after an opening bracket, and after whitespace

@@ -37,6 +37,7 @@ dev = [
   "pytest>=7.0",
   "pytest-cov>=5.0",
   "ruff>=0.4",
+  "tomli>=2.0",
   "twine>=5.0",
 ]
 
@@ -59,6 +60,15 @@ ru_normalizr = ["py.typed", "dictionaries/**/*.dic"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "standard"
+include = ["src", "scripts"]
+exclude = ["tests", "**/__pycache__", ".venv", "build", "dist"]
+venvPath = "."
+venv = ".venv"
+reportUnnecessaryTypeIgnoreComment = "error"
 
 [tool.ruff]
 line-length = 100
