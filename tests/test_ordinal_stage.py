@@ -279,6 +279,42 @@ class CompoundAdjectiveTests(unittest.TestCase):
                     normalize_compound_numeric_adjectives(source), expected
                 )
 
+    def test_every_stem_forms_its_compound_adjective(self):
+        # One adjective per entry of COMPOUND_ADJECTIVE_STEMS, so a change to the
+        # pattern cannot silently drop a stem.
+        cases = (
+            ("3 комнатная", "трёхкомнатная"),
+            ("5 тонный", "пятитонный"),
+            ("2 местная", "двухместная"),
+            ("3 ступенчатый", "трёхступенчатый"),
+            ("9 этажный", "девятиэтажный"),
+            ("100 кратный", "стократный"),
+            ("2 дневный", "двухдневный"),
+            ("7 часовой", "семичасовой"),
+            ("90 летний", "девяносталетний"),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(
+                    normalize_compound_numeric_adjectives(source), expected
+                )
+
+    def test_counted_noun_is_not_glued_into_a_compound(self):
+        # A stem must only fire on an adjective. These are plain counted nouns
+        # whose forms start the same way ("лет" under "летн", "дней" under
+        # "дневн"), and gluing them would destroy the sentence.
+        for source in (
+            "Отчёт за 7 лет.",
+            "Прошло 5 дней.",
+            "Осталось 3 ступени.",
+            "Взял 2 места.",
+            "Снял 3 комнаты.",
+            "Дом в 9 этажей.",
+            "Разница в 4 раза.",
+        ):
+            with self.subTest(source=source):
+                self.assertEqual(normalize_compound_numeric_adjectives(source), source)
+
     def test_ninety_keeps_its_nominative_stem_inside_a_compound(self):
         # The genitive "девяноста" is wrong as a prefix; "девяносто" is the stem.
         self.assertEqual(
