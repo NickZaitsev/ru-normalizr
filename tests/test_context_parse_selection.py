@@ -28,6 +28,29 @@ def test_abbreviation_uses_rightmost_compatible_noun_head(
     assert normalize(source) == expected
 
 
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        # Distributive "по" takes the dative only when the numeral ends in a
+        # single "one": ...1 but not ...11. Everything else stays accusative.
+        ("Выдали по 1 рублю каждому.", "Выдали по одному рублю каждому."),
+        ("Выдали по 21 рублю каждому.", "Выдали по двадцати одному рублю каждому."),
+        ("Выдали по 31 рублю каждому.", "Выдали по тридцати одному рублю каждому."),
+        ("Раздали по 41 карандашу детям.", "Раздали по сорока одному карандашу детям."),
+        ("Выдали по 101 рублю каждому.", "Выдали по ста одному рублю каждому."),
+        ("Выдали по 11 рублей каждому.", "Выдали по одиннадцать рублей каждому."),
+        ("Выдали по 111 рублей каждому.", "Выдали по сто одиннадцать рублей каждому."),
+        ("Выдали по 2 рубля каждому.", "Выдали по два рубля каждому."),
+        ("Выдали по 5 рублей каждому.", "Выдали по пять рублей каждому."),
+        ("Заплатили по 1000 рублей каждому.", "Заплатили по одну тысячу рублей каждому."),
+    ],
+)
+def test_distributive_po_takes_the_dative_only_for_a_final_one(
+    source: str, expected: str
+) -> None:
+    assert normalize(source) == expected
+
+
 def test_number_licenses_noun_parse_of_infinitive_homonym() -> None:
     assert normalize("В музее представлена 1 пасть древнего животного.") == (
         "В музее представлена одна пасть древнего животного."
