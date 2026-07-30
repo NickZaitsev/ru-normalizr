@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
+from dataclasses import dataclass
 
 POST_NUMERAL_ABBREVIATION_PATTERNS = [
     (re.compile(r"(?<!\w)тыс\.(?!\w)", re.IGNORECASE), "тысяч"),
@@ -263,9 +265,248 @@ VERB_CASE = {
     "размышлять": "loct",
     "основываться": "loct",
     "заключаться": "loct",
+    "стоить": "accs",
 }
 
-UNITS_DATA = {
+@dataclass(frozen=True)
+class UnitMorphology:
+    expected_normal_form: str | None = None
+    animacy: str | None = "inan"
+    indeclinable: bool = False
+    preferred_grammemes: frozenset[str] = frozenset()
+    forbidden_grammemes: frozenset[str] = frozenset()
+    morphology_seed: str | None = None
+    paradigm: tuple[tuple[str, str, str], ...] = ()
+    plural_only: bool = False
+    byte_family: bool = False
+
+    def form(self, case: str, number: str) -> str | None:
+        return next(
+            (
+                word
+                for form_case, form_number, word in self.paradigm
+                if form_case == case and form_number == number
+            ),
+            None,
+        )
+
+
+@dataclass(frozen=True)
+class UnitDescriptor:
+    lemma: str
+    gender: str
+    category: str
+    suffix: str | None = None
+    morphology: UnitMorphology = UnitMorphology()
+
+    def __iter__(self) -> Iterator[str]:
+        yield self.lemma
+        yield self.gender
+        yield self.category
+        if self.suffix is not None:
+            yield self.suffix
+
+    def __getitem__(self, index: int) -> str:
+        return tuple(self)[index]
+
+
+def _paradigm(
+    singular: tuple[str, str, str, str, str, str],
+    plural: tuple[str, str, str, str, str, str],
+) -> tuple[tuple[str, str, str], ...]:
+    cases = ("nomn", "gent", "datv", "accs", "ablt", "loct")
+    return tuple(
+        (case, number, word)
+        for number, forms in (("sing", singular), ("plur", plural))
+        for case, word in zip(cases, forms, strict=True)
+    )
+
+
+_UNIT_MORPHOLOGY = {
+    "евро": UnitMorphology(expected_normal_form="евро", indeclinable=True),
+    "песо": UnitMorphology(expected_normal_form="песо", indeclinable=True),
+    "тенге": UnitMorphology(expected_normal_form="тенге", indeclinable=True),
+    "промилле": UnitMorphology(expected_normal_form="промилле", indeclinable=True),
+    "генри": UnitMorphology(expected_normal_form="генри", indeclinable=True),
+    "лира": UnitMorphology(expected_normal_form="лира", animacy="inan"),
+    "вона": UnitMorphology(expected_normal_form="вона", animacy="inan"),
+    "моль": UnitMorphology(expected_normal_form="моль", animacy="inan"),
+    "человек": UnitMorphology(expected_normal_form="человек", animacy="anim"),
+    "шекель": UnitMorphology(
+        expected_normal_form="шекель",
+        paradigm=_paradigm(
+            ("шекель", "шекеля", "шекелю", "шекель", "шекелем", "шекеле"),
+            ("шекели", "шекелей", "шекелям", "шекели", "шекелями", "шекелях"),
+        ),
+    ),
+    "грей": UnitMorphology(
+        expected_normal_form="грей",
+        paradigm=_paradigm(
+            ("грей", "грея", "грею", "грей", "греем", "грее"),
+            ("греи", "греев", "греям", "греи", "греями", "греях"),
+        ),
+    ),
+    "фарад": UnitMorphology(
+        expected_normal_form="фарад",
+        paradigm=_paradigm(
+            ("фарад", "фарада", "фараду", "фарад", "фарадом", "фараде"),
+            ("фарады", "фарадов", "фарадам", "фарады", "фарадами", "фарадах"),
+        ),
+    ),
+    "миллифарад": UnitMorphology(
+        expected_normal_form="миллифарад",
+        paradigm=_paradigm(
+            (
+                "миллифарад",
+                "миллифарада",
+                "миллифараду",
+                "миллифарад",
+                "миллифарадом",
+                "миллифараде",
+            ),
+            (
+                "миллифарады",
+                "миллифарадов",
+                "миллифарадам",
+                "миллифарады",
+                "миллифарадами",
+                "миллифарадах",
+            ),
+        ),
+    ),
+    "микрофарад": UnitMorphology(
+        expected_normal_form="микрофарад",
+        paradigm=_paradigm(
+            (
+                "микрофарад",
+                "микрофарада",
+                "микрофараду",
+                "микрофарад",
+                "микрофарадом",
+                "микрофараде",
+            ),
+            (
+                "микрофарады",
+                "микрофарадов",
+                "микрофарадам",
+                "микрофарады",
+                "микрофарадами",
+                "микрофарадах",
+            ),
+        ),
+    ),
+    "нанофарад": UnitMorphology(
+        expected_normal_form="нанофарад",
+        paradigm=_paradigm(
+            ("нанофарад", "нанофарада", "нанофараду", "нанофарад", "нанофарадом", "нанофараде"),
+            ("нанофарады", "нанофарадов", "нанофарадам", "нанофарады", "нанофарадами", "нанофарадах"),
+        ),
+    ),
+    "пикофарад": UnitMorphology(
+        expected_normal_form="пикофарад",
+        paradigm=_paradigm(
+            ("пикофарад", "пикофарада", "пикофараду", "пикофарад", "пикофарадом", "пикофараде"),
+            ("пикофарады", "пикофарадов", "пикофарадам", "пикофарады", "пикофарадами", "пикофарадах"),
+        ),
+    ),
+    "тесла": UnitMorphology(
+        expected_normal_form="тесла",
+        paradigm=_paradigm(
+            ("тесла", "теслы", "тесле", "теслу", "теслой", "тесле"),
+            ("теслы", "тесл", "теслам", "теслы", "теслами", "теслах"),
+        ),
+    ),
+    "паскаль": UnitMorphology(
+        expected_normal_form="паскаль",
+        paradigm=_paradigm(
+            ("паскаль", "паскаля", "паскалю", "паскаль", "паскалем", "паскале"),
+            ("паскали", "паскалей", "паскалям", "паскали", "паскалями", "паскалях"),
+        ),
+    ),
+    "килопаскаль": UnitMorphology(
+        expected_normal_form="килопаскаль",
+        paradigm=_paradigm(
+            ("килопаскаль", "килопаскаля", "килопаскалю", "килопаскаль", "килопаскалем", "килопаскале"),
+            ("килопаскали", "килопаскалей", "килопаскалям", "килопаскали", "килопаскалями", "килопаскалях"),
+        ),
+    ),
+    "мегапаскаль": UnitMorphology(
+        expected_normal_form="мегапаскаль",
+        paradigm=_paradigm(
+            ("мегапаскаль", "мегапаскаля", "мегапаскалю", "мегапаскаль", "мегапаскалем", "мегапаскале"),
+            ("мегапаскали", "мегапаскалей", "мегапаскалям", "мегапаскали", "мегапаскалями", "мегапаскалях"),
+        ),
+    ),
+    "зиверт": UnitMorphology(
+        expected_normal_form="зиверт",
+        paradigm=_paradigm(
+            ("зиверт", "зиверта", "зиверту", "зиверт", "зивертом", "зиверте"),
+            ("зиверты", "зивертов", "зивертам", "зиверты", "зивертами", "зивертах"),
+        ),
+    ),
+    "мегавольт": UnitMorphology(
+        expected_normal_form="мегавольт",
+        paradigm=_paradigm(
+            ("мегавольт", "мегавольта", "мегавольту", "мегавольт", "мегавольтом", "мегавольте"),
+            ("мегавольты", "мегавольт", "мегавольтам", "мегавольты", "мегавольтами", "мегавольтах"),
+        ),
+    ),
+    "сутки": UnitMorphology(
+        expected_normal_form="сутки",
+        plural_only=True,
+        paradigm=tuple(
+            (case, "plur", word)
+            for case, word in (
+                ("nomn", "сутки"),
+                ("gent", "суток"),
+                ("datv", "суткам"),
+                ("accs", "сутки"),
+                ("ablt", "сутками"),
+                ("loct", "сутках"),
+            )
+        ),
+    ),
+}
+
+for _byte_lemma in (
+    "байт",
+    "килобайт",
+    "мегабайт",
+    "гигабайт",
+    "терабайт",
+):
+    _UNIT_MORPHOLOGY[_byte_lemma] = UnitMorphology(
+        expected_normal_form=_byte_lemma,
+        byte_family=True,
+        forbidden_grammemes=frozenset({"Coun"}),
+    )
+
+for _bit_lemma in ("бит", "килобит", "мегабит", "гигабит", "терабит"):
+    _UNIT_MORPHOLOGY[_bit_lemma] = UnitMorphology(
+        expected_normal_form=_bit_lemma,
+        preferred_grammemes=frozenset({"Coun"}),
+    )
+
+
+def _upgrade_units(
+    raw: dict[str, tuple[str, str, str] | tuple[str, str, str, str]],
+) -> dict[str, UnitDescriptor]:
+    return {
+        token: UnitDescriptor(
+            lemma=values[0],
+            gender=values[1],
+            category=values[2],
+            suffix=values[3] if len(values) == 4 else None,
+            morphology=_UNIT_MORPHOLOGY.get(
+                values[0],
+                UnitMorphology(expected_normal_form=values[0]),
+            ),
+        )
+        for token, values in raw.items()
+    }
+
+
+UNITS_DATA = _upgrade_units({
     "₽": ("рубль", "masc", "money"),
     "р": ("рубль", "masc", "money"),
     "руб": ("рубль", "masc", "money"),
@@ -292,12 +533,15 @@ UNITS_DATA = {
     "uah": ("гривна", "femn", "money"),
     "₸": ("тенге", "masc", "money"),
     "kzt": ("тенге", "masc", "money"),
+    "тенге": ("тенге", "masc", "money"),
     "₺": ("лира", "femn", "money"),
     "try": ("лира", "femn", "money"),
+    "лира": ("лира", "femn", "money"),
     "₹": ("рупия", "femn", "money"),
     "inr": ("рупия", "femn", "money"),
-    "₩": ("вон", "masc", "money"),
-    "krw": ("вон", "masc", "money"),
+    "₩": ("вона", "femn", "money"),
+    "krw": ("вона", "femn", "money"),
+    "вона": ("вона", "femn", "money"),
     "₫": ("донг", "masc", "money"),
     "vnd": ("донг", "masc", "money"),
     "₱": ("песо", "neut", "money"),
@@ -592,8 +836,8 @@ UNITS_DATA = {
     "gwh": ("гигаватт-час", "masc", "measure"),
     "va": ("вольт-ампер", "masc", "measure"),
     "kva": ("киловольт-ампер", "masc", "measure"),
-    "mol": ("моль", "femn", "measure"),
-    "моль": ("моль", "femn", "measure"),
+    "mol": ("моль", "masc", "measure"),
+    "моль": ("моль", "masc", "measure"),
     "ммоль": ("миллимоль", "masc", "measure"),
     "mmol": ("миллимоль", "masc", "measure"),
     "мкмоль": ("микромоль", "masc", "measure"),
@@ -612,12 +856,12 @@ UNITS_DATA = {
     "ui": ("международная единица", "femn", "measure"),
     "рад.": ("радиан", "masc", "measure"),
     "кадров/с": ("кадр", "masc", "measure", "в секунду"),
-    "атм": ("атмосфер", "femn", "measure"),
-}
+    "атм": ("атмосфера", "femn", "measure"),
+})
 
 # SI prefixes and symbols are case-sensitive: folding мА/кА to ма/ка would
 # make ordinary lowercase words look like electrical units.
-CASE_SENSITIVE_UNITS_DATA = {
+CASE_SENSITIVE_UNITS_DATA = _upgrade_units({
     "т": ("тонна", "femn", "measure"),
     "°С": ("градус", "masc", "measure", "Цельсия"),
     "°К": ("градус", "masc", "measure", "Кельвина"),
@@ -625,24 +869,93 @@ CASE_SENSITIVE_UNITS_DATA = {
     "мА": ("миллиампер", "masc", "measure"),
     "кА": ("килоампер", "masc", "measure"),
     "мАч": ("миллиампер-час", "masc", "measure"),
-}
+    "mA": ("миллиампер", "masc", "measure"),
+    "MA": ("мегаампер", "masc", "measure"),
+    "mV": ("милливольт", "masc", "measure"),
+    "MV": ("мегавольт", "masc", "measure"),
+    "mW": ("милливатт", "masc", "measure"),
+    "MW": ("мегаватт", "masc", "measure"),
+    "мВт": ("милливатт", "masc", "measure"),
+    "МВт": ("мегаватт", "masc", "measure"),
+    "Гр": ("грей", "masc", "measure"),
+    "гр": ("грамм", "masc", "measure"),
+    "b": ("бит", "masc", "measure"),
+    "B": ("байт", "masc", "measure"),
+    "kb": ("килобит", "masc", "measure"),
+    "kB": ("килобайт", "masc", "measure"),
+    "Mb": ("мегабит", "masc", "measure"),
+    "MB": ("мегабайт", "masc", "measure"),
+    "Gb": ("гигабит", "masc", "measure"),
+    "GB": ("гигабайт", "masc", "measure"),
+    "Tb": ("терабит", "masc", "measure"),
+    "TB": ("терабайт", "masc", "measure"),
+    "Mbps": ("мегабит", "masc", "measure", "в секунду"),
+    "MBps": ("мегабайт", "masc", "measure", "в секунду"),
+})
+CASE_SENSITIVE_UNITS_DATA["Mb"] = UnitDescriptor(
+    lemma="мегабит",
+    gender="masc",
+    category="measure",
+    morphology=UnitMorphology(
+        expected_normal_form="мегабит",
+        preferred_grammemes=frozenset({"Coun"}),
+    ),
+)
 
 
-def resolve_unit_info(unit: str):
-    cleaned = unit.strip(".")
+def resolve_unit_info(unit: str) -> UnitDescriptor | None:
+    original = unit.strip()
+    exact = CASE_SENSITIVE_UNITS_DATA.get(original)
+    if exact is not None:
+        return exact
+    direct = UNITS_DATA.get(original.lower())
+    if direct is not None:
+        return direct
+    cleaned = original.strip(".")
     return CASE_SENSITIVE_UNITS_DATA.get(cleaned) or UNITS_DATA.get(cleaned.lower())
 
+
+def resolve_unit_form(token: str) -> UnitDescriptor | None:
+    direct = resolve_unit_info(token)
+    if direct is not None:
+        return direct
+    from .._morph import parse_word
+
+    surface = token.lower().strip(".")
+    for candidate in parse_word(surface):
+        if candidate.tag.POS != "NOUN":
+            continue
+        descriptor = resolve_unit_info(candidate.normal_form)
+        if descriptor is None:
+            continue
+        morphology = descriptor.morphology
+        if any(form == surface for _, _, form in morphology.paradigm):
+            return descriptor
+        if (
+            candidate.normal_form
+            == (morphology.expected_normal_form or descriptor.lemma)
+            and (morphology.animacy is None or morphology.animacy in candidate.tag)
+        ):
+            return descriptor
+    return None
+
+
+def is_exact_unit_token(token: str) -> bool:
+    return token.strip() in CASE_SENSITIVE_UNITS_DATA
+
 ENTITY_KEYWORDS = {"percent": set(), "money": set(), "measure": set()}
-for key, val in (*UNITS_DATA.items(), *CASE_SENSITIVE_UNITS_DATA.items()):
-    lemma, _, category, *suffix = val
-    ENTITY_KEYWORDS[category].add(key.lower())
-    ENTITY_KEYWORDS[category].add(lemma)
+for key, descriptor in (*UNITS_DATA.items(), *CASE_SENSITIVE_UNITS_DATA.items()):
+    ENTITY_KEYWORDS[descriptor.category].add(key.lower())
+    ENTITY_KEYWORDS[descriptor.category].add(descriptor.lemma)
 
 ENTITY_DEFAULT_CASE = {"percent": "nomn", "money": "nomn", "measure": "nomn"}
 ALL_UNITS = (
     set(UNITS_DATA)
     | {key.lower() for key in CASE_SENSITIVE_UNITS_DATA}
-    | {value[0] for value in (*UNITS_DATA.values(), *CASE_SENSITIVE_UNITS_DATA.values())}
+    | {
+        descriptor.lemma
+        for descriptor in (*UNITS_DATA.values(), *CASE_SENSITIVE_UNITS_DATA.values())
+    }
 )
 
 UNIT_TOKEN_FRAGMENT = (

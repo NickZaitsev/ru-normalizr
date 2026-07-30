@@ -6,6 +6,7 @@ import roman
 
 from ._morph import canonicalize_case, parse_word
 from .constants import KNOWN_ABBREVIATIONS
+from .numerals._constants import is_exact_unit_token
 from .numerals._helpers import get_numeral_case
 from .numerals._hyphen import is_safe_numeric_hyphen_unit
 from .options import NormalizeOptions
@@ -643,7 +644,10 @@ def convert_other_roman_numerals(text: str) -> str:
     pattern = r"\b([IVXLCDM]{2,})\b"
 
     def repl(match: re.Match[str]) -> str:
-        token = match.group(1).upper()
+        source_token = match.group(1)
+        if is_exact_unit_token(source_token):
+            return source_token
+        token = source_token.upper()
         left_hyphen_context = text[max(0, match.start() - 16) : match.start()]
         right_hyphen_context = text[match.end() : match.end() + 16]
         left_hyphen_match = re.search(

@@ -154,25 +154,25 @@ def normalize_decimals(text: str) -> str:
                 unit_info = resolve_unit_info(unit_raw)
             unit2_processed = False
             if unit_info:
-                lemma, _, _, *u_suffix = unit_info
-                result += " " + inflect_unit_lemma(lemma, {"gent", "sing"})
-                if u_suffix:
-                    result += " " + u_suffix[0]
+                lemma = unit_info.lemma
+                result += " " + inflect_unit_lemma(unit_info, {"gent", "sing"})
+                if unit_info.suffix:
+                    result += " " + unit_info.suffix
                 if unit_consumes_second_token:
                     unit2_processed = True
                 elif unit2_raw:
                     unit2_info = resolve_unit_info(unit2_raw)
                     multipliers = {"тысяча", "миллион", "миллиард", "триллион"}
                     if lemma in multipliers and unit2_info:
-                        lemma2, _, _, *suffix2 = unit2_info
+                        lemma2 = unit2_info.lemma
                         if lemma2 == "человек":
                             result += " человек"
                         else:
                             result += " " + inflect_unit_lemma(
-                                lemma2, {"gent", "plur"}
+                                unit2_info, {"gent", "plur"}
                             )
-                        if suffix2:
-                            result += " " + suffix2[0]
+                        if unit2_info.suffix:
+                            result += " " + unit2_info.suffix
                         unit2_processed = True
                 if unit2_raw and not unit2_processed:
                     result += " " + unit2_raw

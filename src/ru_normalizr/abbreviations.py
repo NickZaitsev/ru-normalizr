@@ -105,14 +105,48 @@ def _expand_contextual_etc_abbreviations(text: str) -> str:
 
 def _expand_contextual_adjective_abbreviations(text: str) -> str:
     def choose_head_noun(phrase: str):
-        for word in phrase.split():
+        words = phrase.split()
+        modifier_parses = []
+        for word_index, word in enumerate(words):
             parsed = parse_word(word.lower())
-            noun_candidate = next(
-                (candidate for candidate in parsed if "NOUN" in candidate.tag),
-                None,
+            noun_candidates = [
+                candidate for candidate in parsed if "NOUN" in candidate.tag
+            ]
+            adjective_candidates = [
+                candidate
+                for candidate in parsed
+                if candidate.tag.POS in {"ADJF", "PRTF"}
+            ]
+            later_has_noun = any(
+                any(candidate.tag.POS == "NOUN" for candidate in parse_word(later.lower()))
+                for later in words[word_index + 1 :]
             )
-            if noun_candidate is not None:
-                return noun_candidate
+            if adjective_candidates and later_has_noun:
+                modifier_parses.extend(adjective_candidates)
+                continue
+            if not noun_candidates:
+                continue
+
+            def compatibility(
+                noun_candidate,
+                modifiers=tuple(modifier_parses),
+            ) -> int:
+                score = 1 if "inan" in noun_candidate.tag else 0
+                noun_case = canonicalize_case(noun_candidate.tag.case)
+                for modifier in modifiers:
+                    if canonicalize_case(modifier.tag.case) != noun_case:
+                        continue
+                    if modifier.tag.number != noun_candidate.tag.number:
+                        continue
+                    if (
+                        noun_candidate.tag.number == "sing"
+                        and modifier.tag.gender != noun_candidate.tag.gender
+                    ):
+                        continue
+                    score += 2
+                return score
+
+            return max(noun_candidates, key=compatibility)
         return None
 
     def inflect_adjective(lemma: str, noun_parse) -> str:

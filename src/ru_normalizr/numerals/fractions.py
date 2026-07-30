@@ -5,8 +5,9 @@ import re
 
 import num2words
 
-from .._morph import first_parse_required
+from .._morph import canonicalize_case, first_parse_required, select_parse
 from ._constants import FRACTION_PATTERN
+from ._helpers import inflect_numeral_string, safe_inflect
 
 logger = logging.getLogger(__name__)
 
@@ -30,31 +31,30 @@ def normalize_fractions(text: str) -> str:
             case = "accs"
         elif PREPOSITIONAL_FRACTION_CONTEXT_PATTERN.search(context):
             case = "loct"
-        try:
-            num_text = num2words.num2words(num, lang="ru")
-        except Exception as exc:
-            logger.debug("num2words failed for numerator %r: %s", num, exc)
+        case = canonicalize_case(case)
+        numerator_gender = (
+            "femn"
+            if num % 10 in {1, 2} and num % 100 not in {11, 12}
+            else None
+        )
+        num_text = inflect_numeral_string(
+            str(num), case, numerator_gender, animate=False
+        )
+        if not num_text:
             return match.group(0)
-        if case != "nomn":
-            inflected_parts: list[str] = []
-            for part in num_text.split():
-                inflected = first_parse_required(part).inflect({case})
-                inflected_parts.append(inflected.word if inflected else part)
-            num_text = " ".join(inflected_parts)
-        last_num_word = num_text.split()[-1]
-        p_last = first_parse_required(last_num_word)
-        if num % 10 == 1 and num % 100 != 11:
-            inf = p_last.inflect({case, "femn", "sing"})
-            if inf:
-                arr = num_text.split()
-                arr[-1] = inf.word
-                num_text = " ".join(arr)
-        elif num % 10 == 2 and num % 100 != 12 and case in ["nomn", "accs"]:
-            inf = p_last.inflect({case, "femn"})
-            if inf:
-                arr = num_text.split()
-                arr[-1] = inf.word
-                num_text = " ".join(arr)
+        if numerator_gender is not None:
+            words = num_text.split()
+            selected = select_parse(words[-1], pos={"NUMR", "ADJF"}, preferred_grammemes={"Anum"})
+            if selected is not None:
+                target_tags = {case, numerator_gender}
+                if num % 10 == 1:
+                    target_tags.add("sing")
+                words[-1] = safe_inflect(
+                    selected,
+                    target_tags,
+                    fallback_word=words[-1],
+                )
+                num_text = " ".join(words)
         try:
             denom_text = num2words.num2words(denom, lang="ru", to="ordinal")
         except Exception as exc:
@@ -63,10 +63,15 @@ def normalize_fractions(text: str) -> str:
         words = denom_text.split()
         p = first_parse_required(words[-1])
         is_sing_1 = num % 10 == 1 and num % 100 != 11
+        magnitude_numerator = num >= 1000 and num % 1000 == 0
         inflected = p.inflect(
             {case, "femn", "sing"}
             if is_sing_1
-            else ({"gent", "plur"} if case in ["nomn", "accs"] else {case, "plur"})
+            else (
+                {"gent", "plur"}
+                if case in ["nomn", "accs"] or magnitude_numerator
+                else {case, "plur"}
+            )
         )
         if inflected:
             words[-1] = inflected.word
