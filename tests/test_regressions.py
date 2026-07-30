@@ -44,11 +44,25 @@ class _FakeMorph:
 
 
 class RuNormalizrRegressionTests(unittest.TestCase):
-    def test_genitive_plural_heuristic_preserves_all_caps(self):
-        self.assertEqual(
-            _helpers.apply_genitive_plural_heuristic("НОВЫЕ", "ADJF"),
-            "НОВЫХ",
+    def test_genitive_plural_heuristic_preserves_all_caps_for_every_ending(self):
+        cases = (
+            ("НОВЫЕ", "ADJF", "НОВЫХ"),
+            ("СИНИЕ", "ADJF", "СИНИХ"),
+            ("НОВЫЙ", "ADJF", "НОВОГО"),
+            ("МОЛОДОЙ", "ADJF", "МОЛОДОГО"),
+            ("СИНИЙ", "ADJF", "СИНЕГО"),
+            ("СИНЕЕ", "ADJF", "СИНЕГО"),
+            ("НОВАЯ", "ADJF", "НОВОЙ"),
+            ("СИНЯЯ", "ADJF", "СИНЕЙ"),
+            ("КРАТКОЕ", "ADJF", "КРАТКОЕ"),
+            ("НОВЫЕ", "NOUN", "НОВЫЕ"),
         )
+        for word, pos, expected in cases:
+            with self.subTest(word=word, pos=pos):
+                self.assertEqual(
+                    _helpers.apply_genitive_plural_heuristic(word, pos),
+                    expected,
+                )
 
     def test_dictionary_normalizer_does_not_write_pickle_cache(self):
         with TemporaryDirectory() as tmp_dir:
@@ -525,21 +539,45 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         self.assertEqual(len(result.split()), len(words))
         self.assertNotRegex(result, r"[A-Za-z]")
 
-    def test_ipa_batch_preserves_backend_string_results(self):
+    def test_ipa_batch_handles_every_backend_result_shape(self):
         with patch(
             "eng_to_ipa.ipa_list",
-            return_value=["first-result", "second-result"],
+            return_value=[
+                "direct-result",
+                ["first-variant", "preferred-variant"],
+                [],
+            ],
         ):
-            result = _ipa_convert_batch(("first", "second"))
+            result = _ipa_convert_batch(("direct", "variants", "missing"))
 
-        self.assertEqual(result, ("first-result", "second-result"))
+        self.assertEqual(result, ("direct-result", "preferred-variant", ""))
 
-    def test_ipa_single_lookup_selects_last_backend_variant(self):
+    def test_ipa_single_lookup_handles_every_backend_result_shape(self):
+        cases = (
+            ("direct-result", "direct-result"),
+            (["first-variant", "preferred-variant"], "preferred-variant"),
+            ([], ""),
+        )
+        self.addCleanup(_clear_latinization_word_caches)
+        for backend_result, expected in cases:
+            with self.subTest(backend_result=backend_result):
+                _clear_latinization_word_caches()
+                with patch("eng_to_ipa.convert", return_value=backend_result):
+                    result = _ipa_convert_words(("word",))
+
+                self.assertEqual(result, {"word": expected})
+
+    def test_ipa_empty_input_skips_backend_calls(self):
         _clear_latinization_word_caches()
-        with patch("eng_to_ipa.convert", return_value=["first", "preferred"]):
-            result = _ipa_convert_words(("word",))
+        with (
+            patch("eng_to_ipa.ipa_list") as ipa_list,
+            patch("eng_to_ipa.convert") as convert,
+        ):
+            self.assertEqual(_ipa_convert_batch(()), ())
+            self.assertEqual(_ipa_convert_words(()), {})
 
-        self.assertEqual(result, {"word": "preferred"})
+        ipa_list.assert_not_called()
+        convert.assert_not_called()
 
     def test_unknown_latin_fallback_batches_dictionary_rewrite_for_many_words(self):
         _clear_latinization_word_caches()
