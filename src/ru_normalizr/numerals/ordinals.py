@@ -353,10 +353,10 @@ def normalize_hyphenated_words(text: str) -> str:
         except ValueError as exc:
             logger.debug("int() failed for %r: %s", num_str, exc)
             return match.group(0)
+        # "х" is deliberately absent: it is ambiguous between genitive and
+        # locative, so it is resolved from context below instead.
         case_from_suffix = None
-        if word_lower == "х":
-            case_from_suffix = None
-        elif word_lower in ("ти", "и"):
+        if word_lower in ("ти", "и"):
             case_from_suffix = "gent"
         elif word_lower in ("ми", "мя"):
             case_from_suffix = "ablt"
@@ -468,15 +468,9 @@ def normalize_ordinals(text: str) -> str:
         generation_case = default_case
         gender = default_gender or gender
         plural = plural or default_plural
-        if (
-            generation_case == "accs"
-            and not plural
-            and gender in {"masc", "neut"}
-            and right_noun is not None
-            and "inan" in right_noun.tag
-        ):
-            generation_case = "nomn"
 
+        # Both branches above return whenever a noun was found, so from here on
+        # there is no noun to the right and animacy is unknowable.
         if is_cardinal_suffix:
             cardinal = _render_cardinal_suffix_number(num, generation_case)
             if cardinal is None:
@@ -488,7 +482,7 @@ def normalize_ordinals(text: str) -> str:
                 case=generation_case,
                 gender=gender,
                 plural=plural,
-                inanimate=right_noun is not None and "inan" in right_noun.tag,
+                inanimate=False,
             )
             + " "
         )
