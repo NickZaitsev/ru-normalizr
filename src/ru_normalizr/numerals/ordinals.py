@@ -365,7 +365,7 @@ def normalize_hyphenated_words(text: str) -> str:
         tokens_left = simple_tokenize(ctx_left)
         tokens_right = simple_tokenize(ctx_right)
         context_case = get_numeral_case(
-            tokens_left + [num_str] + tokens_right, len(tokens_left)
+            [*tokens_left, num_str, *tokens_right], len(tokens_left)
         )
         if case_from_suffix:
             case = case_from_suffix
@@ -431,7 +431,7 @@ def normalize_ordinals(text: str) -> str:
         tokens_left = simple_tokenize(ctx_left)
         tokens_right = simple_tokenize(ctx_right)
         case = get_numeral_case(
-            tokens_left + [num_str] + tokens_right, len(tokens_left)
+            [*tokens_left, num_str, *tokens_right], len(tokens_left)
         )
 
         case, gender = resolve_ordinal_suffix_case(case, suffix, tokens_right, gender)

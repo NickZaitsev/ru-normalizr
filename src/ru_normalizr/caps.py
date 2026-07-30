@@ -153,7 +153,7 @@ def _restore_known_abbreviations(original: str, lowered: str) -> str:
         is_consonant_heavy = (
             len(letters) == 4 and sum(1 for c in upper_letters if c in vowels) <= 1
         )
-        if is_known or ((is_short_abbrev and not is_real_short_word)) or is_consonant_heavy:
+        if is_known or (is_short_abbrev and not is_real_short_word) or is_consonant_heavy:
             low_tokens[i] = orig_tok
     return "".join(low_tokens)
 

@@ -56,9 +56,9 @@ def is_safe_numeric_hyphen_unit(unit_raw: str) -> bool:
         return False
     if resolve_unit_info(unit_raw) is None:
         return False
-    if len(unit_key) == 1 and unit_key in AMBIGUOUS_SINGLE_LETTER_HYPHEN_UNITS:
-        return False
-    return True
+    return not (
+        len(unit_key) == 1 and unit_key in AMBIGUOUS_SINGLE_LETTER_HYPHEN_UNITS
+    )
 
 
 def classify_numeric_hyphen_rhs(word: str) -> NumericHyphenKind:

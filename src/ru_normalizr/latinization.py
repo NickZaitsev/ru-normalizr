@@ -164,7 +164,7 @@ def _ipa_convert_words(words: tuple[str, ...]) -> dict[str, str]:
         converted = tuple(ipa.convert(word) for word in missing)
     else:
         converted = _ipa_convert_batch(missing)
-    fresh_results = dict(zip(missing, converted))
+    fresh_results = dict(zip(missing, converted, strict=True))
     _store_ipa_word_cache(fresh_results)
     resolved.update(fresh_results)
     return resolved
@@ -240,7 +240,7 @@ def _resolve_unknown_latin_fallbacks(
                 for word in missing
             }
         else:
-            fresh_results = dict(zip(missing, resolved_words))
+            fresh_results = dict(zip(missing, resolved_words, strict=True))
 
     with _word_cache_lock:
         for word, converted in fresh_results.items():

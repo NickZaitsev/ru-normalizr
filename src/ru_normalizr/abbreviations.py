@@ -253,11 +253,12 @@ def expand_person_initials(
             "Geox" in candidate_grammemes(candidate) for candidate in top_candidates
         ):
             return False
-        if top_candidates and all(
-            "Abbr" in candidate_grammemes(candidate) for candidate in top_candidates
-        ):
-            return False
-        return True
+        return not (
+            top_candidates
+            and all(
+                "Abbr" in candidate_grammemes(candidate) for candidate in top_candidates
+            )
+        )
 
     def is_confident_person_name_token(token: str) -> bool:
         parsed = parse_word(token)
@@ -470,6 +471,7 @@ def expand_abbreviations(text: str, options: NormalizeOptions | None = None) -> 
         for (pattern, replacement), literal_hint in zip(
             ABBREVIATION_PATTERNS,
             ABBREVIATION_LITERAL_HINTS,
+            strict=True,
         ):
             if literal_hint is not None and literal_hint not in folded_text:
                 continue
