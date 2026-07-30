@@ -51,6 +51,9 @@ jobs:
           uv lock --upgrade-package num2words
           uv sync --frozen
 
+      - name: Verify compiled morphology backend
+        run: uv run python -c "from pymorphy3 import dawg; assert dawg.EXTENSION_AVAILABLE"
+
       - name: Lint
         run: uv run ruff check .
 
@@ -96,5 +99,6 @@ jobs:
 
       - name: Run installed CLI
         run: |
+          .smoke-venv/bin/python -c "from pymorphy3 import dawg; assert dawg.EXTENSION_AVAILABLE"
           .smoke-venv/bin/ru-normalizr --version
           .smoke-venv/bin/ru-normalizr "тест 123"
