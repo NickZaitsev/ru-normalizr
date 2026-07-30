@@ -50,6 +50,10 @@ jobs:
       - name: Lint
         run: uv run ruff check .
 
+      - name: Type check
+        if: runner.os == 'Linux'
+        run: uv run pyright
+
       - name: Test
         run: uv run pytest -q
 
