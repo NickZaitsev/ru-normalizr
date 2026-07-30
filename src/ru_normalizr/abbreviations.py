@@ -286,9 +286,13 @@ def expand_person_initials(
         stripped = tail.lstrip()
         if not stripped:
             return True, ""
-        if stripped[0] in "\"'«»“”„‟‚‘’‹›([{":
+        # Opening marks only. A closing mark means the quotation ends here, so it
+        # must reach the strip loop below instead: with "»" in this set too, the
+        # opening test won and "Иванов А. Б.»" got the non-final comma form.
+        # '"' and "'" stay here because they are ambiguous and default to opening.
+        if stripped[0] in "\"'«“„‟‚‘‹([{":
             return False, ""
-        while stripped and stripped[0] in "\"'»”)]}":
+        while stripped and stripped[0] in "\"'»”’›)]}":
             stripped = stripped[1:].lstrip()
         if not stripped:
             return True, ""
