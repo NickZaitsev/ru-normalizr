@@ -157,9 +157,6 @@ class DictionaryNormalizer:
     def _build_runtime_rules(self) -> None:
         runtime_rules: list[tuple[str, Any]] = []
         for file_type, rules in self._file_rules:
-            if file_type != "dic":
-                runtime_rules.append((file_type, rules))
-                continue
             runtime_chunks: list[tuple[str, Any]] = []
             for chunk_type, chunk_data in rules:
                 if chunk_type == "simple":
@@ -260,9 +257,8 @@ class DictionaryNormalizer:
     def apply(self, text: str, *, strip_unmatched_latin: bool = False) -> str:
         if not self._runtime_file_rules:
             return text
-        for file_type, rules in self._runtime_file_rules:
-            if file_type == "dic":
-                text = self._apply_dic_rules(text, rules)
+        for _file_type, rules in self._runtime_file_rules:
+            text = self._apply_dic_rules(text, rules)
         if strip_unmatched_latin:
             return re.sub(r"[A-Za-z]", "", text)
         return text
