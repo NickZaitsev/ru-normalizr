@@ -184,9 +184,9 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
         phrase = match.group("phrase")
         if abbr.lower() in _LANGUAGE_ORIGIN_ABBREVIATIONS and phrase[:1].isupper():
             return match.group(0)
-        lemma = ADJECTIVE_ABBREVIATION_EXPANSIONS.get(abbr.lower())
-        if lemma is None:
-            return match.group(0)
+        # The pattern is built from this dictionary's keys, so the lookup always
+        # hits: a KeyError here would mean the two have drifted apart.
+        lemma = ADJECTIVE_ABBREVIATION_EXPANSIONS[abbr.lower()]
         noun_parse = choose_head_noun(phrase)
         if noun_parse is None:
             return match.group(0)
@@ -227,9 +227,7 @@ def _expand_language_origin_abbreviations(text: str) -> str:
         word = match.group("word")
         if not has_non_cyrillic_word(word):
             return match.group(0)
-        lemma = _LANGUAGE_ORIGIN_ABBREVIATIONS.get(match.group("abbr").lower())
-        if lemma is None:
-            return match.group(0)
+        lemma = _LANGUAGE_ORIGIN_ABBREVIATIONS[match.group("abbr").lower()]
         return (
             f"{match.group('prep')} {inflect_language_lemma(lemma)}"
             f"{match.group('space')}{word}"
@@ -417,11 +415,7 @@ def expand_letter_abbreviations(text: str) -> str:
         joined_key = "".join(letters_upper)
         if joined_key in KNOWN_ABBREVIATIONS:
             custom_reading = KNOWN_ABBREVIATIONS[joined_key]
-            return (
-                custom_reading + "."
-                if custom_reading and tail_dot
-                else custom_reading or token
-            )
+            return custom_reading + "." if tail_dot else custom_reading
 
         if all(char in RU_LETTER_NAMES for char in letters_upper):
             if not is_dotted:

@@ -195,6 +195,25 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
     @pytest.mark.xfail(
         strict=True,
+        reason="preprocess spaces out the dots of an acronym, so the dotted "
+        "abbreviation pattern never matches in the full pipeline",
+    )
+    def test_dotted_acronym_is_read_as_one_abbreviation(self):
+        # ABBREV_DOTTED_PATTERN needs the dots glued to the letters, so the whole
+        # is_dotted branch is unreachable through normalize: the leftover dots
+        # then turn one sentence into three.
+        tts = NormalizeOptions.tts()
+        self.assertEqual(
+            normalize("Флаг С.Ш.А. висел над входом.", tts),
+            "Флаг сэ шэ аа висел над входом.",
+        )
+        self.assertEqual(
+            normalize("Он вступил в Н.А.Т.О. в мае.", tts),
+            "Он вступил в нато в мае.",
+        )
+
+    @pytest.mark.xfail(
+        strict=True,
         reason="above 1000 simple rules each key gets its own pass, so rules "
         "cascade into each other instead of applying once",
     )

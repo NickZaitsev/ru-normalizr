@@ -257,6 +257,23 @@ class LetterAbbreviationTests(unittest.TestCase):
             with self.subTest(source=source):
                 self.assertEqual(expand_letter_abbreviations(source), expected)
 
+    def test_dotted_known_acronym_keeps_its_terminal_dot(self):
+        # The dotted spelling carries the sentence dot in its own last position,
+        # so the dictionary reading has to give it back.
+        cases = (
+            ("Флаг подняли в С.Ш.А.", "Флаг подняли в сэ шэ аа."),
+            ("Договор подписан в С.С.С.Р.", "Договор подписан в эс эс эс эр."),
+            ("Он вступил в Н.А.Т.О.", "Он вступил в нато."),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(expand_letter_abbreviations(source), expected)
+
+    def test_dotless_known_acronym_gains_no_dot(self):
+        self.assertEqual(
+            expand_letter_abbreviations("Он вступил в НАТО"), "Он вступил в нато"
+        )
+
     def test_trailing_dot_is_preserved(self):
         self.assertEqual(expand_letter_abbreviations("ЭВМ."), "э вэ эм.")
 
