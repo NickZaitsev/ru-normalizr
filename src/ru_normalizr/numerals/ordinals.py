@@ -5,7 +5,7 @@ import re
 
 import num2words
 
-from .._morph import first_parse_required, parse_word
+from .._morph import canonicalize_case, first_parse_required, parse_word
 from ..ordinal_utils import (
     find_first_noun_right,
     find_left_name_anchor,
@@ -169,11 +169,11 @@ def _heading_parse(text: str, match_start: int, head: str):
         return None
 
     for candidate in candidates:
-        candidate_case = "loct" if "loc2" in candidate.tag else candidate.tag.case
+        candidate_case = canonicalize_case(candidate.tag.case)
         if candidate_case == target_case and "sing" in candidate.tag:
             return candidate
     for candidate in candidates:
-        candidate_case = "loct" if "loc2" in candidate.tag else candidate.tag.case
+        candidate_case = canonicalize_case(candidate.tag.case)
         if candidate_case == target_case:
             return candidate
     return None
@@ -449,11 +449,20 @@ def normalize_ordinals(text: str) -> str:
             if next_clean in MONTH_GENITIVE_WORDS and suffix in {"е", "ее", "ое"}:
                 return render_ordinal(num, case="nomn", gender="neut") + " "
             singularize_plural = suffix in {"ее", "ое"}
+            suffix_gender_hint = (
+                "femn"
+                if suffix in {"я", "ая", "ю", "ую", "ей"}
+                else ("neut" if suffix in {"ее", "ое"} else gender)
+            )
             return (
                 render_ordinal_from_noun_parse(
                     num,
                     right_noun,
                     singularize_plural=singularize_plural,
+                    case_hint=case,
+                    gender_hint=suffix_gender_hint,
+                    plural_hint=plural,
+                    inanimate_hint=True,
                 )
                 + " "
             )

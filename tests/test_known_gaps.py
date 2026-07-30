@@ -20,27 +20,6 @@ from ru_normalizr import NormalizeOptions, normalize
 
 @pytest.mark.xfail(
     strict=True,
-    reason="common-gender nouns discard an explicit feminine ordinal suffix",
-)
-@pytest.mark.parametrize(
-    ("source", "expected"),
-    [
-        (
-            "На конференции выступила 2-я коллега из Казани.",
-            "На конференции выступила вторая коллега из Казани.",
-        ),
-        (
-            "После аварии 2-я сирота осталась без опекуна.",
-            "После аварии вторая сирота осталась без опекуна.",
-        ),
-    ],
-)
-def test_feminine_ordinal_suffix_wins_for_common_gender_nouns(source, expected):
-    assert normalize(source) == expected
-
-
-@pytest.mark.xfail(
-    strict=True,
     reason="the currency unit picks the masculine personal-name parse of лира",
 )
 @pytest.mark.parametrize(
@@ -285,16 +264,6 @@ def test_large_fraction_numerators_inflect_as_complete_numerals(source, expected
 class RuNormalizrKnownGapTests(unittest.TestCase):
     @pytest.mark.xfail(
         strict=True,
-        reason="plural inanimate accusative is not normalized for an ordinal",
-    )
-    def test_ordinal_agrees_with_a_pluralia_tantum_noun(self):
-        self.assertEqual(
-            normalize("Экспедиция продолжалась уже 2-е сутки без остановки."),
-            "Экспедиция продолжалась уже вторые сутки без остановки.",
-        )
-
-    @pytest.mark.xfail(
-        strict=True,
         reason="the packaged dictionary marks шекель as a singular-only geography",
     )
     def test_shekel_uses_a_productive_measurement_lexeme(self):
@@ -341,16 +310,6 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
         self.assertEqual(
             normalize("Экспедиция длилась 2 сут. без остановки."),
             "Экспедиция длилась двое суток без остановки.",
-        )
-
-    @pytest.mark.xfail(
-        strict=True,
-        reason="gen2 is not canonicalized before rendering the ordinal",
-    )
-    def test_ordinal_preserves_the_partitive_noun_context(self):
-        self.assertEqual(
-            normalize("Для 2-го чаю не хватило кипятка."),
-            "Для второго чаю не хватило кипятка.",
         )
 
     @pytest.mark.xfail(
