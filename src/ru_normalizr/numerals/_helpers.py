@@ -239,6 +239,21 @@ def is_case_reliable_noun(parsed_word: Any) -> bool:
     return "NOUN" in parsed_word.tag and "Fixd" not in parsed_word.tag
 
 
+def paucal_accusative_case(value: int, case: str, *, animate: bool) -> str:
+    """Case for a cardinal in the accusative before a noun it counts.
+
+    A numeral ending in 2, 3 or 4 does not inflect for the accusative: "вижу
+    двадцать два человека", not "двадцати двух человека". Only a bare 2, 3 or 4
+    before an animate noun takes the genitive ("вижу двух человек") — as soon as
+    the numeral is compound, the nominative form is the accusative one.
+    """
+    if case != "accs":
+        return case
+    if value % 10 not in (2, 3, 4) or value % 100 in (12, 13, 14):
+        return case
+    return "gent" if animate and value in (2, 3, 4) else "nomn"
+
+
 def noun_number_form(n: int) -> str:
     if n == 0:
         return "many"

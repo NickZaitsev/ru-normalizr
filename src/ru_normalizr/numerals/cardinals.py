@@ -27,6 +27,7 @@ from ._helpers import (
     inflect_unit_lemma,
     noun_number_form,
     parse_integer_token,
+    paucal_accusative_case,
     safe_inflect,
     should_consume_abbreviation_dot,
     should_keep_tokenized_decimal_unit_dot,
@@ -201,12 +202,7 @@ def normalize_cardinal_numerals(text: str) -> str:
             if ("ADJF" in p_adj.tag or "PRTF" in p_adj.tag) and "NOUN" in p_noun.tag:
                 gender = p_noun.tag.gender
                 is_anim = "anim" in p_noun.tag
-                target_num_case = case
-                if case == "accs":
-                    rem100 = val % 100
-                    rem10 = val % 10
-                    if rem10 in (2, 3, 4) and rem100 not in (12, 13, 14):
-                        target_num_case = "gent" if is_anim else "nomn"
+                target_num_case = paucal_accusative_case(val, case, animate=is_anim)
                 num_words = build_number_token(
                     token,
                     clean_token,
@@ -360,12 +356,7 @@ def normalize_cardinal_numerals(text: str) -> str:
             if "NOUN" in p_noun.tag:
                 gender = TIME_WORDS.get(next_token_lower, p_noun.tag.gender)
                 is_anim = "anim" in p_noun.tag
-                target_num_case = case
-                if case == "accs":
-                    rem100 = val % 100
-                    rem10 = val % 10
-                    if rem10 in (2, 3, 4) and rem100 not in (12, 13, 14):
-                        target_num_case = "gent" if is_anim else "nomn"
+                target_num_case = paucal_accusative_case(val, case, animate=is_anim)
                 num_words = build_number_token(
                     token,
                     clean_token,
@@ -398,12 +389,7 @@ def normalize_numeric_unit_ranges(text: str) -> str:
 
         def numeral_for_range(value_text: str) -> str:
             value = int(value_text)
-            target_case = case
-            if case == "accs":
-                rem100 = value % 100
-                rem10 = value % 10
-                if rem10 in (2, 3, 4) and rem100 not in (12, 13, 14):
-                    target_case = "nomn"
+            target_case = paucal_accusative_case(value, case, animate=False)
             return inflect_numeral_string(value_text, target_case, u_gender, False)
 
         right_value = int(right)
