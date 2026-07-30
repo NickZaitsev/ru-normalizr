@@ -57,5 +57,9 @@ jobs:
       - name: Test
         run: uv run pytest -q
 
+      - name: Branch coverage report
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        run: uv run pytest -q --cov=src/ru_normalizr --cov-branch --cov-report=term-missing
+
       - name: Build
         run: uv build
