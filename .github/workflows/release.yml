@@ -20,20 +20,20 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-          cache: pip
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
-          pip install -e .
-          pip install build
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v8
+        with:
+          enable-cache: true
+
+      - name: Sync locked dependencies
+        run: uv sync --frozen
 
       - name: Validate release
-        run: python scripts/dev.py check
+        run: uv run python scripts/dev.py check
 
       - name: Verify release tag matches package version
-        run: python scripts/dev.py check-release-tag
+        run: uv run python scripts/dev.py check-release-tag
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
