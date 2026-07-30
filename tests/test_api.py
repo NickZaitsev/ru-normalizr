@@ -543,7 +543,7 @@ class RuNormalizrApiTests(unittest.TestCase):
     def test_normalize_supports_slash_units_for_transfer_and_lab_values(self):
         self.assertEqual(
             normalize("канал 10 MB/s и 20 кбит/с"),
-            "канал десять мегабайтов в секунду и двадцать килобитов в секунду",
+            "канал десять мегабайтов в секунду и двадцать килобит в секунду",
         )
         self.assertEqual(
             normalize("раствор 5 мг/мл, 3 ммоль/л"),
@@ -591,7 +591,7 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertEqual(normalize("5 IU"), "пять международных единиц")
         self.assertEqual(
             normalize("8 байт/с"),
-            "восемь байт в секунду",
+            "восемь байтов в секунду",
         )
 
     def test_normalize_reads_tilde_before_decimal_measurement_as_approximation(self):
@@ -897,7 +897,7 @@ class RuNormalizrApiTests(unittest.TestCase):
         )
         self.assertEqual(
             normalize("12 fps, 60 mph и 20 kbps"),
-            "двенадцать кадров в секунду, шестьдесят миль в час и двадцать килобитов в секунду",
+            "двенадцать кадров в секунду, шестьдесят миль в час и двадцать килобит в секунду",
         )
 
     def test_normalize_supports_decimal_spaced_compound_units(self):
@@ -925,7 +925,7 @@ class RuNormalizrApiTests(unittest.TestCase):
     def test_normalize_compound_units_do_not_capture_following_prepositions(self):
         self.assertEqual(
             normalize("12 fps к цели, 60 mph в городе и 20 kbps к серверу"),
-            "двенадцать кадров в секунду к цели, шестьдесят миль в час в городе и двадцать килобитов в секунду к серверу",
+            "двенадцать кадров в секунду к цели, шестьдесят миль в час в городе и двадцать килобит в секунду к серверу",
         )
         self.assertEqual(
             normalize("12 об мин к концу цикла и 3 ммоль л в крови"),

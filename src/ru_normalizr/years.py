@@ -259,7 +259,7 @@ def _year_patterns() -> tuple[re.Pattern[str], ...]:
             flags,
         ),
         re.compile(
-            rf"\b(?P<prep>{YEAR_IMPLICIT_PREP_REGEX})\s+(?P<year>{YEAR_IMPLICIT_PREP_PATTERN})(?!\d)",
+            rf"\b(?P<prep>{YEAR_IMPLICIT_PREP_REGEX})\s+(?P<year>{YEAR_IMPLICIT_PREP_PATTERN})(?![\d/])",
             flags,
         ),
     )

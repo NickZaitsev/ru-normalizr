@@ -3,7 +3,13 @@ from __future__ import annotations
 import re
 
 from ._morph import parse_word
-from .numerals._constants import ALL_UNITS, CURRENCY_STANDALONE, ENTITY_KEYWORDS
+from .numerals._constants import (
+    ALL_UNITS,
+    CURRENCY_STANDALONE,
+    ENTITY_KEYWORDS,
+    resolve_unit_form,
+    resolve_unit_info,
+)
 from .text_context import normalize_context_token, simple_tokenize
 
 YEAR_MIN = 1000
@@ -54,13 +60,33 @@ def is_plausible_year(value: int) -> bool:
 
 
 def _is_non_year_following_token(token: str) -> bool:
-    if token in _NON_YEAR_LEXICON:
+    descriptor = resolve_unit_form(token)
+    if descriptor is not None:
         return True
     parsed = parse_word(token)
     if not parsed:
         return False
-    lemma = parsed[0].normal_form
-    return lemma in _NON_YEAR_LEXICON or lemma in _NON_YEAR_EXCEPTION_LEMMAS
+    for candidate in parsed:
+        if candidate.normal_form in _NON_YEAR_EXCEPTION_LEMMAS:
+            return True
+        if candidate.tag.POS != "NOUN":
+            continue
+        descriptor = resolve_unit_info(candidate.normal_form)
+        if descriptor is None:
+            continue
+        morphology = descriptor.morphology
+        surface = token.lower()
+        if any(form == surface for _, _, form in morphology.paradigm):
+            return True
+        if (
+            candidate.normal_form == (morphology.expected_normal_form or descriptor.lemma)
+            and (
+                morphology.animacy is None
+                or morphology.animacy in candidate.tag
+            )
+        ):
+            return True
+    return False
 
 
 def should_treat_as_implicit_year(

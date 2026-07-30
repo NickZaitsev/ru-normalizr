@@ -5,9 +5,9 @@ import re
 
 import num2words
 
-from .._morph import first_parse_required, parse_word
+from .._morph import first_parse_required, parse_word, select_parse
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
-from ..text_context import PUNCT_STRIP, simple_tokenize
+from ..text_context import PUNCT_STRIP, normalize_context_token, simple_tokenize
 from ._constants import (
     DIGIT_PATTERN,
     NUMERIC_UNIT_RANGE_PATTERN,
@@ -15,6 +15,7 @@ from ._constants import (
     PREP_CASE,
     TIME_WORDS,
     UNITS_DATA,
+    resolve_unit_form,
     resolve_unit_info,
 )
 from ._helpers import (
@@ -28,7 +29,6 @@ from ._helpers import (
     noun_number_form,
     parse_integer_token,
     paucal_accusative_case,
-    safe_inflect,
     should_consume_abbreviation_dot,
     should_keep_tokenized_decimal_unit_dot,
 )
@@ -94,7 +94,7 @@ def _resolve_range_unit_info(unit_raw: str):
         )
 
     for info in UNITS_DATA.values():
-        if info[0] == lemma:
+        if info.lemma == lemma:
             return info
     return None
 
@@ -197,9 +197,9 @@ def normalize_cardinal_numerals(text: str) -> str:
             noun_token = tokens[i + 2]
             clean_adj = adj_token.lower().strip(PUNCT_STRIP)
             clean_noun = noun_token.lower().strip(PUNCT_STRIP)
-            p_adj = first_parse_required(clean_adj)
-            p_noun = first_parse_required(clean_noun)
-            if ("ADJF" in p_adj.tag or "PRTF" in p_adj.tag) and "NOUN" in p_noun.tag:
+            p_adj = select_parse(clean_adj, pos={"ADJF", "PRTF"})
+            p_noun = select_parse(clean_noun, pos="NOUN")
+            if p_adj is not None and p_noun is not None:
                 gender = p_noun.tag.gender
                 is_anim = "anim" in p_noun.tag
                 target_num_case = paucal_accusative_case(val, case, animate=is_anim)
@@ -234,14 +234,35 @@ def normalize_cardinal_numerals(text: str) -> str:
                 unit_info = None
             else:
                 unit_info = resolve_unit_info(unit_raw)
+                if unit_info is None and unit_token_span == 1:
+                    resolved_form = resolve_unit_form(unit_raw)
+                    if resolved_form is not None and (
+                        resolved_form.morphology.paradigm
+                        or resolved_form.morphology.indeclinable
+                    ):
+                        unit_info = resolved_form
             if unit_info:
+                if (
+                    1000 <= val <= 2100
+                    and i > 0
+                    and normalize_context_token(tokens[i - 1]) == "в"
+                ):
+                    case = "accs"
+                if (
+                    unit_info.morphology.indeclinable
+                    and next_token_lower.strip(".") == unit_info.lemma
+                ):
+                    case = get_numeral_case(tokens[: i + 1], i)
                 preserve_unit_dot = (
                     unit_raw.endswith(".")
                     and not should_consume_abbreviation_dot(
                         tokens, i + unit_token_span
                     )
                 )
-                lemma, u_gender, u_category, *u_suffix = unit_info
+                lemma = unit_info.lemma
+                u_gender = unit_info.gender
+                u_category = unit_info.category
+                u_suffix = unit_info.suffix
                 multipliers = {"тысяча", "миллион", "миллиард", "триллион"}
                 currency_symbol_units = {
                     "$",
@@ -286,7 +307,7 @@ def normalize_cardinal_numerals(text: str) -> str:
                             [
                                 num_words,
                                 multiplier_token,
-                                inflect_unit_lemma(lemma, {"gent", "plur"}),
+                                inflect_unit_lemma(unit_info, {"gent", "plur"}),
                             ]
                         )
                         i += 4 if is_redundant_unit_token(i + 3, lemma) else 3
@@ -306,9 +327,9 @@ def normalize_cardinal_numerals(text: str) -> str:
                     inflected_unit = "человека" if unit_form == "few" else "человек"
                 else:
                     inflected_unit = inflect_unit_lemma(
-                        lemma, get_target_tags_for_number(val, case, u_gender)
+                        unit_info, get_target_tags_for_number(val, case, u_gender)
                     )
-                full_unit = inflected_unit + (f" {u_suffix[0]}" if u_suffix else "")
+                full_unit = inflected_unit + (f" {u_suffix}" if u_suffix else "")
                 match_unit = (
                     re.search(re.escape(next_token_lower), noun_token, re.IGNORECASE)
                     if unit_token_span == 1
@@ -341,19 +362,20 @@ def normalize_cardinal_numerals(text: str) -> str:
                     next_next_token = tokens[i + 2]
                     nn_unit_info = resolve_unit_info(next_next_token)
                     if nn_unit_info:
-                        nn_lemma, _, _, *nn_suffix = nn_unit_info
-                        p_nn = first_parse_required(nn_lemma)
-                        nn_inflected = safe_inflect(p_nn, {"gent", "plur"})
+                        nn_suffix = nn_unit_info.suffix
+                        nn_inflected = inflect_unit_lemma(
+                            nn_unit_info, {"gent", "plur"}
+                        )
                         if nn_suffix:
-                            nn_inflected += f" {nn_suffix[0]}"
+                            nn_inflected += f" {nn_suffix}"
                         result_tokens.append(nn_inflected)
                         i += step + 1
                         continue
                 i += step
                 continue
 
-            p_noun = first_parse_required(next_token_lower)
-            if "NOUN" in p_noun.tag:
+            p_noun = select_parse(next_token_lower, pos="NOUN")
+            if p_noun is not None:
                 gender = TIME_WORDS.get(next_token_lower, p_noun.tag.gender)
                 is_anim = "anim" in p_noun.tag
                 target_num_case = paucal_accusative_case(val, case, animate=is_anim)
@@ -385,7 +407,8 @@ def normalize_numeric_unit_ranges(text: str) -> str:
         context = text[max(0, match.start() - 40) : match.start()]
         tokens_left = simple_tokenize(context)
         case = get_numeral_case([*tokens_left, left], len(tokens_left))
-        lemma, u_gender, _, *u_suffix = unit_info
+        u_gender = unit_info.gender
+        u_suffix = unit_info.suffix
 
         def numeral_for_range(value_text: str) -> str:
             value = int(value_text)
@@ -394,10 +417,10 @@ def normalize_numeric_unit_ranges(text: str) -> str:
 
         right_value = int(right)
         unit_words = inflect_unit_lemma(
-            lemma, get_target_tags_for_number(right_value, case, u_gender)
+            unit_info, get_target_tags_for_number(right_value, case, u_gender)
         )
         if u_suffix:
-            unit_words += f" {u_suffix[0]}"
+            unit_words += f" {u_suffix}"
         return f"{numeral_for_range(left)} — {numeral_for_range(right)} {unit_words}"
 
     return NUMERIC_UNIT_RANGE_PATTERN.sub(repl, text)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import concurrent.futures
 
+import num2words
 import pytest
 
 from ru_normalizr import normalize
@@ -77,3 +78,10 @@ def test_shared_analyzer_is_safe_under_concurrent_parse_and_normalize() -> None:
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         results = list(executor.map(exercise, inputs))
     assert all(parse_count > 0 and normalized for parse_count, normalized in results)
+
+
+def test_generated_ordinal_final_words_keep_adjective_first_parse_invariant() -> None:
+    for value in range(1, 10_000):
+        final_word = num2words.num2words(value, lang="ru", to="ordinal").split()[-1]
+        first = parse_word(final_word)[0]
+        assert first.tag.POS == "ADJF" or "Anum" in first.tag, (value, final_word, first.tag)

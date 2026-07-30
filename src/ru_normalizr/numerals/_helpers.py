@@ -9,13 +9,28 @@ from typing import Any
 
 import num2words
 
-from .._morph import MorphParse, first_parse_required, parse_word
+from .._morph import (
+    MorphParse,
+    canonicalize_case,
+    canonicalize_grammemes,
+    first_parse_required,
+    parse_word,
+    select_parse,
+)
 from ..preprocess_utils import (
     NEGATIVE_NUMBER_PLACEHOLDER,
     normalize_ascii_quote_pairs,
 )
 from ..text_context import PUNCT_STRIP, normalize_context_token
-from ._constants import ENTITY_DEFAULT_CASE, ENTITY_KEYWORDS, PREP_CASE, TIME_WORDS, VERB_CASE
+from ._constants import (
+    ENTITY_DEFAULT_CASE,
+    ENTITY_KEYWORDS,
+    PREP_CASE,
+    TIME_WORDS,
+    VERB_CASE,
+    UnitDescriptor,
+    UnitMorphology,
+)
 from ._num2words import (
     CARDINAL_GENDER_TO_NUM2WORDS,
     resolve_num2words_case,
@@ -186,7 +201,21 @@ def safe_inflect(
     return fallback_word
 
 
-def inflect_unit_lemma(lemma: str, target_tags: set[str]) -> str:
+def _unit_descriptor_for_lemma(lemma: str) -> UnitDescriptor:
+    return UnitDescriptor(
+        lemma=lemma,
+        gender="masc",
+        category="measure",
+        morphology=UnitMorphology(expected_normal_form=lemma),
+    )
+
+
+def inflect_unit_lemma(unit: UnitDescriptor | str, target_tags: set[str]) -> str:
+    descriptor = (
+        unit if isinstance(unit, UnitDescriptor) else _unit_descriptor_for_lemma(unit)
+    )
+    lemma = descriptor.lemma
+    target_tags = set(canonicalize_grammemes(target_tags))
 
     def pick_preferred_parse(word: str) -> Any | None:
         parsed = parse_word(word)
@@ -198,10 +227,65 @@ def inflect_unit_lemma(lemma: str, target_tags: set[str]) -> str:
         return parsed[0]
 
     if " " not in lemma:
-        parsed = pick_preferred_parse(lemma)
-        if not parsed:
+        morphology = descriptor.morphology
+        target_case = canonicalize_case(
+            next(
+                (
+                    grammeme
+                    for grammeme in target_tags
+                    if grammeme in {"nomn", "gent", "datv", "accs", "ablt", "loct"}
+                ),
+                None,
+            )
+        )
+        target_number = "plur" if "plur" in target_tags else "sing"
+        if morphology.plural_only:
+            target_number = "plur"
+        if morphology.indeclinable:
             return lemma
-        return safe_inflect(parsed, target_tags, fallback_word=lemma)
+        paradigm_form = morphology.form(target_case, target_number)
+        if paradigm_form is not None:
+            return paradigm_form
+
+        forbidden = set(morphology.forbidden_grammemes)
+        if morphology.byte_family:
+            forbidden.add("Coun")
+        expected_gender = (
+            descriptor.gender
+            if descriptor.gender in {"masc", "femn", "neut"}
+            else None
+        )
+        required = (
+            {morphology.animacy} if morphology.animacy is not None else set()
+        )
+        selected = select_parse(
+            lemma,
+            pos="NOUN",
+            normal_forms={morphology.expected_normal_form or lemma},
+            required_grammemes=required,
+            forbidden_grammemes=forbidden,
+            preferred_grammemes=morphology.preferred_grammemes,
+            gender=expected_gender,
+        )
+        if selected is None and morphology.morphology_seed is not None:
+            selected = select_parse(
+                morphology.morphology_seed,
+                pos="NOUN",
+                normal_forms={morphology.expected_normal_form or lemma},
+                required_grammemes=required,
+                forbidden_grammemes=forbidden,
+                gender=expected_gender,
+            )
+        if selected is not None:
+            inflected = safe_inflect(selected, target_tags, fallback_word="")
+            if inflected:
+                return inflected
+        logger.debug(
+            "No validated morphology form for unit %r and tags %s",
+            lemma,
+            target_tags,
+        )
+        return lemma
 
     parts = lemma.split()
     if len(parts) != 2:
@@ -624,11 +708,12 @@ def get_numeral_case(
 
     for i in range(idx - 1, max(left_scan_start - 1, idx - 5), -1):
         word_left = tokens[i].lower().strip(".,!?;:")
-        p_verb = first_parse_required(word_left)
+        parsed_left = parse_word(word_left)
+        p_verb = select_parse(parsed_left, pos={"VERB", "INFN"})
         # Full participles ("ожидаемый", "требуемый") are attributive modifiers of
         # a following noun, not governors of the numeral's case; leave them to the
         # adjective scan so the numeral stays in its predicate (nominative) case.
-        if p_verb.tag.POS != "PRTF" and p_verb.normal_form in VERB_CASE:
+        if p_verb is not None and p_verb.normal_form in VERB_CASE:
             return VERB_CASE[p_verb.normal_form]
         if any(char in tokens[i] for char in ".!?"):
             break
