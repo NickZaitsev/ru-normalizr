@@ -54,7 +54,7 @@ ru_normalizr = [
   "LICENSE",
   "CHANGELOG.md",
   "VERSIONING.md",
-  "PYPI_RELEASE_CHECKLIST.md",
+  "docs/RELEASING.md",
   "requirements-dev.txt",
 ]
 

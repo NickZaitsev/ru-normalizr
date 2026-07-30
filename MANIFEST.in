@@ -6,5 +6,4 @@ recursive-include dictionaries *.dic
 recursive-include numerals *.py
 prune tests
 prune scripts
-prune examples
 global-exclude __pycache__ *.py[cod] *.pkl

@@ -70,7 +70,7 @@ Never add bullets to AGENTS.md on your own — propose the wording and get the u
 - Numeral context and dotted-unit boundary checks must stay linear; see
   [performance invariants](docs/agents/performance-invariants.md).
 - Cached numeral rendering must canonicalize pymorphy grammemes before lookup;
-  see TASK-1 in [BUGFIX_PLAN_2](docs/BUGFIX_PLAN_2.md).
+  see [numeral cache grammemes](docs/agents/numeral-cache-grammemes.md).
 - Keep reference, range, unit, and letter-name outputs aligned with
   [normalization conventions](docs/agents/conventions.md).
 - Only `protect_negative_numbers` may decide that `-` is a minus; a bare `-` in
