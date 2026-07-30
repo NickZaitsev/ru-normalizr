@@ -40,23 +40,12 @@ Changelog = "https://github.com/NickZaitsev/ru-normalizr/blob/main/CHANGELOG.md"
 ru-normalizr = "ru_normalizr.__main__:main"
 
 [tool.setuptools]
+package-dir = {"" = "src"}
 packages = ["ru_normalizr", "ru_normalizr.numerals"]
 include-package-data = false
 
-[tool.setuptools.package-dir]
-ru_normalizr = "."
-
 [tool.setuptools.package-data]
 ru_normalizr = ["py.typed", "dictionaries/**/*.dic"]
-
-[tool.setuptools.exclude-package-data]
-ru_normalizr = [
-  "LICENSE",
-  "CHANGELOG.md",
-  "VERSIONING.md",
-  "docs/RELEASING.md",
-  "requirements-dev.txt",
-]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
