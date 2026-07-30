@@ -7,6 +7,46 @@ from unittest import TestCase, mock
 from scripts import dev
 
 
+class CommandDispatchTests(TestCase):
+    def test_empty_argv_is_a_usage_error_instead_of_reading_sys_argv(self):
+        # `main([])` used to fall through to sys.argv, so a caller passing no
+        # arguments silently ran whatever the surrounding process was invoked
+        # with — including `publish`.
+        with (
+            mock.patch.object(sys, "argv", ["dev.py", "publish"]),
+            self.assertRaises(SystemExit) as raised,
+        ):
+            dev.main([])
+
+        self.assertEqual(raised.exception.code, 2)
+
+    def test_release_check_runs_the_type_checker(self):
+        # CI and AGENTS.md both require pyright, so the release gate must not be
+        # weaker than the commit gate.
+        calls: list[str] = []
+
+        def record(name):
+            def step() -> int:
+                calls.append(name)
+                return 0
+
+            return step
+
+        with (
+            mock.patch.object(dev, "clean", record("clean")),
+            mock.patch.object(dev, "check_versions", record("version")),
+            mock.patch.object(dev, "lint", record("lint")),
+            mock.patch.object(dev, "typecheck", record("typecheck")),
+            mock.patch.object(dev, "test", record("test")),
+            mock.patch.object(dev, "run", return_value=0),
+            mock.patch.object(dev, "twine_check", record("twine-check")),
+        ):
+            self.assertEqual(dev.check(), 0)
+
+        self.assertIn("typecheck", calls)
+        self.assertLess(calls.index("typecheck"), calls.index("test"))
+
+
 class CaptureTests(TestCase):
     def test_capture_decodes_output_as_utf8_independently_of_system_locale(self) -> None:
         expected = "ветка/путь-日本語"
