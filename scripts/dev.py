@@ -20,10 +20,11 @@ CLEAN_PATHS = (
     ROOT / ".ruff_cache",
     ROOT / "__pycache__",
     ROOT / "ru_normalizr.egg-info",
+    ROOT / "src" / "ru_normalizr.egg-info",
 )
 CLEAN_GLOBS = (
     "**/__pycache__",
-    "dictionaries/**/dictionaries_*.pkl",
+    "src/ru_normalizr/dictionaries/**/dictionaries_*.pkl",
 )
 PUBLISH_IGNORED_PREFIXES = (
     "build/",
@@ -32,6 +33,7 @@ PUBLISH_IGNORED_PREFIXES = (
     ".pytest_cache/",
     ".ruff_cache/",
     "ru_normalizr.egg-info/",
+    "src/ru_normalizr.egg-info/",
 )
 
 
@@ -70,7 +72,9 @@ def project_version() -> str:
 
 
 def package_version() -> str:
-    init_text = (ROOT / "__init__.py").read_text(encoding="utf-8")
+    init_text = (ROOT / "src" / "ru_normalizr" / "__init__.py").read_text(
+        encoding="utf-8"
+    )
     match = re.search(r'^__version__ = "([^"]+)"$', init_text, re.MULTILINE)
     if not match:
         raise RuntimeError("Could not find __version__ in __init__.py")

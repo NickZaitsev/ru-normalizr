@@ -14,6 +14,7 @@ belongs in a GitHub issue instead.
 import unittest
 
 import pytest
+
 from ru_normalizr import NormalizeOptions, normalize
 
 
