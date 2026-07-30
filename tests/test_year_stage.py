@@ -159,12 +159,19 @@ class DecadeTests(unittest.TestCase):
     def test_decade_is_rounded_down_to_the_tens(self):
         self.assertEqual(years("в 25-х годах"), "в двадцатых годах")
 
-    def test_single_digit_is_not_a_decade(self):
+    def test_single_digit_is_read_as_an_ordinal_not_a_decade(self):
         # Regression: (5 // 10) * 10 turned "5-х годах" into "нулевых годах".
-        # A single digit is left for the ordinal stage instead.
-        for source in ("в 5-х годах", "5-х годах", "в 3-х годах"):
+        # A single digit has no tens to round to, but "-х" is still a plural
+        # ordinal, so it is rendered as one.
+        cases = (
+            ("в 5-х годах", "в пятых годах"),
+            ("5-х годах", "пятых годах"),
+            ("в 3-х годах", "в третьих годах"),
+            ("в 7-х годах", "в седьмых годах"),
+        )
+        for source, expected in cases:
             with self.subTest(source=source):
-                self.assertEqual(years(source), source)
+                self.assertEqual(years(source), expected)
 
     def test_short_bare_decade_without_a_year_word_is_left_untouched(self):
         self.assertEqual(years("20-х"), "20-х")

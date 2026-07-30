@@ -389,17 +389,16 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         if plural:
             if year < 100 and not word:
                 return m.group(0)
-            # A decade needs at least two digits. Rounding a single digit down
-            # turned "5-х годах" into "нулевых годах"; leave such input to the
-            # ordinal stage instead of inventing a decade for it.
-            if year < 10:
-                return m.group(0)
             # Bare decade-like forms such as "1980-х" are common for years,
             # but model codes like "6301-Х" should not be routed through
             # year normalization when there is no explicit year word.
             if not word and not is_plausible_year(year):
                 return m.group(0)
-            year = (year // 10) * 10
+            # A decade needs at least two digits: rounding a single digit down
+            # turned "5-х годах" into "нулевых годах". The "-х" suffix is still a
+            # plural ordinal, so render it as one instead of rounding.
+            if year >= 10:
+                year = (year // 10) * 10
         elif not word and not is_plausible_year(year):
             return m.group(0)
         result = year_to_ordinal_words(year, case, plural)
