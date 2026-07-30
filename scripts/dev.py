@@ -143,6 +143,10 @@ def lint() -> int:
     return run(sys.executable, "-m", "ruff", "check", ".")
 
 
+def typecheck() -> int:
+    return run(sys.executable, "-m", "pyright")
+
+
 def test() -> int:
     return run(sys.executable, "-m", "pytest", "-q")
 
@@ -270,6 +274,7 @@ def check() -> int:
         ("clean", clean),
         ("version", check_versions),
         ("lint", lint),
+        ("typecheck", typecheck),
         ("test", test),
         ("build", lambda: run(sys.executable, "-m", "build", ".")),
         ("twine-check", twine_check),
@@ -286,7 +291,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Local developer and release helper.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    for command in ("clean", "lint", "test", "build", "check", "check-release-tag"):
+    for command in (
+        "clean",
+        "lint",
+        "typecheck",
+        "test",
+        "build",
+        "check",
+        "check-release-tag",
+    ):
         subparsers.add_parser(command)
 
     publish_parser = subparsers.add_parser("publish")
@@ -311,11 +324,13 @@ def main(argv: list[str] | None = None) -> int:
         help="Create and push only the release tag without pushing the branch first.",
     )
 
-    args = parser.parse_args(argv or sys.argv[1:])
+    args = parser.parse_args(sys.argv[1:] if argv is None else argv)
     if args.command == "clean":
         return clean()
     if args.command == "lint":
         return lint()
+    if args.command == "typecheck":
+        return typecheck()
     if args.command == "test":
         return test()
     if args.command == "build":

@@ -27,6 +27,7 @@ uv run python scripts/dev.py check-release-tag
 - `clean`;
 - сверку версии между `__init__.py` пакета и `pyproject.toml`;
 - `ruff check .`;
+- `pyright`;
 - `pytest -q`;
 - чистую сборку `dist/*`;
 - `twine check dist/*`.
@@ -56,6 +57,7 @@ uv run python scripts/dev.py clean
 uv run python scripts/dev.py build
 uv run python scripts/dev.py test
 uv run python scripts/dev.py lint
+uv run python scripts/dev.py typecheck
 ```
 
 ## Публикация
