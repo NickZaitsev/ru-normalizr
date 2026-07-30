@@ -9,6 +9,7 @@ dist/
 *.pyd
 *.pkl
 .tmp_dist/
+.smoke-venv/
 .coverage
 input.txt
 *.whl
