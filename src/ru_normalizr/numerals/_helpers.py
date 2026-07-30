@@ -16,7 +16,11 @@ from ..preprocess_utils import (
 )
 from ..text_context import PUNCT_STRIP, normalize_context_token
 from ._constants import ENTITY_DEFAULT_CASE, ENTITY_KEYWORDS, PREP_CASE, TIME_WORDS, VERB_CASE
-from ._num2words import CARDINAL_GENDER_TO_NUM2WORDS, resolve_num2words_case
+from ._num2words import (
+    CARDINAL_GENDER_TO_NUM2WORDS,
+    resolve_num2words_case,
+    resolve_primary_case,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,20 +35,6 @@ GENITIVE_QUANTITY_GOVERNORS = {
     "сумма",
     "стоимость",
     "цена",
-}
-#: pymorphy reports secondary cases for nouns that have them (partitive "чаю",
-#: locative "в лесу", vocative "Пап!"). Numerals have no such forms, so a
-#: secondary case must be read as its primary one before rendering. Otherwise
-#: num2words is skipped and pymorphy answers a request it cannot satisfy with an
-#: arbitrary matching form, corrupting correct words ("пять тысяч" -> "пять
-#: тысячи").
-SECONDARY_CASE_TO_PRIMARY = {
-    "gen1": "gent",
-    "gen2": "gent",
-    "acc2": "accs",
-    "loc1": "loct",
-    "loc2": "loct",
-    "voct": "nomn",
 }
 #: Gender of the magnitude nouns num2words emits, for agreement of the unit
 #: word before them ("одна тысяча" but "один миллион").
@@ -337,7 +327,7 @@ def _inflect_numeral_string_cached(
         value = int(num_str)
     except ValueError:
         return num_str
-    case = SECONDARY_CASE_TO_PRIMARY.get(case, case)
+    case = resolve_primary_case(case)
     num2words_case = resolve_num2words_case(case, default="")
     if num2words_case:
         kwargs: dict[str, Any] = {"case": num2words_case}

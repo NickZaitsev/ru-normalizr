@@ -12,7 +12,7 @@ from .abbreviation_context import (
     has_mass_measurement_context,
     should_keep_terminal_abbreviation_dot,
 )
-from .numerals._num2words import resolve_num2words_case
+from .numerals._num2words import resolve_num2words_case, resolve_primary_case
 from .options import NormalizeOptions
 from .text_context import normalize_context_token, simple_tokenize
 from .years_context import (
@@ -157,6 +157,7 @@ def _resolve_explicit_year_word_case(prep: str | None, word: str) -> str:
 
 @functools.lru_cache(maxsize=1024)
 def year_to_ordinal_words(year: int, case: str = "nomn", plural: bool = False) -> str:
+    case = resolve_primary_case(case)
     normalized_case = "nomn" if case == "accs" and not plural else case
     if year >= 10000 and not plural and year % 1000:
         high = (year // 1000) * 1000
@@ -388,6 +389,11 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         if plural:
             if year < 100 and not word:
                 return m.group(0)
+            # A decade needs at least two digits. Rounding a single digit down
+            # turned "5-х годах" into "нулевых годах"; leave such input to the
+            # ordinal stage instead of inventing a decade for it.
+            if year < 10:
+                return m.group(0)
             # Bare decade-like forms such as "1980-х" are common for years,
             # but model codes like "6301-Х" should not be routed through
             # year normalization when there is no explicit year word.
@@ -604,7 +610,15 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
                 f"с {year_to_ordinal_words(year1, 'gent')} "
                 f"по {year_to_ordinal_words(year2, 'accs')} год"
             )
-            if word.endswith(".") and should_keep_terminal_abbreviation_dot(text, m.end()):
+            # Every other branch carries the era marker; without this one
+            # "1941-1945 гг. до н. э." silently lost "до н. э." entirely.
+            if era_text is not None:
+                result += f" {era_text}"
+                if _should_keep_era_terminal_dot(text, m):
+                    result += "."
+            elif word.endswith(".") and should_keep_terminal_abbreviation_dot(
+                text, m.end()
+            ):
                 result += "."
             return result
         if word and not is_abbrev:
