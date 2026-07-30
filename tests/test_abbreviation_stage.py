@@ -49,6 +49,49 @@ class AdjectiveAbbreviationTests(unittest.TestCase):
             with self.subTest(source=source):
                 self.assertEqual(abbr(source), expected)
 
+    def test_adjective_agrees_with_the_head_noun_inside_a_sentence(self):
+        # The head noun is picked from the three words after the abbreviation, so
+        # the words around it are what makes gender, number and case decidable.
+        cases = (
+            (
+                "Приняли новый гос. стандарт качества.",
+                "Приняли новый государственный стандарт качества.",
+            ),
+            ("Собрали междунар. группу учёных.", "Собрали международную группу учёных."),
+            (
+                "Издали офиц. письмо руководителя ведомства.",
+                "Издали официальное письмо руководителя ведомства.",
+            ),
+            ("Изучаем юридич. последствия сделки.", "Изучаем юридические последствия сделки."),
+            (
+                "Отметили полит. волю руководства страны.",
+                "Отметили политическую волю руководства страны.",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(abbr(source), expected)
+
+    def test_animate_head_noun_takes_the_animate_accusative(self):
+        # "защитника" and "наблюдателей" are accusative but animate, so the
+        # adjective must not fall back to the nominative-looking inanimate form.
+        self.assertEqual(
+            abbr("Назначили гос. защитника обвиняемому."),
+            "Назначили государственного защитника обвиняемому.",
+        )
+        self.assertEqual(
+            abbr("Пригласили междунар. наблюдателей на выборы."),
+            "Пригласили международных наблюдателей на выборы.",
+        )
+
+    def test_head_noun_is_found_past_an_intervening_adverb(self):
+        # "очень" is neither an adjective nor a noun, so the scan has to walk
+        # over it to reach "задачей" as the head.
+        self.assertEqual(
+            abbr("Работаем над гос. очень важной задачей."),
+            "Работаем над государственной очень важной задачей.",
+        )
+
     def test_capitalized_abbreviation_keeps_its_capital(self):
         self.assertEqual(abbr("Гос. учреждение"), "Государственное учреждение")
 
