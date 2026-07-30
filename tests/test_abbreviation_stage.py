@@ -7,7 +7,11 @@ usable. That also keeps the sentence-boundary decisions visible, which
 
 import unittest
 
-from ru_normalizr.abbreviations import expand_abbreviations, expand_letter_abbreviations
+from ru_normalizr.abbreviations import (
+    expand_abbreviations,
+    expand_letter_abbreviations,
+    expand_person_initials,
+)
 from ru_normalizr.options import NormalizeOptions
 
 
@@ -104,6 +108,88 @@ class InitialsTests(unittest.TestCase):
     def test_single_initial_forms(self):
         self.assertEqual(abbr("Иванов А."), "Иванов аа.")
         self.assertEqual(abbr("А. Иванов"), "аа Иванов.")
+
+    def test_existing_terminal_mark_is_never_doubled(self):
+        # Each of the three name shapes decides the trailing dot on its own, so
+        # every shape has to be checked against every sentence-final mark.
+        for mark, expected_tail in ((".", "."), ("!", "!"), ("?", "?"), ("…", "…")):
+            for template, expected in (
+                ("Отчёт подготовил Иванов А. Б.{}", "Отчёт подготовил Иванов аа бэ{}"),
+                ("Доклад читал А. Б. Иванов{}", "Доклад читал аа бэ Иванов{}"),
+                ("Приказ подписал Иванов А.{}", "Приказ подписал Иванов аа{}"),
+            ):
+                text = template.format(mark)
+                with self.subTest(text=text):
+                    self.assertEqual(abbr(text), expected.format(expected_tail))
+
+    def test_several_closing_marks_are_stripped_before_the_decision(self):
+        # Both "»" and ")" have to be skipped to reach the lowercase "и", which
+        # is what makes the name non-final here.
+        self.assertEqual(
+            abbr("Цитата: «Иванов А. Б.») и далее"),
+            "Цитата: «Иванов, аа, бэ,») и далее",
+        )
+
+    def test_quotation_ending_the_sentence_keeps_the_dot(self):
+        self.assertEqual(
+            abbr("В книге: «Отчёт сдал Иванов А. Б.»"),
+            "В книге: «Отчёт сдал Иванов аа бэ.»",
+        )
+
+    def test_closing_marks_are_stripped_one_at_a_time(self):
+        # No space before the capital, so the character right after the closing
+        # marks is what decides. Skipping the marks in the wrong steps would
+        # read the "Д" as consumed and see a lowercase tail instead.
+        self.assertEqual(
+            abbr("В книге: «Отчёт сдал Иванов А. Б.»Далее следует вывод."),
+            "В книге: «Отчёт сдал Иванов аа бэ.»Далее следует вывод.",
+        )
+        self.assertEqual(
+            abbr("Цитата: «Иванов А. Б.»)Далее по тексту."),
+            "Цитата: «Иванов аа бэ.»)Далее по тексту.",
+        )
+
+    def test_opening_bracket_makes_the_name_non_final(self):
+        self.assertEqual(
+            abbr("Автор — Иванов А. Б. (директор)"),
+            "Автор — Иванов, аа, бэ, (директор)",
+        )
+
+
+class InitialsReadingModeTests(unittest.TestCase):
+    """The stage function's own defaults, without the TTS profile on top.
+
+    `NormalizeOptions.tts()` turns on both the doubled vowel names and the pause
+    commas, so a bare call has to be asserted separately or the defaults are only
+    ever exercised through the profile that overrides them.
+    """
+
+    SENTENCE = "Иванов А. Б. подписал акт."
+
+    def test_defaults_read_single_vowels_without_pauses(self):
+        self.assertEqual(
+            expand_person_initials(self.SENTENCE), "Иванов а бэ подписал акт."
+        )
+
+    def test_double_vowel_mode_lengthens_the_vowel_letter_name(self):
+        self.assertEqual(
+            expand_person_initials(self.SENTENCE, vowel_mode="double"),
+            "Иванов аа бэ подписал акт.",
+        )
+
+    def test_comma_pause_mode_separates_the_initials(self):
+        self.assertEqual(
+            expand_person_initials(self.SENTENCE, pause_mode="comma"),
+            "Иванов, а, бэ, подписал акт.",
+        )
+
+    def test_both_modes_combine(self):
+        self.assertEqual(
+            expand_person_initials(
+                self.SENTENCE, vowel_mode="double", pause_mode="comma"
+            ),
+            "Иванов, аа, бэ, подписал акт.",
+        )
 
 
 class LetterAbbreviationTests(unittest.TestCase):
