@@ -75,8 +75,8 @@ Never add bullets to AGENTS.md on your own — propose the wording and get the u
   [normalization conventions](docs/agents/conventions.md).
 - Only `protect_negative_numbers` may decide that `-` is a minus; a bare `-` in
   a numerals regex eats hyphens, see [unary minus](docs/agents/negative-numbers.md).
-- A known defect you are not fixing goes in `tests/test_known_gaps.py` as
-  `xfail(strict=True)`, not in prose — an accidental fix then fails the run.
+- Every defect you discover and do not fix MUST immediately get an `xfail(strict=True)`
+  test in `tests/test_known_gaps.py`, using a full realistic sentence, never isolated words or a short phrase.
 - CI's Windows cell is cp1252 and the dev machine is cp1251, so locale-encoding
   bugs pass locally — always pass `encoding="utf-8"`, see
   [locale encoding](docs/agents/locale-encoding.md).
