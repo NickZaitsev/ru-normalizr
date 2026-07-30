@@ -1,36 +1,3 @@
-# Versioning Policy
-
-`ru-normalizr` follows Semantic Versioning.
-
-## Version format
-
-`MAJOR.MINOR.PATCH`
-
-Examples:
-- `0.1.0`
-- `0.2.0`
-- `0.2.1`
-- `1.0.0`
-
-## Meaning
-
-- `PATCH`: bug fixes, packaging fixes, documentation-only updates, or behavior corrections that do not intentionally change the public API shape.
-- `MINOR`: new public options, new supported normalization features, new CLI flags, or new stage APIs added in a backward-compatible way.
-- `MAJOR`: breaking public API changes, changed defaults, removed options, reordered exposed stage semantics, or intentional normalization output changes that break compatibility expectations.
-
-## Pre-1.0 guidance
-
-Until `1.0.0`, minor versions may still include behavior changes while the public contract is being stabilized. The goal before `1.0.0` is:
-- lock down default normalization behavior
-- stabilize option naming
-- stabilize packaging and CLI shape
-
-## Release rules
-
-- Every release updates `ru_normalizr/__init__.py` and `ru_normalizr/pyproject.toml`.
-- Every release adds a changelog entry.
-- Any intentional normalization output change must be covered by tests and called out in `CHANGELOG.md`.
-
 # Changelog
 
 All notable changes to `ru-normalizr` will be documented in this file.
@@ -52,6 +19,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Fall back gracefully when the IPA latinization backend is requested but `eng_to_ipa` cannot be imported: emit a one-time warning and use the dictionary backend instead of silently returning unlatinized text. `eng_to_ipa` remains a default dependency, so the IPA backend keeps working out of the box
 
 ### Documentation
+- Вынести политику версионирования и инструкцию по выпуску в отдельные актуальные документы, добавить индекс инженерных заметок и удалить выполненные исторические планы
 - Add a full `NormalizeOptions` reference table (type, safe/tts default, description for all 24 fields plus `mode`) and a "Custom dictionaries" section documenting `.dic` format, `dictionaries_path`, `dictionary_include_files`/`dictionary_exclude_files`, and that the default `dictionary` stage loads zero bundled rules — in both the RU and EN halves of the README
 - Correct the console-script name in the README from `ru_normalizr` to `ru-normalizr`
 

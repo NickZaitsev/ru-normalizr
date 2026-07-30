@@ -168,7 +168,7 @@ print(normalize("YouTube в 2024 г.", options))
 используется стадией `latinization`, а не `dictionary`. То есть стадия
 `dictionary` существует именно для ваших собственных словарей.
 
-Формат `.dic` (см. [examples/your_dictionary.dic](examples/your_dictionary.dic)):
+Формат `.dic` показан ниже:
 
 ```
 # строки, начинающиеся с #, — комментарии
@@ -478,7 +478,7 @@ belongs to the `latinization/` folder and is used by the `latinization` stage,
 not `dictionary`. In other words, the `dictionary` stage exists purely for your
 own dictionaries.
 
-`.dic` format (see [examples/your_dictionary.dic](examples/your_dictionary.dic)):
+The `.dic` format is shown below:
 
 ```
 # lines starting with # are comments
