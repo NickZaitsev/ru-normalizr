@@ -44,6 +44,12 @@ class _FakeMorph:
 
 
 class RuNormalizrRegressionTests(unittest.TestCase):
+    def test_genitive_plural_heuristic_preserves_all_caps(self):
+        self.assertEqual(
+            _helpers.apply_genitive_plural_heuristic("НОВЫЕ", "ADJF"),
+            "НОВЫХ",
+        )
+
     def test_dictionary_normalizer_does_not_write_pickle_cache(self):
         with TemporaryDirectory() as tmp_dir:
             dictionaries_path = Path(tmp_dir)

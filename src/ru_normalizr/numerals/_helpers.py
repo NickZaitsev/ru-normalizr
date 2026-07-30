@@ -123,17 +123,17 @@ def apply_genitive_plural_heuristic(word: str, pos: str | None) -> str:
         return word
     lower_word = word.lower()
     if lower_word.endswith("ые"):
-        return word[:-2] + ("Ых" if word.isupper() else "ых")
+        return word[:-2] + ("ЫХ" if word.isupper() else "ых")
     if lower_word.endswith("ие"):
-        return word[:-2] + ("Их" if word.isupper() else "их")
+        return word[:-2] + ("ИХ" if word.isupper() else "их")
     if lower_word.endswith("ый") or lower_word.endswith("ой"):
-        return word[:-2] + ("Ого" if word.isupper() else "ого")
+        return word[:-2] + ("ОГО" if word.isupper() else "ого")
     if lower_word.endswith("ий") or lower_word.endswith("ее"):
-        return word[:-2] + ("Его" if word.isupper() else "его")
+        return word[:-2] + ("ЕГО" if word.isupper() else "его")
     if lower_word.endswith("ая"):
-        return word[:-2] + ("Ой" if word.isupper() else "ой")
+        return word[:-2] + ("ОЙ" if word.isupper() else "ой")
     if lower_word.endswith("яя"):
-        return word[:-2] + ("Ей" if word.isupper() else "ей")
+        return word[:-2] + ("ЕЙ" if word.isupper() else "ей")
     return word
 
 
