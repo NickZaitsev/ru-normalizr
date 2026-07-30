@@ -54,6 +54,17 @@ class SimpleRuleTests(DictionaryRuleTestCase):
 
         self.assertEqual(self.normalizer().apply("СССР"), "эс эс эс эр")
 
+    def test_longer_multi_word_key_wins_over_its_own_first_word(self):
+        # Word boundaries alone save single-token keys, because the shorter key
+        # cannot end mid-word. Two keys can only really compete when the longer
+        # one continues past a space, so ordering has to be asserted here.
+        self.write_dic("a.dic", "первый=головной\nпервый класс=высшая категория\n")
+
+        self.assertEqual(
+            self.normalizer().apply("Ему достался первый класс до Москвы"),
+            "Ему достался высшая категория до Москвы",
+        )
+
     def test_empty_replacement_deletes_the_word(self):
         self.write_dic("a.dic", "мусор=\n")
 
@@ -67,13 +78,26 @@ class SimpleRuleTests(DictionaryRuleTestCase):
         self.assertEqual(self.normalizer().apply("я помню чудное мгновенье"), "аз помню чудное мгновенье")
 
     def test_line_without_a_separator_never_becomes_a_rule(self):
-        # A stray note in a dictionary must be dropped, not read as a rule whose
-        # source is the line minus its last character.
-        self.write_dic("a.dic", "просто замет\nхорошо=ок\n")
+        # A stray note must be dropped, not read as a rule whose source is the
+        # line minus its last character and whose target is the whole line.
+        self.write_dic("a.dic", "уточнить у заказчика.\nхорошо=ок\n")
         apply = self.normalizer().apply
 
-        self.assertEqual(apply("Тут просто замет и всё"), "Тут просто замет и всё")
+        self.assertEqual(
+            apply("Надо уточнить у заказчика, потом решим"),
+            "Надо уточнить у заказчика, потом решим",
+        )
         self.assertEqual(apply("хорошо"), "ок")
+
+    def test_commented_out_rule_is_neither_counted_nor_applied(self):
+        # Commenting a rule out is how a rule gets disabled, so the line must not
+        # come back as a rule whose source starts with the "#".
+        self.write_dic("a.dic", "# youtube=ютуб\nхорошо=ок\n")
+        normalizer = self.normalizer()
+
+        self.assertEqual(normalizer.get_rule_count(), 1)
+        self.assertEqual(normalizer.apply("Смотри youtube вечером"), "Смотри youtube вечером")
+        self.assertEqual(normalizer.apply("хорошо"), "ок")
 
     def test_replacement_keeps_its_last_character_including_a_capital_letter(self):
         # Only the line break is stripped from a rule line, so a replacement is
