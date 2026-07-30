@@ -51,6 +51,42 @@ def test_distributive_po_takes_the_dative_only_for_a_final_one(
     assert normalize(source) == expected
 
 
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        # With no preposition and no governing verb, an unambiguous instrumental
+        # or dative noun right after the number is what sets the numeral's case.
+        # The head has to be a noun ("управление"), not a verb: "владеть" and
+        # "управлять" govern the instrumental themselves and would decide first.
+        ("Управление 5 заводами затруднено.", "Управление пятью заводами затруднено."),
+        ("Обмен 3 квартирами состоялся.", "Обмен тремя квартирами состоялся."),
+        ("Замена 8 деталями решена.", "Замена восемью деталями решена."),
+        ("Он рад 5 гостям.", "Он рад пяти гостям."),
+        ("Доступ 4 сотрудникам открыт.", "Доступ четырём сотрудникам открыт."),
+    ],
+)
+def test_following_noun_without_a_preposition_sets_the_numeral_case(
+    source: str, expected: str
+) -> None:
+    assert normalize(source) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("Мне уже 40.", "Мне уже сорок."),
+        ("Мне теперь 40.", "Мне теперь сорок."),
+        ("Ей 25.", "Ей двадцать пять."),
+        ("Ему 33.", "Ему тридцать три."),
+        ("Директору 45.", "Директору сорок пять."),
+    ],
+)
+def test_age_after_a_dative_stays_nominative(source: str, expected: str) -> None:
+    # A bare number closing the clause is a predicate, so the dative on the left
+    # must not pull the numeral with it.
+    assert normalize(source) == expected
+
+
 def test_number_licenses_noun_parse_of_infinitive_homonym() -> None:
     assert normalize("В музее представлена 1 пасть древнего животного.") == (
         "В музее представлена одна пасть древнего животного."
