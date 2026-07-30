@@ -15,6 +15,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Read the `IPsec` protocol name as `ай пи сек` in every spelling (`IPSEC`, `IPSec`, `IPsec`, `ipsec`) instead of `ай пи эс ии си` for the all-caps form and `ипсэк` for the rest. This needs an entry in two places by design: the abbreviation stage intercepts all-caps tokens and only consults `KNOWN_ABBREVIATIONS`, while mixed-case and lowercase spellings never match that pattern and are resolved by the latinization dictionary instead
 
 ### Changed
+- Использовать compiled `DAWG2` backend через `pymorphy3[fast]` по умолчанию на поддерживаемых CPython после полного parity-gate с portable backend; добавить верхнюю границу `<3` для прямых зависимостей `pymorphy3` и русского словаря
+- Централизовать выбор морфологического разбора и канонизацию редких падежей через публичный API `pymorphy3`, сохранив ограниченные линейные контекстные сканеры и lowercase-кеш без смешения `е`/`ё`
 - Перейти на стандартную структуру `src/ru_normalizr`, сохранив прежние пути импортов установленного пакета и состав колеса
 - Run the `dictionary` stage before the `latinization` stage, so an explicit user rule wins over a pronunciation guess. Previously the dictionary ran last and could never match a Latin token in TTS mode, because latinization had already rewritten it into Cyrillic: a rule such as `WireGuard=вайргард` was silently ignored and the guess `вээгюад` won. This is the order the README has always documented. Rules keyed on Cyrillic text are unaffected, and Latin without a matching rule still reaches latinization
 - Give the CLI `--check` flag the conventional meaning: it still prints the normalized result to stdout, but now exits with status `1` when the output differs from the input and `0` when they are identical, so it can gate whether text needs normalization; it still cannot be combined with `--output`
@@ -27,6 +29,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Correct the console-script name in the README from `ru_normalizr` to `ru-normalizr`
 
 ### Fixed
+- Сохранять явный род порядкового суффикса у существительных общего рода и корректно согласовывать порядковые числительные с pluralia tantum, включая неодушевлённый винительный множественного числа
+- Выбирать доменные парадигмы единиц вместо омонимов имён и географических названий: исправить лиру, шекель, грей, тенге, корейскую вону, фарад и его приставочные формы, теслу, моль, паскаль, вебер и зиверт; поддержать `сутки` как pluralia tantum
+- Различать регистр SI- и информационных символов (`mW`/`MW`, `mV`/`MV`, `b`/`B`, `Mb`/`MB`, `Гр`/`гр`), защищать `MV` от Roman-стадии и раскрывать dotted-only aliases без потери границы предложения
+- Выбирать существительное и глагол по синтаксической роли в числовом и сокращённом контексте, поэтому омонимы `пасть`, `достигаем` и `часовой` больше не меняют род, падеж или согласование
+- Не читать количество единиц в диапазоне годов как неявный год и склонять большие числители дробей целиком, не позволяя year/ordinal-стадиям забирать начало `1000/100`
 - Keep the era marker when a hyphenated year range is rewritten as "с … по …": `1941-1945 гг. до н. э.` dropped `до н. э.` from the output entirely, because that branch returned before the marker was appended. Every other range branch already carried it
 - Stop inventing a decade for a single digit. `(5 // 10) * 10` rounded down to zero, so `в 5-х годах` read as `в нулевых годах`. Rounding now needs at least two digits, and a single digit is rendered as the plural ordinal its `-х` suffix already marks: `в пятых годах`
 - Read a pymorphy secondary case as its primary one before rendering a numeral (`gen1`/`gen2` → `gent`, `loc1`/`loc2` → `loct`, `acc2` → `accs`, `voct` → `nomn`). Numerals have no partitive, locative-2, or vocative forms, so such a request skipped `num2words` entirely and pymorphy answered it with an arbitrary matching form: `5000` in the vocative came back as `пять тысячи` instead of `пять тысяч`. Call sites previously each mapped `loc2` by hand and left the other secondary cases unmapped

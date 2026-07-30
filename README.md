@@ -50,6 +50,26 @@ IPA-бэкенд латинизации (`latinization_backend="ipa"`) рабо�
 он окажется недоступен, запрос IPA-бэкенда один раз выдаёт предупреждение и
 автоматически переключается на словарный бэкенд латинизации.
 
+На поддерживаемых версиях CPython пакет по умолчанию использует compiled
+DAWG-backend из `pymorphy3[fast]`. В CI проверяются CPython 3.10–3.13 на Linux
+и Windows; для этих интерпретаторов `DAWG2` публикует готовые колёса также для
+macOS, manylinux и musllinux. Активный backend можно проверить так:
+
+```python
+from pymorphy3 import dawg
+
+assert dawg.EXTENSION_AVAILABLE
+```
+
+Значение `False` на поддерживаемом CPython означает проблему установки или
+конфигурации, а не штатный production-режим. Корректность нормализации от
+backend не зависит: перед сменой зависимости portable и compiled варианты
+сравниваются parity-gate по публичным результатам, морфологическим разборам и
+полному набору тестов. На Windows x86-64 с CPython 3.11.15 короткий прогон
+10 000 различных слов дал около 12 тыс. слов/с для portable backend и
+64 тыс. слов/с для compiled; это описание методики на одной машине, а не
+универсальная гарантия производительности.
+
 Для Windows также доступен GUI: [Скачать ru-normalizr GUI для Windows](https://github.com/NickZaitsev/ru-normalizr/releases/latest)
 
 ## Запуск из cmd или bash (CLI)
