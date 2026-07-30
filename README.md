@@ -220,6 +220,39 @@ print(normalize("YouTube и OpenAI", options))
 
 Это удобно для отладки, тестирования и встраивания только нужных частей пайплайна в собственную систему.
 
+## Разработка
+
+Окружение управляется [uv](https://docs.astral.sh/uv/). Требуется Python 3.10 или новее.
+
+```bash
+uv sync --frozen
+```
+
+Проверки, которые обязаны проходить перед коммитом (тот же набор выполняет CI):
+
+```bash
+uv run ruff check .
+uv run pyright
+uv run pytest -q
+```
+
+Отчёт о покрытии по ветвям:
+
+```bash
+uv run pytest -q --cov=src/ru_normalizr --cov-branch --cov-report=term-missing
+```
+
+Полный цикл проверки выпуска — очистка, сверка версий, линт, типы, тесты, сборка
+и `twine check`:
+
+```bash
+uv run python scripts/dev.py check
+```
+
+Порядок выпуска на PyPI описан в [docs/RELEASING.md](docs/RELEASING.md), правила
+версионирования — в [VERSIONING.md](VERSIONING.md), соглашения для правок кода —
+в [AGENTS.md](AGENTS.md) и [docs/agents/](docs/agents/README.md).
+
 ## Сравнение с другими нормализаторами
 
 Сравнение проводилось на одном компьютере на одних и тех же текстах. Качество можете оценить сами по примерам ниже.
@@ -527,6 +560,39 @@ Individual stages are available:
 - `dictionary` — application of user-defined dictionary rules (no bundled rules are loaded here by default; see [Custom dictionaries](#custom-dictionaries))
 - `latinization` — conversion of Latin words into Cyrillic using either dictionary rules or the IPA backend
 - `finalize` — final cleanup after all transformations: punctuation normalization, casing fixes, and paragraph restoration
+
+## Development
+
+The environment is managed with [uv](https://docs.astral.sh/uv/). Python 3.10 or newer is required.
+
+```bash
+uv sync --frozen
+```
+
+The checks that must pass before a commit (CI runs the same set):
+
+```bash
+uv run ruff check .
+uv run pyright
+uv run pytest -q
+```
+
+Branch coverage report:
+
+```bash
+uv run pytest -q --cov=src/ru_normalizr --cov-branch --cov-report=term-missing
+```
+
+The full release verification cycle — clean, version sync, lint, types, tests,
+build, and `twine check`:
+
+```bash
+uv run python scripts/dev.py check
+```
+
+The PyPI release procedure is described in [docs/RELEASING.md](docs/RELEASING.md),
+the versioning policy in [VERSIONING.md](VERSIONING.md), and the code conventions
+in [AGENTS.md](AGENTS.md) and [docs/agents/](docs/agents/README.md).
 
 ## Comparison with other normalizers
 
