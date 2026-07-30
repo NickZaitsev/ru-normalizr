@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 NormalizeMode = Literal["safe", "tts"]
 LatinizationBackend = Literal["ipa", "dictionary"]
@@ -158,9 +158,9 @@ class NormalizeOptions:
         object.__setattr__(self, "mode", mode)
 
     @classmethod
-    def safe(cls, **overrides: object) -> NormalizeOptions:
+    def safe(cls, **overrides: Any) -> NormalizeOptions:
         return cls(mode="safe", **overrides)
 
     @classmethod
-    def tts(cls, **overrides: object) -> NormalizeOptions:
+    def tts(cls, **overrides: Any) -> NormalizeOptions:
         return cls(mode="tts", **overrides)

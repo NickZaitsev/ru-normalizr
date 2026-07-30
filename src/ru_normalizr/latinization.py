@@ -161,13 +161,19 @@ def _ipa_convert_words(words: tuple[str, ...]) -> dict[str, str]:
     import eng_to_ipa as ipa
 
     if len(missing) <= IPA_BATCH_THRESHOLD:
-        converted = tuple(ipa.convert(word) for word in missing)
+        converted = tuple(_select_ipa_result(ipa.convert(word)) for word in missing)
     else:
         converted = _ipa_convert_batch(missing)
     fresh_results = dict(zip(missing, converted, strict=True))
     _store_ipa_word_cache(fresh_results)
     resolved.update(fresh_results)
     return resolved
+
+
+def _select_ipa_result(ipa_variants: str | list[str]) -> str:
+    if isinstance(ipa_variants, str):
+        return ipa_variants
+    return ipa_variants[-1] if ipa_variants else ""
 
 
 def _ipa_convert_batch(words: tuple[str, ...]) -> tuple[str, ...]:
@@ -177,10 +183,7 @@ def _ipa_convert_batch(words: tuple[str, ...]) -> tuple[str, ...]:
     for start in range(0, len(words), IPA_BATCH_SIZE):
         chunk = list(words[start : start + IPA_BATCH_SIZE])
         ipa_chunks = ipa.ipa_list(chunk, keep_punct=True)
-        converted.extend(
-            ipa_variants[-1] if ipa_variants else ""
-            for ipa_variants in ipa_chunks
-        )
+        converted.extend(_select_ipa_result(ipa_variants) for ipa_variants in ipa_chunks)
     return tuple(converted)
 
 

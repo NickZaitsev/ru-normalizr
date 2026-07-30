@@ -10,6 +10,8 @@ from ru_normalizr.abbreviations import expand_abbreviations
 from ru_normalizr.dictionary import DictionaryNormalizer
 from ru_normalizr.latinization import (
     _clear_latinization_word_caches,
+    _ipa_convert_batch,
+    _ipa_convert_words,
     _resolve_unknown_latin_fallback,
     _resolve_unknown_latin_fallbacks,
     apply_latinization,
@@ -516,6 +518,22 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         self.assertEqual(repeated_result, result)
         self.assertEqual(len(result.split()), len(words))
         self.assertNotRegex(result, r"[A-Za-z]")
+
+    def test_ipa_batch_preserves_backend_string_results(self):
+        with patch(
+            "eng_to_ipa.ipa_list",
+            return_value=["first-result", "second-result"],
+        ):
+            result = _ipa_convert_batch(("first", "second"))
+
+        self.assertEqual(result, ("first-result", "second-result"))
+
+    def test_ipa_single_lookup_selects_last_backend_variant(self):
+        _clear_latinization_word_caches()
+        with patch("eng_to_ipa.convert", return_value=["first", "preferred"]):
+            result = _ipa_convert_words(("word",))
+
+        self.assertEqual(result, {"word": "preferred"})
 
     def test_unknown_latin_fallback_batches_dictionary_rewrite_for_many_words(self):
         _clear_latinization_word_caches()

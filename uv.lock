@@ -785,6 +785,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+    { name = "tomli" },
     { name = "twine" },
 ]
 
@@ -804,6 +805,7 @@ dev = [
     { name = "pytest", specifier = ">=7.0" },
     { name = "pytest-cov", specifier = ">=5.0" },
     { name = "ruff", specifier = ">=0.4" },
+    { name = "tomli", specifier = ">=2.0" },
     { name = "twine", specifier = ">=5.0" },
 ]
 

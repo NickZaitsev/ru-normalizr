@@ -4,7 +4,7 @@ import logging
 
 import num2words
 
-from ._morph import first_parse, parse_word
+from ._morph import first_parse_required, parse_word
 from .numerals._num2words import (
     CASE_TO_NUM2WORDS as _CASE_TO_NUM2WORDS,
 )
@@ -162,7 +162,7 @@ def resolve_ordinal_suffix_case(
         resolved_gender = "femn"
     if suffix in {"м", "ом", "ем"}:
         if tokens_right:
-            next_parse = first_parse(tokens_right[0].strip(".,!?;:"))
+            next_parse = first_parse_required(tokens_right[0].strip(".,!?;:"))
             case_from_suffix = "loct" if "sing" in next_parse.tag else "datv"
         else:
             case_from_suffix = "loct"
@@ -180,7 +180,7 @@ def resolve_ordinal_plural(
     if suffix in {"е", "ее", "ое"} and tokens_right:
         next_clean = tokens_right[0].strip(".,!?;:")
         if next_clean:
-            next_parse = first_parse(next_clean)
+            next_parse = first_parse_required(next_clean)
             if "sing" in next_parse.tag and "neut" in next_parse.tag:
                 plural = False
     return plural
@@ -208,7 +208,28 @@ def render_ordinal(
         kwargs["gender"] = GENDER_TO_NUM2WORDS[gender]
 
     try:
-        return num2words.num2words(number, **kwargs)
+        if plural:
+            return num2words.num2words(
+                number,
+                lang="ru",
+                to="ordinal",
+                case=resolve_num2words_case(generation_case),
+                plural=True,
+            )
+        if gender in GENDER_TO_NUM2WORDS:
+            return num2words.num2words(
+                number,
+                lang="ru",
+                to="ordinal",
+                case=resolve_num2words_case(generation_case),
+                gender=GENDER_TO_NUM2WORDS[gender],
+            )
+        return num2words.num2words(
+            number,
+            lang="ru",
+            to="ordinal",
+            case=resolve_num2words_case(generation_case),
+        )
     except Exception as exc:
         logger.debug("num2words ordinal failed for %r (kwargs=%s): %s", number, kwargs, exc)
 

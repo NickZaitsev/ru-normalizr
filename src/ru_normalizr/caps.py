@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from ._morph import first_parse
+from ._morph import first_parse_required
 from .constants import KNOWN_ABBREVIATIONS
 
 _LINE_SPLIT_PATTERN = re.compile(r"(\n)")
@@ -148,7 +148,7 @@ def _restore_known_abbreviations(original: str, lowered: str) -> str:
         is_short_abbrev = len(letters) <= 3
         is_real_short_word = False
         if 2 <= len(letters) <= 3:
-            parsed = first_parse(letters.lower())
+            parsed = first_parse_required(letters.lower())
             is_real_short_word = parsed.tag.POS is not None
         is_consonant_heavy = (
             len(letters) == 4 and sum(1 for c in upper_letters if c in vowels) <= 1

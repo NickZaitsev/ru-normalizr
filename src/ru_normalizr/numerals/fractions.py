@@ -5,7 +5,7 @@ import re
 
 import num2words
 
-from .._morph import first_parse
+from .._morph import first_parse_required
 from ._constants import FRACTION_PATTERN
 
 logger = logging.getLogger(__name__)
@@ -36,13 +36,13 @@ def normalize_fractions(text: str) -> str:
             logger.debug("num2words failed for numerator %r: %s", num, exc)
             return match.group(0)
         if case != "nomn":
-            num_text = " ".join(
-                (p.inflect({case}).word if p.inflect({case}) else part)
-                for part in num_text.split()
-                for p in [first_parse(part)]
-            )
+            inflected_parts: list[str] = []
+            for part in num_text.split():
+                inflected = first_parse_required(part).inflect({case})
+                inflected_parts.append(inflected.word if inflected else part)
+            num_text = " ".join(inflected_parts)
         last_num_word = num_text.split()[-1]
-        p_last = first_parse(last_num_word)
+        p_last = first_parse_required(last_num_word)
         if num % 10 == 1 and num % 100 != 11:
             inf = p_last.inflect({case, "femn", "sing"})
             if inf:
@@ -61,7 +61,7 @@ def normalize_fractions(text: str) -> str:
             logger.debug("num2words failed for denominator %r: %s", denom, exc)
             return match.group(0)
         words = denom_text.split()
-        p = first_parse(words[-1])
+        p = first_parse_required(words[-1])
         is_sing_1 = num % 10 == 1 and num % 100 != 11
         inflected = p.inflect(
             {case, "femn", "sing"}
