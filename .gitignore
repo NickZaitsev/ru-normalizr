@@ -12,6 +12,7 @@ dist/
 *.pkl
 .tmp_dist/
 .tmp-fast-venv/
+.tmp-portable-venv/
 .tmp-pymorphy3-*.json
 .smoke-venv/
 .coverage
