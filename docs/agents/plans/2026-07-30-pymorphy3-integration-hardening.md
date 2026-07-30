@@ -30,6 +30,11 @@ the project does not apply consistently:
   requested form does not exist. Callers which send a rare case to another
   renderer first can therefore produce the wrong case before `inflect()` is
   reached.
+- In the installed dictionary, known-word inventory contains 435 `gen2`,
+  211 `loc2`, and 149 `voct` forms; no `gen1`, `loc1`, or `acc2` forms were
+  found. `acc1` is present in `RARE_CASES` but absent from
+  `KNOWN_GRAMMEMES`, so membership-testing it against a tag raises
+  `ValueError`; canonicalize sets through `fix_rare_cases()` instead.
 
 Confirmed end-to-end defects in the current code are:
 
@@ -46,10 +51,48 @@ Confirmed end-to-end defects in the current code are:
   singular-only geography and `грей` only as a singular-only surname.
   Consequently `5 ₪` becomes `пять шекель` and `5 грей` becomes
   `пять грей`.
+- Domain units which rank an animate/person parse first are declined as
+  animate in singular accusative: `на 1 Па`, `на 1 Вб`, and `на 1 Зв`
+  become `на один паскаля`, `на один вебера`, and `на один зиверта`.
+- The dictionary has no domain-correct paradigms for several supported
+  values. `тенге` is treated as a form of `тенг`; `фарад` as a form of the
+  feminine `фарада`; and `тесла` as a form of neuter `тесло`. The unit
+  metadata also assigns masculine agreement to feminine Korean `вона` and
+  feminine agreement to masculine amount-of-substance `моль`.
+- Unit token resolution case-folds symbols whose case changes their value.
+  It conflates `mW`/`мВт` with `MW`/`МВт`, `Mb` with `MB`, and Cyrillic
+  `Гр` (gray) with `гр` (gram). All-Roman-letter `MV` can reach Roman
+  normalization and become `1005` instead of megavolts.
+- `resolve_unit_info()` strips terminal dots before lookup, making all six
+  dotted-only registered aliases unreachable: `п.п.`, `б.п.`, `в.`,
+  `л.с.`, `л. с.`, and `рад.`. Unit `сутки` also lacks plural-only
+  number-form policy, so `2 сут.` becomes `двое сутки` rather than
+  `двое суток`.
 - Rare-case normalization is duplicated and incomplete outside cardinal
   rendering. For example, `noun_parse_case()` maps only `loc2`, and a `gen2`
   noun parse makes `render_ordinal_from_noun_parse(2, parse)` render
   nominative `второй` instead of genitive `второго`.
+- Context scanners still confuse a syntactic adjective or noun with its
+  highest-ranked homonym. `гос. часовой стрелки` expands to
+  `государственный часовой стрелки`, and `1 пасть` uses masculine
+  `один` because the first parse of `пасть` is an infinitive. Likewise,
+  first-person plural `достигаем` ranks a short-adjective homonym first, so
+  its genitive governance is lost (`достигаем 5 целей`).
+- Implicit-year detection checks only the first normal form. A measurement
+  such as `дозу в 2020 зивертов` is therefore rendered as
+  `дозу в две тысячи двадцатом зивертов`.
+- `normalize_fractions()` inflects a generated numerator token by token
+  instead of using the project's complete numeral renderer. This leaves
+  `сто` unchanged in oblique cases and produces `двух тысячи`; a separate
+  stage-order collision consumes `1000/100` as an ordinal plus a slash in
+  dative/prepositional contexts.
+
+Every item above is pinned through a natural full-message
+`pytest.mark.xfail(strict=True)` regression in `tests/test_known_gaps.py`.
+Multi-case defects use pytest parameterization, so every message is an
+independent strict xfail and a partial fix becomes an immediate XPASS
+failure. When an item is fixed, move its test into the regular focused suite
+rather than deleting the assertion.
 
 There is also an optional performance opportunity. The current environment
 uses pure-Python `DAWG2-Python` (`pymorphy3.dawg.EXTENSION_AVAILABLE` is
@@ -77,12 +120,16 @@ and the compiled backend must remain optional.
    switch them to OpenCorpora `Coun` forms merely because such a parse ranks
    first.
 6. Represent domain lexemes which the packaged dictionary cannot inflect
-   correctly through typed unit-lexicon morphology metadata. Do not add
-   one-off regex substitutions for `лира`, `шекель`, `грей`, or any complete
-   phrase.
-7. Offer the compiled DAWG backend as an optional package extra and document
+   correctly through typed unit-lexicon morphology metadata, including
+   expected animacy, indeclinability, and validated paradigm seeds/forms.
+   Do not add one-off regex substitutions for a token or complete phrase.
+7. Resolve SI and information-unit symbols in exact case whenever case
+   changes the prefix, bit/byte meaning, or collides with another unit.
+   Optional permissive aliases may remain only when they are unambiguous.
+   Protect exact unit tokens before Roman-numeral recognition.
+8. Offer the compiled DAWG backend as an optional package extra and document
    the trade-off. Keep the portable pure-Python backend as the default.
-8. Add a `<3` compatibility ceiling for both direct pymorphy packages while
+9. Add a `<3` compatibility ceiling for both direct pymorphy packages while
    retaining the lockfile's exact resolved versions. Do not bump the project
    version as part of this work.
 
@@ -94,14 +141,13 @@ and the compiled backend must remain optional.
 - `pymorphy3` 2.0.6 documents that `parse()` always returns at least an
   `UNKN` parse. The existing `first_parse()` guard is still useful as a
   compatibility boundary and should remain.
-- `src/ru_normalizr/numerals/_helpers.py` already has
-  `SECONDARY_CASE_TO_PRIMARY`, `safe_inflect()`,
+- `src/ru_normalizr/numerals/_helpers.py` already has `safe_inflect()`,
   `inflect_unit_lemma()`, `is_case_reliable_noun()`, and
   `get_target_tags_for_number()`. `safe_inflect()` is the established
   failure boundary and logs broad fallbacks at `DEBUG`.
-- `SECONDARY_CASE_TO_PRIMARY` duplicates upstream
-  `MorphAnalyzer.TagClass.fix_rare_cases()`. Several other files separately
-  special-case only `loc2`.
+- `src/ru_normalizr/numerals/_num2words.py::SECONDARY_CASE_TO_PRIMARY`
+  duplicates upstream `MorphAnalyzer.TagClass.fix_rare_cases()`. Several
+  other files separately special-case only `loc2`.
 - `src/ru_normalizr/ordinal_utils.py` contains `noun_parse_case()`,
   `choose_noun_parse()`, `render_ordinal()`, and
   `render_ordinal_from_noun_parse()`. `noun_parse_case()` currently maps only
@@ -115,6 +161,10 @@ and the compiled backend must remain optional.
   domain lexicon for unit token, lemma, gender, category, and optional suffix
   data. Mixed-case SI token routing has separate invariants documented in
   `docs/agents/case-sensitive-units.md`; do not weaken that resolver.
+- BIPM/NIST define SI prefix symbols as case-sensitive (`m` milli, `M` mega)
+  and unit symbols derived from names with their specified capital letters.
+  NIST likewise distinguishes bit `b` from byte `B`. Exact token routing is
+  therefore correctness, not merely preferred typography.
 - `src/ru_normalizr/numerals/_helpers.py::inflect_unit_lemma()` accepts target
   tags but picks the first noun parse and has no way to receive the expected
   unit gender or domain morphology metadata.
@@ -125,6 +175,13 @@ and the compiled backend must remain optional.
   indeclinable `генри`, despite also returning person-name parses. Candidate
   selection must prefer good domain parses without rejecting all lexemes
   carrying `Name`/`Surn`/`Geox`.
+- The current dictionary has no correct selectable normal form for `тенге`,
+  `фарад`/prefixed farads, or unit `тесла`; these require validated domain
+  forms rather than blind use of a predicted homonym. `шекель` and `грей`
+  likewise lack productive domain paradigms.
+- `Parse.is_known` checks whether the surface word occurs anywhere in the
+  dictionary. It does not certify that a particular homonymous candidate is
+  the domain-correct one, so it cannot be a primary selector criterion.
 - `docs/agents/conventions.md` requires ordinary byte-family forms and
   aligned reference/range output. Some byte lemmas have a first `Coun` parse,
   while others do not, so first-parse behavior would make prefixed byte units
@@ -136,10 +193,80 @@ and the compiled backend must remain optional.
   numeral itself, preserve documented ordinary byte forms, and support
   explicit external cases. It may be used as a reference oracle in tests,
   not as an unconditional implementation replacement.
-- The working tree had pre-existing user changes in
-  `src/ru_normalizr/dictionary.py` and `tests/test_dictionary_rules.py` when
-  this plan was created. An implementing agent must preserve them unless
-  they have since been committed or removed by the user.
+- `MorphAnalyzer.parse()` lowercases internally. Routing cache keys through a
+  lowercase-only private cache is output-equivalent and avoids duplicate
+  entries for `Фёдор`/`фёдор`; do not fold `е` and `ё`, because strict
+  candidate sets can differ.
+
+## Completed audit coverage
+
+The second pass reviewed every current `parse_word()`,
+`first_parse_required()`, and direct `Parse.inflect()` call. Its disposition
+is part of the implementation contract:
+
+- `_morph.py`: singleton initialization, immutable tuple caching, non-empty
+  `UNKN` fallback, lowercase cache duplication, and concurrent reuse were
+  checked. A 16-worker parse/inflect stress run completed without exceptions.
+- `abbreviations.py`: static adjective and language lemmas are unambiguous;
+  person-initial logic correctly inspects all name grammemes. Phrase-head
+  selection is defective because it accepts the first noun homonym of the
+  first token (`часовой`) instead of respecting adjective-plus-head structure.
+- `abbreviation_context.py`: all surface forms of `вес` and `масса` were
+  checked. Its noun-candidate scan is adequate for its narrow semantic test;
+  no first-parse defect was reproduced there.
+- `cardinals.py`: direct unit recovery is constrained by the unit lexicon,
+  but the ordinary following-noun and adjective+noun branches use first
+  parses. Numeric context must prefer a noun candidate, as shown by `1 пасть`.
+- `_helpers.py`: generated cardinal tokens from 0 through 1000 plus scale
+  boundaries were inventoried. Their first parse is compatible with numeral
+  rendering; unit and free-text context calls are not uniformly safe.
+- `fractions.py`: per-token first-parse inflection is not safe for compound
+  numerators and must be replaced. `decimals.py` already delegates the
+  numerator to `inflect_numeral_string()` and did not reproduce that defect.
+- `ordinal_utils.py` and `ordinals.py`: noun scans inspect all noun candidates,
+  but common gender, pluralia tantum, suffix evidence, and rare-case
+  canonicalization are incomplete.
+- `roman_numerals.py`: context nouns and person names already use constrained
+  candidate sets; shared rare-case canonicalization is still required.
+  Exact case-sensitive unit tokens made only of Roman letters must be
+  protected before this stage.
+- `years.py`: the final words generated by `num2words(..., to="ordinal")`
+  were checked for 1 through 9999 and had an adjective/`Anum` first parse.
+  Keep that invariant test. `years_context.py` is defective because semantic
+  unit detection checks only `parsed[0].normal_form`.
+- Shape analyzers and boundary values were exercised with empty strings,
+  punctuation, digits, Roman and Latin text, unknown Cyrillic text,
+  one- and multi-hyphen words, capitalization, and `е`/`ё`. They degrade to
+  `NUMB`, `ROMN`, `LATN`, `PNCT`, or `UNKN` with `inflect() is None`; the
+  existing fallback model is appropriate.
+- The upstream 2.0.6 threading, inflection, numeral-agreement, tagset,
+  result-wrapper, parsing, and analyzer suites were run against the installed
+  dictionary: 555 passed, 23 upstream expected failures remained, and 4
+  upstream non-strict expected failures passed. No base-contract failure was
+  observed. Upstream still marks digit-plus-suffix parses such as `3-го`,
+  `41-й`, and `8-му` as expected failures, confirming that the project's own
+  ordinal token grammar cannot be replaced by pymorphy3's shape analyzers.
+- Every unique unit lemma was checked at one/few/many and every lemma with
+  `Sgtm`, `Pltm`, `GNdr`, `Fixd`, `Coun`, `Name`, `Surn`, `Geox`, or `ms-f`
+  was inspected. This found the lira, shekel, gray, pascal/weber/sievert,
+  tenge, won, farad, tesla, mole, byte-family, and exact-case symbol cases
+  listed above; the remaining current unit lemmas produced their intended
+  base form at one.
+
+Public pymorphy3 functionality was also evaluated rather than omitted:
+
+- use `TagClass.fix_rare_cases()`, `Parse.lexeme`, and ordinary parse/tag
+  fields where they strengthen the shared policy;
+- retain `make_agree_with_number()` only as a test oracle because it cannot
+  honor the project's external case and byte-form conventions;
+- do not switch runtime code to `normal_forms()` or `tag()` because current
+  callers need tags plus normal forms and often inflection;
+- do not use `word_is_known()` as a spell checker or parse selector (the
+  upstream documentation explicitly warns against both assumptions);
+- do not depend on `methods_stack`, private analyzer-unit classes,
+  `result_type=None`, a disabled probability estimator, or a custom
+  `MorphAnalyzer(units=...)`; those either expose private contracts or remove
+  information required by the project.
 
 ## Implementation
 
@@ -148,8 +275,12 @@ and the compiled backend must remain optional.
 Modify `src/ru_normalizr/_morph.py`:
 
 - Extend `MorphParse` only with public attributes actually needed by the new
-  policy (`score: float` and `is_known: bool` if used). Do not expose
-  `methods_stack` or private analyzer classes.
+  policy (`score: float` and `lexeme` if the validated paradigm path uses
+  them). Do not expose `methods_stack` or private analyzer classes, and do
+  not use surface-global `is_known` as candidate evidence.
+- Split `parse_word()` into a public normalizing wrapper and a private
+  lowercase-keyed LRU cache. Preserve `е` versus `ё` and the current
+  65,536-entry bound.
 - Add `canonicalize_grammemes(grammemes: Iterable[str]) -> frozenset[str]`
   implemented through `get_morph().TagClass.fix_rare_cases()`.
 - Add `canonicalize_case(case: str | None, default: str = "nomn") -> str`
@@ -162,7 +293,7 @@ Modify `src/ru_normalizr/_morph.py`:
   dictionary or disable the existing word cache.
 
 Replace the private `SECONDARY_CASE_TO_PRIMARY` mapping in
-`src/ru_normalizr/numerals/_helpers.py` with the shared helper. Update
+`src/ru_normalizr/numerals/_num2words.py` with the shared helper. Update
 `src/ru_normalizr/abbreviations.py`,
 `src/ru_normalizr/ordinal_utils.py`,
 `src/ru_normalizr/roman_numerals.py`, and
@@ -210,9 +341,14 @@ the existing lemma/gender/category/suffix fields plus optional morphology
 metadata:
 
 - expected normal form;
+- expected animacy and whether accusative must use the inanimate form;
+- explicit indeclinability when the surface form must never enter a foreign
+  dictionary paradigm;
 - preferred/forbidden grammemes;
 - optional morphology seed for a productive paradigm which is absent from
-  the packaged dictionary.
+  the packaged dictionary;
+- as a last domain-data fallback, a validated six-case singular/plural
+  paradigm for a whole lexeme when pymorphy3 has no usable productive parse.
 
 Migrate `resolve_unit_info()` and direct `UNITS_DATA` consumers to the typed
 descriptor without changing token-resolution precedence or mixed-case SI
@@ -234,15 +370,43 @@ Modify `src/ru_normalizr/numerals/_helpers.py::inflect_unit_lemma()`:
 - When the packaged dictionary has no productive unit paradigm, parse the
   declared morphology seed and require the resulting candidate to match the
   expected lemma, gender, animacy, and requested form. If validation fails,
-  log at `DEBUG` and return the established safe fallback.
+  use the descriptor's complete validated paradigm when present; otherwise
+  log at `DEBUG` and return the established safe fallback. Do not fabricate a
+  form by suffix concatenation at runtime.
+- For an inanimate masculine unit whose only usable dictionary paradigm is
+  animate (`паскаль`), normalize singular accusative to nominative before
+  inflection. Do not blindly select the dictionary's inanimate `зивёрт`
+  candidate, because it would change the supported spelling `зиверт`.
 - Keep all `inflect()` calls behind `safe_inflect()` or an equivalent
   boundary. Never index an unvalidated candidate.
 
 Provide validated morphology metadata for the currently confirmed gaps
-(`шекель` and `грей`) and audit every existing unit lemma carrying `Sgtm`,
-`Pltm`, `GNdr`, `Fixd`, `Coun`, `Name`, `Surn`, `Geox`, or `ms-f`.
-Metadata is domain-lexicon data, not a regex replacement, and must cover a
-whole lexeme paradigm through the shared mechanism.
+(`лира`, `шекель`, `грей`, `тенге`, `вона`, `фарад` and its prefixes,
+`тесла`, `моль`, `паскаль` and its prefixes, `вебер`, and `зиверт`) and audit
+every existing unit lemma carrying `Sgtm`, `Pltm`, `GNdr`, `Fixd`, `Coun`,
+`Name`, `Surn`, `Geox`, or `ms-f`. Metadata is domain-lexicon data, not a
+regex replacement, and must cover a whole lexeme paradigm through the shared
+mechanism.
+
+Refactor `CASE_SENSITIVE_UNITS_DATA` and `resolve_unit_info()` at the same
+time:
+
+- enumerate exact standard forms wherever case distinguishes a value:
+  milli/mega SI prefixes, `b`/`B` for bit/byte, and Cyrillic `Гр`/`гр`;
+- add the missing domain descriptors needed by supported exact forms, such
+  as milliwatt, megavolt, and megabit;
+- keep case-insensitive lookup only for textual names and genuinely
+  unambiguous aliases;
+- add a shared `is_exact_unit_token()`/protection API used before Roman and
+  Latin stages, so `MV` cannot be consumed as a Roman numeral;
+- table-test every exact token beside its nearest case variant. Do not
+  generate aliases by indiscriminate `.lower()` or `.upper()`.
+- Preserve both the exact cleaned token and the original dotted token during
+  lookup. Dotted-only aliases must resolve, while sentence-terminal dot
+  preservation continues to use the existing boundary helpers.
+- Encode `Pltm` unit agreement for `сутки`: one uses `одни сутки`, two uses
+  the collective numeral plus genitive plural `двое суток`, and five uses
+  `пять суток`. Keep this descriptor-driven for future plural-only units.
 
 ### 3. Tighten context parse selection without suppressing unknown words
 
@@ -250,8 +414,6 @@ Review every remaining direct `first_parse_required()` and `parsed[0]` use in:
 
 - `src/ru_normalizr/abbreviations.py`
 - `src/ru_normalizr/abbreviation_context.py`
-- `src/ru_normalizr/caps.py`
-- `src/ru_normalizr/normalizer.py`
 - `src/ru_normalizr/ordinal_utils.py`
 - `src/ru_normalizr/roman_numerals.py`
 - `src/ru_normalizr/years.py`
@@ -270,13 +432,57 @@ the choice is non-obvious:
   focused invariant test;
 - inspect all candidates when the decision is semantic (`NOUN`, `ADJF`,
   person name, unit, or case);
-- use `is_known`/`score` only as confidence signals, not hard global filters.
+- use `score` only as a final confidence/tie-break signal, not a hard global
+  filter; keep `is_known` out of per-candidate selection.
 
 Do not globally reject predicted parses: unknown Russian words and names are
 valid TTS input. Treat `LATN`, `NUMB`, `ROMN`, `PNCT`, and `UNKN` as barriers
 where a caller is specifically scanning for Russian syntactic context.
 
-### 4. Package compatibility and optional fast backend
+Apply the concrete outcomes of the completed review:
+
+- In `abbreviations.py`, parse the bounded phrase as adjective/participle
+  modifiers followed by the rightmost compatible noun head. Do not accept a
+  noun homonym for a token when an adjective parse is compatible with a
+  later noun (`часовой стрелки`). Keep the existing three-word bound.
+- In `cardinals.py`, when a numeric token is followed by a Russian word,
+  select a noun candidate before giving up on gender/animacy. For the
+  adjective+noun branch, constrain each token by its syntactic role instead
+  of checking only its first parse. Preserve all current unit-resolution
+  precedence.
+- In `_helpers.py::get_numeral_case()`, inspect compatible verb/infinitive
+  candidates when matching `VERB_CASE`; do not let a top `ADJS` homonym hide
+  `достигаем`. Keep participles as attributive barriers and preserve the
+  bounded left scan.
+- In `years_context.py`, accept a following token as a known unit only when
+  an exact unit token or a semantically compatible noun normal form matches
+  the lexicon. Inspect all noun candidates, but do not let an arbitrary
+  low-score homonym suppress a genuine year; require expected unit
+  lemma/descriptor compatibility.
+- Keep first-parse behavior for the last word emitted by
+  `num2words(..., to="ordinal")`, but add the bounded generated-output
+  invariant which justified that choice.
+- Leave `abbreviation_context.py` person/name scans and Roman name selection
+  on their existing all-candidate logic, changing only their shared
+  canonical-case calls.
+
+### 4. Render fractions through the complete numeral path
+
+Modify `src/ru_normalizr/numerals/fractions.py`:
+
+- replace per-token `first_parse_required(part).inflect({case})` with
+  `inflect_numeral_string()` so hundreds and magnitude groups retain their
+  internal agreement in every case;
+- keep the final feminine adjustment for numerators ending in one/two, but
+  perform it on a semantically selected `NUMR`/`Anum` parse;
+- reuse the shared case canonicalizer and safe inflection boundary;
+- ensure the ordinal/year stages do not match a number immediately followed
+  by `/` when that slash begins `FRACTION_PATTERN`, including numerators of
+  four or more digits;
+- add stage-level tests as well as public `normalize()` tests so ownership of
+  `1000/100` cannot regress.
+
+### 5. Package compatibility and optional fast backend
 
 Modify `pyproject.toml` and refresh `uv.lock`:
 
@@ -297,7 +503,7 @@ Update the Russian installation/development documentation in `README.md`:
 Do not rely on the fast backend for correctness and do not create separate
 code paths based on its availability.
 
-### 5. Record the durable integration constraints
+### 6. Record the durable integration constraints
 
 Create `docs/agents/pymorphy3-integration.md` in English and list it in
 `docs/agents/README.md` with a two-sentence Russian description. Document:
@@ -321,11 +527,16 @@ to the user first if that happens.
 
 ## Testing & verification
 
-Start each bug fix with a failing regression test. Use table-driven tests for
+Start each bug fix with a failing regression test. User-facing regressions
+must use natural complete messages through public `normalize()`, not isolated
+two-word fragments. Use additional table-driven helper/stage tests for
 grammeme families and unit paradigms.
 
 Add or update tests covering:
 
+- move each fixed full-message regression from `tests/test_known_gaps.py`
+  into the closest regular test module; remove `xfail` only in the same
+  commit which makes that exact assertion pass;
 - common gender with explicit masculine and feminine suffixes:
   `2-й коллега`, `2-я коллега`, `2-й сирота`, `2-я сирота`;
 - `Pltm`/`GNdr` nominative and accusative ambiguity:
@@ -335,10 +546,31 @@ Add or update tests covering:
   `gen1`, `gen2`, `acc1` when recognized by the tag class, `acc2`, `loc1`,
   `loc2`, and `voct`;
 - domain homonyms and missing paradigms across one/few/many and all six
-  primary cases: Turkish lira, shekel, gray, pascal, newton, and henry;
+  primary cases: Turkish lira, shekel, gray, pascal, weber, sievert, newton,
+  henry, tenge, Korean won, farad and prefixed farads, tesla, and mole;
+- inanimate singular accusative for pascal/weber/sievert and a control
+  animate lexeme (`человек`);
 - ordinary byte-family forms for byte, kilobyte, megabyte, gigabyte, and
   terabyte, including 1, 2, 5, 11, 21, 22, and 25;
 - indeclinable units (`евро`, `тенге`, `песо`, `генри`, `промилле`);
+- plural-only unit agreement for `1/2/5 сут.` and controls for ordinary
+  plural nouns;
+- every dotted-only alias (`п.п.`, `б.п.`, `в.`, `л.с.`, `л. с.`, and
+  `рад.`) in sentence-medial and sentence-final positions, including
+  preservation of the actual sentence boundary;
+- exact-case tables for `mW`/`MW`, `мВт`/`МВт`, `mV`/`MV`, `mA`/`MA`,
+  `b`/`B` data-unit families and rates, and `Гр`/`гр`; assert both the
+  expanded value and that Roman normalization never sees protected units;
+- abbreviation agreement with an adjective/noun homonym followed by the
+  actual head (`гос. часовой стрелки`) and ordinary control phrases;
+- following-noun selection where the top parse is a verb/infinitive but a
+  noun parse is licensed by the number (`1 пасть`);
+- verb-governed case where an `ADJS` homonym ranks above the actual verb
+  (`достигаем 5 целей`) plus participle controls;
+- implicit-year exclusion for inflected unit forms in the year range
+  (`дозу в 2020 зивертов`) plus genuine-year controls;
+- fractions with numerators 100, 101, 2000, and a magnitude boundary in all
+  supported prepositional cases, including `1000/100` after `к` and `о`;
 - a morphology-seed validation failure returning the documented fallback and
   emitting a `DEBUG` diagnostic without crashing;
 - parse selection for unknown Cyrillic words, shape tokens, and ambiguous
