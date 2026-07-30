@@ -69,6 +69,29 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
     @pytest.mark.xfail(
         strict=True,
+        reason="the numerals stage deletes a comma that follows any dot, so an "
+        "abbreviation dot swallows the list separator after it",
+    )
+    def test_comma_after_an_abbreviation_dot_survives_the_numerals_stage(self):
+        # Nothing here needs normalizing, so the sentence must come back intact.
+        # Today the comma after "Б." is dropped, and finalize then reads the dot
+        # as a sentence end and capitalises the "и".
+        text = "В комиссию вошли Иванов А. Б., Петров В. Г. и Сидоров."
+        self.assertEqual(normalize(text), text)
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason="the numerals stage deletes a comma that follows any dot, so a "
+        "clause boundary after initials turns into a sentence boundary",
+    )
+    def test_clause_after_initials_does_not_become_a_new_sentence(self):
+        self.assertEqual(
+            normalize("Работу приняли Иванов А. Б., затем подписал Петров."),
+            "Работу приняли Иванов А. Б., затем подписал Петров.",
+        )
+
+    @pytest.mark.xfail(
+        strict=True,
         reason="above 1000 simple rules each key gets its own pass, so rules "
         "cascade into each other instead of applying once",
     )
