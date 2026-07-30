@@ -4,7 +4,7 @@ import re
 
 import roman
 
-from ._morph import parse_word
+from ._morph import canonicalize_case, parse_word
 from .constants import KNOWN_ABBREVIATIONS
 from .numerals._helpers import get_numeral_case
 from .numerals._hyphen import is_safe_numeric_hyphen_unit
@@ -180,7 +180,7 @@ def _resolve_full_noun_case_or_none(
     lemma: str,
 ) -> str | None:
     cases = {
-        ("loct" if "loc2" in candidate.tag else (candidate.tag.case or "nomn"))
+        canonicalize_case(candidate.tag.case)
         for candidate in parse_word(word.lower())
         if "NOUN" in candidate.tag and candidate.normal_form == lemma
     }
@@ -568,7 +568,7 @@ def convert_roman_names(text: str) -> str:
         target_case = _REGNAL_CASE_CONTEXT.get(left_word)
         if target_case is not None:
             for candidate in parses:
-                candidate_case = "loct" if "loc2" in candidate.tag else candidate.tag.case
+                candidate_case = canonicalize_case(candidate.tag.case)
                 if candidate_case == target_case:
                     return candidate
         return parses[0]

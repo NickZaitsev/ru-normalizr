@@ -4,7 +4,7 @@ import logging
 
 import num2words
 
-from ._morph import first_parse_required, parse_word
+from ._morph import canonicalize_case, first_parse_required, parse_word, select_parse
 from .numerals._num2words import (
     CASE_TO_NUM2WORDS as _CASE_TO_NUM2WORDS,
 )
@@ -20,7 +20,7 @@ GENDER_TO_NUM2WORDS = ORDINAL_GENDER_TO_NUM2WORDS
 
 
 def noun_parse_case(noun_parse) -> str:
-    return "loct" if "loc2" in noun_parse.tag else (noun_parse.tag.case or "nomn")
+    return canonicalize_case(noun_parse.tag.case)
 
 
 def choose_noun_parse(word: str, prefer_inanimate: bool = True):
@@ -48,31 +48,30 @@ def find_first_noun_right(tokens_right: list[str], suffix: str):
         ]
         noun_candidate = None
         if suffix in {"я", "ая", "ю", "ую", "ей"}:
-            noun_candidate = next(
-                (
-                    candidate
-                    for candidate in noun_candidates
-                    if "sing" in candidate.tag and "femn" in candidate.tag
-                ),
-                None,
+            noun_candidate = select_parse(
+                noun_candidates,
+                pos="NOUN",
+                gender="femn",
+                number="sing",
+                case="accs" if suffix in {"ю", "ую"} else "nomn",
             )
         if suffix in {"е", "ые", "их", "х", "ми"}:
-            noun_candidate = next(
-                (
-                    candidate
-                    for candidate in noun_candidates
-                    if "sing" in candidate.tag and "neut" in candidate.tag
-                ),
-                None,
+            noun_candidate = select_parse(
+                noun_candidates,
+                pos="NOUN",
+                gender="neut",
+                number="sing",
+                case="nomn",
             )
             if noun_candidate is None:
-                noun_candidate = next(
-                    (
-                        candidate
-                        for candidate in noun_candidates
-                        if "plur" in candidate.tag
+                noun_candidate = select_parse(
+                    noun_candidates,
+                    pos="NOUN",
+                    number="plur",
+                    case={"их": "gent", "х": "gent", "ми": "ablt"}.get(
+                        suffix, "nomn"
                     ),
-                    None,
+                    preferred_grammemes={"inan"},
                 )
         if noun_candidate is None:
             noun_candidate = noun_candidates[0] if noun_candidates else None
@@ -193,8 +192,10 @@ def render_ordinal(
     plural: bool = False,
     inanimate: bool = False,
 ) -> str:
-    generation_case = case
-    if case == "accs" and not plural and inanimate and gender in {"masc", "neut"}:
+    generation_case = canonicalize_case(case)
+    if generation_case == "accs" and inanimate and (
+        plural or gender in {"masc", "neut"}
+    ):
         generation_case = "nomn"
 
     kwargs: dict[str, str | bool] = {
@@ -280,11 +281,29 @@ def render_ordinal_from_noun_parse(
     noun_parse,
     *,
     singularize_plural: bool = False,
+    case_hint: str | None = None,
+    gender_hint: str | None = None,
+    plural_hint: bool | None = None,
+    inanimate_hint: bool | None = None,
 ) -> str:
-    case = noun_parse_case(noun_parse)
-    gender = noun_parse.tag.gender or "masc"
-    plural = "plur" in noun_parse.tag and not singularize_plural
-    inanimate = "inan" in noun_parse.tag
+    tag_case = noun_parse_case(noun_parse)
+    tag_gender = noun_parse.tag.gender
+    tag_plural = "plur" in noun_parse.tag
+    tag_animacy = noun_parse.tag.animacy
+    case = canonicalize_case(case_hint) if case_hint is not None else tag_case
+    if case_hint is not None and noun_parse.tag.case is not None and case != tag_case:
+        case = tag_case
+    common_gender = "ms-f" in noun_parse.tag or tag_gender is None
+    gender = gender_hint if gender_hint is not None and common_gender else tag_gender
+    if gender is None:
+        gender = "masc"
+    plural = tag_plural if plural_hint is None else plural_hint
+    if noun_parse.tag.number is not None and plural != tag_plural:
+        plural = tag_plural
+    plural = plural and not singularize_plural
+    inanimate = tag_animacy == "inan"
+    if tag_animacy is None and inanimate_hint is not None:
+        inanimate = inanimate_hint
     return render_ordinal(
         number,
         case=case,

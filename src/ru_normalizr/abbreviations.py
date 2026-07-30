@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from ._morph import first_parse_required, parse_word
+from ._morph import canonicalize_case, first_parse_required, parse_word
 from .abbreviation_rules import (
     ABBREVIATION_LITERAL_HINTS,
     ABBREVIATION_PATTERNS,
@@ -128,7 +128,7 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
         if adjective_parse is None:
             return lemma
 
-        noun_case = "loct" if "loc2" in noun_parse.tag else noun_parse.tag.case
+        noun_case = canonicalize_case(noun_parse.tag.case)
         if noun_case is None:
             return lemma
         target_tags = {noun_case}
