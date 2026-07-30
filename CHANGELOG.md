@@ -7,6 +7,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## Unreleased
 
 ### Added
+- Report CLI input/output failures as a one-line `ru-normalizr: ...` diagnostic on stderr with exit status `2`, instead of a Python traceback. Covers a missing or unreadable `--file`, a `--file` that is not valid UTF-8, an `--output` path that cannot be written, and undecodable stdin. Exit status `2` now marks every usage error, so `--check` keeps status `1` for "the text is not normalized yet" alone
+- Add a `README.md` section on development and a `scripts/dev.py typecheck` subcommand; `scripts/dev.py check` now runs `pyright` between lint and tests, so the release gate is no longer weaker than CI
 - Fail the GitHub Actions release job when the pushed `v*` tag does not match the package version in `pyproject.toml` / `__init__.py`, so a mistagged push cannot publish the wrong version to PyPI
 - Add a CLI `--version` flag that prints the installed `ru-normalizr` version
 - Declare and continuously test support for Python 3.13, and exercise `windows-latest` (the primary development OS) in CI alongside the existing Ubuntu Python 3.10–3.13 matrix; add a weekly scheduled CI run so upstream dependency releases such as `num2words` are caught by CI instead of by users
@@ -25,6 +27,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Correct the console-script name in the README from `ru_normalizr` to `ru-normalizr`
 
 ### Fixed
+- Read a pymorphy secondary case as its primary one before rendering a numeral (`gen1`/`gen2` → `gent`, `loc1`/`loc2` → `loct`, `acc2` → `accs`, `voct` → `nomn`). Numerals have no partitive, locative-2, or vocative forms, so such a request skipped `num2words` entirely and pymorphy answered it with an arbitrary matching form: `5000` in the vocative came back as `пять тысячи` instead of `пять тысяч`. Call sites previously each mapped `loc2` by hand and left the other secondary cases unmapped
+- Agree a magnitude noun in the `num2words` fallback with its own group, so an oblique case renders `двух тысяч` instead of `двух тысячи` and `двух миллионов` instead of `двух миллиона`, while `1000` and `21000` correctly stay singular (`одной тысячи`, `двадцати одной тысячи`)
 - Декодировать вывод Git в dev-скрипте как UTF-8 независимо от системной локали и безопасно заменять повреждённые байты, чтобы имена веток, пути и диагностические сообщения не искажались и не вызывали `UnicodeDecodeError`
 - Сохранять верхний регистр целиком в резервной эвристике родительного множественного для прилагательных (`НОВЫЕ` → `НОВЫХ`, а не смешанное `НОВЫх`)
 - Корректно обрабатывать обе формы результата `eng_to_ipa` — строку и список вариантов: раньше строковый ответ пакетного API сокращался до последнего символа, а список вариантов одиночного API мог попасть в строковый кеш без преобразования
