@@ -145,14 +145,35 @@ class LetterAbbreviationTests(unittest.TestCase):
         self.assertEqual(expand_letter_abbreviations("ABCDEFG"), "ABCDEFG")
 
     def test_overlong_cyrillic_run_is_left_untouched(self):
-        # Past five letters an undotted all-caps run is more likely a code than
-        # an acronym meant to be spelled out.
+        # Note this run never reaches the length limit: pymorphy reads "ждкфпч"
+        # as an ordinary noun without the Abbr grammeme, so the real-word guard
+        # rejects it first. The length limit itself is pinned from the reachable
+        # side by test_run_at_the_cyrillic_length_limit_is_still_spelled_out.
         self.assertEqual(expand_letter_abbreviations("ЖДКФПЧ"), "ЖДКФПЧ")
+
+    def test_dictionary_reading_wins_before_any_heuristic(self):
+        # A known abbreviation is answered from the table, ahead of the real-word,
+        # length and vowel guards. ABBREV_MAX_LEN_RU is in practice unreachable
+        # for real five-letter acronyms for exactly this reason: they are either
+        # in the table or rejected by the guards before the limit is consulted.
+        self.assertEqual(expand_letter_abbreviations("ВЛКСМ"), "вэ эл ка эс эм")
+        self.assertEqual(expand_letter_abbreviations("ГИБДД"), "ги бэ дэ дэ")
 
     def test_vowel_heavy_cyrillic_run_is_left_untouched(self):
         # More than one vowel means it is probably pronounceable as a word.
         self.assertEqual(expand_letter_abbreviations("АЕИ"), "АЕИ")
         self.assertEqual(expand_letter_abbreviations("ОАЭ"), "ОАЭ")
+
+    def test_exactly_two_vowels_already_look_like_a_word(self):
+        # The boundary of the vowel rule: two is already "more than one", so a
+        # run like this stays as written and gets read naturally.
+        self.assertEqual(expand_letter_abbreviations("ЮАР"), "ЮАР")
+
+    def test_run_at_the_latin_length_limit_is_still_spelled_out(self):
+        self.assertEqual(expand_letter_abbreviations("HTTPS"), "эйч ти ти пи эс")
+
+    def test_latin_run_one_letter_past_the_limit_is_left_untouched(self):
+        self.assertEqual(expand_letter_abbreviations("GITHUB"), "GITHUB")
 
     def test_dotted_form_bypasses_the_length_and_vowel_limits(self):
         # The dots themselves say it is an abbreviation, so the heuristics that
@@ -164,6 +185,74 @@ class LetterAbbreviationTests(unittest.TestCase):
 
     def test_mixed_script_token_is_left_untouched(self):
         self.assertEqual(expand_letter_abbreviations("АBC"), "АBC")
+
+
+class AmpersandTests(unittest.TestCase):
+    """"X & Y" reads as "энд" for brands and as "и" for Russian text.
+
+    The whole decision rests on which script each side is written in, so the
+    boundary letters of both alphabets are asserted here as well.
+    """
+
+    LATINIZING = NormalizeOptions(enable_latinization=True)
+
+    def test_two_latin_words_read_the_ampersand_as_end(self):
+        self.assertEqual(
+            expand_abbreviations("Rockwell & Co открыли филиал", self.LATINIZING),
+            "Rockwell энд Co открыли филиал",
+        )
+
+    def test_ampersand_between_latin_words_is_kept_without_latinization(self):
+        # Nothing will read the Latin out, so spelling the ampersand in Russian
+        # would leave a half-translated phrase.
+        self.assertEqual(
+            expand_abbreviations("Rockwell & Co открыли филиал", NormalizeOptions()),
+            "Rockwell & Co открыли филиал",
+        )
+
+    def test_cyrillic_neighbours_read_the_ampersand_as_the_russian_conjunction(self):
+        self.assertEqual(
+            expand_abbreviations("Маша & Петя пришли", self.LATINIZING),
+            "Маша и Петя пришли",
+        )
+
+    def test_one_cyrillic_side_is_enough_for_the_russian_conjunction(self):
+        self.assertEqual(
+            expand_abbreviations("Маша & Co подписали договор", self.LATINIZING),
+            "Маша и Co подписали договор",
+        )
+
+    def test_boundary_latin_letters_still_count_as_latin(self):
+        # The check is a pair of range comparisons, so the first and last letter
+        # of each case must fall inside it.
+        for text, expected in (
+            ("A & B поставили подписи", "A энд B поставили подписи"),
+            ("Z & Q остались в списке", "Z энд Q остались в списке"),
+            ("a & q в сноске", "a энд q в сноске"),
+            ("z & y в примечании", "z энд y в примечании"),
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(expand_abbreviations(text, self.LATINIZING), expected)
+
+    def test_boundary_cyrillic_letters_still_count_as_cyrillic(self):
+        # "Ё" and "ё" sit outside the А-я range and need their own check.
+        for text, expected in (
+            ("Пункты Ё & Я согласованы", "Пункты Ё и Я согласованы"),
+            ("Схемы А & я в приложении", "Схемы А и я в приложении"),
+            ("Отделы ё & Ю закрыты", "Отделы ё и Ю закрыты"),
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(expand_abbreviations(text, self.LATINIZING), expected)
+
+    def test_english_letter_name_pulls_in_the_end_reading(self):
+        # An already-transliterated letter name counts as English, so the pair
+        # keeps reading as a brand rather than switching to "и".
+        for text, expected in (
+            ("би & си в таблице", "би энд си в таблице"),
+            ("би & Rockwell в списке", "би энд Rockwell в списке"),
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(expand_abbreviations(text, self.LATINIZING), expected)
 
 
 if __name__ == "__main__":
