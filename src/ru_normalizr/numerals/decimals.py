@@ -111,7 +111,7 @@ def normalize_decimals(text: str) -> str:
         start_pos = match.start()
         context = text[max(0, start_pos - 40) : start_pos]
         tokens_left = simple_tokenize(context)
-        case = get_numeral_case(tokens_left + [s], len(tokens_left))
+        case = get_numeral_case([*tokens_left, s], len(tokens_left))
         is_negative = s.startswith("-") or s.startswith(NEGATIVE_NUMBER_PLACEHOLDER)
         abs_s = s.lstrip(f"-{NEGATIVE_NUMBER_PLACEHOLDER}")
         parts = abs_s.split(".")
@@ -148,9 +148,10 @@ def normalize_decimals(text: str) -> str:
                     if unit_info:
                         unit_consumes_second_token = True
                         break
-            if unit_info is None:
-                if not should_skip_unit_candidate(unit_raw, text[match.end("unit") :]):
-                    unit_info = resolve_unit_info(unit_raw)
+            if unit_info is None and not should_skip_unit_candidate(
+                unit_raw, text[match.end("unit") :]
+            ):
+                unit_info = resolve_unit_info(unit_raw)
             unit2_processed = False
             if unit_info:
                 lemma, _, _, *u_suffix = unit_info
@@ -183,9 +184,7 @@ def normalize_decimals(text: str) -> str:
                 unit2_dot
                 and unit2_raw
                 and should_keep_decimal_unit_dot(text[match.end() :])
-            ):
-                result += "."
-            elif (
+            ) or (
                 unit_dot
                 and not unit2_raw
                 and should_keep_decimal_unit_dot(text[match.end() :])

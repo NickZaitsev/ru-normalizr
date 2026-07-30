@@ -46,11 +46,12 @@ def normalize_versions(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
         name = match.group("name")
         components = match.group("version").split(".")
-        if len(components) < 3:
-            # Two components are a fraction unless a name claims them, and even
-            # then a following unit means it really is a measurement ("X-1.5 кг").
-            if not name or _is_followed_by_unit(text[match.end() :]):
-                return match.group(0)
+        # Two components are a fraction unless a name claims them, and even
+        # then a following unit means it really is a measurement ("X-1.5 кг").
+        if len(components) < 3 and (
+            not name or _is_followed_by_unit(text[match.end() :])
+        ):
+            return match.group(0)
         spoken = f" {VERSION_SEPARATOR_WORD} ".join(
             _render_component(component) for component in components
         )

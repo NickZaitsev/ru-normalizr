@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal
 
 NormalizeMode = Literal["safe", "tts"]
 LatinizationBackend = Literal["ipa", "dictionary"]
@@ -87,7 +87,7 @@ class NormalizeOptions:
     latin_dictionary_filename: str
     dictionary_include_files: tuple[str, ...]
     dictionary_exclude_files: tuple[str, ...]
-    dictionaries_path: Optional[Path]
+    dictionaries_path: Path | None
     mode: NormalizeMode | None
 
     def __init__(
@@ -116,7 +116,7 @@ class NormalizeOptions:
         latin_dictionary_filename: str = "latinization_rules.dic",
         dictionary_include_files: tuple[str, ...] = (),
         dictionary_exclude_files: tuple[str, ...] = (),
-        dictionaries_path: Optional[Path] = None,
+        dictionaries_path: Path | None = None,
         mode: NormalizeMode | None = None,
     ) -> None:
         defaults = _mode_defaults(mode)
@@ -158,9 +158,9 @@ class NormalizeOptions:
         object.__setattr__(self, "mode", mode)
 
     @classmethod
-    def safe(cls, **overrides: object) -> "NormalizeOptions":
+    def safe(cls, **overrides: object) -> NormalizeOptions:
         return cls(mode="safe", **overrides)
 
     @classmethod
-    def tts(cls, **overrides: object) -> "NormalizeOptions":
+    def tts(cls, **overrides: object) -> NormalizeOptions:
         return cls(mode="tts", **overrides)

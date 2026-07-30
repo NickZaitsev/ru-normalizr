@@ -171,7 +171,7 @@ def _infer_roman_context_case(
     left_context = text[max(0, match.start() - 60) : match.start()]
     right_context = text[match.end() : match.end() + 60]
     left_tokens = simple_tokenize(left_context)
-    tokens = left_tokens + ["1", noun_word] + simple_tokenize(right_context)
+    tokens = [*left_tokens, "1", noun_word, *simple_tokenize(right_context)]
     return get_numeral_case(tokens, len(left_tokens))
 
 
@@ -473,10 +473,7 @@ def convert_roman_century_ranges(text: str) -> str:
             right_number = roman.fromRoman(match.group("right").upper())
         except roman.InvalidRomanNumeralError:
             return match.group(0)
-        if match.group("mid").lower() == "до":
-            right_case = "gent"
-        else:
-            right_case = "accs"
+        right_case = "gent" if match.group("mid").lower() == "до" else "accs"
         resolved = _resolve_explicit_roman_context_form(
             match.group("word"),
             case_override=right_case,

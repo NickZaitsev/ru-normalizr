@@ -233,7 +233,9 @@ class DictionaryNormalizer:
             elif chunk_type == "regex_batch":
                 pattern, mapping = chunk_data
                 text = pattern.sub(
-                    lambda match: mapping.get(match.group().lower(), match.group()),
+                    lambda match, mapping=mapping: mapping.get(
+                        match.group().lower(), match.group()
+                    ),
                     text,
                 )
             else:

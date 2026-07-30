@@ -141,13 +141,11 @@ def _should_keep_era_terminal_dot(source_text: str, match: re.Match[str]) -> boo
         return True
     if next_char.isupper():
         return True
-    if (
+    return (
         next_char in '"»”)]}'
         and len(stripped_rest) > 1
         and stripped_rest[1:2].isupper()
-    ):
-        return True
-    return False
+    )
 
 
 def _resolve_explicit_year_word_case(prep: str | None, word: str) -> str:

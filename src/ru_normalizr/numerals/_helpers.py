@@ -108,10 +108,11 @@ def build_number_token(
     result = token.replace(source, replacement, 1)
     if result == token:
         stripped_source = token.strip(PUNCT_STRIP)
-        if stripped_source:
-            result = token.replace(stripped_source, replacement, 1)
-        else:
-            result = replacement
+        result = (
+            token.replace(stripped_source, replacement, 1)
+            if stripped_source
+            else replacement
+        )
     if is_negative:
         return f"минус {result}"
     return result

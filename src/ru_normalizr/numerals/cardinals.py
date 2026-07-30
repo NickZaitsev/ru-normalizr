@@ -393,7 +393,7 @@ def normalize_numeric_unit_ranges(text: str) -> str:
             return match.group(0)
         context = text[max(0, match.start() - 40) : match.start()]
         tokens_left = simple_tokenize(context)
-        case = get_numeral_case(tokens_left + [left], len(tokens_left))
+        case = get_numeral_case([*tokens_left, left], len(tokens_left))
         lemma, u_gender, _, *u_suffix = unit_info
 
         def numeral_for_range(value_text: str) -> str:
