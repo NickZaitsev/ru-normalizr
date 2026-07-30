@@ -12,7 +12,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from ru_normalizr.dictionary import DictionaryNormalizer
+from ru_normalizr.dictionary import DictionaryNormalizer, apply_dictionary_rules
 
 
 class DictionaryRuleTestCase(unittest.TestCase):
@@ -58,6 +58,33 @@ class SimpleRuleTests(DictionaryRuleTestCase):
         self.write_dic("a.dic", "мусор=\n")
 
         self.assertEqual(self.normalizer().apply("слово мусор тут"), "слово  тут")
+
+    def test_single_character_source_rule_loads(self):
+        # The shortest possible rule puts "=" at index 1, right next to the
+        # "no separator at all" case the parser has to reject.
+        self.write_dic("a.dic", "я=аз\n")
+
+        self.assertEqual(self.normalizer().apply("я помню чудное мгновенье"), "аз помню чудное мгновенье")
+
+    def test_line_without_a_separator_never_becomes_a_rule(self):
+        # A stray note in a dictionary must be dropped, not read as a rule whose
+        # source is the line minus its last character.
+        self.write_dic("a.dic", "просто замет\nхорошо=ок\n")
+        apply = self.normalizer().apply
+
+        self.assertEqual(apply("Тут просто замет и всё"), "Тут просто замет и всё")
+        self.assertEqual(apply("хорошо"), "ок")
+
+    def test_replacement_keeps_its_last_character_including_a_capital_letter(self):
+        # Only the line break is stripped from a rule line, so a replacement is
+        # taken verbatim: a trailing capital must not be eaten along with "\r".
+        self.write_dic("a.dic", "модель икс=Model X\r\nоблако=Cloud\r\n")
+        apply = self.normalizer().apply
+
+        self.assertEqual(
+            apply("Он выбрал модель икс для семьи"), "Он выбрал Model X для семьи"
+        )
+        self.assertEqual(apply("Данные ушли в облако"), "Данные ушли в Cloud")
 
     def test_malformed_lines_are_skipped_without_losing_valid_rules(self):
         self.write_dic(
@@ -233,6 +260,32 @@ class FileSelectionTests(DictionaryRuleTestCase):
 
         self.assertEqual(normalizer.apply("слово другое третье"), "слово другое да")
 
+    def test_excluded_file_does_not_stop_the_files_after_it(self):
+        # Files load in sorted order, so the skip has to continue the scan: an
+        # excluded dictionary must not silently disable everything below it.
+        self.write_dic("a_skipped.dic", "первое=нет\n")
+        self.write_dic("z_kept.dic", "второе=да\n")
+
+        normalizer = self.normalizer(exclude_files=["a_skipped.dic"])
+
+        self.assertEqual(normalizer.apply("первое и второе"), "первое и да")
+
+    def test_include_only_keeps_scanning_past_a_non_matching_file(self):
+        self.write_dic("a_other.dic", "первое=нет\n")
+        self.write_dic("z_wanted.dic", "второе=да\n")
+
+        normalizer = self.normalizer(include_only_files=["z_wanted.dic"])
+
+        self.assertEqual(normalizer.apply("первое и второе"), "первое и да")
+
+    def test_latinization_directory_does_not_stop_the_files_after_it(self):
+        # "latinization/..." sorts before "z_plain.dic", so skipping the former
+        # must not cost us the latter.
+        self.write_dic("latinization/rules.dic", "phone=фон\n")
+        self.write_dic("z_plain.dic", "второе=да\n")
+
+        self.assertEqual(self.normalizer().apply("phone и второе"), "phone и да")
+
     def test_subdirectories_are_searched_recursively(self):
         self.write_dic("deep/deeper/rules.dic", "слово=ок\n")
 
@@ -302,6 +355,92 @@ class ApplyOptionTests(DictionaryRuleTestCase):
 
         self.assertEqual(normalizer.get_rule_count(), 1200)
         self.assertEqual(normalizer.apply("слово0 и слово1199"), "число0 и число1199")
+
+
+class LargeDictionaryTests(DictionaryRuleTestCase):
+    """Above 1000 simple rules each key gets its own pattern.
+
+    That path is a separate implementation from the batched alternation, so the
+    guarantees the batch gives — longest key first, case-insensitive matching —
+    have to be asserted here too.
+    """
+
+    def write_bulky_dic(self, *rules: str) -> None:
+        filler = "".join(f"наполнитель{index}=пусто{index}\n" for index in range(1200))
+        self.write_dic("a.dic", filler + "".join(f"{rule}\n" for rule in rules))
+
+    def test_longest_key_wins_when_keys_are_multi_word(self):
+        # Replacing "первый" first would leave "первый класс" unreachable, and a
+        # multi-word key is the only way two keys can overlap once each pattern
+        # carries its own word boundaries.
+        self.write_bulky_dic("первый=головной", "первый класс=высшая категория")
+
+        self.assertEqual(
+            self.normalizer().apply("Ему достался первый класс до Москвы"),
+            "Ему достался высшая категория до Москвы",
+        )
+
+    def test_keys_still_match_regardless_of_case(self):
+        # Sources are lower-cased when loaded, so matching capitalised text at
+        # all depends on the pattern staying case-insensitive.
+        self.write_bulky_dic("линукс=Linux")
+        apply = self.normalizer().apply
+
+        self.assertEqual(apply("Он поставил линукс на сервер"), "Он поставил Linux на сервер")
+        self.assertEqual(apply("ЛИНУКС победил"), "Linux победил")
+        self.assertEqual(apply("Линукс победил"), "Linux победил")
+
+
+class PackagedDictionaryTests(unittest.TestCase):
+    """Constructed without a path, the normalizer must find its own .dic files."""
+
+    def test_default_path_finds_the_packaged_latinization_dictionary(self):
+        normalizer = DictionaryNormalizer(include_only_files=["latinization_rules.dic"])
+
+        self.assertGreater(normalizer.get_rule_count(), 0)
+        self.assertEqual(normalizer.apply("Модель a"), "Модель Эй,")
+
+    def test_default_path_ships_nothing_outside_latinization(self):
+        # The only bundled dictionary lives under latinization/, which the
+        # default scan skips, so an unconfigured normalizer is a no-op.
+        normalizer = DictionaryNormalizer()
+
+        self.assertEqual(normalizer.get_rule_count(), 0)
+        self.assertEqual(normalizer.apply("Модель a"), "Модель a")
+
+
+class PublicFunctionTests(DictionaryRuleTestCase):
+    def test_latin_is_kept_unless_stripping_is_requested(self):
+        self.write_dic("a.dic", "линукс=Linux\n")
+
+        self.assertEqual(
+            apply_dictionary_rules(
+                "Он поставил линукс вместо Windows",
+                enabled=True,
+                dictionaries_path=self.root,
+            ),
+            "Он поставил Linux вместо Windows",
+        )
+
+    def test_omitting_the_path_falls_back_to_the_packaged_dictionaries(self):
+        # No path means "use the ones shipped with the package"; nothing outside
+        # latinization ships, so the text returns untouched rather than raising.
+        self.assertEqual(
+            apply_dictionary_rules("Он поставил линукс вместо Windows", enabled=True),
+            "Он поставил линукс вместо Windows",
+        )
+
+    def test_disabled_rules_leave_the_text_alone(self):
+        self.write_dic("a.dic", "линукс=Linux\n")
+
+        self.assertEqual(
+            apply_dictionary_rules(
+                "Он поставил линукс вместо Windows",
+                enabled=False,
+                dictionaries_path=self.root,
+            ),
+            "Он поставил линукс вместо Windows",
+        )
 
 
 if __name__ == "__main__":
