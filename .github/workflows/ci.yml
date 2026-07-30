@@ -9,6 +9,10 @@ on:
     # upper bound while tests assert exact output) are caught here, not by users.
     - cron: "0 6 * * 1"
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
@@ -63,3 +67,34 @@ jobs:
 
       - name: Build
         run: uv build
+
+  wheel-smoke:
+    name: Wheel install smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v8
+        with:
+          enable-cache: true
+
+      - name: Build wheel
+        run: uv build --wheel
+
+      - name: Install wheel without dev dependencies
+        run: |
+          uv venv --python 3.12 .smoke-venv
+          uv pip install --python .smoke-venv/bin/python dist/*.whl
+
+      - name: Run installed CLI
+        run: |
+          .smoke-venv/bin/ru-normalizr --version
+          .smoke-venv/bin/ru-normalizr "тест 123"
