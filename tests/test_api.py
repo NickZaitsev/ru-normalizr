@@ -1139,12 +1139,11 @@ class RuNormalizrApiTests(unittest.TestCase):
                     [
                         sys.executable,
                         "-m",
-                        "pip",
-                        "wheel",
-                        "--no-deps",
-                        str(repo_root),
-                        "-w",
+                        "build",
+                        "--wheel",
+                        "--outdir",
                         dist_dir,
+                        str(repo_root),
                     ],
                     encoding="utf-8",
                     errors="replace",
@@ -1164,10 +1163,13 @@ class RuNormalizrApiTests(unittest.TestCase):
                     )
                 raise
 
-            self.assertIn(
-                "Successfully built ru-normalizr", completed.stdout + completed.stderr
+            wheel_paths = list(Path(dist_dir).glob("*.whl"))
+            self.assertEqual(
+                len(wheel_paths),
+                1,
+                completed.stdout + completed.stderr,
             )
-            wheel_path = next(path for path in Path(dist_dir).iterdir() if path.suffix == ".whl")
+            wheel_path = wheel_paths[0]
             with zipfile.ZipFile(wheel_path) as wheel_file:
                 wheel_names = set(wheel_file.namelist())
 
@@ -1210,12 +1212,11 @@ class RuNormalizrApiTests(unittest.TestCase):
                     [
                         sys.executable,
                         "-m",
-                        "pip",
-                        "wheel",
-                        "--no-deps",
-                        str(repo_root),
-                        "-w",
+                        "build",
+                        "--wheel",
+                        "--outdir",
                         dist_dir,
+                        str(repo_root),
                     ],
                     encoding="utf-8",
                     errors="replace",

@@ -30,6 +30,16 @@ dependencies = [
   "roman>=4.0",
 ]
 
+[dependency-groups]
+dev = [
+  "build>=1.0",
+  "pyright>=1.1",
+  "pytest>=7.0",
+  "pytest-cov>=5.0",
+  "ruff>=0.4",
+  "twine>=5.0",
+]
+
 [project.urls]
 Homepage = "https://github.com/NickZaitsev/ru-normalizr"
 Repository = "https://github.com/NickZaitsev/ru-normalizr"
