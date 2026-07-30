@@ -21,6 +21,16 @@ from ru_normalizr import NormalizeOptions, normalize
 class RuNormalizrKnownGapTests(unittest.TestCase):
     @pytest.mark.xfail(
         strict=True,
+        reason="the plural year abbreviation leaves its dot before a shared era marker",
+    )
+    def test_plural_year_abbreviation_does_not_split_shared_era_marker(self):
+        self.assertEqual(
+            normalize("44-45 гг. до н. э."),
+            "сорок четвёртые — сорок пятые годы до нашей эры.",
+        )
+
+    @pytest.mark.xfail(
+        strict=True,
         reason="the month alternation has no right-hand word boundary",
     )
     def test_month_name_is_not_matched_inside_a_longer_word(self):
