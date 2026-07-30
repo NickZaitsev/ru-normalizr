@@ -9,8 +9,10 @@ from ru_normalizr.dates_time import (
     normalize_dates,
     normalize_time,
 )
+from ru_normalizr.numerals import _helpers
 from ru_normalizr.numerals._helpers import (
     apply_genitive_plural_heuristic,
+    inflect_numeral_string,
     safe_inflect,
     should_consume_abbreviation_dot,
     should_keep_decimal_unit_dot,
@@ -176,6 +178,120 @@ class NumeralHelperBranchTests(unittest.TestCase):
                     should_keep_tokenized_decimal_unit_dot(tokens, 0),
                     expected,
                 )
+
+
+class NumeralInflectionCaseTests(unittest.TestCase):
+    """Case handling in ``inflect_numeral_string``.
+
+    pymorphy reports secondary cases for the nouns that have them (partitive
+    "чаю", locative "в лесу", vocative "Пап!") and call sites pass that case
+    straight through. Numerals have no such forms, so each secondary case must
+    be read as its primary one before rendering.
+    """
+
+    def setUp(self) -> None:
+        inflect_numeral_string.cache_clear()
+        self.addCleanup(inflect_numeral_string.cache_clear)
+
+    def test_non_numeric_input_is_returned_unchanged(self):
+        self.assertEqual(inflect_numeral_string("не число", "gent"), "не число")
+
+    def test_secondary_case_renders_as_its_primary_case(self):
+        numbers = ("21", "1000", "2000", "5000", "2000000")
+        equivalences = (
+            ("gen1", "gent"),
+            ("gen2", "gent"),
+            ("loc1", "loct"),
+            ("loc2", "loct"),
+            ("acc2", "accs"),
+            ("voct", "nomn"),
+        )
+        for secondary, primary in equivalences:
+            for number in numbers:
+                with self.subTest(case=secondary, number=number):
+                    self.assertEqual(
+                        inflect_numeral_string(number, secondary),
+                        inflect_numeral_string(number, primary),
+                    )
+
+    def test_vocative_keeps_the_nominative_wording(self):
+        # Regression: asking pymorphy for {voct} made it answer with an
+        # arbitrary matching form, so "пять тысяч" came back as "пять тысячи".
+        self.assertEqual(inflect_numeral_string("5000", "voct"), "пять тысяч")
+        self.assertEqual(inflect_numeral_string("2000000", "voct"), "два миллиона")
+
+
+class NumeralInflectionFallbackTests(unittest.TestCase):
+    """The pymorphy fallback inside ``inflect_numeral_string``.
+
+    ``num2words`` renders every case directly. The fallback below it only runs
+    when num2words raises — a real risk, since the dependency has no upper
+    version bound. It is the last line of defence against a crash on arbitrary
+    text, so its output is pinned here rather than left to chance.
+    """
+
+    def setUp(self) -> None:
+        inflect_numeral_string.cache_clear()
+        self.addCleanup(inflect_numeral_string.cache_clear)
+
+    def _without_case_support(self):
+        """Patch num2words so only the plain nominative call succeeds."""
+        real_num2words = _helpers.num2words.num2words
+
+        def only_positional(value, **kwargs):
+            if kwargs.get("case"):
+                raise ValueError("case is not supported by this release")
+            return real_num2words(value, lang="ru")
+
+        return patch.object(
+            _helpers.num2words, "num2words", side_effect=only_positional
+        )
+
+    def test_fallback_inflects_the_unit_word(self):
+        with self._without_case_support():
+            self.assertEqual(inflect_numeral_string("21", "gent"), "двадцати одного")
+
+    def test_fallback_agrees_the_unit_word_with_the_magnitude_gender(self):
+        # "тысяча" is feminine and "миллион" masculine, so the unit word takes
+        # the magnitude's gender rather than the requested one.
+        cases = (
+            ("1000", "одной тысячи"),
+            ("1000000", "одного миллиона"),
+            ("1000000000", "одного миллиарда"),
+        )
+        with self._without_case_support():
+            for number, expected in cases:
+                with self.subTest(number=number):
+                    self.assertEqual(inflect_numeral_string(number, "gent"), expected)
+
+    def test_fallback_puts_the_magnitude_in_the_plural_when_its_group_requires_it(self):
+        # In an oblique case the whole phrase inflects, so the magnitude noun
+        # follows its own group: 1000 stays singular, 2000 goes plural, and
+        # 21000 is singular again because its group ends in one. Without this
+        # the noun kept the singular and produced "двух тысячи".
+        cases = (
+            ("1000", "gent", "одной тысячи"),
+            ("2000", "gent", "двух тысяч"),
+            ("5000", "gent", "пяти тысяч"),
+            ("21000", "gent", "двадцати одной тысячи"),
+            ("2000", "loct", "двух тысячах"),
+            ("2000", "datv", "двум тысячам"),
+            ("2000", "ablt", "двумя тысячами"),
+            ("2000000", "gent", "двух миллионов"),
+            ("2500", "gent", "двух тысяч пятисот"),
+        )
+        with self._without_case_support():
+            for number, case, expected in cases:
+                with self.subTest(number=number, case=case):
+                    self.assertEqual(inflect_numeral_string(number, case), expected)
+
+    def test_total_num2words_failure_preserves_the_digits(self):
+        with patch.object(
+            _helpers.num2words,
+            "num2words",
+            side_effect=RuntimeError("backend is broken"),
+        ):
+            self.assertEqual(inflect_numeral_string("2500", "gent"), "2500")
 
 
 class DateTimeBranchTests(unittest.TestCase):
