@@ -428,6 +428,40 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
         self.assertIn("кью эл", normalize("GraphQL", tts))
         self.assertIn("ви пи эн", normalize("OpenVPN", tts))
 
+    @pytest.mark.xfail(
+        strict=True,
+        reason="the -х suffix is read as a cardinal before an ordinally numbered noun",
+    )
+    def test_ordinal_suffix_wins_before_an_ordinally_numbered_noun(self):
+        # "-х" is ambiguous: a cardinal in "в течение 2-х лет" (двух лет) and a
+        # plural ordinal in "в 5-х классах" (пятых классах). Morphology cannot
+        # separate them — "в 2-х шагах" and "в 5-х классах" are both locative
+        # plural yet read differently — so the decision needs a class of nouns
+        # that take ordinal numbering (класс, ряд, курс, разряд, тур, раунд),
+        # alongside the year words the year stage already special-cases.
+        self.assertEqual(
+            normalize("В 5-х классах ввели новый предмет."),
+            "В пятых классах ввели новый предмет.",
+        )
+        self.assertEqual(
+            normalize("Учитель работает в 9-х классах второй год."),
+            "Учитель работает в девятых классах второй год.",
+        )
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason="the counted noun keeps the form written beside the digit",
+    )
+    def test_animate_paucal_accusative_agrees_the_counted_noun(self):
+        # The stage inflects the numeral into the genitive that an animate
+        # accusative requires ("двух"), but leaves the noun in the form the
+        # author wrote next to the digit ("человека"), so the phrase disagrees
+        # with itself. Agreeing it means rewriting the following noun into the
+        # genitive plural, which the stage does today only for known units.
+        self.assertEqual(
+            normalize("Вижу 2 человека у входа."), "Вижу двух человек у входа."
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
