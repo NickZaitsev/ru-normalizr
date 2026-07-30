@@ -32,6 +32,38 @@ GENITIVE_QUANTITY_GOVERNORS = {
     "стоимость",
     "цена",
 }
+#: pymorphy reports secondary cases for nouns that have them (partitive "чаю",
+#: locative "в лесу", vocative "Пап!"). Numerals have no such forms, so a
+#: secondary case must be read as its primary one before rendering. Otherwise
+#: num2words is skipped and pymorphy answers a request it cannot satisfy with an
+#: arbitrary matching form, corrupting correct words ("пять тысяч" -> "пять
+#: тысячи").
+SECONDARY_CASE_TO_PRIMARY = {
+    "gen1": "gent",
+    "gen2": "gent",
+    "acc2": "accs",
+    "loc1": "loct",
+    "loc2": "loct",
+    "voct": "nomn",
+}
+#: Gender of the magnitude nouns num2words emits, for agreement of the unit
+#: word before them ("одна тысяча" but "один миллион").
+MAGNITUDE_GENDERS = {
+    "тысяча": "femn",
+    "миллион": "masc",
+    "миллиард": "masc",
+    "триллион": "masc",
+    "биллион": "masc",
+}
+#: Numeric value of each magnitude noun, used to recover its own multiplier from
+#: the whole number. "биллион" is deliberately absent: num2words never emits it
+#: and its scale is ambiguous (10^9 short scale vs 10^12 long scale).
+MAGNITUDE_SCALES = {
+    "тысяча": 10**3,
+    "миллион": 10**6,
+    "миллиард": 10**9,
+    "триллион": 10**12,
+}
 POINT_WORD_PATTERN = re.compile(r"(точка [а-яё]+)\. (?=[а-яё])", flags=re.IGNORECASE)
 REPEATED_PUNCTUATION_PATTERN = re.compile(r"([,!?;:])\1+")
 DOUBLE_DOT_PATTERN = re.compile(r"(?<!\.)\.\.(?!\.)")
@@ -305,6 +337,7 @@ def _inflect_numeral_string_cached(
         value = int(num_str)
     except ValueError:
         return num_str
+    case = SECONDARY_CASE_TO_PRIMARY.get(case, case)
     num2words_case = resolve_num2words_case(case, default="")
     if num2words_case:
         kwargs: dict[str, Any] = {"case": num2words_case}
@@ -325,16 +358,21 @@ def _inflect_numeral_string_cached(
         return num_str
     if case == "nomn" and gender is None:
         return " ".join(words)
-    magnitudes = {
-        "тысяча": "femn",
-        "миллион": "masc",
-        "миллиард": "masc",
-        "триллион": "masc",
-        "биллион": "masc",
-    }
-
     def get_magnitude_gender(word_str: str) -> str | None:
-        return magnitudes.get(first_parse_required(word_str).normal_form)
+        return MAGNITUDE_GENDERS.get(first_parse_required(word_str).normal_form)
+
+    def magnitude_takes_plural(word_str: str) -> bool:
+        """Whether the magnitude noun agrees in the plural with its multiplier.
+
+        In an oblique case the whole phrase inflects, so the magnitude follows
+        its own group: ``1000`` stays singular (``одной тысячи``) while ``2000``
+        goes plural (``двух тысяч``). Without this the noun keeps the singular
+        of the requested case and produces ``двух тысячи``.
+        """
+        scale = MAGNITUDE_SCALES.get(first_parse_required(word_str).normal_form)
+        if scale is None:
+            return False
+        return noun_number_form((value // scale) % 1000) != "one"
 
     inflected_words: list[str] = []
     for index, word in enumerate(words):
@@ -360,6 +398,8 @@ def _inflect_numeral_string_cached(
         tags = {case}
         if current_gender:
             tags.add(current_gender)
+        if is_magnitude_self and magnitude_takes_plural(word):
+            tags.add("plur")
         inflected = p.inflect(tags)
         if inflected:
             inflected_words.append(inflected.word)
