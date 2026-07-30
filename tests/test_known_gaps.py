@@ -81,6 +81,29 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
     @pytest.mark.xfail(
         strict=True,
+        reason="the pause comma after initials is emitted even when punctuation "
+        "already follows, giving \",;\", \",:\" and \", —\"",
+    )
+    def test_pause_comma_after_initials_is_dropped_before_other_punctuation(self):
+        tts = NormalizeOptions.tts()
+        for text, expected in (
+            (
+                "Отчёт сдал Иванов А. Б.; проверил Петров.",
+                "Отчёт сдал Иванов, аа, бэ; проверил Петров.",
+            ),
+            (
+                "Акт подписал Иванов А. Б.: копия у Петрова.",
+                "Акт подписал Иванов, аа, бэ: копия у Петрова.",
+            ),
+            (
+                "Список: Иванов А. Б. — далее по тексту.",
+                "Список: Иванов, аа, бэ — далее по тексту.",
+            ),
+        ):
+            self.assertEqual(normalize(text, tts), expected)
+
+    @pytest.mark.xfail(
+        strict=True,
         reason="the numerals stage deletes a comma that follows any dot, so a "
         "clause boundary after initials turns into a sentence boundary",
     )
@@ -88,6 +111,24 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
         self.assertEqual(
             normalize("Работу приняли Иванов А. Б., затем подписал Петров."),
             "Работу приняли Иванов А. Б., затем подписал Петров.",
+        )
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason="the dot of an expanded unit abbreviation is left in place and "
+        "then eats the comma after it",
+    )
+    def test_expanded_unit_abbreviation_drops_its_dot_and_keeps_the_comma(self):
+        # The other half of the same cleanup: here the dot is a leftover from
+        # "кг." spelled out as a word, so it is the dot that has to go and the
+        # comma that has to stay — the opposite of the initials case above.
+        self.assertEqual(
+            normalize("Цена 5,5 кг., доставка бесплатно."),
+            "Цена пяти целых пяти десятых килограмма, доставка бесплатно.",
+        )
+        self.assertEqual(
+            normalize("Итого 3,5 млн руб., без НДС."),
+            "Итого три целых пять десятых миллиона рублей, без НДС.",
         )
 
     @pytest.mark.xfail(
