@@ -3,10 +3,15 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import NoReturn
 
 from . import __version__
 from .options import NormalizeOptions
 from .pipeline import normalize
+
+#: Exit code for usage and I/O failures. Kept distinct from ``1``, which
+#: ``--check`` reserves for "the text is not normalized yet".
+USAGE_ERROR_EXIT_CODE = 2
 
 
 def _use_utf8_stdio() -> None:
@@ -27,14 +32,28 @@ def _use_utf8_stdio() -> None:
             continue
 
 
+def _fail(message: str) -> NoReturn:
+    """Exit with a one-line diagnostic instead of a traceback."""
+    sys.stderr.write(f"ru-normalizr: {message}\n")
+    raise SystemExit(USAGE_ERROR_EXIT_CODE)
+
+
 def _read_input(args: argparse.Namespace) -> str:
     if args.file:
-        return Path(args.file).read_text(encoding="utf-8")
+        try:
+            return Path(args.file).read_text(encoding="utf-8")
+        except OSError as exc:
+            _fail(f"cannot read --file {args.file}: {exc.strerror or exc}")
+        except UnicodeDecodeError:
+            _fail(f"--file {args.file} is not valid UTF-8 text")
     if args.text:
         return args.text
     if not sys.stdin.isatty():
-        return sys.stdin.read()
-    raise SystemExit("Provide text, --file, or stdin.")
+        try:
+            return sys.stdin.read()
+        except (OSError, UnicodeDecodeError) as exc:
+            _fail(f"cannot read stdin as UTF-8 text: {exc}")
+    _fail("Provide text, --file, or stdin.")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -107,7 +126,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.output:
         output_path = Path(args.output)
         output_text = result if result.endswith("\n") else result + "\n"
-        output_path.write_text(output_text, encoding="utf-8")
+        try:
+            output_path.write_text(output_text, encoding="utf-8")
+        except OSError as exc:
+            _fail(f"cannot write --output {args.output}: {exc.strerror or exc}")
     else:
         sys.stdout.write(result)
         if not result.endswith("\n"):
