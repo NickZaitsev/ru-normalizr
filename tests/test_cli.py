@@ -5,12 +5,22 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from ru_normalizr import __version__
-from ru_normalizr.__main__ import _use_utf8_stdio, main
+from ru_normalizr.__main__ import USAGE_ERROR_EXIT_CODE, _use_utf8_stdio, main
 
 
 class _TerminalInput(io.StringIO):
     def isatty(self) -> bool:
         return True
+
+
+class _BrokenInput(io.StringIO):
+    """A piped stdin whose decoding fails, as a mismatched locale would."""
+
+    def isatty(self) -> bool:
+        return False
+
+    def read(self, *args: object) -> str:
+        raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
 
 
 class _ReconfigurableStream(io.StringIO):
@@ -118,12 +128,75 @@ class RuNormalizrCliTests(unittest.TestCase):
         self.assertEqual(normalize.call_args.args[0], "текст из stdin")
 
     def test_missing_input_on_terminal_is_an_error(self):
+        stderr = io.StringIO()
         with (
             patch("ru_normalizr.__main__.sys.stdin", _TerminalInput()),
             patch("ru_normalizr.__main__.sys.stdout", io.StringIO()),
-            self.assertRaisesRegex(SystemExit, "Provide text, --file, or stdin"),
+            patch("ru_normalizr.__main__.sys.stderr", stderr),
+            self.assertRaises(SystemExit) as raised,
         ):
             main([])
+
+        self.assertEqual(raised.exception.code, USAGE_ERROR_EXIT_CODE)
+        self.assertIn("Provide text, --file, or stdin", stderr.getvalue())
+
+    def test_unreadable_file_reports_a_diagnostic_instead_of_a_traceback(self):
+        with TemporaryDirectory() as tmp_dir:
+            missing_path = Path(tmp_dir) / "нет.txt"
+            stderr = io.StringIO()
+
+            with (
+                patch("ru_normalizr.__main__.sys.stderr", stderr),
+                self.assertRaises(SystemExit) as raised,
+            ):
+                main(["--file", str(missing_path)])
+
+        self.assertEqual(raised.exception.code, USAGE_ERROR_EXIT_CODE)
+        self.assertIn("cannot read --file", stderr.getvalue())
+        self.assertIn(str(missing_path), stderr.getvalue())
+
+    def test_non_utf8_file_reports_a_diagnostic_instead_of_a_traceback(self):
+        with TemporaryDirectory() as tmp_dir:
+            input_path = Path(tmp_dir) / "cp1251.txt"
+            input_path.write_bytes("Ёжик 2".encode("cp1251"))
+            stderr = io.StringIO()
+
+            with (
+                patch("ru_normalizr.__main__.sys.stderr", stderr),
+                self.assertRaises(SystemExit) as raised,
+            ):
+                main(["--file", str(input_path)])
+
+        self.assertEqual(raised.exception.code, USAGE_ERROR_EXIT_CODE)
+        self.assertIn("not valid UTF-8", stderr.getvalue())
+
+    def test_unwritable_output_reports_a_diagnostic_instead_of_a_traceback(self):
+        with TemporaryDirectory() as tmp_dir:
+            output_path = Path(tmp_dir) / "нет" / "каталога" / "выход.txt"
+            stderr = io.StringIO()
+
+            with (
+                patch("ru_normalizr.__main__.sys.stderr", stderr),
+                patch("ru_normalizr.__main__.normalize", return_value="готово"),
+                self.assertRaises(SystemExit) as raised,
+            ):
+                main(["текст", "--output", str(output_path)])
+
+        self.assertEqual(raised.exception.code, USAGE_ERROR_EXIT_CODE)
+        self.assertIn("cannot write --output", stderr.getvalue())
+
+    def test_unreadable_stdin_reports_a_diagnostic_instead_of_a_traceback(self):
+        stderr = io.StringIO()
+
+        with (
+            patch("ru_normalizr.__main__.sys.stdin", _BrokenInput()),
+            patch("ru_normalizr.__main__.sys.stderr", stderr),
+            self.assertRaises(SystemExit) as raised,
+        ):
+            main([])
+
+        self.assertEqual(raised.exception.code, USAGE_ERROR_EXIT_CODE)
+        self.assertIn("cannot read stdin", stderr.getvalue())
 
     def test_cli_flags_map_to_normalize_options(self):
         cases = (
