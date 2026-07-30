@@ -740,22 +740,8 @@ def get_numeral_case(
                 if noun_case in {"datv", "ablt", "loct"} or "loc2" in p_right.tag:
                     return "loct" if noun_case == "loct" or "loc2" in p_right.tag else noun_case
 
-    if idx > 0:
-        right_boundary = idx + 1 >= len(tokens) or any(
-            char in tokens[idx + 1] for char in ",.;:!?…"
-        )
-        if right_boundary:
-            for back in range(idx - 1, max(left_scan_start - 1, idx - 4), -1):
-                left_token = normalize_context_token(tokens[back])
-                if not left_token or left_token in {"уже", "теперь"}:
-                    continue
-                p_left = first_parse_required(left_token)
-                if p_left.tag.case == "datv" and p_left.tag.POS in {"NPRO", "NOUN"}:
-                    return "nomn"
-                break
-
-    if idx == 0 or any(char in tokens[idx - 1] for char in ".!?"):
-        return "nomn"
+    # Nothing else governs the numeral: a bare number is a predicate and stays
+    # nominative. A dative on the left ("Мне уже 40.") does not pull it along.
     return "nomn"
 
 
