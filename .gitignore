@@ -11,6 +11,8 @@ dist/
 *.pyd
 *.pkl
 .tmp_dist/
+.tmp-fast-venv/
+.tmp-pymorphy3-*.json
 .smoke-venv/
 .coverage
 input.txt
