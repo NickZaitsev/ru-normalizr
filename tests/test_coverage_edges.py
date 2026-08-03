@@ -91,6 +91,7 @@ class AbbreviationContextBranchTests(unittest.TestCase):
             ("Масса образца 237 г.", True),
             ("Скорость 123 г.", False),
             ("Взвешивание образца 123 г.", False),
+            ("Показатель @@@ 123 г.", False),
         )
         for source, expected in cases:
             with self.subTest(source=source):
@@ -121,6 +122,8 @@ class NumberingBranchTests(unittest.TestCase):
             convert_bracketed_numbers("Текст [1] [10] [20] [21].", options),
             "Текст  [10] [20] .",
         )
+        self.assertEqual(convert_bracketed_numbers("Текст [IV].", options), "Текст .")
+        self.assertEqual(convert_bracketed_numbers("Текст [²].", options), "Текст .")
         self.assertEqual(
             convert_bracketed_numbers("Текст (1] {2}.", options), "Текст (1] ."
         )
