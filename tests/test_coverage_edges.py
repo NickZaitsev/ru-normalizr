@@ -163,10 +163,23 @@ class UrlBranchTests(unittest.TestCase):
                 self.assertEqual(normalize_urls(source, enabled=True), expected)
 
     def test_url_stage_keeps_balanced_closers_inside_the_url(self):
-        self.assertEqual(
-            normalize_urls("Смотри https://example.org/(path).", enabled=True),
-            "Смотри https двоеточие слэш слэш example точка org слэш ( path ).",
+        cases = (
+            (
+                "Смотри https://example.org/(path).",
+                "Смотри https двоеточие слэш слэш example точка org слэш ( path ).",
+            ),
+            (
+                "Смотри https://example.org/[path].",
+                "Смотри https двоеточие слэш слэш example точка org слэш [ path ].",
+            ),
+            (
+                "Смотри https://example.org/{path}.",
+                "Смотри https двоеточие слэш слэш example точка org слэш { path }.",
+            ),
         )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize_urls(source, enabled=True), expected)
 
 
 class FractionBranchTests(unittest.TestCase):
