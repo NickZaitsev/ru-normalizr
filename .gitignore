@@ -3,6 +3,8 @@ __pycache__/
 venv/
 .pytest_cache/
 .ruff_cache/
+.mutmut-cache
+*.bak
 build/
 dist/
 *.egg-info/

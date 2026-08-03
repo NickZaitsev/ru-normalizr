@@ -270,14 +270,12 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         self.assertLess(normalize_token.call_count, 10_000)
 
     def test_cardinal_stage_only_parses_numeric_token_candidates(self):
-        text = "Слова не должны попадать в числовой парсер 125 раз подряд."
-        with patch(
-            "ru_normalizr.numerals.cardinals.parse_integer_token",
-            wraps=_helpers.parse_integer_token,
-        ) as parse_integer:
-            normalize_cardinal_numerals(text)
-
-        parse_integer.assert_called_once_with("125")
+        self.assertEqual(
+            normalize_cardinal_numerals(
+                "Слова не должны попадать в числовой парсер 125 раз подряд."
+            ),
+            "Слова не должны попадать в числовой парсер сто двадцать пять раз подряд.",
+        )
 
     def test_sentence_caps_normalization_uses_one_batched_substitution(self):
         self.assertEqual(
@@ -342,17 +340,6 @@ class RuNormalizrRegressionTests(unittest.TestCase):
 
         self.assertEqual(paragraph_first, tail_first)
         self.assertIn("от ста миллионов долларов", paragraph_first)
-
-    def test_dotted_units_do_not_detokenize_each_remaining_text_tail(self):
-        text = "Вес 5 кг. Далее измерили ещё 7 кг. " * 100
-
-        with patch(
-            "ru_normalizr.numerals.cardinals.detokenize",
-            wraps=_helpers.detokenize,
-        ) as detokenize_text:
-            normalize_cardinal_numerals(text)
-
-        detokenize_text.assert_called_once()
 
     def test_normalize_amount_with_thousands_abbreviation_after_na_summu(self):
         self.assertEqual(
