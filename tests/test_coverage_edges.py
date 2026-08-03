@@ -258,6 +258,7 @@ class NumeralInflectionFallbackTests(unittest.TestCase):
             ("1000", "одной тысячи"),
             ("1000000", "одного миллиона"),
             ("1000000000", "одного миллиарда"),
+            ("1000000000000", "одного триллиона"),
         )
         with self._without_case_support():
             for number, expected in cases:
@@ -278,6 +279,7 @@ class NumeralInflectionFallbackTests(unittest.TestCase):
             ("2000", "datv", "двум тысячам"),
             ("2000", "ablt", "двумя тысячами"),
             ("2000000", "gent", "двух миллионов"),
+            ("2000000000000", "gent", "двух триллионов"),
             ("2500", "gent", "двух тысяч пятисот"),
         )
         with self._without_case_support():
