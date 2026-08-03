@@ -144,6 +144,18 @@ class UnitTests(unittest.TestCase):
 
 
 class UnitRangeTests(unittest.TestCase):
+    def test_range_inherits_the_case_from_a_preceding_prepositional_noun(self):
+        self.assertEqual(
+            normalize_cardinal_numerals("В комнатах 5-7 окон."),
+            "В комнатах пяти — семи окон.",
+        )
+
+    def test_s_po_range_uses_genitive_for_the_first_endpoint(self):
+        self.assertEqual(
+            normalize_cardinal_numerals("С 5 по 10 страниц."),
+            "С пяти по десять страниц.",
+        )
+
     def test_range_with_a_single_word_unit(self):
         self.assertEqual(
             normalize_numeric_unit_ranges("5-7 кг"), "пять — семь килограмм"
