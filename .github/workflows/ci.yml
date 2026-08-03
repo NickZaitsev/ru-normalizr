@@ -9,6 +9,10 @@ on:
     # upper bound while tests assert exact output) are caught here, not by users.
     - cron: "0 6 * * 1"
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
@@ -16,12 +20,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, windows-latest]
         python-version: ["3.10", "3.11", "3.12", "3.13"]
-        include:
-          # One Windows cell so the primary development OS is exercised in CI.
-          - os: windows-latest
-            python-version: "3.12"
 
     steps:
       - name: Checkout
@@ -31,20 +31,72 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-          cache: pip
 
-      - name: Install dependencies
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          version: "0.11.29"
+          enable-cache: true
+
+      - name: Sync locked dependencies
+        if: github.event_name != 'schedule'
+        run: uv sync --frozen
+
+      - name: Refresh num2words for scheduled compatibility check
+        if: github.event_name == 'schedule'
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
-          pip install -e .
-          pip install build
+          uv lock --upgrade-package num2words
+          uv sync --frozen
+
+      - name: Verify compiled morphology backend
+        run: uv run python -c "from pymorphy3 import dawg; assert dawg.EXTENSION_AVAILABLE"
 
       - name: Lint
-        run: python -m ruff check .
+        run: uv run ruff check .
+
+      - name: Type check
+        if: runner.os == 'Linux'
+        run: uv run pyright
 
       - name: Test
-        run: python -m pytest -q
+        run: uv run pytest -q
+
+      - name: Branch coverage report
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        run: uv run pytest -q --cov=src/ru_normalizr --cov-branch --cov-report=term-missing
 
       - name: Build
-        run: python -m build .
+        run: uv build
+
+  wheel-smoke:
+    name: Wheel install smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          version: "0.11.29"
+          enable-cache: true
+
+      - name: Build wheel
+        run: uv build --wheel
+
+      - name: Install wheel without dev dependencies
+        run: |
+          uv venv --python 3.12 .smoke-venv
+          uv pip install --python .smoke-venv/bin/python dist/*.whl
+
+      - name: Run installed CLI
+        run: |
+          .smoke-venv/bin/python -c "from pymorphy3 import dawg; assert dawg.EXTENSION_AVAILABLE"
+          .smoke-venv/bin/ru-normalizr --version
+          .smoke-venv/bin/ru-normalizr "тест 123"

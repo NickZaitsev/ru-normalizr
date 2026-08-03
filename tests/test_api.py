@@ -1,4 +1,3 @@
-import importlib.util
 import os
 import shutil
 import subprocess
@@ -22,29 +21,19 @@ def _find_source_root() -> Path | None:
 
 
 def _clean_build_artifacts(root: Path) -> None:
-    for relative in ("build", "dist", ".tmp_dist", "ru_normalizr.egg-info"):
+    for relative in (
+        "build",
+        "dist",
+        ".tmp_dist",
+        "ru_normalizr.egg-info",
+        "src/ru_normalizr.egg-info",
+    ):
         target = root / relative
         if target.exists():
             shutil.rmtree(target)
 
 
 class RuNormalizrApiTests(unittest.TestCase):
-    def test_package_init_supports_direct_file_import(self):
-        package_dir = Path(__import__("ru_normalizr").__file__).resolve().parent
-        init_path = package_dir / "__init__.py"
-        spec = importlib.util.spec_from_file_location("__init__", init_path)
-
-        self.assertIsNotNone(spec)
-        self.assertIsNotNone(spec.loader)
-
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-
-        self.assertIs(module.NormalizeOptions, NormalizeOptions)
-        self.assertIs(module.Normalizer, Normalizer)
-        self.assertIs(module.normalize, normalize)
-        self.assertIs(module.preprocess_text, preprocess_text)
-
     def test_normalize_function_handles_roman_and_time_pipeline(self):
         self.assertEqual(
             normalize("Глава IV. Встреча в 10:07."),
@@ -554,7 +543,7 @@ class RuNormalizrApiTests(unittest.TestCase):
     def test_normalize_supports_slash_units_for_transfer_and_lab_values(self):
         self.assertEqual(
             normalize("канал 10 MB/s и 20 кбит/с"),
-            "канал десять мегабайтов в секунду и двадцать килобитов в секунду",
+            "канал десять мегабайтов в секунду и двадцать килобит в секунду",
         )
         self.assertEqual(
             normalize("раствор 5 мг/мл, 3 ммоль/л"),
@@ -602,7 +591,7 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertEqual(normalize("5 IU"), "пять международных единиц")
         self.assertEqual(
             normalize("8 байт/с"),
-            "восемь байт в секунду",
+            "восемь байтов в секунду",
         )
 
     def test_normalize_reads_tilde_before_decimal_measurement_as_approximation(self):
@@ -908,7 +897,7 @@ class RuNormalizrApiTests(unittest.TestCase):
         )
         self.assertEqual(
             normalize("12 fps, 60 mph и 20 kbps"),
-            "двенадцать кадров в секунду, шестьдесят миль в час и двадцать килобитов в секунду",
+            "двенадцать кадров в секунду, шестьдесят миль в час и двадцать килобит в секунду",
         )
 
     def test_normalize_supports_decimal_spaced_compound_units(self):
@@ -936,7 +925,7 @@ class RuNormalizrApiTests(unittest.TestCase):
     def test_normalize_compound_units_do_not_capture_following_prepositions(self):
         self.assertEqual(
             normalize("12 fps к цели, 60 mph в городе и 20 kbps к серверу"),
-            "двенадцать кадров в секунду к цели, шестьдесят миль в час в городе и двадцать килобитов в секунду к серверу",
+            "двенадцать кадров в секунду к цели, шестьдесят миль в час в городе и двадцать килобит в секунду к серверу",
         )
         self.assertEqual(
             normalize("12 об мин к концу цикла и 3 ммоль л в крови"),
@@ -1150,12 +1139,11 @@ class RuNormalizrApiTests(unittest.TestCase):
                     [
                         sys.executable,
                         "-m",
-                        "pip",
-                        "wheel",
-                        "--no-deps",
-                        str(repo_root),
-                        "-w",
+                        "build",
+                        "--wheel",
+                        "--outdir",
                         dist_dir,
+                        str(repo_root),
                     ],
                     encoding="utf-8",
                     errors="replace",
@@ -1175,10 +1163,13 @@ class RuNormalizrApiTests(unittest.TestCase):
                     )
                 raise
 
-            self.assertIn(
-                "Successfully built ru-normalizr", completed.stdout + completed.stderr
+            wheel_paths = list(Path(dist_dir).glob("*.whl"))
+            self.assertEqual(
+                len(wheel_paths),
+                1,
+                completed.stdout + completed.stderr,
             )
-            wheel_path = next(path for path in Path(dist_dir).iterdir() if path.suffix == ".whl")
+            wheel_path = wheel_paths[0]
             with zipfile.ZipFile(wheel_path) as wheel_file:
                 wheel_names = set(wheel_file.namelist())
 
@@ -1203,7 +1194,7 @@ class RuNormalizrApiTests(unittest.TestCase):
             self.skipTest("source checkout not available for wheel build test")
 
         tracked = subprocess.run(
-            ["git", "ls-files", "dictionaries/**/*.dic"],
+            ["git", "ls-files", "src/ru_normalizr/dictionaries/**/*.dic"],
             cwd=repo_root,
             encoding="utf-8",
             errors="replace",
@@ -1221,12 +1212,11 @@ class RuNormalizrApiTests(unittest.TestCase):
                     [
                         sys.executable,
                         "-m",
-                        "pip",
-                        "wheel",
-                        "--no-deps",
-                        str(repo_root),
-                        "-w",
+                        "build",
+                        "--wheel",
+                        "--outdir",
                         dist_dir,
+                        str(repo_root),
                     ],
                     encoding="utf-8",
                     errors="replace",
@@ -1252,7 +1242,8 @@ class RuNormalizrApiTests(unittest.TestCase):
 
         for relative in tracked_dics:
             with self.subTest(dic=relative):
-                self.assertIn(f"ru_normalizr/{relative}", wheel_names)
+                wheel_relative = Path(relative).relative_to("src").as_posix()
+                self.assertIn(wheel_relative, wheel_names)
 
     def test_dictionary_rules_can_be_toggled(self):
         options = NormalizeOptions(

@@ -6,10 +6,13 @@ import re
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
-import tomllib
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 CLEAN_PATHS = (
@@ -20,10 +23,11 @@ CLEAN_PATHS = (
     ROOT / ".ruff_cache",
     ROOT / "__pycache__",
     ROOT / "ru_normalizr.egg-info",
+    ROOT / "src" / "ru_normalizr.egg-info",
 )
 CLEAN_GLOBS = (
     "**/__pycache__",
-    "dictionaries/**/dictionaries_*.pkl",
+    "src/ru_normalizr/dictionaries/**/dictionaries_*.pkl",
 )
 PUBLISH_IGNORED_PREFIXES = (
     "build/",
@@ -32,6 +36,7 @@ PUBLISH_IGNORED_PREFIXES = (
     ".pytest_cache/",
     ".ruff_cache/",
     "ru_normalizr.egg-info/",
+    "src/ru_normalizr.egg-info/",
 )
 
 
@@ -46,7 +51,8 @@ def capture(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         args,
         cwd=ROOT,
-        text=True,
+        encoding="utf-8",
+        errors="replace",
         capture_output=True,
     )
 
@@ -70,7 +76,9 @@ def project_version() -> str:
 
 
 def package_version() -> str:
-    init_text = (ROOT / "__init__.py").read_text(encoding="utf-8")
+    init_text = (ROOT / "src" / "ru_normalizr" / "__init__.py").read_text(
+        encoding="utf-8"
+    )
     match = re.search(r'^__version__ = "([^"]+)"$', init_text, re.MULTILINE)
     if not match:
         raise RuntimeError("Could not find __version__ in __init__.py")
@@ -133,6 +141,10 @@ def check_release_tag() -> int:
 
 def lint() -> int:
     return run(sys.executable, "-m", "ruff", "check", ".")
+
+
+def typecheck() -> int:
+    return run(sys.executable, "-m", "pyright")
 
 
 def test() -> int:
@@ -262,6 +274,7 @@ def check() -> int:
         ("clean", clean),
         ("version", check_versions),
         ("lint", lint),
+        ("typecheck", typecheck),
         ("test", test),
         ("build", lambda: run(sys.executable, "-m", "build", ".")),
         ("twine-check", twine_check),
@@ -278,7 +291,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Local developer and release helper.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    for command in ("clean", "lint", "test", "build", "check", "check-release-tag"):
+    for command in (
+        "clean",
+        "lint",
+        "typecheck",
+        "test",
+        "build",
+        "check",
+        "check-release-tag",
+    ):
         subparsers.add_parser(command)
 
     publish_parser = subparsers.add_parser("publish")
@@ -303,11 +324,13 @@ def main(argv: list[str] | None = None) -> int:
         help="Create and push only the release tag without pushing the branch first.",
     )
 
-    args = parser.parse_args(argv or sys.argv[1:])
+    args = parser.parse_args(sys.argv[1:] if argv is None else argv)
     if args.command == "clean":
         return clean()
     if args.command == "lint":
         return lint()
+    if args.command == "typecheck":
+        return typecheck()
     if args.command == "test":
         return test()
     if args.command == "build":
