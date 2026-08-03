@@ -50,6 +50,26 @@ IPA-бэкенд латинизации (`latinization_backend="ipa"`) рабо�
 он окажется недоступен, запрос IPA-бэкенда один раз выдаёт предупреждение и
 автоматически переключается на словарный бэкенд латинизации.
 
+На поддерживаемых версиях CPython пакет по умолчанию использует compiled
+DAWG-backend из `pymorphy3[fast]`. В CI проверяются CPython 3.10–3.13 на Linux
+и Windows; для этих интерпретаторов `DAWG2` публикует готовые колёса также для
+macOS, manylinux и musllinux. Активный backend можно проверить так:
+
+```python
+from pymorphy3 import dawg
+
+assert dawg.EXTENSION_AVAILABLE
+```
+
+Значение `False` на поддерживаемом CPython означает проблему установки или
+конфигурации, а не штатный production-режим. Корректность нормализации от
+backend не зависит: перед сменой зависимости portable и compiled варианты
+сравниваются parity-gate по публичным результатам, морфологическим разборам и
+полному набору тестов. На Windows x86-64 с CPython 3.11.15 короткий прогон
+10 000 различных слов дал около 12 тыс. слов/с для portable backend и
+64 тыс. слов/с для compiled; это описание методики на одной машине, а не
+универсальная гарантия производительности.
+
 Для Windows также доступен GUI: [Скачать ru-normalizr GUI для Windows](https://github.com/NickZaitsev/ru-normalizr/releases/latest)
 
 ## Запуск из cmd или bash (CLI)
@@ -168,7 +188,7 @@ print(normalize("YouTube в 2024 г.", options))
 используется стадией `latinization`, а не `dictionary`. То есть стадия
 `dictionary` существует именно для ваших собственных словарей.
 
-Формат `.dic` (см. [examples/your_dictionary.dic](examples/your_dictionary.dic)):
+Формат `.dic` показан ниже:
 
 ```
 # строки, начинающиеся с #, — комментарии
@@ -219,6 +239,39 @@ print(normalize("YouTube и OpenAI", options))
 - `finalize` — финальная чистка текста после всех преобразований: нормализация пунктуации, регистра и восстановление абзацев
 
 Это удобно для отладки, тестирования и встраивания только нужных частей пайплайна в собственную систему.
+
+## Разработка
+
+Окружение управляется [uv](https://docs.astral.sh/uv/). Требуется Python 3.10 или новее.
+
+```bash
+uv sync --frozen
+```
+
+Проверки, которые обязаны проходить перед коммитом (тот же набор выполняет CI):
+
+```bash
+uv run ruff check .
+uv run pyright
+uv run pytest -q
+```
+
+Отчёт о покрытии по ветвям:
+
+```bash
+uv run pytest -q --cov=src/ru_normalizr --cov-branch --cov-report=term-missing
+```
+
+Полный цикл проверки выпуска — очистка, сверка версий, линт, типы, тесты, сборка
+и `twine check`:
+
+```bash
+uv run python scripts/dev.py check
+```
+
+Порядок выпуска на PyPI описан в [docs/RELEASING.md](docs/RELEASING.md), правила
+версионирования — в [VERSIONING.md](VERSIONING.md), соглашения для правок кода —
+в [AGENTS.md](AGENTS.md) и [docs/agents/](docs/agents/README.md).
 
 ## Сравнение с другими нормализаторами
 
@@ -478,7 +531,7 @@ belongs to the `latinization/` folder and is used by the `latinization` stage,
 not `dictionary`. In other words, the `dictionary` stage exists purely for your
 own dictionaries.
 
-`.dic` format (see [examples/your_dictionary.dic](examples/your_dictionary.dic)):
+The `.dic` format is shown below:
 
 ```
 # lines starting with # are comments
@@ -527,6 +580,39 @@ Individual stages are available:
 - `dictionary` — application of user-defined dictionary rules (no bundled rules are loaded here by default; see [Custom dictionaries](#custom-dictionaries))
 - `latinization` — conversion of Latin words into Cyrillic using either dictionary rules or the IPA backend
 - `finalize` — final cleanup after all transformations: punctuation normalization, casing fixes, and paragraph restoration
+
+## Development
+
+The environment is managed with [uv](https://docs.astral.sh/uv/). Python 3.10 or newer is required.
+
+```bash
+uv sync --frozen
+```
+
+The checks that must pass before a commit (CI runs the same set):
+
+```bash
+uv run ruff check .
+uv run pyright
+uv run pytest -q
+```
+
+Branch coverage report:
+
+```bash
+uv run pytest -q --cov=src/ru_normalizr --cov-branch --cov-report=term-missing
+```
+
+The full release verification cycle — clean, version sync, lint, types, tests,
+build, and `twine check`:
+
+```bash
+uv run python scripts/dev.py check
+```
+
+The PyPI release procedure is described in [docs/RELEASING.md](docs/RELEASING.md),
+the versioning policy in [VERSIONING.md](VERSIONING.md), and the code conventions
+in [AGENTS.md](AGENTS.md) and [docs/agents/](docs/agents/README.md).
 
 ## Comparison with other normalizers
 

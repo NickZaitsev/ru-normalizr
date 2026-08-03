@@ -1,32 +1,48 @@
-# Versioning Policy
+# Политика версионирования
 
-`ru-normalizr` follows Semantic Versioning.
+`ru-normalizr` следует принципам семантического версионирования.
 
-## Version format
+## Формат версии
 
 `MAJOR.MINOR.PATCH`
 
-Examples:
+Примеры:
+
 - `0.1.0`
 - `0.2.0`
 - `0.2.1`
 - `1.0.0`
 
-## Meaning
+## Значение компонентов
 
-- `PATCH`: bug fixes, packaging fixes, documentation-only updates, or behavior corrections that do not intentionally change the public API shape.
-- `MINOR`: new public options, new supported normalization features, new CLI flags, or new stage APIs added in a backward-compatible way.
-- `MAJOR`: breaking public API changes, changed defaults, removed options, reordered exposed stage semantics, or intentional normalization output changes that break compatibility expectations.
+- `PATCH`: исправления ошибок и упаковки, изменения только в документации либо
+  корректировки поведения, которые намеренно не меняют форму публичного API.
+- `MINOR`: новые публичные параметры, поддерживаемые сценарии нормализации,
+  флаги CLI или API этапов, добавленные с обратной совместимостью.
+- `MAJOR`: несовместимые изменения публичного API, значений по умолчанию,
+  удаление параметров, изменение семантики порядка публичных этапов или
+  намеренное изменение результата нормализации, нарушающее ожидания
+  совместимости.
 
-## Pre-1.0 guidance
+## Правила до версии 1.0
 
-Until `1.0.0`, minor versions may still include behavior changes while the public contract is being stabilized. The goal before `1.0.0` is:
-- lock down default normalization behavior
-- stabilize option naming
-- stabilize packaging and CLI shape
+До `1.0.0` минорные версии могут включать изменения поведения, пока публичный
+контракт стабилизируется. До выпуска `1.0.0` необходимо:
 
-## Release rules
+- зафиксировать поведение нормализации по умолчанию;
+- стабилизировать имена параметров;
+- стабилизировать упаковку и CLI.
 
-- Every release updates `ru_normalizr/__init__.py` and `ru_normalizr/pyproject.toml`.
-- Every release adds a changelog entry.
-- Any intentional normalization output change must be covered by tests and called out in `CHANGELOG.md`.
+## Правила выпуска
+
+- Каждый выпуск обновляет версию в `__init__.py` пакета и в корневом
+  `pyproject.toml`.
+- Каждый выпуск добавляет запись в `CHANGELOG.md`.
+- Любое намеренное изменение результата нормализации должно быть покрыто
+  тестами и описано в `CHANGELOG.md`.
+
+## Предрелизная очистка
+
+- Перед выпуском удалить из `docs/agents/plans/` все полностью реализованные планы.
+  Проверить реализацию и связанные коммиты до удаления; хранить завершённые планы
+  в рабочем дереве не требуется, поскольку они остаются в истории Git.

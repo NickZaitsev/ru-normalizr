@@ -270,6 +270,9 @@ class RuNormalizrStageTests(unittest.TestCase):
             "Один. первый\nДва. второй\nбез номера",
         )
 
+    def test_line_numbering_keeps_a_single_roman_numeral_before_the_period(self):
+        self.assertEqual(convert_line_numbering("X. пункт"), "Десять. пункт")
+
     def test_dates_time_stage_normalizes_listed_days_in_text_date(self):
         self.assertEqual(
             normalize_dates_and_time("Эти объекты наблюдались 15 и 25 апреля."),
@@ -307,6 +310,10 @@ class RuNormalizrStageTests(unittest.TestCase):
         self.assertEqual(
             normalize_numerals("⑳"),
             "двадцать",
+        )
+        self.assertEqual(
+            normalize_numerals("В ١٢ отделах работают ٣ сотрудника."),
+            "В двенадцати отделах работают три сотрудника.",
         )
 
     def test_numeral_stage_fast_path_keeps_non_digit_candidates(self):

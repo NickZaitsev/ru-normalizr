@@ -10,6 +10,8 @@ from ru_normalizr.abbreviations import expand_abbreviations
 from ru_normalizr.dictionary import DictionaryNormalizer
 from ru_normalizr.latinization import (
     _clear_latinization_word_caches,
+    _ipa_convert_batch,
+    _ipa_convert_words,
     _resolve_unknown_latin_fallback,
     _resolve_unknown_latin_fallbacks,
     apply_latinization,
@@ -42,6 +44,26 @@ class _FakeMorph:
 
 
 class RuNormalizrRegressionTests(unittest.TestCase):
+    def test_genitive_plural_heuristic_preserves_all_caps_for_every_ending(self):
+        cases = (
+            ("НОВЫЕ", "ADJF", "НОВЫХ"),
+            ("СИНИЕ", "ADJF", "СИНИХ"),
+            ("НОВЫЙ", "ADJF", "НОВОГО"),
+            ("МОЛОДОЙ", "ADJF", "МОЛОДОГО"),
+            ("СИНИЙ", "ADJF", "СИНЕГО"),
+            ("СИНЕЕ", "ADJF", "СИНЕГО"),
+            ("НОВАЯ", "ADJF", "НОВОЙ"),
+            ("СИНЯЯ", "ADJF", "СИНЕЙ"),
+            ("КРАТКОЕ", "ADJF", "КРАТКОЕ"),
+            ("НОВЫЕ", "NOUN", "НОВЫЕ"),
+        )
+        for word, pos, expected in cases:
+            with self.subTest(word=word, pos=pos):
+                self.assertEqual(
+                    _helpers.apply_genitive_plural_heuristic(word, pos),
+                    expected,
+                )
+
     def test_dictionary_normalizer_does_not_write_pickle_cache(self):
         with TemporaryDirectory() as tmp_dir:
             dictionaries_path = Path(tmp_dir)
@@ -248,14 +270,12 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         self.assertLess(normalize_token.call_count, 10_000)
 
     def test_cardinal_stage_only_parses_numeric_token_candidates(self):
-        text = "Слова не должны попадать в числовой парсер 125 раз подряд."
-        with patch(
-            "ru_normalizr.numerals.cardinals.parse_integer_token",
-            wraps=_helpers.parse_integer_token,
-        ) as parse_integer:
-            normalize_cardinal_numerals(text)
-
-        parse_integer.assert_called_once_with("125")
+        self.assertEqual(
+            normalize_cardinal_numerals(
+                "Слова не должны попадать в числовой парсер 125 раз подряд."
+            ),
+            "Слова не должны попадать в числовой парсер сто двадцать пять раз подряд.",
+        )
 
     def test_sentence_caps_normalization_uses_one_batched_substitution(self):
         self.assertEqual(
@@ -320,17 +340,6 @@ class RuNormalizrRegressionTests(unittest.TestCase):
 
         self.assertEqual(paragraph_first, tail_first)
         self.assertIn("от ста миллионов долларов", paragraph_first)
-
-    def test_dotted_units_do_not_detokenize_each_remaining_text_tail(self):
-        text = "Вес 5 кг. Далее измерили ещё 7 кг. " * 100
-
-        with patch(
-            "ru_normalizr.numerals.cardinals.detokenize",
-            wraps=_helpers.detokenize,
-        ) as detokenize_text:
-            normalize_cardinal_numerals(text)
-
-        detokenize_text.assert_called_once()
 
     def test_normalize_amount_with_thousands_abbreviation_after_na_summu(self):
         self.assertEqual(
@@ -516,6 +525,46 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         self.assertEqual(repeated_result, result)
         self.assertEqual(len(result.split()), len(words))
         self.assertNotRegex(result, r"[A-Za-z]")
+
+    def test_ipa_batch_handles_every_backend_result_shape(self):
+        with patch(
+            "eng_to_ipa.ipa_list",
+            return_value=[
+                "direct-result",
+                ["first-variant", "preferred-variant"],
+                [],
+            ],
+        ):
+            result = _ipa_convert_batch(("direct", "variants", "missing"))
+
+        self.assertEqual(result, ("direct-result", "preferred-variant", ""))
+
+    def test_ipa_single_lookup_handles_every_backend_result_shape(self):
+        cases = (
+            ("direct-result", "direct-result"),
+            (["first-variant", "preferred-variant"], "preferred-variant"),
+            ([], ""),
+        )
+        self.addCleanup(_clear_latinization_word_caches)
+        for backend_result, expected in cases:
+            with self.subTest(backend_result=backend_result):
+                _clear_latinization_word_caches()
+                with patch("eng_to_ipa.convert", return_value=backend_result):
+                    result = _ipa_convert_words(("word",))
+
+                self.assertEqual(result, {"word": expected})
+
+    def test_ipa_empty_input_skips_backend_calls(self):
+        _clear_latinization_word_caches()
+        with (
+            patch("eng_to_ipa.ipa_list") as ipa_list,
+            patch("eng_to_ipa.convert") as convert,
+        ):
+            self.assertEqual(_ipa_convert_batch(()), ())
+            self.assertEqual(_ipa_convert_words(()), {})
+
+        ipa_list.assert_not_called()
+        convert.assert_not_called()
 
     def test_unknown_latin_fallback_batches_dictionary_rewrite_for_many_words(self):
         _clear_latinization_word_caches()

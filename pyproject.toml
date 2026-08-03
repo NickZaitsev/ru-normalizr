@@ -25,9 +25,20 @@ classifiers = [
 dependencies = [
   "eng_to_ipa==0.0.2",
   "num2words>=0.5.13",
-  "pymorphy3>=2.0",
-  "pymorphy3-dicts-ru>=2.0",
+  "pymorphy3[fast]>=2.0,<3",
+  "pymorphy3-dicts-ru>=2.0,<3",
   "roman>=4.0",
+]
+
+[dependency-groups]
+dev = [
+  "build>=1.0",
+  "pyright>=1.1",
+  "pytest>=7.0",
+  "pytest-cov>=5.0",
+  "ruff>=0.4",
+  "tomli>=2.0",
+  "twine>=5.0",
 ]
 
 [project.urls]
@@ -40,26 +51,24 @@ Changelog = "https://github.com/NickZaitsev/ru-normalizr/blob/main/CHANGELOG.md"
 ru-normalizr = "ru_normalizr.__main__:main"
 
 [tool.setuptools]
+package-dir = {"" = "src"}
 packages = ["ru_normalizr", "ru_normalizr.numerals"]
 include-package-data = false
-
-[tool.setuptools.package-dir]
-ru_normalizr = "."
 
 [tool.setuptools.package-data]
 ru_normalizr = ["py.typed", "dictionaries/**/*.dic"]
 
-[tool.setuptools.exclude-package-data]
-ru_normalizr = [
-  "LICENSE",
-  "CHANGELOG.md",
-  "VERSIONING.md",
-  "PYPI_RELEASE_CHECKLIST.md",
-  "requirements-dev.txt",
-]
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "standard"
+include = ["src", "scripts"]
+exclude = ["tests", "**/__pycache__", ".venv", "build", "dist"]
+venvPath = "."
+venv = ".venv"
+reportUnnecessaryTypeIgnoreComment = "error"
 
 [tool.ruff]
 line-length = 100
@@ -67,5 +76,10 @@ target-version = "py310"
 exclude = ["build", "dist", ".tmp_dist", "ru_normalizr.egg-info", "__pycache__"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]
-ignore = ["E501"]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+  "E501",  # Длинные кириллические лингвистические таблицы и комментарии regex.
+  "RUF001",  # Кириллический текст даёт ложные срабатывания ambiguous-unicode-character-string.
+  "RUF002",  # Кириллические docstring дают ложные срабатывания ambiguous-unicode-character-docstring.
+  "RUF003",  # Кириллические комментарии дают ложные срабатывания ambiguous-unicode-character-comment.
+]

@@ -1,6 +1,10 @@
 __pycache__/
+.venv/
+venv/
 .pytest_cache/
 .ruff_cache/
+.mutmut-cache
+*.bak
 build/
 dist/
 *.egg-info/
@@ -9,8 +13,15 @@ dist/
 *.pyd
 *.pkl
 .tmp_dist/
+.tmp-fast-venv/
+.tmp-portable-venv/
+.tmp-pymorphy3-*.json
+.smoke-venv/
 .coverage
 input.txt
 *.whl
 *.tar.gz
 TODO.txt
+
+# Local compatibility link; canonical skills live in .claude/skills.
+.agents/skills/
