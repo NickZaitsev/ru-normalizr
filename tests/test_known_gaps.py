@@ -251,6 +251,28 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
     @pytest.mark.xfail(
         strict=True,
+        reason="numerals joined by 'и' inherit nominative instead of the "
+        "governing instrumental case",
+    )
+    def test_conjoined_numerals_keep_the_governing_case(self):
+        self.assertEqual(
+            normalize("Управление 3 и 5 заводами продолжается."),
+            "Управление тремя и пятью заводами продолжается.",
+        )
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason="a numeric range inflects its endpoints inconsistently instead "
+        "of using the case of the governing noun",
+    )
+    def test_numeric_range_inflects_both_endpoints_in_the_same_case(self):
+        self.assertEqual(
+            normalize("Обмен 3-5 квартирами прошёл успешно."),
+            "Обмен тремя — пятью квартирами прошёл успешно.",
+        )
+
+    @pytest.mark.xfail(
+        strict=True,
         reason="above 1000 simple rules each key gets its own pass, so rules "
         "cascade into each other instead of applying once",
     )
