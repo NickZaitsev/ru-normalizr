@@ -101,6 +101,7 @@ class UnitTests(unittest.TestCase):
         cases = (
             ("5 кг", "пять килограмм"),
             ("1 кг", "один килограмм"),
+            ("0 кг", "ноль килограмм"),
             ("20 °C", "двадцать градусов Цельсия"),
         )
         for source, expected in cases:

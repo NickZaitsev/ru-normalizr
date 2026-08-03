@@ -402,6 +402,12 @@ class NumeralInflectionFallbackTests(unittest.TestCase):
     def test_fallback_inflects_the_unit_word(self):
         with self._without_case_support():
             self.assertEqual(inflect_numeral_string("21", "gent"), "двадцати одного")
+            self.assertEqual(inflect_numeral_string("1000", "nomn"), "одна тысяча")
+            self.assertEqual(
+                inflect_numeral_string("1000", "nomn", "masc"), "одна тысяча"
+            )
+            self.assertEqual(inflect_numeral_string("1000", "accs"), "одну тысячу")
+            self.assertEqual(inflect_numeral_string("1000000", "accs"), "один миллион")
 
     def test_fallback_agrees_the_unit_word_with_the_magnitude_gender(self):
         # "тысяча" is feminine and "миллион" masculine, so the unit word takes
