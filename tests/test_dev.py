@@ -55,7 +55,9 @@ class CaptureTests(TestCase):
             f"sys.stdout.buffer.write({expected.encode('utf-8')!r})"
         )
 
-        with mock.patch.object(subprocess, "_text_encoding", return_value="ascii"):
+        with mock.patch.object(
+            subprocess, "_text_encoding", return_value="ascii", create=True
+        ):
             completed = dev.capture(sys.executable, "-c", command)
 
         self.assertEqual(completed.returncode, 0)
@@ -69,7 +71,9 @@ class CaptureTests(TestCase):
             "raise SystemExit(7)"
         )
 
-        with mock.patch.object(subprocess, "_text_encoding", return_value="ascii"):
+        with mock.patch.object(
+            subprocess, "_text_encoding", return_value="ascii", create=True
+        ):
             completed = dev.capture(sys.executable, "-c", command)
 
         self.assertEqual(completed.returncode, 7)
