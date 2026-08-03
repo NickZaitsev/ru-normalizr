@@ -59,6 +59,10 @@ class HeadingRangeTests(unittest.TestCase):
             "из глав с третьей по пятую",
         )
         self.assertEqual(
+            normalize_heading_ranges("Глава 3-5"),
+            "Главы с третьей по пятую",
+        )
+        self.assertEqual(
             normalize_heading_ranges("о части 2-4"),
             "о частях со второй по четвёртую",
         )
@@ -195,6 +199,10 @@ class HeadingRangeTests(unittest.TestCase):
         self.assertEqual(
             normalize_heading_ranges("тома 2-3"),
             "тома со второго по третий",
+        )
+        self.assertEqual(
+            normalize_heading_ranges("тома 7-9"),
+            "тома со седьмого по девятый",
         )
         self.assertEqual(
             normalize_heading_ranges("Книги 1-2"),
@@ -379,10 +387,12 @@ class HyphenatedWordTests(unittest.TestCase):
 
     def test_genitive_suffix_renders_the_genitive(self):
         self.assertEqual(normalize_hyphenated_words("5-ти лет"), "пяти лет")
+        self.assertEqual(normalize_hyphenated_words("5-и лет"), "пяти лет")
 
     def test_instrumental_suffixes_render_the_instrumental(self):
         self.assertEqual(normalize_hyphenated_words("2-мя годами"), "двумя годами")
         self.assertEqual(normalize_hyphenated_words("7-мя"), "семью")
+        self.assertEqual(normalize_hyphenated_words("7-ми годами"), "семью годами")
 
     def test_ambiguous_suffix_h_takes_the_case_from_context(self):
         # "-х" is genitive or locative; the surrounding words decide, and
