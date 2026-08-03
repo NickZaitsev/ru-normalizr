@@ -3,6 +3,11 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from ru_normalizr.abbreviation_context import (
+    allows_short_abbreviated_year,
+    has_mass_measurement_context,
+    should_keep_terminal_abbreviation_dot,
+)
 from ru_normalizr.dates_time import (
     _day_to_ordinal,
     _day_to_ordinal_genitive,
@@ -34,6 +39,58 @@ from ru_normalizr.years_context import (
     _is_non_year_following_token,
     should_treat_as_implicit_year,
 )
+
+
+class AbbreviationContextBranchTests(unittest.TestCase):
+    def test_terminal_abbreviation_dot_uses_following_text_context(self):
+        cases = (
+            ("Отчёт 5 г.", True),
+            ("Отчёт 5 г. Далее", True),
+            ("Отчёт 5 г. далее", False),
+            ("Отчёт 5 г.\nДалее", True),
+            ("Отчёт 5 г.!", True),
+            ('Отчёт 5 г. "Далее', True),
+            ('Отчёт 5 г. "далее', False),
+            ('Отчёт 5 г. "', True),
+        )
+        marker = " 5 г."
+        for source, expected in cases:
+            with self.subTest(source=source):
+                match_end = source.index(marker) + len(marker)
+                self.assertEqual(
+                    should_keep_terminal_abbreviation_dot(source, match_end), expected
+                )
+
+    def test_short_year_abbreviation_requires_a_birth_context_without_preposition(self):
+        cases = (
+            ("55 г.", None, False),
+            ("55 г. рождения", None, True),
+            ("55 г. назад", None, False),
+            ("55 г. 2020", None, False),
+            ("в 55 г.", "в", True),
+        )
+        for source, prep, expected in cases:
+            with self.subTest(source=source, prep=prep):
+                self.assertEqual(
+                    allows_short_abbreviated_year(
+                        source, source.index("г.") + len("г."), prep
+                    ),
+                    expected,
+                )
+
+    def test_mass_abbreviation_requires_a_recent_weight_noun(self):
+        cases = (
+            ("Вес 123 г.", True),
+            ("Масса образца 237 г.", True),
+            ("Скорость 123 г.", False),
+            ("Взвешивание образца 123 г.", False),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                number_start = source.rindex("123") if "123" in source else source.rindex("237")
+                self.assertEqual(
+                    has_mass_measurement_context(source, number_start), expected
+                )
 
 
 class FractionBranchTests(unittest.TestCase):
