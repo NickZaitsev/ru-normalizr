@@ -179,6 +179,21 @@ survivors. Три поведенческих проверки закрыли р�
 строгим `xfail` `test_mi_suffix_agrees_with_the_preposition_case`; прямое
 применение мутации `ми → XXмиXX` превращает его в `XPASS(strict)`.
 
+## Узкий прогон `years.py`
+
+Чтобы не повторять зависший на Windows полный прогон, отдельно проверен только
+`year_to_ordinal_words` с `-k YearOrdinalWordsTests`. Строковый audit оставил
+142 survivors: в просмотренных diff’ах это таблица `YEAR_SUFFIX_TO_CASE`, которую
+сам helper не читает, регулярные константы этапа `normalize_years`, который этим
+набором не запускался, и fallback-вызовы `num2words`, дающие тот же итог после
+резервного разбора. Осмысленных публичных различий в этом узком scope нет, поэтому
+тесты под эти survivors не добавлялись.
+
+Полный mutation audit `normalize_years` остаётся отдельным pending-пунктом:
+Windows `mutmut` зависает внутри дочернего процесса при большом числе мутантов,
+тогда как короткие stage-only прогоны `abbreviations.py` и `ordinals.py`
+завершаются воспроизводимо.
+
 ## Недостижимые из-за грамматики
 
 В `get_numeral_case` последний блок разбора правого существительного:
