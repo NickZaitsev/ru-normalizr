@@ -131,11 +131,36 @@ class NumberingBranchTests(unittest.TestCase):
 
 
 class UrlBranchTests(unittest.TestCase):
-    def test_url_stage_keeps_unbalanced_closers_with_trailing_punctuation(self):
+    def test_url_stage_expands_all_supported_separators_and_digits(self):
         self.assertEqual(
-            normalize_urls("Смотри https://example.org/path).", enabled=True),
-            "Смотри https двоеточие слэш слэш example точка org слэш path).",
+            normalize_urls(
+                "Смотри https://example.org/a0?b=1&c-2_d#3%4+5@6~789.",
+                enabled=True,
+            ),
+            "Смотри https двоеточие слэш слэш example точка org слэш "
+            "a ноль вопрос b равно один амперсанд c дефис два "
+            "нижнее подчёркивание d решётка три процент четыре плюс "
+            "пять собака шесть тильда семь восемь девять.",
         )
+
+    def test_url_stage_keeps_unbalanced_closers_with_trailing_punctuation(self):
+        cases = (
+            (
+                "Смотри https://example.org/path).",
+                "Смотри https двоеточие слэш слэш example точка org слэш path).",
+            ),
+            (
+                "Смотри https://example.org/path].",
+                "Смотри https двоеточие слэш слэш example точка org слэш path].",
+            ),
+            (
+                "Смотри https://example.org/path}.",
+                "Смотри https двоеточие слэш слэш example точка org слэш path}.",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize_urls(source, enabled=True), expected)
 
     def test_url_stage_keeps_balanced_closers_inside_the_url(self):
         self.assertEqual(
