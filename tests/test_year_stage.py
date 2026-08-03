@@ -264,6 +264,12 @@ class DecadeTests(unittest.TestCase):
         self.assertEqual(years("к 1980-м годам"), "к тысяча девятьсот восьмидесятым годам")
         self.assertEqual(years("по 1980-м"), "по тысяча девятьсот восьмидесятым")
 
+    def test_bare_decade_suffix_uses_the_genitive(self):
+        self.assertEqual(
+            years("Наследие 1980-х повлияло на дизайн."),
+            "Наследие тысяча девятьсот восьмидесятых повлияло на дизайн.",
+        )
+
     def test_decade_is_rounded_down_to_the_tens(self):
         self.assertEqual(years("в 25-х годах"), "в двадцатых годах")
 
