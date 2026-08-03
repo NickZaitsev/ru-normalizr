@@ -311,6 +311,10 @@ class RuNormalizrStageTests(unittest.TestCase):
             normalize_numerals("⑳"),
             "двадцать",
         )
+        self.assertEqual(
+            normalize_numerals("В ١٢ отделах работают ٣ сотрудника."),
+            "В двенадцати отделах работают три сотрудника.",
+        )
 
     def test_numeral_stage_fast_path_keeps_non_digit_candidates(self):
         self.assertEqual(normalize_numerals("α"), "альфа")
