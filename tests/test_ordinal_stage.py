@@ -205,6 +205,10 @@ class HeadingRangeTests(unittest.TestCase):
             "тома со седьмого по девятый",
         )
         self.assertEqual(
+            normalize_heading_ranges("тома 6-8"),
+            "тома со шестого по восьмой",
+        )
+        self.assertEqual(
             normalize_heading_ranges("Книги 1-2"),
             "Книги с первого по второй",
         )
