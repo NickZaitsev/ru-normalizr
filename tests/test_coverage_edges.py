@@ -35,6 +35,7 @@ from ru_normalizr.ordinal_utils import (
     normalize_ordinal_suffix_defaults,
     render_ordinal,
 )
+from ru_normalizr.urls import normalize_urls
 from ru_normalizr.years import (
     _normalize_era_marker,
     normalize_numeric_ranges,
@@ -126,6 +127,20 @@ class NumberingBranchTests(unittest.TestCase):
         self.assertEqual(convert_bracketed_numbers("Текст [²].", options), "Текст .")
         self.assertEqual(
             convert_bracketed_numbers("Текст (1] {2}.", options), "Текст (1] ."
+        )
+
+
+class UrlBranchTests(unittest.TestCase):
+    def test_url_stage_keeps_unbalanced_closers_with_trailing_punctuation(self):
+        self.assertEqual(
+            normalize_urls("Смотри https://example.org/path).", enabled=True),
+            "Смотри https двоеточие слэш слэш example точка org слэш path).",
+        )
+
+    def test_url_stage_keeps_balanced_closers_inside_the_url(self):
+        self.assertEqual(
+            normalize_urls("Смотри https://example.org/(path).", enabled=True),
+            "Смотри https двоеточие слэш слэш example точка org слэш ( path ).",
         )
 
 
