@@ -27,6 +27,12 @@ class EtcAbbreviationTests(unittest.TestCase):
     def test_terminal_dot_is_kept_before_a_capitalized_continuation(self):
         self.assertEqual(abbr("и т. д. Затем"), "и так далее. Затем")
 
+    def test_terminal_dot_is_kept_before_a_lowercase_line_continuation(self):
+        self.assertEqual(
+            abbr("В отчёте перечислены цели, задачи и т. д.\nпродолжение следует."),
+            "В отчёте перечислены цели, задачи и так далее.\nпродолжение следует.",
+        )
+
     def test_terminal_dot_is_dropped_before_a_closing_quote(self):
         self.assertEqual(abbr("и т. д.»"), "и так далее»")
 
@@ -113,6 +119,12 @@ class AdjectiveAbbreviationTests(unittest.TestCase):
         # "от англ. слова" is an ordinary adjective phrase, not a source-language
         # note, so the adjective agrees with the noun instead.
         self.assertEqual(abbr("от англ. слова"), "от английского слова")
+
+    def test_cyrillic_plural_after_language_abbreviation_keeps_adjective_agreement(self):
+        self.assertEqual(
+            abbr("Взяли примеры из англ. книг."),
+            "Взяли примеры из английских книг.",
+        )
 
     def test_head_without_a_case_leaves_the_adjective_in_its_lemma(self):
         # "и" has a noun reading (the letter name) but no case, so there is
