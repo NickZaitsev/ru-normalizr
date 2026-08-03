@@ -22,3 +22,6 @@ input.txt
 *.whl
 *.tar.gz
 TODO.txt
+
+# Local compatibility link; canonical skills live in .claude/skills.
+.agents/skills/
