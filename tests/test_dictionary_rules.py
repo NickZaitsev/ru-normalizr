@@ -159,6 +159,10 @@ class WildcardRuleTests(DictionaryRuleTestCase):
         self.write_dic("a.dic", "*ph*=ф\n")
 
         self.assertEqual(self.normalizer().apply("phone graph"), "фone graф")
+        self.assertEqual(
+            self.normalizer().apply("В phphone найдено совпадение."),
+            "В ффone найдено совпадение.",
+        )
 
     def test_inner_wildcard_spans_the_middle_of_a_token(self):
         self.write_dic("a.dic", "un*ing=безобразие\n")
@@ -452,6 +456,16 @@ class PublicFunctionTests(DictionaryRuleTestCase):
         self.assertEqual(
             apply_dictionary_rules("Он поставил линукс вместо Windows", enabled=True),
             "Он поставил линукс вместо Windows",
+        )
+
+    def test_public_function_can_select_a_packaged_dictionary(self):
+        self.assertEqual(
+            apply_dictionary_rules(
+                "Модель a",
+                enabled=True,
+                include_only_files=("latinization_rules.dic",),
+            ),
+            "Модель Эй,",
         )
 
     def test_disabled_rules_leave_the_text_alone(self):
