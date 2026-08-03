@@ -297,6 +297,28 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
                 "Смотри ютуб и видеосервис каждый вечер.",
             )
 
+    @pytest.mark.xfail(
+        strict=True,
+        reason="exactly 1000 simple rules already switch to the cascading path",
+    )
+    def test_dictionary_threshold_is_not_semantic_at_exactly_one_thousand_rules(self):
+        filler = "".join(
+            f"наполнитель{index}=пусто{index}\n" for index in range(998)
+        )
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "brands.dic").write_text(
+                filler + "youtube=ютуб\nютуб=видеосервис\n", encoding="utf-8"
+            )
+            options = NormalizeOptions(
+                dictionaries_path=root, enable_latinization=False
+            )
+
+            self.assertEqual(
+                normalize("Смотри youtube и ютуб каждый вечер.", options),
+                "Смотри ютуб и видеосервис каждый вечер.",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

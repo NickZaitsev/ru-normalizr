@@ -174,6 +174,18 @@ class WildcardRuleTests(DictionaryRuleTestCase):
             self.normalizer().apply("В phphone найдено совпадение."),
             "В ффone найдено совпадение.",
         )
+        self.assertEqual(
+            self.normalizer().apply("В Phone найдено совпадение."),
+            "В фone найдено совпадение.",
+        )
+
+    def test_multiple_wildcard_groups_preserve_both_matched_tails(self):
+        self.write_dic("a.dic", "*foo*bar*=значок\n")
+
+        self.assertEqual(
+            self.normalizer().apply("В prefooXXbarpost найдено совпадение."),
+            "В preзначокpost найдено совпадение.",
+        )
 
     def test_inner_wildcard_spans_the_middle_of_a_token(self):
         self.write_dic("a.dic", "un*ing=безобразие\n")
