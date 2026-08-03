@@ -3,6 +3,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from ru_normalizr import NormalizeOptions
 from ru_normalizr.abbreviation_context import (
     allows_short_abbreviated_year,
     has_mass_measurement_context,
@@ -13,6 +14,12 @@ from ru_normalizr.dates_time import (
     _day_to_ordinal_genitive,
     normalize_dates,
     normalize_time,
+)
+from ru_normalizr.numbering import (
+    convert_bracketed_numbers,
+    convert_numeric_sequence,
+    num_to_word,
+    roman_to_word,
 )
 from ru_normalizr.numerals import _helpers
 from ru_normalizr.numerals._helpers import (
@@ -91,6 +98,32 @@ class AbbreviationContextBranchTests(unittest.TestCase):
                 self.assertEqual(
                     has_mass_measurement_context(source, number_start), expected
                 )
+
+
+class NumberingBranchTests(unittest.TestCase):
+    def test_numbering_fallbacks_preserve_input_when_backends_cannot_render(self):
+        with patch(
+            "ru_normalizr.numbering.num2words.num2words",
+            side_effect=RuntimeError("backend unavailable"),
+        ):
+            self.assertEqual(num_to_word(7), "7")
+        self.assertEqual(roman_to_word("IIII"), "IIII")
+
+    def test_numeric_sequence_keeps_non_numeric_segments_in_order(self):
+        self.assertEqual(
+            convert_numeric_sequence("12.abc"), "двенадцать точка abc"
+        )
+        self.assertEqual(convert_numeric_sequence("I.2"), "I точка два")
+
+    def test_bracketed_reference_removal_respects_inclusive_ignore_interval(self):
+        options = NormalizeOptions.tts(remove_links_ignore_interval=(10, 20))
+        self.assertEqual(
+            convert_bracketed_numbers("Текст [1] [10] [20] [21].", options),
+            "Текст  [10] [20] .",
+        )
+        self.assertEqual(
+            convert_bracketed_numbers("Текст (1] {2}.", options), "Текст (1] ."
+        )
 
 
 class FractionBranchTests(unittest.TestCase):
