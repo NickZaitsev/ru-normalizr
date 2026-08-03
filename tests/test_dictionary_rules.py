@@ -77,6 +77,17 @@ class SimpleRuleTests(DictionaryRuleTestCase):
 
         self.assertEqual(self.normalizer().apply("я помню чудное мгновенье"), "аз помню чудное мгновенье")
 
+    def test_latin_source_stays_in_the_simple_batch(self):
+        # The source is case-insensitive, but a plain Latin letter is still a
+        # simple rule. If it is misclassified as a regex, the following rule
+        # sees the replacement and creates an unintended cascade.
+        self.write_dic("a.dic", "X=икс\nикс=значок\n")
+
+        self.assertEqual(
+            self.normalizer().apply("В отчёте X отмечен."),
+            "В отчёте икс отмечен.",
+        )
+
     def test_line_without_a_separator_never_becomes_a_rule(self):
         # A stray note must be dropped, not read as a rule whose source is the
         # line minus its last character and whose target is the whole line.
