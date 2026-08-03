@@ -152,6 +152,14 @@ class InitialsTests(unittest.TestCase):
         self.assertEqual(abbr("Иванов А."), "Иванов аа.")
         self.assertEqual(abbr("А. Иванов"), "аа Иванов.")
 
+    def test_single_initial_before_surname_preserves_terminal_marks(self):
+        for mark in (".", "!", "?", "…"):
+            with self.subTest(mark=mark):
+                self.assertEqual(
+                    abbr(f"Отчёт подготовил А. Иванов{mark}"),
+                    f"Отчёт подготовил аа Иванов{mark}",
+                )
+
     def test_existing_terminal_mark_is_never_doubled(self):
         # Each of the three name shapes decides the trailing dot on its own, so
         # every shape has to be checked against every sentence-final mark.
