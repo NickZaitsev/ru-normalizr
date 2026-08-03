@@ -73,6 +73,10 @@ def test_validated_unit_paradigms_cover_all_primary_cases_and_numbers(
         assert inflect_unit_lemma(descriptor, {case, number}) == expected
 
 
+def test_string_unit_lemma_uses_the_same_validated_inflection_path() -> None:
+    assert inflect_unit_lemma("метр", {"gent", "plur"}) == "метров"
+
+
 @pytest.mark.parametrize(
     ("source", "expected"),
     [
