@@ -35,6 +35,7 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v8.3.2
         with:
+          version: "0.11.29"
           enable-cache: true
 
       - name: Sync locked dependencies
@@ -83,6 +84,7 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v8.3.2
         with:
+          version: "0.11.29"
           enable-cache: true
 
       - name: Build wheel
