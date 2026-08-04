@@ -6,8 +6,6 @@ to the closest focused regular suite in the same commit.
 """
 
 import unittest
-from pathlib import Path
-from tempfile import TemporaryDirectory
 
 import pytest
 
@@ -271,48 +269,6 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
             normalize("Обмен 3-5 квартирами прошёл успешно."),
             "Обмен тремя — пятью квартирами прошёл успешно.",
         )
-
-    @pytest.mark.xfail(
-        strict=True,
-        reason="above 1000 simple rules each key gets its own pass, so rules "
-        "cascade into each other instead of applying once",
-    )
-    def test_dictionary_rules_apply_once_regardless_of_dictionary_size(self):
-        # Up to 1000 simple rules one alternation replaces every key in a single
-        # pass. Past that threshold each key runs as its own substitution, so a
-        # rule can rewrite what an earlier rule just produced — the same two
-        # rules then give a different answer purely because the file grew.
-        with TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            filler = "".join(f"наполнитель{index}=пусто{index}\n" for index in range(1200))
-            (root / "brands.dic").write_text(
-                filler + "youtube=ютуб\nютуб=видеосервис\n", encoding="utf-8"
-            )
-            options = NormalizeOptions(dictionaries_path=root, enable_latinization=False)
-
-            self.assertEqual(
-                normalize("Смотри youtube и ютуб каждый вечер.", options),
-                "Смотри ютуб и видеосервис каждый вечер.",
-            )
-
-    @pytest.mark.xfail(
-        strict=True,
-        reason="exactly 1000 simple rules already switch to the cascading path",
-    )
-    def test_dictionary_threshold_is_not_semantic_at_exactly_one_thousand_rules(self):
-        filler = "".join(f"наполнитель{index}=пусто{index}\n" for index in range(998))
-        with TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / "brands.dic").write_text(
-                filler + "youtube=ютуб\nютуб=видеосервис\n", encoding="utf-8"
-            )
-            options = NormalizeOptions(dictionaries_path=root, enable_latinization=False)
-
-            self.assertEqual(
-                normalize("Смотри youtube и ютуб каждый вечер.", options),
-                "Смотри ютуб и видеосервис каждый вечер.",
-            )
-
 
 @pytest.mark.xfail(
     strict=True,

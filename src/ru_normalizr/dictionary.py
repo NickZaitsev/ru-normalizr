@@ -219,9 +219,28 @@ class DictionaryNormalizer:
     def _apply_simple_chunk(
         self, text: str, patterns: list[tuple[re.Pattern[str], str]]
     ) -> str:
+        matches_by_start: dict[int, tuple[int, str]] = {}
         for pattern, replacement in patterns:
-            text = pattern.sub(replacement, text)
-        return text
+            for match in pattern.finditer(text):
+                start, end = match.span()
+                previous = matches_by_start.get(start)
+                if previous is None or end > previous[0]:
+                    matches_by_start[start] = (end, replacement)
+
+        if not matches_by_start:
+            return text
+
+        parts: list[str] = []
+        cursor = 0
+        for start in sorted(matches_by_start):
+            end, replacement = matches_by_start[start]
+            if start < cursor:
+                continue
+            parts.append(text[cursor:start])
+            parts.append(replacement)
+            cursor = end
+        parts.append(text[cursor:])
+        return "".join(parts)
 
     def _apply_dic_rules(self, text: str, chunks: list[tuple[str, Any]]) -> str:
         for chunk_type, chunk_data in chunks:
