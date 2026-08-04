@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 import num2words
 
+from ru_normalizr import normalize
 from ru_normalizr.numerals import ordinals
 from ru_normalizr.numerals.ordinals import (
     _heading_parse,
@@ -311,11 +312,20 @@ class CompoundAdjectiveTests(unittest.TestCase):
                     normalize_compound_numeric_adjectives(source), expected
                 )
 
+    def test_ambiguous_adjective_form_is_still_joined(self):
+        self.assertEqual(
+            normalize_compound_numeric_adjectives("Груз из 5 тонной цистерны."),
+            "Груз из пятитонной цистерны.",
+        )
+
     def test_counted_noun_is_not_glued_into_a_compound(self):
-        # A stem must only fire on an adjective. These are plain counted nouns
-        # whose forms start the same way ("лет" under "летн", "дней" under
-        # "дневн"), and gluing them would destroy the sentence.
+        # A stem must only fire on an adjective. Some nouns equal a stem or
+        # begin with one, so a textual prefix match alone would destroy them.
         for source in (
+            "Он ждал 7 часов.",
+            "Груз весит 5 тонн.",
+            "Экскурсия охватила 5 тоннелей.",
+            "В районе восстановили 5 часовен.",
             "Отчёт за 7 лет.",
             "Прошло 5 дней.",
             "Осталось 3 ступени.",
@@ -326,6 +336,18 @@ class CompoundAdjectiveTests(unittest.TestCase):
         ):
             with self.subTest(source=source):
                 self.assertEqual(normalize_compound_numeric_adjectives(source), source)
+
+    def test_full_pipeline_keeps_counted_hours_and_tonnes_separate(self):
+        cases = (
+            ("Он ждал 7 часов.", "Он ждал семь часов."),
+            ("Груз весит 5 тонн.", "Груз весит пять тонн."),
+            ("Смена в 8 часов начинается.", "Смена в восемь часов начинается."),
+            ("Экскурсия охватила 5 тоннелей.", "Экскурсия охватила пять тоннелей."),
+            ("В районе восстановили 5 часовен.", "В районе восстановили пять часовен."),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize(source), expected)
 
     def test_ninety_keeps_its_nominative_stem_inside_a_compound(self):
         # The genitive "девяноста" is wrong as a prefix; "девяносто" is the stem.

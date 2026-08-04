@@ -120,7 +120,7 @@ COMPOUND_ADJECTIVE_STEMS = (
     "летн",
 )
 COMPOUND_ADJECTIVE_PATTERN = re.compile(
-    rf"(?<!\d)(?P<num>\d+)(?:\s*[-–—]?\s*(?P<suffix>и|х))?\s+(?P<adj>(?:{'|'.join(COMPOUND_ADJECTIVE_STEMS)})[а-яё]*)\b",
+    rf"(?<!\d)(?P<num>\d+)(?:\s*[-–—]?\s*(?P<suffix>и|х))?\s+(?P<adj>(?:{'|'.join(COMPOUND_ADJECTIVE_STEMS)})[а-яё]+)\b",
     re.IGNORECASE | re.UNICODE,
 )
 PERCENT_COMPOUND_ADJECTIVE_PATTERN = re.compile(
@@ -304,8 +304,10 @@ def normalize_compound_numeric_adjectives(text: str) -> str:
         return "".join(words)
 
     def repl(match: re.Match[str]) -> str:
-        prefix = numeral_prefix(match.group("num"))
         adjective = match.group("adj")
+        if not any("ADJF" in candidate.tag for candidate in parse_word(adjective.lower())):
+            return match.group(0)
+        prefix = numeral_prefix(match.group("num"))
         return f"{prefix}{adjective}"
 
     def percent_repl(match: re.Match[str]) -> str:
