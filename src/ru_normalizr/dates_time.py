@@ -25,6 +25,9 @@ MONTHS_GENT = {
     "ноября": 11,
     "декабря": 12,
 }
+MONTH_NAME_FRAGMENT = (
+    r"(?:" + "|".join(map(re.escape, MONTHS_GENT)) + r")(?![а-яё])"
+)
 # The era word is optional but the whitespace in front of it is not: consuming a
 # trailing space without the word leaves the rendered date glued to whatever
 # follows ("две тысячи двадцатого годаг."). The alternation matches the shape the
@@ -45,28 +48,28 @@ TEXT_DATE_RANGE_CASES = {
 TEXT_DATE_FROM_TO_PATTERN = re.compile(
     r"\b(?P<start_prep>с|со)\s+(?P<day1>\d{1,2})\s+"
     r"(?P<end_prep>по|до)\s+(?P<day2>\d{1,2})\s+(?P<month>"
-    + "|".join(MONTHS_GENT.keys())
-    + r")(?![а-яё])"
+    + MONTH_NAME_FRAGMENT
+    + r")"
     + YEAR_TAIL_FRAGMENT,
     re.IGNORECASE,
 )
 TEXT_DATE_RANGE_PATTERN = re.compile(
     r"\b(?:(?P<prep>за|на|в|во|по|с|со|до|от)\s+)?(?P<day1>\d{1,2})\s*[–—-]\s*(?P<day2>\d{1,2})\s+(?P<month>"
-    + "|".join(MONTHS_GENT.keys())
+    + MONTH_NAME_FRAGMENT
     + r")"
     + YEAR_TAIL_FRAGMENT,
     re.IGNORECASE,
 )
 TEXT_DATE_LIST_PATTERN = re.compile(
     r"\b(?P<days>\d{1,2}(?:\s*(?:,|и)\s*\d{1,2})+)\s+(?P<month>"
-    + "|".join(MONTHS_GENT.keys())
+    + MONTH_NAME_FRAGMENT
     + r")"
     + YEAR_TAIL_FRAGMENT,
     re.IGNORECASE,
 )
 TEXT_DATE_PATTERN = re.compile(
     r"\b(?:(?P<prep>перед)\s+)?(?P<day>\d{1,2})\s+(?P<month>"
-    + "|".join(MONTHS_GENT.keys())
+    + MONTH_NAME_FRAGMENT
     + r")"
     + YEAR_TAIL_FRAGMENT,
     re.IGNORECASE,

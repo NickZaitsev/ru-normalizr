@@ -35,14 +35,6 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
     @pytest.mark.xfail(
         strict=True,
-        reason="the month alternation has no right-hand word boundary",
-    )
-    def test_month_name_is_not_matched_inside_a_longer_word(self):
-        self.assertEqual(normalize("15 маяк"), "пятнадцать маяк")
-        self.assertEqual(normalize("20 маяков"), "двадцать маяков")
-
-    @pytest.mark.xfail(
-        strict=True,
         reason="CamelCase tokens are never split, so the acronym never reaches "
         "the abbreviation stage",
     )
