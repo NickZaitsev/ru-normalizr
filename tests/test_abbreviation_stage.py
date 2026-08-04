@@ -90,6 +90,25 @@ class AdjectiveAbbreviationTests(unittest.TestCase):
             "Пригласили международных наблюдателей на выборы.",
         )
 
+    def test_inanimate_head_noun_takes_the_inanimate_accusative(self):
+        cases = (
+            (
+                "Подписали гос. контракт на поставку.",
+                "Подписали государственный контракт на поставку.",
+            ),
+            (
+                "Приняли гос. меры поддержки бизнеса.",
+                "Приняли государственные меры поддержки бизнеса.",
+            ),
+            (
+                "Отправили офиц. запросы всем участникам.",
+                "Отправили официальные запросы всем участникам.",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(abbr(source), expected)
+
     def test_head_noun_is_found_past_an_intervening_adverb(self):
         # "очень" is neither an adjective nor a noun, so the scan has to walk
         # over it to reach "задачей" as the head.

@@ -166,12 +166,20 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
         if noun_case is None:
             return lemma
         target_tags = {noun_case}
-        if "plur" in noun_parse.tag:
+        is_plural = "plur" in noun_parse.tag
+        if is_plural:
             target_tags.add("plur")
         else:
             target_tags.add("sing")
             if noun_parse.tag.gender:
                 target_tags.add(noun_parse.tag.gender)
+        if noun_case == "accs" and (
+            is_plural or noun_parse.tag.gender == "masc"
+        ):
+            for animacy in ("anim", "inan"):
+                if animacy in noun_parse.tag:
+                    target_tags.add(animacy)
+                    break
         return safe_inflect(
             adjective_parse,
             target_tags,
