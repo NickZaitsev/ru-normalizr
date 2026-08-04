@@ -280,7 +280,6 @@ class HeadingNumberTests(unittest.TestCase):
 class CompoundAdjectiveTests(unittest.TestCase):
     def test_small_numerals_use_their_fixed_prefix(self):
         cases = (
-            ("1 комнатная", "однокомнатная"),
             ("2 тонный", "двухтонный"),
             ("3 комнатная", "трёхкомнатная"),
             ("4 этажный", "четырёхэтажный"),
@@ -344,6 +343,31 @@ class CompoundAdjectiveTests(unittest.TestCase):
             ("Смена в 8 часов начинается.", "Смена в восемь часов начинается."),
             ("Экскурсия охватила 5 тоннелей.", "Экскурсия охватила пять тоннелей."),
             ("В районе восстановили 5 часовен.", "В районе восстановили пять часовен."),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize(source), expected)
+
+    def test_full_pipeline_keeps_ordinary_counted_adjectives_separate(self):
+        cases = (
+            ("В городе работают 5 местных врачей.", "В городе работают пять местных врачей."),
+            ("Для кабинета купили 3 комнатных растения.", "Для кабинета купили три комнатных растения."),
+            ("Магазин продал 7 летних платьев.", "Магазин продал семь летних платьев."),
+            ("На посту дежурили 5 часовых.", "На посту дежурили пять часовых."),
+            ("В расписании осталось 2 дневных сеанса.", "В расписании осталось два дневных сеанса."),
+            ("Наступил 1 летний день.", "Наступил один летний день."),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize(source), expected)
+
+    def test_full_pipeline_only_repairs_unambiguously_missing_hyphens(self):
+        cases = (
+            ("Нам нужен 5 тонный груз.", "Нам нужен пятитонный груз."),
+            ("Мы арендовали 2 местный номер.", "Мы арендовали двухместный номер."),
+            ("Груз в 5 тонной цистерне.", "Груз в пятитонной цистерне."),
+            ("Нужна 1-комнатная квартира.", "Нужна однокомнатная квартира."),
+            ("Подали 21-местный автобус.", "Подали двадцатиодноместный автобус."),
         )
         for source, expected in cases:
             with self.subTest(source=source):

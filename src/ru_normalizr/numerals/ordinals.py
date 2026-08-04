@@ -282,36 +282,52 @@ def normalize_heading_numbers(text: str) -> str:
     return HEADING_SINGLE_PATTERN.sub(repl, text)
 
 
+def _compound_numeral_prefix(num_str: str) -> str:
+    try:
+        value = int(num_str)
+    except ValueError:
+        return num_str
+    if value == 1:
+        return "одно"
+    if value == 2:
+        return "двух"
+    if value == 3:
+        return "трёх"
+    if value == 4:
+        return "четырёх"
+    words = inflect_numeral_string(num_str, "gent").split()
+    if 90 < value < 100 and words[:1] == ["девяноста"]:
+        words[0] = "девяносто"
+    elif value == 100:
+        return "сто"
+    if value % 10 == 1 and value % 100 != 11 and words[-1:] == ["одного"]:
+        words[-1] = "одно"
+    return "".join(words)
+
+
 def normalize_compound_numeric_adjectives(text: str) -> str:
-    def numeral_prefix(num_str: str) -> str:
-        try:
-            value = int(num_str)
-        except ValueError:
-            return num_str
-        if value == 1:
-            return "одно"
-        if value == 2:
-            return "двух"
-        if value == 3:
-            return "трёх"
-        if value == 4:
-            return "четырёх"
-        words = inflect_numeral_string(num_str, "gent").split()
-        if 90 < value < 100 and words[:1] == ["девяноста"]:
-            words[0] = "девяносто"
-        elif value == 100:
-            return "сто"
-        return "".join(words)
+    def numeral_can_govern_singular(value: int) -> bool:
+        return value % 10 == 1 and value % 100 != 11
 
     def repl(match: re.Match[str]) -> str:
         adjective = match.group("adj")
-        if not any("ADJF" in candidate.tag for candidate in parse_word(adjective.lower())):
+        adjective_parses = [
+            candidate
+            for candidate in parse_word(adjective.lower())
+            if "ADJF" in candidate.tag
+        ]
+        if not adjective_parses:
             return match.group(0)
-        prefix = numeral_prefix(match.group("num"))
+        value = int(match.group("num"))
+        if numeral_can_govern_singular(value) or any(
+            "plur" in candidate.tag for candidate in adjective_parses
+        ):
+            return match.group(0)
+        prefix = _compound_numeral_prefix(match.group("num"))
         return f"{prefix}{adjective}"
 
     def percent_repl(match: re.Match[str]) -> str:
-        prefix = numeral_prefix(match.group("num"))
+        prefix = _compound_numeral_prefix(match.group("num"))
         return f"{prefix}процент{match.group('suffix').lower()}"
 
     text = PERCENT_COMPOUND_ADJECTIVE_PATTERN.sub(percent_repl, text)
@@ -395,11 +411,9 @@ def normalize_hyphenated_words(text: str) -> str:
         num_words = inflect_numeral_string(num_str, target_case)
         if word_lower in CARDINAL_CASE_SUFFIXES:
             return num_words
-        return (
-            f"{num_words}{word}"
-            if is_adj_like
-            else (f"{num_words}" if len(word) <= 3 else f"{num_words} {word}")
-        )
+        if is_adj_like:
+            return f"{_compound_numeral_prefix(num_str)}{word}"
+        return f"{num_words}" if len(word) <= 3 else f"{num_words} {word}"
 
     return HYPHENATED_WORD_PATTERN.sub(repl, text)
 

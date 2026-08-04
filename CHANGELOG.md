@@ -17,6 +17,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Read the `IPsec` protocol name as `ай пи сек` in every spelling (`IPSEC`, `IPSec`, `IPsec`, `ipsec`) instead of `ай пи эс ии си` for the all-caps form and `ипсэк` for the rest. This needs an entry in two places by design: the abbreviation stage intercepts all-caps tokens and only consults `KNOWN_ABBREVIATIONS`, while mixed-case and lowercase spellings never match that pattern and are resolved by the latinization dictionary instead
 
 ### Changed
+- Склеивать раздельно записанное числовое прилагательное только при однозначно пропущенном дефисе: `5 тонный груз` и `2 местный номер` по-прежнему становятся `пятитонным грузом` и `двухместным номером`, а грамматически полноценные сочетания `5 местных врачей`, `2 дневных сеанса` и неоднозначные формы после `1` сохраняются раздельными; для составного значения после `1/21/31…` требуется дефис
 - Использовать compiled `DAWG2` backend через `pymorphy3[fast]` по умолчанию на поддерживаемых CPython после полного parity-gate с portable backend; добавить верхнюю границу `<3` для прямых зависимостей `pymorphy3` и русского словаря
 - Централизовать выбор морфологического разбора и канонизацию редких падежей через публичный API `pymorphy3`, сохранив ограниченные линейные контекстные сканеры и lowercase-кеш без смешения `е`/`ё`
 - Перейти на стандартную структуру `src/ru_normalizr`, сохранив прежние пути импортов установленного пакета и состав колеса
