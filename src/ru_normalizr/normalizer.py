@@ -58,7 +58,7 @@ from .preprocess_utils import (
     restore_letter_hyphens,
 )
 from .roman_numerals import normalize_roman
-from .urls import normalize_urls
+from .urls import ProtectedUrls, normalize_urls, protect_urls
 from .years import normalize_numeric_ranges, normalize_years
 
 PARTICLE_PATTERN = re.compile(
@@ -146,6 +146,10 @@ class PipelineNormalizer:
         return handler(text)
 
     def normalize_text(self, text: str) -> str:
+        protected_urls = ProtectedUrls(text)
+        if not self.options.enable_url_normalization:
+            protected_urls = protect_urls(text)
+            text = protected_urls.text
         text = self.run_urls(text)
         text = self._run_preprocess_steps(
             text,
@@ -174,7 +178,7 @@ class PipelineNormalizer:
         # rewritten the token into Cyrillic.
         text = self.run_dictionary(text)
         text = self.run_latinization(text)
-        return self.run_finalize(text)
+        return protected_urls.restore(self.run_finalize(text))
 
     def run_preprocess(
         self, text: str, keep_paragraph_placeholders: bool = False

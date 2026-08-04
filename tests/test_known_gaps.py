@@ -256,22 +256,6 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
 @pytest.mark.xfail(
     strict=True,
-    reason="disabling URL normalization lets generic cleanup corrupt URL punctuation and casing",
-)
-def test_disabled_url_normalization_preserves_url_verbatim():
-    options = NormalizeOptions.safe(
-        enable_url_normalization=False,
-        remove_links=False,
-        enable_numeral_normalization=False,
-    )
-
-    assert normalize("Адрес https://milk.org/docs указан в главе IV.", options) == (
-        "Адрес https://milk.org/docs указан в главе четвёртой."
-    )
-
-
-@pytest.mark.xfail(
-    strict=True,
     reason="the predicate context incorrectly puts a nominative counted numeral in genitive",
 )
 def test_predicate_keeps_counted_numeral_nominative_after_roman_reference():
