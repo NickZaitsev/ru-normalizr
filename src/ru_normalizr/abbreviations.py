@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from ._morph import canonicalize_case, first_parse_required, parse_word
+from ._morph import MorphParse, canonicalize_case, first_parse_required, parse_word, select_parse
 from .abbreviation_rules import (
     ABBREVIATION_LITERAL_HINTS,
     ABBREVIATION_PATTERNS,
@@ -26,6 +26,7 @@ from .constants import (
     RU_VOWELS,
     RUSSIAN_NAME_TOKEN,
 )
+from .numerals._constants import VERB_CASE
 from .numerals._helpers import safe_inflect
 from .options import InitialsPauseMode, InitialsVowelMode, NormalizeOptions
 
@@ -37,9 +38,28 @@ _ADJECTIVE_ABBREVIATION_WORD = (
 )
 _ADJECTIVE_ABBREVIATION_PATTERN = re.compile(
     rf"(?<!\w)(?P<abbr>{'|'.join(sorted((re.escape(key) for key in ADJECTIVE_ABBREVIATION_EXPANSIONS), key=len, reverse=True))})"
-    rf"(?P<space>\s+)(?P<phrase>{_ADJECTIVE_ABBREVIATION_WORD}(?:\s+{_ADJECTIVE_ABBREVIATION_WORD}){{0,2}})",
+    rf"(?P<space>\s+)(?P<phrase>{_ADJECTIVE_ABBREVIATION_WORD}(?:\s+{_ADJECTIVE_ABBREVIATION_WORD}){{0,5}})",
     re.IGNORECASE,
 )
+_LEFT_CONTEXT_TOKEN_PATTERN = re.compile(r"[А-ЯЁа-яё-]+|[.!?]")
+_UNAMBIGUOUS_PREPOSITION_CASES = {
+    "без": "gent",
+    "для": "gent",
+    "до": "gent",
+    "из": "gent",
+    "к": "datv",
+    "ко": "datv",
+    "между": "ablt",
+    "над": "ablt",
+    "о": "loct",
+    "об": "loct",
+    "обо": "loct",
+    "около": "gent",
+    "от": "gent",
+    "перед": "ablt",
+    "при": "loct",
+    "у": "gent",
+}
 _WORD_AMPERSAND_PATTERN = re.compile(
     r"(?P<left>[A-Za-zА-Яа-яЁё]+(?:[-'][A-Za-zА-Яа-яЁё0-9]+)*)\s*&\s*(?P<right>[A-Za-zА-Яа-яЁё]+(?:[-'][A-Za-zА-Яа-яЁё0-9]+)*)"
 )
@@ -104,11 +124,50 @@ def _expand_contextual_etc_abbreviations(text: str) -> str:
 
 
 def _expand_contextual_adjective_abbreviations(text: str) -> str:
-    def choose_head_noun(phrase: str):
+    def parses_agree(modifier: MorphParse, head: MorphParse) -> bool:
+        modifier_case = canonicalize_case(modifier.tag.case)
+        head_case = canonicalize_case(head.tag.case)
+        if modifier_case != head_case or modifier.tag.number != head.tag.number:
+            return False
+        if head.tag.number == "sing" and modifier.tag.gender != head.tag.gender:
+            return False
+        if head_case == "accs" and (
+            head.tag.number == "plur" or head.tag.gender == "masc"
+        ):
+            modifier_animacy = modifier.tag.animacy
+            head_animacy = head.tag.animacy
+            if (
+                modifier_animacy is not None
+                and head_animacy is not None
+                and modifier_animacy != head_animacy
+            ):
+                return False
+        return True
+
+    def infer_governing_case(left_context: str) -> str | None:
+        tokens = _LEFT_CONTEXT_TOKEN_PATTERN.findall(left_context[-160:])[-6:]
+        for token in reversed(tokens):
+            if token in {".", "!", "?"}:
+                break
+            word = token.lower()
+            if word in _UNAMBIGUOUS_PREPOSITION_CASES:
+                return _UNAMBIGUOUS_PREPOSITION_CASES[word]
+            verb = select_parse(parse_word(word), pos={"VERB", "INFN"})
+            if verb is None:
+                continue
+            governed_case = VERB_CASE.get(verb.normal_form)
+            if governed_case is not None:
+                return governed_case
+            if "tran" in verb.tag:
+                return "accs"
+        return None
+
+    def choose_head_noun(phrase: str, expected_case: str | None):
         words = phrase.split()
-        modifier_parses = []
-        for word_index, word in enumerate(words):
-            parsed = parse_word(word.lower())
+        parsed_words = [parse_word(word.lower()) for word in words]
+        modifier_parses: list[MorphParse] = []
+        fallback_noun: MorphParse | None = None
+        for word_index, parsed in enumerate(parsed_words):
             noun_candidates = [
                 candidate for candidate in parsed if "NOUN" in candidate.tag
             ]
@@ -117,14 +176,33 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
                 for candidate in parsed
                 if candidate.tag.POS in {"ADJF", "PRTF"}
             ]
-            later_has_noun = any(
-                any(candidate.tag.POS == "NOUN" for candidate in parse_word(later.lower()))
-                for later in words[word_index + 1 :]
+            substantive_candidates = [
+                candidate for candidate in adjective_candidates if "Subx" in candidate.tag
+            ]
+            later_parses = parsed_words[word_index + 1 :]
+            later_noun_candidates = [
+                candidate
+                for candidates in later_parses
+                for candidate in candidates
+                if candidate.tag.POS == "NOUN"
+            ]
+            later_substantive_candidates = [
+                candidate
+                for candidates in later_parses
+                for candidate in candidates
+                if candidate.tag.POS in {"ADJF", "PRTF"} and "Subx" in candidate.tag
+            ]
+            agrees_with_later_noun = any(
+                parses_agree(adjective, noun)
+                for adjective in adjective_candidates
+                for noun in later_noun_candidates
             )
-            if adjective_candidates and later_has_noun:
+
+            # Ambiguous forms such as «часовой» can be both a noun and an
+            # adjective. Prefer their modifier reading when a later noun
+            # provides an explicit agreement target.
+            if adjective_candidates and agrees_with_later_noun:
                 modifier_parses.extend(adjective_candidates)
-                continue
-            if not noun_candidates:
                 continue
 
             def compatibility(
@@ -146,8 +224,36 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
                     score += 2
                 return score
 
-            return max(noun_candidates, key=compatibility)
-        return None
+            if noun_candidates:
+                best_noun = max(noun_candidates, key=compatibility)
+                if fallback_noun is None:
+                    fallback_noun = best_noun
+                if not modifier_parses or any(
+                    parses_agree(modifier, noun)
+                    for modifier in modifier_parses
+                    for noun in noun_candidates
+                ):
+                    return best_noun
+                continue
+
+            if substantive_candidates and not agrees_with_later_noun:
+                def substantive_score(candidate: MorphParse) -> tuple[int, int, float]:
+                    case_score = int(
+                        expected_case is not None
+                        and canonicalize_case(candidate.tag.case) == expected_case
+                    )
+                    modifier_score = sum(
+                        parses_agree(modifier, candidate) for modifier in modifier_parses
+                    )
+                    return case_score, modifier_score, candidate.score
+
+                return max(substantive_candidates, key=substantive_score)
+
+            if adjective_candidates and (
+                later_noun_candidates or later_substantive_candidates
+            ):
+                modifier_parses.extend(adjective_candidates)
+        return fallback_noun
 
     def inflect_adjective(lemma: str, noun_parse) -> str:
         parsed = parse_word(lemma)
@@ -195,7 +301,9 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
         # The pattern is built from this dictionary's keys, so the lookup always
         # hits: a KeyError here would mean the two have drifted apart.
         lemma = ADJECTIVE_ABBREVIATION_EXPANSIONS[abbr.lower()]
-        noun_parse = choose_head_noun(phrase)
+        left_context_start = max(0, match.start() - 160)
+        expected_case = infer_governing_case(text[left_context_start : match.start()])
+        noun_parse = choose_head_noun(phrase, expected_case)
         if noun_parse is None:
             return match.group(0)
         expanded = inflect_adjective(lemma, noun_parse)

@@ -125,21 +125,6 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
     @pytest.mark.xfail(
         strict=True,
-        reason="a substantivized adjective is never a head noun candidate, so "
-        "the abbreviation agrees with a later word instead",
-    )
-    def test_substantivized_adjective_is_a_head_noun_for_the_abbreviation(self):
-        self.assertEqual(
-            normalize("Наградили гос. служащего медалью."),
-            "Наградили государственного служащего медалью.",
-        )
-        self.assertEqual(
-            normalize("Опросили полит. заключённых колонии."),
-            "Опросили политических заключённых колонии.",
-        )
-
-    @pytest.mark.xfail(
-        strict=True,
         reason="with no modifier to agree with, every head noun parse scores the "
         "same and pymorphy's parse order decides the case",
     )
