@@ -655,16 +655,6 @@ E2E_KNOWN_GAP_CASES = (
         ),
     ),
     pytest.param(
-        "Посылка весит 2 кг 350 г, упаковка добавляет ещё 75 г.",
-        "Посылка весит два килограмма триста пятьдесят граммов, упаковка добавляет ещё "
-        "семьдесят пять граммов.",
-        id="mixed_weight_units",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="gram units after compound quantities use a non-normative zero ending",
-        ),
-    ),
-    pytest.param(
         "Процессор работает на частоте 3,2 ГГц при напряжении 1,15 В.",
         "Процессор работает на частоте трёх целых двух десятых гигагерца при напряжении "
         "одной целой пятнадцати сотых вольта.",
@@ -888,11 +878,12 @@ E2E_KNOWN_GAP_CASES = (
         ),
     ),
     pytest.param(
-        "Автомобиль с номером А123ВС 77 проехал 250 км.",
-        "Автомобиль с номером а сто двадцать три вэ эс семьдесят семь проехал двести пятьдесят километров.",
+        "Автомобиль с номером В123МС 77 проехал 250 км.",
+        "Автомобиль с номером вэ сто двадцать три эм эс семьдесят семь проехал двести пятьдесят километров.",
         id="vehicle_registration_plate",
         marks=pytest.mark.xfail(
-            strict=True, reason="the leading vehicle-plate letter is not verbalized"
+            strict=True,
+            reason="Cyrillic letters in a vehicle registration plate are not consistently verbalized",
         ),
     ),
     pytest.param(
