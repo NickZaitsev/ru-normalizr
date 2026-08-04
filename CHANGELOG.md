@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## Unreleased
 
 ### Added
+- Добавить E2E-корпус реалистичных TTS-фраз с высокой плотностью дат, времени, чисел, единиц, денег, диапазонов, адресов и других конструкций, требующих нормализации
 - Report CLI input/output failures as a one-line `ru-normalizr: ...` diagnostic on stderr with exit status `2`, instead of a Python traceback. Covers a missing or unreadable `--file`, a `--file` that is not valid UTF-8, an `--output` path that cannot be written, and undecodable stdin. Exit status `2` now marks every usage error, so `--check` keeps status `1` for "the text is not normalized yet" alone
 - Add a `README.md` section on development and a `scripts/dev.py typecheck` subcommand; `scripts/dev.py check` now runs `pyright` between lint and tests, so the release gate is no longer weaker than CI
 - Fail the GitHub Actions release job when the pushed `v*` tag does not match the package version in `pyproject.toml` / `__init__.py`, so a mistagged push cannot publish the wrong version to PyPI

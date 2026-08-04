@@ -341,5 +341,103 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
             )
 
 
+E2E_KNOWN_GAP_CASES = (
+    pytest.param(
+        "Встреча назначена на 12.05.2025 в 09:07, кабинет 315.",
+        "Встреча назначена на двенадцатое мая две тысячи двадцать пятого года "
+        "в девять, ноль семь, кабинет триста пятнадцать.",
+        id="datetime_and_room",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a calendar date after 'назначена на' is rendered in genitive, not accusative",
+        ),
+    ),
+    pytest.param(
+        "За 3,5 кг яблок заплатили 1 249,90 руб.",
+        "За три целых пять десятых килограмма яблок заплатили одну тысячу двести "
+        "сорок девять рублей девяносто копеек.",
+        id="weight_and_price",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a decimal quantity inherits the wrong case and decimal currency is not split into rubles and kopecks",
+        ),
+    ),
+    pytest.param(
+        "Ночью температура изменится от −12 °C до +3 °C.",
+        "Ночью температура изменится от минус двенадцати градусов Цельсия до плюс "
+        "трёх градусов Цельсия.",
+        id="signed_temperature_range",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a unary plus before a temperature is left as a raw symbol",
+        ),
+    ),
+    pytest.param(
+        "Участок размером 12,5 × 8 м имеет площадь 100 м².",
+        "Участок размером двенадцать целых пять десятых на восемь метров имеет площадь "
+        "сто квадратных метров.",
+        id="dimensions_and_area",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the multiplication sign in physical dimensions is read as an arithmetic operation",
+        ),
+    ),
+    pytest.param(
+        "Позвоните по номеру +7 (495) 123-45-67 после 18:30.",
+        "Позвоните по номеру плюс семь, четыреста девяносто пять, сто двадцать три, "
+        "сорок пять, шестьдесят семь после восемнадцати часов тридцати минут.",
+        id="phone_number",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="phone syntax loses the parenthesized area code and leaves plus and grouping unnormalized",
+        ),
+    ),
+    pytest.param(
+        "Отчёт доступен на example.ru/docs, вопросы отправляйте на help@example.ru.",
+        "Отчёт доступен на игзэмпэл точка ру слэш докс, вопросы отправляйте на хэлп "
+        "собака игзэмпэл точка ру.",
+        id="web_and_email",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="bare web and email addresses reach latinization before their separators are verbalized",
+        ),
+    ),
+    pytest.param(
+        "21-й участник поднялся на 14-й этаж за 2 мин 35 сек.",
+        "Двадцать первый участник поднялся на четырнадцатый этаж за две минуты "
+        "тридцать пять секунд.",
+        id="ordinal_and_floor",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="an ordinal expanded at the start of a sentence is not capitalized",
+        ),
+    ),
+    pytest.param(
+        "Команда выиграла 3:2, забив 2 из 5 пенальти в 1/4 финала.",
+        "Команда выиграла три — два, забив два из пяти пенальти в одну четвёртую финала.",
+        id="score_and_fraction",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a sports score keeps punctuation and the counted masculine penalty gives the numeral feminine gender",
+        ),
+    ),
+    pytest.param(
+        "Курс вырос с 89,40 ₽ до 91,05 ₽ за 1 USD.",
+        "Курс вырос с восьмидесяти девяти рублей сорока копеек до девяноста одного рубля "
+        "пяти копеек за один доллар.",
+        id="currency_exchange",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="decimal currency amounts are read as abstract fractions instead of major and minor units",
+        ),
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), E2E_KNOWN_GAP_CASES)
+def test_tts_e2e_normalization_known_gaps(source: str, expected: str) -> None:
+    assert normalize(source, NormalizeOptions.tts()) == expected
+
+
 if __name__ == "__main__":
     unittest.main()
