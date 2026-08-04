@@ -1,6 +1,6 @@
 import unittest
 
-from ru_normalizr import NormalizeOptions, Normalizer
+from ru_normalizr import NormalizeOptions, Normalizer, normalize
 from ru_normalizr.abbreviations import expand_abbreviations
 from ru_normalizr.dates_time import normalize_dates_and_time
 from ru_normalizr.numbering import convert_bracketed_numbers, convert_line_numbering
@@ -523,6 +523,19 @@ class RuNormalizrStageTests(unittest.TestCase):
             normalize_dates_and_time("с 5 по 10 человек"),
             "с 5 по 10 человек",
         )
+
+    def test_month_names_do_not_match_inside_longer_words(self):
+        for source in (
+            "15 маяк",
+            "15-20 маяков",
+            "1 и 2 маяков",
+            "с 5 по 10 маяков",
+        ):
+            with self.subTest(source=source):
+                self.assertEqual(normalize_dates_and_time(source), source)
+
+        self.assertEqual(normalize("15 маяк"), "пятнадцать маяк")
+        self.assertEqual(normalize("20 маяков"), "двадцать маяков")
 
     def test_dates_time_stage_preserves_year_in_prose_date_range(self):
         self.assertEqual(
