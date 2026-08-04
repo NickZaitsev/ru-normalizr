@@ -343,21 +343,6 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
 @pytest.mark.xfail(
     strict=True,
-    reason="a preserved footnote is normalized even when numeral normalization is disabled",
-)
-def test_disabled_numerals_keep_ignored_footnote_number_numeric():
-    options = NormalizeOptions.safe(
-        remove_links=True,
-        enable_numeral_normalization=False,
-    )
-
-    assert normalize("Архив[1500] содержит 2 записи[12].", options) == (
-        "Архив(1500) содержит 2 записи."
-    )
-
-
-@pytest.mark.xfail(
-    strict=True,
     reason="disabling URL normalization lets generic cleanup corrupt URL punctuation and casing",
 )
 def test_disabled_url_normalization_preserves_url_verbatim():

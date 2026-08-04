@@ -36,6 +36,26 @@ def test_remove_links_toggle_is_isolated_from_roman_numerals() -> None:
     assert disabled == "Факт подтверждён источником(12), смотри главу четвёртую."
 
 
+def test_ignored_footnote_year_uses_year_toggle_not_numeral_toggle() -> None:
+    source = "Архив[1500] содержит 2 записи[12]."
+    common = {
+        "remove_links": True,
+        "enable_numeral_normalization": False,
+    }
+
+    years_enabled = normalize(
+        source,
+        NormalizeOptions.safe(enable_year_normalization=True, **common),
+    )
+    years_disabled = normalize(
+        source,
+        NormalizeOptions.safe(enable_year_normalization=False, **common),
+    )
+
+    assert years_enabled == "Архив(одна тысяча пятьсот) содержит 2 записи."
+    assert years_disabled == "Архив(1500) содержит 2 записи."
+
+
 def test_year_normalization_toggle_keeps_roman_stage_active() -> None:
     source = "В 2024 году опубликована глава IV."
     common = {"enable_numeral_normalization": False}

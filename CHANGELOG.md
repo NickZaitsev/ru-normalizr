@@ -26,6 +26,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Fall back gracefully when the IPA latinization backend is requested but `eng_to_ipa` cannot be imported: emit a one-time warning and use the dictionary backend instead of silently returning unlatinized text. `eng_to_ipa` remains a default dependency, so the IPA backend keeps working out of the box
 
 ### Documentation
+- Уточнить независимость `remove_links_ignore_interval`, `enable_year_normalization` и `enable_numeral_normalization`: сохранённое скобочное число из диапазона годов обрабатывает отдельная year-stage
 - Вынести политику версионирования и инструкцию по выпуску в отдельные актуальные документы, добавить индекс инженерных заметок и удалить выполненные исторические планы
 - Add a full `NormalizeOptions` reference table (type, safe/tts default, description for all 24 fields plus `mode`) and a "Custom dictionaries" section documenting `.dic` format, `dictionaries_path`, `dictionary_include_files`/`dictionary_exclude_files`, and that the default `dictionary` stage loads zero bundled rules — in both the RU and EN halves of the README
 - Correct the console-script name in the README from `ru_normalizr` to `ru-normalizr`

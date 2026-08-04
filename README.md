@@ -180,6 +180,14 @@ print(normalize("YouTube в 2024 г.", options))
 | `dictionaries_path` | `Path \| None` | `None` | `None` | Корневой каталог с `.dic` (по умолчанию встроенный `dictionaries/`) |
 | `mode` | `"safe" \| "tts" \| None` | `None` | `None` | Маркер пресета; задаёт значения по умолчанию для остальных опций |
 
+Важно: стадии годов и обычных числительных управляются независимо.
+`remove_links_ignore_interval` только не даёт удалить скобочное число как
+ссылку: например, при стандартном интервале `[1500]` сохраняется как возможный
+год. После этого `enable_year_normalization=True` всё равно раскроет его как
+`(одна тысяча пятьсот)`, даже если `enable_numeral_normalization=False`. Чтобы
+сохранить цифры, отключите обе числовые стадии: `enable_year_normalization=False`
+и `enable_numeral_normalization=False`.
+
 ## Пользовательские словари
 
 Стадия `dictionary` применяет пользовательские правила замены из `.dic`-файлов.
@@ -522,6 +530,14 @@ uses the **tts** column. Any option can be overridden explicitly.
 | `dictionary_exclude_files` | `tuple[str, ...]` | `()` | `()` | Which `.dic` files to skip when loading |
 | `dictionaries_path` | `Path \| None` | `None` | `None` | Root directory of `.dic` files (defaults to the bundled `dictionaries/`) |
 | `mode` | `"safe" \| "tts" \| None` | `None` | `None` | Preset marker; sets the defaults for the remaining options |
+
+Important: year and general-numeral stages are controlled independently.
+`remove_links_ignore_interval` only prevents a bracketed number from being
+removed as a reference: with the default interval, `[1500]` is kept as a
+possible year. Then `enable_year_normalization=True` still expands it to
+`(одна тысяча пятьсот)`, even when `enable_numeral_normalization=False`. To keep
+the digits, disable both numeric stages: `enable_year_normalization=False` and
+`enable_numeral_normalization=False`.
 
 ## Custom dictionaries
 
