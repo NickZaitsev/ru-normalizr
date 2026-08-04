@@ -287,9 +287,7 @@ class CompoundAdjectiveTests(unittest.TestCase):
         )
         for source, expected in cases:
             with self.subTest(source=source):
-                self.assertEqual(
-                    normalize_compound_numeric_adjectives(source), expected
-                )
+                self.assertEqual(normalize_compound_numeric_adjectives(source), expected)
 
     def test_every_stem_forms_its_compound_adjective(self):
         # One adjective per entry of COMPOUND_ADJECTIVE_STEMS, so a change to the
@@ -307,9 +305,7 @@ class CompoundAdjectiveTests(unittest.TestCase):
         )
         for source, expected in cases:
             with self.subTest(source=source):
-                self.assertEqual(
-                    normalize_compound_numeric_adjectives(source), expected
-                )
+                self.assertEqual(normalize_compound_numeric_adjectives(source), expected)
 
     def test_ambiguous_adjective_form_is_still_joined(self):
         self.assertEqual(
@@ -351,10 +347,16 @@ class CompoundAdjectiveTests(unittest.TestCase):
     def test_full_pipeline_keeps_ordinary_counted_adjectives_separate(self):
         cases = (
             ("В городе работают 5 местных врачей.", "В городе работают пять местных врачей."),
-            ("Для кабинета купили 3 комнатных растения.", "Для кабинета купили три комнатных растения."),
+            (
+                "Для кабинета купили 3 комнатных растения.",
+                "Для кабинета купили три комнатных растения.",
+            ),
             ("Магазин продал 7 летних платьев.", "Магазин продал семь летних платьев."),
             ("На посту дежурили 5 часовых.", "На посту дежурили пять часовых."),
-            ("В расписании осталось 2 дневных сеанса.", "В расписании осталось два дневных сеанса."),
+            (
+                "В расписании осталось 2 дневных сеанса.",
+                "В расписании осталось два дневных сеанса.",
+            ),
             ("Наступил 1 летний день.", "Наступил один летний день."),
         )
         for source, expected in cases:
@@ -375,23 +377,64 @@ class CompoundAdjectiveTests(unittest.TestCase):
 
     def test_ninety_keeps_its_nominative_stem_inside_a_compound(self):
         # The genitive "девяноста" is wrong as a prefix; "девяносто" is the stem.
-        self.assertEqual(
-            normalize_compound_numeric_adjectives("90 летний"), "девяносталетний"
-        )
+        self.assertEqual(normalize_compound_numeric_adjectives("90 летний"), "девяносталетний")
         self.assertEqual(
             normalize_compound_numeric_adjectives("95 летний"),
             "девяностопятилетний",
         )
 
     def test_one_hundred_uses_the_short_stem(self):
-        self.assertEqual(
-            normalize_compound_numeric_adjectives("100 кратный"), "стократный"
+        self.assertEqual(normalize_compound_numeric_adjectives("100 кратный"), "стократный")
+
+    def test_one_hundred_keeps_the_short_stem_inside_larger_compounds(self):
+        cases = (
+            ("101-летний юбилей", "стооднолетний юбилей"),
+            ("110-летний юбилей", "стодесятилетний юбилей"),
+            ("121-летний юбилей", "стодвадцатиоднолетний юбилей"),
+            ("201-летний юбилей", "двухсотоднолетний юбилей"),
         )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize(source), expected)
+
+    def test_large_compounds_use_connecting_vowels_for_scale_words(self):
+        cases = (
+            ("Город отметил 1000-летний юбилей.", "Город отметил тысячелетний юбилей."),
+            ("Изучили 5000-летнюю историю.", "Изучили пятитысячелетнюю историю."),
+            ("Нашли 1001-летний слой.", "Нашли тысячеоднолетний слой."),
+            ("Начался 2000000-летний цикл.", "Начался двухмиллионолетний цикл."),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize(source), expected)
+
+    def test_zero_uses_the_compound_stem(self):
+        self.assertEqual(normalize("Нужен 0-процентный раствор."), "Нужен нулепроцентный раствор.")
+
+    def test_compound_adjective_preserves_letter_case(self):
+        cases = (
+            ("Нужен 5 тонный груз.", "Нужен пятитонный груз."),
+            ("Нужен 5 Тонный груз.", "Нужен Пятитонный груз."),
+            ("Нужен 5 ТОННЫЙ груз.", "Нужен ПЯТИТОННЫЙ груз."),
+            ("Нужны 5-ТОННЫЕ грузы.", "Нужны ПЯТИТОННЫЕ грузы."),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize(source), expected)
+
+    def test_hyphenated_ambiguous_forms_are_recognized_as_adjectives(self):
+        cases = (
+            ("Получили 5-кратное увеличение.", "Получили пятикратное увеличение."),
+            ("Груз в 5-тонной цистерне.", "Груз в пятитонной цистерне."),
+            ("Началась 5-часовая смена.", "Началась пятичасовая смена."),
+            ("Доступны 5-комнатные квартиры.", "Доступны пятикомнатные квартиры."),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize(source), expected)
 
     def test_explicit_hyphen_suffix_is_absorbed(self):
-        self.assertEqual(
-            normalize_compound_numeric_adjectives("2-х комнатная"), "двухкомнатная"
-        )
+        self.assertEqual(normalize_compound_numeric_adjectives("2-х комнатная"), "двухкомнатная")
         self.assertEqual(
             normalize_compound_numeric_adjectives("3-и ступенчатый"),
             "трёхступенчатый",
@@ -402,12 +445,12 @@ class CompoundAdjectiveTests(unittest.TestCase):
             ("25%-ный", "двадцатипятипроцентный"),
             ("1%-ная", "однопроцентная"),
             ("50%-ных", "пятидесятипроцентных"),
+            ("25%-Ный", "Двадцатипятипроцентный"),
+            ("25%-НЫЙ", "ДВАДЦАТИПЯТИПРОЦЕНТНЫЙ"),
         )
         for source, expected in cases:
             with self.subTest(source=source):
-                self.assertEqual(
-                    normalize_compound_numeric_adjectives(source), expected
-                )
+                self.assertEqual(normalize_compound_numeric_adjectives(source), expected)
 
 
 class HyphenatedWordTests(unittest.TestCase):
@@ -465,9 +508,7 @@ class OrdinalCardinalSuffixTests(unittest.TestCase):
         self.assertEqual(normalize_ordinals("5-ми"), "пять ")
 
     def test_cardinal_suffix_is_left_untouched_when_the_backend_fails(self):
-        with patch.object(
-            num2words, "num2words", side_effect=RuntimeError("backend is broken")
-        ):
+        with patch.object(num2words, "num2words", side_effect=RuntimeError("backend is broken")):
             self.assertEqual(normalize_ordinals("5-ти"), "5-ти")
 
     def test_suffix_u_renders_an_accusative_agreeing_with_the_noun(self):
