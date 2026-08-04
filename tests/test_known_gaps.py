@@ -70,8 +70,7 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
     @pytest.mark.xfail(
         strict=True,
-        reason="the -ми suffix forces the instrumental case after a locative "
-        "preposition",
+        reason="the -ми suffix forces the instrumental case after a locative preposition",
     )
     def test_mi_suffix_agrees_with_the_preposition_case(self):
         self.assertEqual(
@@ -84,9 +83,7 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
         reason="the counted noun keeps the form written beside the digit",
     )
     def test_animate_paucal_accusative_agrees_the_counted_noun(self):
-        self.assertEqual(
-            normalize("Вижу 2 человека у входа."), "Вижу двух человек у входа."
-        )
+        self.assertEqual(normalize("Вижу 2 человека у входа."), "Вижу двух человек у входа.")
 
     @pytest.mark.xfail(
         strict=True,
@@ -103,7 +100,7 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
     @pytest.mark.xfail(
         strict=True,
         reason="the pause comma after initials is emitted even when punctuation "
-        "already follows, giving \",;\", \",:\" and \", —\"",
+        'already follows, giving ",;", ",:" and ", —"',
     )
     def test_pause_comma_after_initials_is_dropped_before_other_punctuation(self):
         tts = NormalizeOptions.tts()
@@ -216,7 +213,7 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
     @pytest.mark.xfail(
         strict=True,
-        reason="the compound-adjective stems \"часов\" and \"тонн\" coincide with "
+        reason='the compound-adjective stems "часов" and "тонн" coincide with '
         "genitive plural nouns, and the pattern allows an empty adjective "
         "ending, so a counted noun is glued onto the numeral",
     )
@@ -243,8 +240,7 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
         # the result.
         self.assertEqual(
             normalize("Между 1999 и 2000 года́ми разница велика."),
-            "Между тысяча девятьсот девяносто девятым и двухтысячным годами "
-            "разница велика.",
+            "Между тысяча девятьсот девяносто девятым и двухтысячным годами разница велика.",
         )
         self.assertEqual(
             normalize("Период между 2020 и 2025 года́ми оказался насыщенным."),
@@ -309,9 +305,7 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
             (root / "brands.dic").write_text(
                 filler + "youtube=ютуб\nютуб=видеосервис\n", encoding="utf-8"
             )
-            options = NormalizeOptions(
-                dictionaries_path=root, enable_latinization=False
-            )
+            options = NormalizeOptions(dictionaries_path=root, enable_latinization=False)
 
             self.assertEqual(
                 normalize("Смотри youtube и ютуб каждый вечер.", options),
@@ -323,17 +317,13 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
         reason="exactly 1000 simple rules already switch to the cascading path",
     )
     def test_dictionary_threshold_is_not_semantic_at_exactly_one_thousand_rules(self):
-        filler = "".join(
-            f"наполнитель{index}=пусто{index}\n" for index in range(998)
-        )
+        filler = "".join(f"наполнитель{index}=пусто{index}\n" for index in range(998))
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "brands.dic").write_text(
                 filler + "youtube=ютуб\nютуб=видеосервис\n", encoding="utf-8"
             )
-            options = NormalizeOptions(
-                dictionaries_path=root, enable_latinization=False
-            )
+            options = NormalizeOptions(dictionaries_path=root, enable_latinization=False)
 
             self.assertEqual(
                 normalize("Смотри youtube и ютуб каждый вечер.", options),
@@ -798,6 +788,143 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="the dotted percentage-point abbreviation is stripped to two bare letters",
+        ),
+    ),
+    pytest.param(
+        "Отчёт подписан 5 янв. 2026 г. и зарегистрирован под № 18.",
+        "Отчёт подписан пятого января две тысячи двадцать шестого года и зарегистрирован под номером восемнадцать.",
+        id="abbreviated_calendar_date",
+        marks=pytest.mark.xfail(
+            strict=True, reason="an abbreviated month is not recognized as part of a date"
+        ),
+    ),
+    pytest.param(
+        "Приём заявок закончится 05.09 в 23:59.",
+        "Приём заявок закончится пятого сентября в двадцать три, пятьдесят девять.",
+        id="date_without_year",
+        marks=pytest.mark.xfail(
+            strict=True, reason="a day-month date without a year is treated as a decimal"
+        ),
+    ),
+    pytest.param(
+        "Победитель преодолел дистанцию за 01:42:35, опередив соперника на 12,4 с.",
+        "Победитель преодолел дистанцию за один час сорок две минуты тридцать пять секунд, опередив соперника на двенадцать целых четыре десятых секунды.",
+        id="record_duration",
+        marks=pytest.mark.xfail(
+            strict=True, reason="duration components and decimal seconds receive wrong morphology"
+        ),
+    ),
+    pytest.param(
+        "Концентрация препарата составляет 25 мкг/мл при дозе 0,5 мл.",
+        "Концентрация препарата составляет двадцать пять микрограммов на миллилитр при дозе ноль целых пять десятых миллилитра.",
+        id="microgram_concentration",
+        marks=pytest.mark.xfail(
+            strict=True, reason="microgram and decimal dosage forms use incorrect morphology"
+        ),
+    ),
+    pytest.param(
+        "Лазер работает на длине волны 532 нм, толщина покрытия — 2,5 мкм.",
+        "Лазер работает на длине волны пятьсот тридцать два нанометра, толщина покрытия — две целых пять десятых микрометра.",
+        id="wavelength_and_thickness",
+        marks=pytest.mark.xfail(strict=True, reason="the micrometre symbol is left unexpanded"),
+    ),
+    pytest.param(
+        "План напечатан в масштабе 1:50 000 и охватывает площадь 12 км².",
+        "План напечатан в масштабе один к пятидесяти тысячам и охватывает площадь двенадцать квадратных километров.",
+        id="map_scale",
+        marks=pytest.mark.xfail(
+            strict=True, reason="a map scale is treated as punctuation instead of an X-to-Y ratio"
+        ),
+    ),
+    pytest.param(
+        "Условие выполняется при x ≥ 5 и x < 10.",
+        "Условие выполняется при икс больше или равно пяти и икс меньше десяти.",
+        id="mathematical_inequality",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="variables, comparison signs, and governed bounds are not normalized consistently",
+        ),
+    ),
+    pytest.param(
+        "Угол поворота равен 45°30′15″, допустимое отклонение — ±5″.",
+        "Угол поворота равен сорока пяти градусам тридцати минутам пятнадцати секундам, допустимое отклонение — плюс-минус пять секунд.",
+        id="angle_degrees_minutes_seconds",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="angular minutes and seconds remain symbols and the angle ignores instrumental case",
+        ),
+    ),
+    pytest.param(
+        "Кадр снят при ISO 100, f/1.8 и выдержке 1/250 с.",
+        "Кадр снят при ай эс о сто, эф один и восемь и выдержке одна двухсотпятидесятая секунды.",
+        id="camera_settings",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="camera aperture and shutter-speed notation is parsed as generic fractions",
+        ),
+    ),
+    pytest.param(
+        "Курьер прибудет по адресу: ул. Полевая, д. 10, корп. 2, кв. 35.",
+        "Курьер прибудет по адресу: улица Полевая, дом десять, корпус два, квартира тридцать пять.",
+        id="apartment_address",
+        marks=pytest.mark.xfail(
+            strict=True, reason="common postal address abbreviations remain unexpanded"
+        ),
+    ),
+    pytest.param(
+        "Ответственность предусмотрена ч. 1 ст. 20.1 КоАП РФ.",
+        "Ответственность предусмотрена частью первой статьи двадцать точка один Кодекса Российской Федерации об административных правонарушениях.",
+        id="administrative_law_reference",
+        marks=pytest.mark.xfail(
+            strict=True, reason="administrative-law references are split and treated as decimals"
+        ),
+    ),
+    pytest.param(
+        "Книга выпущена под ISBN 978-5-17-123456-7 тиражом 3 000 экз.",
+        "Книга выпущена под ай эс би эн девятьсот семьдесят восемь — пять — семнадцать — сто двадцать три тысячи четыреста пятьдесят шесть — семь тиражом три тысячи экземпляров.",
+        id="isbn_identifier",
+        marks=pytest.mark.xfail(
+            strict=True, reason="the copies abbreviation remains unexpanded after an ISBN"
+        ),
+    ),
+    pytest.param(
+        "Автомобиль с номером А123ВС 77 проехал 250 км.",
+        "Автомобиль с номером а сто двадцать три вэ эс семьдесят семь проехал двести пятьдесят километров.",
+        id="vehicle_registration_plate",
+        marks=pytest.mark.xfail(
+            strict=True, reason="the leading vehicle-plate letter is not verbalized"
+        ),
+    ),
+    pytest.param(
+        "Напишите пользователю @support_team и укажите номер заявки № 42.",
+        "Напишите пользователю собака саппорт подчёркивание тим и укажите номер заявки номер сорок два.",
+        id="social_media_handle",
+        marks=pytest.mark.xfail(
+            strict=True, reason="at-sign and underscore in a social handle remain unspoken"
+        ),
+    ),
+    pytest.param(
+        "Публикация с тегом #Наука2025 набрала 1,2 млн просмотров.",
+        "Публикация с тегом решётка наука две тысячи двадцать пять набрала одну целую две десятых миллиона просмотров.",
+        id="hashtag_and_views",
+        marks=pytest.mark.xfail(
+            strict=True, reason="hashtag marker remains raw and the view count gets wrong case"
+        ),
+    ),
+    pytest.param(
+        "Духовку разогрели до 350 °F, что примерно равно 177 °C.",
+        "Духовку разогрели до трёхсот пятидесяти градусов Фаренгейта, что примерно равно ста семидесяти семи градусам Цельсия.",
+        id="fahrenheit_temperature",
+        marks=pytest.mark.xfail(
+            strict=True, reason="the comparison predicate does not govern the Celsius quantity"
+        ),
+    ),
+    pytest.param(
+        "Заказ стоил 19,95 £, а доставка — 4 £.",
+        "Заказ стоил девятнадцать фунтов девяносто пять пенсов, а доставка — четыре фунта.",
+        id="pounds_and_pence",
+        marks=pytest.mark.xfail(
+            strict=True, reason="decimal sterling is not split into pounds and pence"
         ),
     ),
 )
