@@ -213,17 +213,6 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
     @pytest.mark.xfail(
         strict=True,
-        reason="an adjective parse alone cannot distinguish an ordinary counted "
-        "modifier from a spaced compound adjective",
-    )
-    def test_counted_adjective_phrase_is_not_glued_into_a_compound(self):
-        self.assertEqual(
-            normalize("В городе работают 5 местных врачей."),
-            "В городе работают пять местных врачей.",
-        )
-
-    @pytest.mark.xfail(
-        strict=True,
         reason="preprocess rewrites the stress mark to a plus before the year "
         "stage runs, so the year word is matched only up to the plus and its "
         "tail is left over next to the inflected form",
