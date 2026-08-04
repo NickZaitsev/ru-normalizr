@@ -10,6 +10,7 @@ InitialsVowelMode = Literal["single", "double"]
 InitialsPauseMode = Literal["preserve", "comma"]
 
 _SAFE_MODE_DEFAULTS = {
+    "cleanup_malformed_punctuation": False,
     "enable_caps_normalization": False,
     "enable_first_word_decap": False,
     "remove_links": False,
@@ -32,6 +33,7 @@ _SAFE_MODE_DEFAULTS = {
 }
 
 _TTS_MODE_DEFAULTS = {
+    "cleanup_malformed_punctuation": True,
     "enable_caps_normalization": True,
     "enable_first_word_decap": True,
     "remove_links": True,
@@ -64,6 +66,7 @@ def _mode_defaults(mode: NormalizeMode | None) -> dict[str, object]:
 class NormalizeOptions:
     """Public configuration for ru_normalizr."""
 
+    cleanup_malformed_punctuation: bool
     enable_caps_normalization: bool
     enable_first_word_decap: bool
     remove_links: bool
@@ -93,6 +96,7 @@ class NormalizeOptions:
     def __init__(
         self,
         *,
+        cleanup_malformed_punctuation: bool | None = None,
         enable_caps_normalization: bool | None = None,
         enable_first_word_decap: bool | None = None,
         remove_links: bool | None = None,
@@ -122,6 +126,7 @@ class NormalizeOptions:
         defaults = _mode_defaults(mode)
 
         values = {
+            "cleanup_malformed_punctuation": cleanup_malformed_punctuation,
             "enable_caps_normalization": enable_caps_normalization,
             "enable_first_word_decap": enable_first_word_decap,
             "remove_links": remove_links,

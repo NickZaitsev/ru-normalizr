@@ -37,6 +37,7 @@ from .preprocess_utils import (
     UNIT_SLASH_PLACEHOLDER,
     apply_cleanup_replacements,
     clean_numbers,
+    cleanup_malformed_punctuation,
     expand_years_ago_abbreviation,
     normalize_ascii_quote_pairs,
     normalize_cyrillic_combining_stress_marks,
@@ -307,6 +308,8 @@ class PipelineNormalizer:
         text = normalize_punctuation_spacing(text)
         text = normalize_linebreaks(text)
         text = normalize_sentence_start_caps(text)
+        if self.options.cleanup_malformed_punctuation:
+            text = cleanup_malformed_punctuation(text)
         return text
 
     def _classify_glued_numeric_rhs(self, word: str) -> str:
