@@ -341,6 +341,57 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
             )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="a preserved footnote is normalized even when numeral normalization is disabled",
+)
+def test_disabled_numerals_keep_ignored_footnote_number_numeric():
+    options = NormalizeOptions.safe(
+        remove_links=True,
+        enable_numeral_normalization=False,
+    )
+
+    assert normalize("Архив[1500] содержит 2 записи[12].", options) == (
+        "Архив(1500) содержит 2 записи."
+    )
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="disabling URL normalization lets generic cleanup corrupt URL punctuation and casing",
+)
+def test_disabled_url_normalization_preserves_url_verbatim():
+    options = NormalizeOptions.safe(
+        enable_url_normalization=False,
+        remove_links=False,
+        enable_numeral_normalization=False,
+    )
+
+    assert normalize("Адрес https://milk.org/docs указан в главе IV.", options) == (
+        "Адрес https://milk.org/docs указан в главе четвёртой."
+    )
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="the predicate context incorrectly puts a nominative counted numeral in genitive",
+)
+def test_predicate_keeps_counted_numeral_nominative_after_roman_reference():
+    assert normalize("В главе IV перечислены 3 причины.", NormalizeOptions.safe()) == (
+        "В главе четвёртой перечислены три причины."
+    )
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="an abbreviation expanded at sentence start is not capitalized",
+)
+def test_expanded_abbreviation_at_sentence_start_is_capitalized():
+    assert normalize("Т. е. документ содержит 3 раздела.", NormalizeOptions.safe()) == (
+        "То есть документ содержит три раздела."
+    )
+
+
 E2E_KNOWN_GAP_CASES = (
     pytest.param(
         "Встреча назначена на 12.05.2025 в 09:07, кабинет 315.",
