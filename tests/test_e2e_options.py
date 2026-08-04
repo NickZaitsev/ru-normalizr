@@ -110,6 +110,41 @@ def test_numeral_normalization_toggle_keeps_roman_stage_active() -> None:
     assert disabled == "Глава четвёртая содержит 3 пункта и значение 2,5."
 
 
+def test_malformed_punctuation_cleanup_toggle_runs_after_numerals() -> None:
+    source = "Фраза., затем 2 слова."
+
+    enabled = normalize(
+        source,
+        NormalizeOptions.safe(cleanup_malformed_punctuation=True),
+    )
+    disabled = normalize(
+        source,
+        NormalizeOptions.safe(cleanup_malformed_punctuation=False),
+    )
+
+    assert enabled == "Фраза. затем два слова."
+    assert disabled == "Фраза., затем два слова."
+
+    tts_source = "Шум., затем."
+    assert normalize(tts_source, NormalizeOptions.tts()) == "Шум. затем."
+    assert normalize(
+        tts_source,
+        NormalizeOptions.tts(cleanup_malformed_punctuation=False),
+    ) == "Шум., затем."
+
+
+def test_safe_punctuation_cleanup_preserves_clause_commas_after_initials() -> None:
+    options = NormalizeOptions.safe(cleanup_malformed_punctuation=False)
+
+    listed = normalize(
+        "В комиссию вошли Иванов А. Б., Петров В. Г. и Сидоров.", options
+    )
+    clause = "Работу приняли Иванов А. Б., затем подписал Петров."
+
+    assert "Иванов А. Б., Петров" in listed
+    assert normalize(clause, options) == clause
+
+
 def test_abbreviation_expansion_toggle_keeps_numeral_stage_active() -> None:
     source = "Автор пояснил: т. е. документ содержит 3 раздела."
 

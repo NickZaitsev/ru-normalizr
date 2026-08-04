@@ -9,6 +9,7 @@ from .abbreviation_context import (
 from .constants import CLEANUP_REPLACEMENTS, UNICODE_FRACTIONS
 
 ASCII_DASH_SPACE_PATTERN = re.compile(r" - ")
+DOT_COMMA_PATTERN = re.compile(r"\.,")
 LETTER_HYPHEN_PATTERN = re.compile(r"(?<=[A-Za-zА-Яа-яЁё])-(?=[A-Za-zА-Яа-яЁё])")
 SLASH_FIX_PATTERN = re.compile(r"(?<=[a-zA-Zа-яА-ЯёЁ+])/(?=[a-zA-Zа-яА-ЯёЁ+])")
 UNIT_SLASH_PATTERN = re.compile(
@@ -168,6 +169,10 @@ def normalize_punctuation_spacing(text: str) -> str:
     text = ELLIPSIS_SPACE_BEFORE_PATTERN.sub("", text)
     text = ELLIPSIS_SPACE_AFTER_PATTERN.sub(lambda m: f" {m.group(0)}", text)
     return SENTENCE_SPACE_AFTER_PATTERN.sub(" ", text)
+
+
+def cleanup_malformed_punctuation(text: str) -> str:
+    return DOT_COMMA_PATTERN.sub(".", text)
 
 
 def normalize_cyrillic_combining_stress_marks(text: str) -> str:

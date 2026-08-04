@@ -85,14 +85,10 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
     @pytest.mark.xfail(
         strict=True,
-        reason="the numerals stage deletes a comma that follows any dot, so an "
-        "abbreviation dot swallows the list separator after it",
+        reason="finalize mistakes the last initial before a conjunction for a sentence end",
     )
-    def test_comma_after_an_abbreviation_dot_survives_the_numerals_stage(self):
-        # Nothing here needs normalizing, so the sentence must come back intact.
-        # Today the comma after "Б." is dropped, and finalize then reads the dot
-        # as a sentence end and capitalises the "и".
-        text = "В комиссию вошли Иванов А. Б., Петров В. Г. и Сидоров."
+    def test_initial_before_a_conjunction_does_not_create_a_sentence_boundary(self):
+        text = "В комиссию вошли Петров В. Г. и Сидоров."
         self.assertEqual(normalize(text), text)
 
     @pytest.mark.xfail(
@@ -120,19 +116,7 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
     @pytest.mark.xfail(
         strict=True,
-        reason="the numerals stage deletes a comma that follows any dot, so a "
-        "clause boundary after initials turns into a sentence boundary",
-    )
-    def test_clause_after_initials_does_not_become_a_new_sentence(self):
-        self.assertEqual(
-            normalize("Работу приняли Иванов А. Б., затем подписал Петров."),
-            "Работу приняли Иванов А. Б., затем подписал Петров.",
-        )
-
-    @pytest.mark.xfail(
-        strict=True,
-        reason="the dot of an expanded unit abbreviation is left in place and "
-        "then eats the comma after it",
+        reason="the dot of an expanded unit abbreviation is left before the comma",
     )
     def test_expanded_unit_abbreviation_drops_its_dot_and_keeps_the_comma(self):
         # The other half of the same cleanup: here the dot is a leftover from

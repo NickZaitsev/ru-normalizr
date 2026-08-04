@@ -169,6 +169,7 @@ print(normalize("YouTube в 2024 г.", options))
 | `enable_initials_expansion` | `bool` | `False` | `True` | Раскрытие инициалов (`Ч.` → `чэ`) |
 | `initials_vowel_mode` | `"single" \| "double"` | `"single"` | `"double"` | При `double` удваивает одиночные гласные-инициалы (`Е.` → `ее`) |
 | `initials_pause_mode` | `"preserve" \| "comma"` | `"preserve"` | `"comma"` | При `comma` добавляет паузы-запятые вокруг инициалов в формате «Фамилия И.» |
+| `cleanup_malformed_punctuation` | `bool` | `False` | `True` | В конце конвейера схлопывать мусорную последовательность `.,` в точку; можно отключить в TTS или явно включить для грязного ввода |
 | `enable_letter_abbreviation_expansion` | `bool` | `False` | `True` | Побуквенное чтение аббревиатур (`ГИБДД` → `ги бэ дэ дэ`) |
 | `enable_dictionary_normalization` | `bool` | `True` | `True` | Применение словарных правил из пользовательских `.dic` |
 | `enable_latinization` | `bool` | `False` | `True` | Транслитерация латиницы в кириллицу |
@@ -520,6 +521,7 @@ uses the **tts** column. Any option can be overridden explicitly.
 | `enable_initials_expansion` | `bool` | `False` | `True` | Expand initials (`Ч.` → `чэ`) |
 | `initials_vowel_mode` | `"single" \| "double"` | `"single"` | `"double"` | With `double`, doubles isolated vowel initials (`Е.` → `ее`) |
 | `initials_pause_mode` | `"preserve" \| "comma"` | `"preserve"` | `"comma"` | With `comma`, adds comma pauses around initials in "Surname I." order |
+| `cleanup_malformed_punctuation` | `bool` | `False` | `True` | At the end of the pipeline, collapse the noisy `.,` sequence to a period; it can be disabled in TTS or enabled explicitly for dirty input |
 | `enable_letter_abbreviation_expansion` | `bool` | `False` | `True` | Read abbreviations letter by letter (`ГИБДД` → `ги бэ дэ дэ`) |
 | `enable_dictionary_normalization` | `bool` | `True` | `True` | Apply dictionary rewrite rules from user `.dic` files |
 | `enable_latinization` | `bool` | `False` | `True` | Transliterate Latin words into Cyrillic |

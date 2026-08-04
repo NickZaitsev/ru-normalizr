@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## Unreleased
 
 ### Added
+- Добавить опцию `cleanup_malformed_punctuation`: она по умолчанию выключена в `safe`, включена в TTS и позволяет явно управлять финальным схлопыванием мусорной последовательности `.,` в точку
 - Добавить E2E-матрицу публичных опций, проверяющую включённый и выключенный результат каждого функционального флага, изоляцию соседних стадий и параметрические режимы удаления ссылок и произношения инициалов
 - Добавить расширяемый E2E-корпус реалистичных TTS-фраз с высокой плотностью дат, времени, чисел, единиц, денег, диапазонов, адресов, ссылок и научной записи
 - Report CLI input/output failures as a one-line `ru-normalizr: ...` diagnostic on stderr with exit status `2`, instead of a Python traceback. Covers a missing or unreadable `--file`, a `--file` that is not valid UTF-8, an `--output` path that cannot be written, and undecodable stdin. Exit status `2` now marks every usage error, so `--check` keeps status `1` for "the text is not normalized yet" alone
@@ -33,6 +34,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Correct the console-script name in the README from `ru_normalizr` to `ru-normalizr`
 
 ### Fixed
+- Перенести очистку `.,` из токенизации числительных в самый конец конвейера и не применять её в `safe/default`, сохраняя запятые после инициалов и сокращений в обычной нормализации
 - Применять простые правила пользовательских словарей за один проход независимо от размера файла: начиная с 1000 правил результаты замен больше не попадают под последующие правила того же блока, поэтому добавление посторонних записей не меняет уже настроенную нормализацию
 - Не склеивать числа со считаемыми существительными, совпадающими со стемами составных прилагательных: `7 часов`, `5 тонн`, `5 тоннелей` и `5 часовен` теперь нормализуются раздельно, а формы вроде `5 тонный` по-прежнему превращаются в `пятитонный`
 - Распознавать омонимичные формы после явного числового дефиса по всем морфологическим разборам, поэтому `5-кратное` и `5-тонной` больше не распадаются на отдельные числительное и слово

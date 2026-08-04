@@ -999,6 +999,7 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertFalse(safe.enable_initials_expansion)
         self.assertEqual(safe.initials_vowel_mode, "single")
         self.assertEqual(safe.initials_pause_mode, "preserve")
+        self.assertFalse(safe.cleanup_malformed_punctuation)
         self.assertFalse(safe.enable_letter_abbreviation_expansion)
         self.assertFalse(safe.enable_latinization)
         self.assertFalse(safe.enable_url_normalization)
@@ -1008,6 +1009,7 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertTrue(tts.enable_initials_expansion)
         self.assertEqual(tts.initials_vowel_mode, "double")
         self.assertEqual(tts.initials_pause_mode, "comma")
+        self.assertTrue(tts.cleanup_malformed_punctuation)
         self.assertTrue(tts.enable_letter_abbreviation_expansion)
         self.assertTrue(tts.enable_latinization)
         self.assertTrue(tts.enable_url_normalization)
@@ -1037,6 +1039,10 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertEqual(default.enable_initials_expansion, safe.enable_initials_expansion)
         self.assertEqual(default.initials_vowel_mode, safe.initials_vowel_mode)
         self.assertEqual(default.initials_pause_mode, safe.initials_pause_mode)
+        self.assertEqual(
+            default.cleanup_malformed_punctuation,
+            safe.cleanup_malformed_punctuation,
+        )
         self.assertEqual(
             default.enable_letter_abbreviation_expansion,
             safe.enable_letter_abbreviation_expansion,
