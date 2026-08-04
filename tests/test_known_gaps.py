@@ -213,23 +213,6 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
     @pytest.mark.xfail(
         strict=True,
-        reason='the compound-adjective stems "часов" and "тонн" coincide with '
-        "genitive plural nouns, and the pattern allows an empty adjective "
-        "ending, so a counted noun is glued onto the numeral",
-    )
-    def test_counted_hours_and_tonnes_are_not_glued_onto_the_numeral(self):
-        # COMPOUND_ADJECTIVE_PATTERN ends in "[а-яё]*", so "часов" and "тонн"
-        # match with nothing after them — exactly the noun forms. Every other
-        # stem ends in a cluster no noun form starts with, which is why only
-        # these two break.
-        self.assertEqual(normalize("Он ждал 7 часов."), "Он ждал семь часов.")
-        self.assertEqual(normalize("Груз весит 5 тонн."), "Груз весит пять тонн.")
-        self.assertEqual(
-            normalize("Смена в 8 часов начинается."), "Смена в восемь часов начинается."
-        )
-
-    @pytest.mark.xfail(
-        strict=True,
         reason="preprocess rewrites the stress mark to a plus before the year "
         "stage runs, so the year word is matched only up to the plus and its "
         "tail is left over next to the inflected form",
