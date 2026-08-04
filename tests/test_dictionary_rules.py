@@ -379,9 +379,9 @@ class ApplyOptionTests(DictionaryRuleTestCase):
         self.assertEqual(self.normalizer().apply("YouTube и Unknown"), "ютуб и Unknown")
 
     def test_batch_compile_failure_falls_back_to_per_key_patterns(self):
-        # The batched alternation is an optimization; if it fails to compile the
-        # rules must still apply one by one.
-        self.write_dic("a.dic", "один=1\nдва=2\n")
+        # The batched alternation is an optimization; its fallback must retain
+        # the same one-pass semantics instead of re-reading replacement text.
+        self.write_dic("a.dic", "один=два\nдва=2\n")
         real_compile = re.compile
         calls = {"batched": 0}
 
@@ -395,7 +395,7 @@ class ApplyOptionTests(DictionaryRuleTestCase):
             normalizer = self.normalizer()
 
         self.assertEqual(calls["batched"], 1)
-        self.assertEqual(normalizer.apply("один и два"), "1 и 2")
+        self.assertEqual(normalizer.apply("один и два"), "два и 2")
 
     def test_more_than_one_thousand_simple_rules_still_apply(self):
         # Above the batching threshold the loader keeps a plain mapping instead
@@ -407,14 +407,18 @@ class ApplyOptionTests(DictionaryRuleTestCase):
         self.assertEqual(normalizer.get_rule_count(), 1200)
         self.assertEqual(normalizer.apply("слово0 и слово1199"), "число0 и число1199")
 
+    def test_exactly_one_thousand_simple_rules_apply_once(self):
+        filler = "".join(f"наполнитель{index}=пусто{index}\n" for index in range(998))
+        self.write_dic("a.dic", filler + "youtube=ютуб\nютуб=видеосервис\n")
+
+        self.assertEqual(
+            self.normalizer().apply("Смотри youtube и ютуб каждый вечер."),
+            "Смотри ютуб и видеосервис каждый вечер.",
+        )
+
 
 class LargeDictionaryTests(DictionaryRuleTestCase):
-    """Above 1000 simple rules each key gets its own pattern.
-
-    That path is a separate implementation from the batched alternation, so the
-    guarantees the batch gives — longest key first, case-insensitive matching —
-    have to be asserted here too.
-    """
+    """The large-dictionary matcher must preserve batched one-pass semantics."""
 
     def write_bulky_dic(self, *rules: str) -> None:
         filler = "".join(f"наполнитель{index}=пусто{index}\n" for index in range(1200))
@@ -440,6 +444,14 @@ class LargeDictionaryTests(DictionaryRuleTestCase):
         self.assertEqual(apply("Он поставил линукс на сервер"), "Он поставил Linux на сервер")
         self.assertEqual(apply("ЛИНУКС победил"), "Linux победил")
         self.assertEqual(apply("Линукс победил"), "Linux победил")
+
+    def test_replacement_is_not_processed_again_by_the_same_simple_block(self):
+        self.write_bulky_dic("youtube=ютуб", "ютуб=видеосервис")
+
+        self.assertEqual(
+            self.normalizer().apply("Смотри youtube и ютуб каждый вечер."),
+            "Смотри ютуб и видеосервис каждый вечер.",
+        )
 
 
 class PackagedDictionaryTests(unittest.TestCase):
