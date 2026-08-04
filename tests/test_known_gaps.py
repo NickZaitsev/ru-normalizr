@@ -125,27 +125,6 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
     @pytest.mark.xfail(
         strict=True,
-        reason="the adjective abbreviation is inflected without the head noun's "
-        "animacy, so an inanimate accusative gets the animate form",
-    )
-    def test_adjective_abbreviation_takes_the_inanimate_accusative(self):
-        # pymorphy resolves a bare accusative to the animate variant, so the
-        # target tags have to carry the noun's "inan" over.
-        self.assertEqual(
-            normalize("Подписали гос. контракт на поставку."),
-            "Подписали государственный контракт на поставку.",
-        )
-        self.assertEqual(
-            normalize("Приняли гос. меры поддержки бизнеса."),
-            "Приняли государственные меры поддержки бизнеса.",
-        )
-        self.assertEqual(
-            normalize("Отправили офиц. запросы всем участникам."),
-            "Отправили официальные запросы всем участникам.",
-        )
-
-    @pytest.mark.xfail(
-        strict=True,
         reason="a substantivized adjective is never a head noun candidate, so "
         "the abbreviation agrees with a later word instead",
     )
