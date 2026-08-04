@@ -5,7 +5,7 @@ import re
 
 import num2words
 
-from .._morph import canonicalize_case, first_parse_required, parse_word
+from .._morph import canonicalize_case, parse_word
 from ..ordinal_utils import (
     find_first_noun_right,
     find_left_name_anchor,
@@ -91,9 +91,7 @@ ABBREVIATED_HEADING_PATTERN = re.compile(
     r"\b(?P<head>гл)\.\s*(?P<number>\d+)\b",
     re.IGNORECASE | re.UNICODE,
 )
-OB_BEFORE_CONSONANT_PATTERN = re.compile(
-    r"\bоб(?=\s+[бвгджзйклмнпрстфхцчшщ])", re.IGNORECASE
-)
+OB_BEFORE_CONSONANT_PATTERN = re.compile(r"\bоб(?=\s+[бвгджзйклмнпрстфхцчшщ])", re.IGNORECASE)
 MONTH_GENITIVE_WORDS = {
     "января",
     "февраля",
@@ -157,11 +155,7 @@ def _heading_parse(text: str, match_start: int, head: str):
     left_context = text[max(0, match_start - 40) : match_start]
     left_tokens = simple_tokenize(left_context)
     left_word = next(
-        (
-            token.lower()
-            for token in reversed(left_tokens)
-            if any(char.isalpha() for char in token)
-        ),
+        (token.lower() for token in reversed(left_tokens) if any(char.isalpha() for char in token)),
         "",
     )
     target_case = HEADING_CONTEXT_CASES.get(left_word)
@@ -201,9 +195,7 @@ def normalize_heading_ranges(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
         head = match.group("head")
         noun_parse = _heading_parse(text, match.start(), head)
-        return render_range(
-            head, noun_parse, int(match.group("left")), int(match.group("right"))
-        )
+        return render_range(head, noun_parse, int(match.group("left")), int(match.group("right")))
 
     def abbreviated_repl(match: re.Match[str]) -> str:
         left_context = text[max(0, match.start() - 40) : match.start()]
@@ -221,9 +213,7 @@ def normalize_heading_ranges(text: str) -> str:
             (
                 candidate
                 for candidate in parse_word("глава")
-                if "NOUN" in candidate.tag
-                and "nomn" in candidate.tag
-                and "inan" in candidate.tag
+                if "NOUN" in candidate.tag and "nomn" in candidate.tag and "inan" in candidate.tag
             ),
             None,
         )
@@ -287,6 +277,18 @@ def _compound_numeral_prefix(num_str: str) -> str:
         value = int(num_str)
     except ValueError:
         return num_str
+    if value == 0:
+        return "нуле"
+    for scale, stem in (
+        (1_000_000_000, "миллиардо"),
+        (1_000_000, "миллионо"),
+        (1_000, "тысяче"),
+    ):
+        if value >= scale:
+            scale_count, remainder = divmod(value, scale)
+            count_prefix = "" if scale_count == 1 else _compound_numeral_prefix(str(scale_count))
+            remainder_prefix = "" if remainder == 0 else _compound_numeral_prefix(str(remainder))
+            return f"{count_prefix}{stem}{remainder_prefix}"
     if value == 1:
         return "одно"
     if value == 2:
@@ -300,9 +302,20 @@ def _compound_numeral_prefix(num_str: str) -> str:
         words[0] = "девяносто"
     elif value == 100:
         return "сто"
+    elif 100 < value < 200 and words[:1] == ["ста"]:
+        words[0] = "сто"
     if value % 10 == 1 and value % 100 != 11 and words[-1:] == ["одного"]:
         words[-1] = "одно"
     return "".join(words)
+
+
+def _join_compound_numeral(prefix: str, word: str) -> str:
+    combined = f"{prefix}{word.lower()}"
+    if word.isupper():
+        return combined.upper()
+    if word[:1].isupper():
+        return combined.capitalize()
+    return combined
 
 
 def normalize_compound_numeric_adjectives(text: str) -> str:
@@ -312,9 +325,7 @@ def normalize_compound_numeric_adjectives(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
         adjective = match.group("adj")
         adjective_parses = [
-            candidate
-            for candidate in parse_word(adjective.lower())
-            if "ADJF" in candidate.tag
+            candidate for candidate in parse_word(adjective.lower()) if "ADJF" in candidate.tag
         ]
         if not adjective_parses:
             return match.group(0)
@@ -324,11 +335,17 @@ def normalize_compound_numeric_adjectives(text: str) -> str:
         ):
             return match.group(0)
         prefix = _compound_numeral_prefix(match.group("num"))
-        return f"{prefix}{adjective}"
+        return _join_compound_numeral(prefix, adjective)
 
     def percent_repl(match: re.Match[str]) -> str:
         prefix = _compound_numeral_prefix(match.group("num"))
-        return f"{prefix}процент{match.group('suffix').lower()}"
+        suffix = match.group("suffix")
+        word = f"процент{suffix.lower()}"
+        if suffix.isupper():
+            word = word.upper()
+        elif suffix[:1].isupper():
+            word = word.capitalize()
+        return _join_compound_numeral(prefix, word)
 
     text = PERCENT_COMPOUND_ADJECTIVE_PATTERN.sub(percent_repl, text)
     return COMPOUND_ADJECTIVE_PATTERN.sub(repl, text)
@@ -382,29 +399,29 @@ def normalize_hyphenated_words(text: str) -> str:
         ctx_right = text[match.end() : match.end() + 60]
         tokens_left = simple_tokenize(ctx_left)
         tokens_right = simple_tokenize(ctx_right)
-        context_case = get_numeral_case(
-            [*tokens_left, num_str, *tokens_right], len(tokens_left)
-        )
+        context_case = get_numeral_case([*tokens_left, num_str, *tokens_right], len(tokens_left))
         if case_from_suffix:
             case = case_from_suffix
         elif word_lower == "х":
             case = context_case if context_case in ("gent", "loct") else "gent"
         else:
             case = context_case
-        p_word = first_parse_required(word_lower)
-        is_adj_like = "ADJF" in p_word.tag or word_lower.endswith(
-            (
-                "дневный",
-                "часовой",
-                "минутный",
-                "летний",
-                "этажный",
-                "тонный",
-                "процентный",
-                "кратный",
-                "кратного",
-                "кратном",
-                "кратных",
+        word_parses = parse_word(word_lower)
+        is_adj_like = any("ADJF" in candidate.tag for candidate in word_parses) or (
+            word_lower.endswith(
+                (
+                    "дневный",
+                    "часовой",
+                    "минутный",
+                    "летний",
+                    "этажный",
+                    "тонный",
+                    "процентный",
+                    "кратный",
+                    "кратного",
+                    "кратном",
+                    "кратных",
+                )
             )
         )
         target_case = "gent" if is_adj_like and case == "nomn" else case
@@ -412,7 +429,7 @@ def normalize_hyphenated_words(text: str) -> str:
         if word_lower in CARDINAL_CASE_SUFFIXES:
             return num_words
         if is_adj_like:
-            return f"{_compound_numeral_prefix(num_str)}{word}"
+            return _join_compound_numeral(_compound_numeral_prefix(num_str), word)
         return f"{num_words}" if len(word) <= 3 else f"{num_words} {word}"
 
     return HYPHENATED_WORD_PATTERN.sub(repl, text)
@@ -446,9 +463,7 @@ def normalize_ordinals(text: str) -> str:
         ctx_right = text[match.end() : match.end() + 60]
         tokens_left = simple_tokenize(ctx_left)
         tokens_right = simple_tokenize(ctx_right)
-        case = get_numeral_case(
-            [*tokens_left, num_str, *tokens_right], len(tokens_left)
-        )
+        case = get_numeral_case([*tokens_left, num_str, *tokens_right], len(tokens_left))
 
         case, gender = resolve_ordinal_suffix_case(case, suffix, tokens_right, gender)
         plural = resolve_ordinal_plural(suffix, case, tokens_right)
@@ -458,7 +473,9 @@ def normalize_ordinals(text: str) -> str:
 
         if suffix == "у":
             target_case = "accs"
-            target_gender = right_noun.tag.gender if right_noun and right_noun.tag.gender else "femn"
+            target_gender = (
+                right_noun.tag.gender if right_noun and right_noun.tag.gender else "femn"
+            )
             return inflect_numeral_string(num_str, target_case, target_gender) + " "
 
         if right_noun is not None:
