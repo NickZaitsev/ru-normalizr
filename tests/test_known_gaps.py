@@ -431,6 +431,183 @@ E2E_KNOWN_GAP_CASES = (
             reason="decimal currency amounts are read as abstract fractions instead of major and minor units",
         ),
     ),
+    pytest.param(
+        "Отпуск запланирован с 28.02.2024 по 03.03.2024.",
+        "Отпуск запланирован с двадцать восьмого февраля две тысячи двадцать четвёртого "
+        "года по третье марта две тысячи двадцать четвёртого года.",
+        id="date_range",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the upper date after 'по' is rendered in genitive instead of accusative",
+        ),
+    ),
+    pytest.param(
+        "Приём ведётся с 08:45 до 17:15 без перерыва.",
+        "Приём ведётся с восьми часов сорока пяти минут до семнадцати часов пятнадцати "
+        "минут без перерыва.",
+        id="time_range",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="times in a governed range stay nominative and omit hour and minute units",
+        ),
+    ),
+    pytest.param(
+        "Добавьте 2/3 стакана молока и 1/4 ч. л. соли.",
+        "Добавьте две трети стакана молока и одну четвёртую чайной ложки соли.",
+        id="recipe_fraction",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="recipe fractions use wrong forms and the teaspoon abbreviation is not expanded",
+        ),
+    ),
+    pytest.param(
+        "Автомобиль разогнался со 100 до 120 км/ч за 8,4 с.",
+        "Автомобиль разогнался со ста до ста двадцати километров в час за восемь целых "
+        "четыре десятых секунды.",
+        id="speed_and_duration",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the fractional part of a decimal duration incorrectly inherits genitive case",
+        ),
+    ),
+    pytest.param(
+        "Давление поднялось с 120/80 до 140/90 мм рт. ст.",
+        "Давление поднялось со ста двадцати на восемьдесят до ста сорока на девяносто "
+        "миллиметров ртутного столба.",
+        id="blood_pressure",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="blood-pressure pairs are parsed as fractions and their unit stays abbreviated",
+        ),
+    ),
+    pytest.param(
+        "В бак объёмом 1,5 м³ залили 750 л воды.",
+        "В бак объёмом одна целая пять десятых кубического метра залили семьсот пятьдесят "
+        "литров воды.",
+        id="volume_and_litres",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="superscript cubic units and the standalone litre symbol are not expanded",
+        ),
+    ),
+    pytest.param(
+        "Лампа мощностью 9 Вт потребляет 0,075 кВт·ч за 8 ч.",
+        "Лампа мощностью девять ватт потребляет ноль целых семьдесят пять тысячных "
+        "киловатт-часа за восемь часов.",
+        id="electricity_units",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the middle-dot kilowatt-hour symbol is split and left partly unexpanded",
+        ),
+    ),
+    pytest.param(
+        "Согласно п. 2 ст. 15 ФЗ № 123 заявление рассматривают 30 дней.",
+        "Согласно пункту второму статьи пятнадцатой федерального закона номер сто двадцать "
+        "три заявление рассматривают тридцать дней.",
+        id="legal_references",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="legal references are split into sentences and lose case-aware abbreviation expansion",
+        ),
+    ),
+    pytest.param(
+        "Таблица приведена на стр. 12–15, а схема — на стр. 21.",
+        "Таблица приведена на страницах с двенадцатой по пятнадцатую, а схема — на "
+        "странице двадцать первой.",
+        id="page_range",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="page abbreviations and their ordinal range do not agree with the preposition",
+        ),
+    ),
+    pytest.param(
+        "Офис находится на 2-м этаже дома № 7Б по ул. Лесной.",
+        "Офис находится на втором этаже дома номер семь бэ по улице Лесной.",
+        id="postal_address",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="an alphanumeric house suffix is lost and the street abbreviation gets wrong case",
+        ),
+    ),
+    pytest.param(
+        "Концентрат смешивают с водой в пропорции 1:4.",
+        "Концентрат смешивают с водой в пропорции один к четырём.",
+        id="mixing_ratio",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a mixing ratio is treated as punctuation instead of an 'X к Y' construction",
+        ),
+    ),
+    pytest.param(
+        "Доходность изменилась с +2,5% до −1,75% за месяц.",
+        "Доходность изменилась с плюс двух целых пяти десятых процента до минус одной "
+        "целой семидесяти пяти сотых процента за месяц.",
+        id="signed_percentages",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a unary plus before a percentage remains a raw symbol",
+        ),
+    ),
+    pytest.param(
+        "В 1-м и 2-м кварталах продажи выросли на 7%, а в 3-м снизились на 2%.",
+        "В первом и втором кварталах продажи выросли на семь процентов, а в третьем "
+        "снизились на два процента.",
+        id="quarter_ordinals",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="coordinated suffixed ordinals disagree in number and case with quarters",
+        ),
+    ),
+    pytest.param(
+        "В конце XIX — начале XX вв. город насчитывал около 50 тыс. жителей.",
+        "В конце девятнадцатого — начале двадцатого веков город насчитывал около "
+        "пятидесяти тысяч жителей.",
+        id="century_range",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="Roman century endpoints receive inconsistent and incorrect morphology",
+        ),
+    ),
+    pytest.param(
+        "Точка имеет координаты 55°45′ с. ш. и 37°37′ в. д.",
+        "Точка имеет координаты пятьдесят пять градусов сорок пять минут северной широты "
+        "и тридцать семь градусов тридцать семь минут восточной долготы.",
+        id="geographic_coordinates",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="coordinate minutes and dotted direction abbreviations remain unexpanded",
+        ),
+    ),
+    pytest.param(
+        "Аккумулятор ёмкостью 5 000 мА·ч заряжается током 2 А за 2,5 ч.",
+        "Аккумулятор ёмкостью пять тысяч миллиампер-часов заряжается током два ампера за "
+        "две целых пять десятых часа.",
+        id="battery_capacity",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="battery and current units stay partial and decimal duration gets the wrong case",
+        ),
+    ),
+    pytest.param(
+        "Введите 0,25 мл раствора со скоростью 2 мл/мин.",
+        "Введите ноль целых двадцать пять сотых миллилитра раствора со скоростью двух "
+        "миллилитров в минуту.",
+        id="injection_dosage",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the per-minute denominator in a dosage rate remains abbreviated",
+        ),
+    ),
+    pytest.param(
+        "Концентрация вещества составляет 1 × 10⁻³ моль/л.",
+        "Концентрация вещества составляет один умножить на десять в минус третьей степени "
+        "моль на литр.",
+        id="scientific_concentration",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="superscript negative powers and molar concentration units stay as symbols",
+        ),
+    ),
 )
 
 
