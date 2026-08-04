@@ -608,6 +608,162 @@ E2E_KNOWN_GAP_CASES = (
             reason="superscript negative powers and molar concentration units stay as symbols",
         ),
     ),
+    pytest.param(
+        "Билет стоил 49,99 €, включая сбор 2,50 €.",
+        "Билет стоил сорок девять евро девяносто девять центов, включая сбор два евро "
+        "пятьдесят центов.",
+        id="euro_and_cents",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="decimal euro amounts are read as abstract fractions instead of euros and cents",
+        ),
+    ),
+    pytest.param(
+        "Счёт выставили на 1 250,50 $, а аванс составил 300 $.",
+        "Счёт выставили на одну тысячу двести пятьдесят долларов пятьдесят центов, а "
+        "аванс составил триста долларов.",
+        id="dollars_and_cents",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a grouped decimal dollar amount is misparsed and never split into cents",
+        ),
+    ),
+    pytest.param(
+        "Посылка весит 2 кг 350 г, упаковка добавляет ещё 75 г.",
+        "Посылка весит два килограмма триста пятьдесят граммов, упаковка добавляет ещё "
+        "семьдесят пять граммов.",
+        id="mixed_weight_units",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="gram units after compound quantities use a non-normative zero ending",
+        ),
+    ),
+    pytest.param(
+        "Процессор работает на частоте 3,2 ГГц при напряжении 1,15 В.",
+        "Процессор работает на частоте трёх целых двух десятых гигагерца при напряжении "
+        "одной целой пятнадцати сотых вольта.",
+        id="processor_frequency",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="decimal fraction parts disagree in case and the volt symbol stays unexpanded",
+        ),
+    ),
+    pytest.param(
+        "Монитор 27″ имеет разрешение 2560 × 1440 пикселей и частоту 144 Гц.",
+        "Монитор двадцать семь дюймов имеет разрешение две тысячи пятьсот шестьдесят на "
+        "одну тысячу четыреста сорок пикселей и частоту сто сорок четыре герца.",
+        id="display_resolution",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="inch marks stay raw and screen dimensions are treated as multiplication with wrong cases",
+        ),
+    ),
+    pytest.param(
+        "Препарат назначают по 5 мг/кг массы тела 2 раза в сутки.",
+        "Препарат назначают по пять миллиграммов на килограмм массы тела два раза в сутки.",
+        id="weight_based_dosage",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the denominator of a weight-based dosage loses the spoken 'на килограмм'",
+        ),
+    ),
+    pytest.param(
+        "Раствор H₂SO₄ концентрацией 5% хранили при 20 °C.",
+        "Раствор аш два эс о четыре концентрацией пять процентов хранили при двадцати "
+        "градусах Цельсия.",
+        id="chemical_formula",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="chemical formula letters use English pronunciation and subscripts corrupt morphology",
+        ),
+    ),
+    pytest.param(
+        "В учебнике формула E = mc² приведена в главе III.",
+        "В учебнике формула е равно эм цэ в квадрате приведена в главе третьей.",
+        id="physics_formula",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="formula symbols are merged and a squared term is read as a cardinal two",
+        ),
+    ),
+    pytest.param(
+        "Сервис доступен по адресу 192.168.1.10:8080 в локальной сети.",
+        "Сервис доступен по адресу сто девяносто два точка сто шестьдесят восемь точка "
+        "один точка десять двоеточие восемь тысяч восемьдесят в локальной сети.",
+        id="ip_address_and_port",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the colon before a network port remains a raw punctuation symbol",
+        ),
+    ),
+    pytest.param(
+        "Рейс SU 213 вылетает из терминала B в 23:40.",
+        "Рейс эс ю двести тринадцать вылетает из терминала би в двадцать три, сорок.",
+        id="flight_number",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the final letter of the Latin airline code is duplicated",
+        ),
+    ),
+    pytest.param(
+        "Пассажиру назначено место 12А, выход № 7C.",
+        "Пассажиру назначено место двенадцать а, выход номер семь си.",
+        id="seat_and_gate",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="seat suffixes are lost and a Latin gate suffix is mistaken for a physical unit",
+        ),
+    ),
+    pytest.param(
+        "Срок действия сертификата истекает 2025-12-31.",
+        "Срок действия сертификата истекает тридцать первого декабря две тысячи двадцать "
+        "пятого года.",
+        id="iso_date",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="an ISO calendar date is rendered as three cardinal numbers",
+        ),
+    ),
+    pytest.param(
+        "Трансляция начнётся в 14:00 UTC+3 и закончится в 16:30.",
+        "Трансляция начнётся в четырнадцать, ноль ноль ю ти си плюс три и закончится в "
+        "шестнадцать, тридцать.",
+        id="utc_offset",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="UTC duplicates a letter and its positive offset keeps a raw plus symbol",
+        ),
+    ),
+    pytest.param(
+        "Программа рассчитана на детей 6–12 лет и включает 24 занятия.",
+        "Программа рассчитана на детей от шести до двенадцати лет и включает двадцать "
+        "четыре занятия.",
+        id="children_age_range",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="an exact age interval is read as two nominatives instead of an 'от/до' range",
+        ),
+    ),
+    pytest.param(
+        "Подробные требования приведены в § 4.2 и § 4.3 документа.",
+        "Подробные требования приведены в параграфах четыре точка два и четыре точка три "
+        "документа.",
+        id="section_reference",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="section signs stay raw and hierarchical numbers are treated as decimal fractions",
+        ),
+    ),
+    pytest.param(
+        "Ставка выросла на 0,25 п. п. до 16% годовых.",
+        "Ставка выросла на ноль целых двадцать пять сотых процентного пункта до шестнадцати "
+        "процентов годовых.",
+        id="percentage_points",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the dotted percentage-point abbreviation is stripped to two bare letters",
+        ),
+    ),
 )
 
 
