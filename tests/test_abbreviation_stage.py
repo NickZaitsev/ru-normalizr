@@ -6,7 +6,9 @@ usable. That also keeps the sentence-boundary decisions visible, which
 """
 
 import unittest
+from unittest.mock import patch
 
+from ru_normalizr._morph import parse_word
 from ru_normalizr.abbreviations import (
     expand_abbreviations,
     expand_letter_abbreviations,
@@ -108,6 +110,66 @@ class AdjectiveAbbreviationTests(unittest.TestCase):
         for source, expected in cases:
             with self.subTest(source=source):
                 self.assertEqual(abbr(source), expected)
+
+    def test_substantivized_adjective_can_be_the_head(self):
+        cases = (
+            (
+                "Наградили гос. служащего медалью.",
+                "Наградили государственного служащего медалью.",
+            ),
+            (
+                "Опросили полит. заключённых колонии.",
+                "Опросили политических заключённых колонии.",
+            ),
+            (
+                "Помогли гос. служащему оформить документы.",
+                "Помогли государственному служащему оформить документы.",
+            ),
+            (
+                "Довольны гос. служащими отдела.",
+                "Довольны государственными служащими отдела.",
+            ),
+            (
+                "Гос. служащий подал заявление.",
+                "Государственный служащий подал заявление.",
+            ),
+            (
+                "Допросили полит. обвиняемого по делу.",
+                "Допросили политического обвиняемого по делу.",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(abbr(source), expected)
+
+    def test_substantivized_head_is_not_confused_with_its_modifiers(self):
+        cases = (
+            (
+                "Наградили гос. бывшего служащего.",
+                "Наградили государственного бывшего служащего.",
+            ),
+            (
+                "Обсудили гос. новый проект.",
+                "Обсудили государственный новый проект.",
+            ),
+            (
+                "Проверили гос. официально зарегистрированную в реестре организацию.",
+                "Проверили государственную официально зарегистрированную "
+                "в реестре организацию.",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(abbr(source), expected)
+
+    def test_contextual_abbreviation_parses_each_phrase_word_once(self):
+        with patch("ru_normalizr.abbreviations.parse_word", wraps=parse_word) as mocked:
+            abbr("Наградили гос. бывшего служащего медалью.")
+
+        parsed_words = [call.args[0] for call in mocked.call_args_list]
+        for word in ("бывшего", "служащего", "медалью"):
+            with self.subTest(word=word):
+                self.assertEqual(parsed_words.count(word), 1)
 
     def test_head_noun_is_found_past_an_intervening_adverb(self):
         # "очень" is neither an adjective nor a noun, so the scan has to walk
