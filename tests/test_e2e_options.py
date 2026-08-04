@@ -36,6 +36,47 @@ def test_remove_links_toggle_is_isolated_from_roman_numerals() -> None:
     assert disabled == "Факт подтверждён источником(12), смотри главу четвёртую."
 
 
+def test_disabled_url_normalization_preserves_explicit_urls_verbatim() -> None:
+    options = NormalizeOptions.safe(
+        enable_url_normalization=False,
+        remove_links=False,
+        enable_numeral_normalization=False,
+    )
+    cases = (
+        (
+            "Адрес https://milk.org/docs указан в главе IV.",
+            "Адрес https://milk.org/docs указан в главе четвёртой.",
+        ),
+        (
+            "Откройте www.Example.COM/path?x=1&next=a#top, затем главу IV.",
+            "Откройте www.Example.COM/path?x=1&next=a#top, затем главу четвёртую.",
+        ),
+        (
+            "Сравните http://a.test:8080/x и www.b.test/(docs).",
+            "Сравните http://a.test:8080/x и www.b.test/(docs).",
+        ),
+        (
+            "Ссылка (www.example.org/path).",
+            "Ссылка (www.example.org/path).",
+        ),
+    )
+
+    for source, expected in cases:
+        assert normalize(source, options) == expected
+
+
+def test_tts_can_preserve_explicit_url_when_url_normalization_is_disabled() -> None:
+    options = NormalizeOptions.tts(
+        enable_url_normalization=False,
+        remove_links=False,
+        enable_latinization=False,
+    )
+
+    assert normalize("Адрес www.Example.COM/a1, найден 2 раза.", options) == (
+        "Адрес www.Example.COM/a1, найден два раза."
+    )
+
+
 def test_ignored_footnote_year_uses_year_toggle_not_numeral_toggle() -> None:
     source = "Архив[1500] содержит 2 записи[12]."
     common = {

@@ -157,7 +157,7 @@ print(normalize("YouTube в 2024 г.", options))
 | `enable_caps_normalization` | `bool` | `False` | `True` | Нормализация ЗАГЛАВНЫХ заголовков (`ГЛАВА` → `Глава`) |
 | `enable_first_word_decap` | `bool` | `False` | `True` | Приведение первого слова предложения к строчным при нормализации капса |
 | `remove_links` | `bool` | `False` | `True` | Удаление скобочных ссылок-сносок вида `[1]`, `(2.5)` |
-| `enable_url_normalization` | `bool` | `False` | `True` | Озвучивание явных URL (`https://…`) поразрядно и по словам-разделителям |
+| `enable_url_normalization` | `bool` | `False` | `True` | Озвучивание явных URL (`http://`, `https://`, `www.`) поразрядно и по словам-разделителям; при `False` такие URL сохраняются дословно |
 | `remove_links_ignore_interval` | `tuple[int, int]` | `(1000, 2200)` | `(1000, 2200)` | Диапазон чисел в скобках, которые считаются годами и не удаляются как сноски |
 | `enable_year_normalization` | `bool` | `True` | `True` | Нормализация годов, десятилетий и диапазонов лет |
 | `enable_roman_normalization` | `bool` | `True` | `True` | Обработка римских цифр |
@@ -509,7 +509,7 @@ uses the **tts** column. Any option can be overridden explicitly.
 | `enable_caps_normalization` | `bool` | `False` | `True` | Normalize ALL-CAPS headings (`ГЛАВА` → `Глава`) |
 | `enable_first_word_decap` | `bool` | `False` | `True` | Lowercase the first word of a sentence during caps normalization |
 | `remove_links` | `bool` | `False` | `True` | Remove bracketed reference links such as `[1]`, `(2.5)` |
-| `enable_url_normalization` | `bool` | `False` | `True` | Read explicit URLs (`https://…`) aloud by separators and digits |
+| `enable_url_normalization` | `bool` | `False` | `True` | Read explicit URLs (`http://`, `https://`, `www.`) aloud by separators and digits; when `False`, preserve them verbatim |
 | `remove_links_ignore_interval` | `tuple[int, int]` | `(1000, 2200)` | `(1000, 2200)` | Range of bracketed numbers treated as years and kept, not removed as references |
 | `enable_year_normalization` | `bool` | `True` | `True` | Normalize years, decades, and year ranges |
 | `enable_roman_normalization` | `bool` | `True` | `True` | Roman numeral handling |
