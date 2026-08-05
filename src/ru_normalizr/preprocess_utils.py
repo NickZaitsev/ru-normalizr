@@ -13,8 +13,8 @@ DOT_COMMA_PATTERN = re.compile(r"\.,")
 LETTER_HYPHEN_PATTERN = re.compile(r"(?<=[A-Za-zА-Яа-яЁё])-(?=[A-Za-zА-Яа-яЁё])")
 SLASH_FIX_PATTERN = re.compile(r"(?<=[a-zA-Zа-яА-ЯёЁ+])/(?=[a-zA-Zа-яА-ЯёЁ+])")
 UNIT_SLASH_PATTERN = re.compile(
-    r"\b(?P<left>об|кадров|[kmg]?b|[кмг]?бит|[кмг]?б|байт|[км]?моль|мг|мкг|км|м)/(?P<right>s|с|ч|мин|л|мл|дл)\b",
-    re.IGNORECASE,
+    r"(?<![\w/])(?P<left>[A-Za-zА-Яа-яЁёµμ]+(?:\^?[23]|[²³])?)/"
+    r"(?P<right>[A-Za-zА-Яа-яЁёµμ]+)(?![\w/])"
 )
 NUMBER_CLEANUP_PATTERN = re.compile(
     r"(?<!\d)(?:\d{1,3}(?:[ \u00A0\u2009\u202F]\d{3})+|\d+)(?:[,\.]\d+)?(?!\d)"
@@ -54,7 +54,12 @@ BINARY_MATH_OPERATOR_PLACEHOLDERS = {
 
 
 def protect_unit_slashes(text: str) -> str:
+    # Lazy import avoids a preprocess -> numerals -> preprocess import cycle.
+    from .numerals.unit_expressions import resolve_unit_expression
+
     def repl(match: re.Match[str]) -> str:
+        if resolve_unit_expression(match.group(0)) is None:
+            return match.group(0)
         return (
             f"{match.group('left')}{UNIT_SLASH_PLACEHOLDER}{match.group('right')}"
         )

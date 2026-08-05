@@ -76,6 +76,15 @@ def normalize_numeric_unit_hyphen_links(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
         unit = match.group("unit")
         unit_dot = match.group("unit_dot") or ""
+        start = match.start()
+        embedded_in_alphanumeric_code = (
+            len(unit) == 1
+            and start > 1
+            and text[start - 1].isspace()
+            and text[start - 2].isalpha()
+        )
+        if embedded_in_alphanumeric_code:
+            return match.group(0)
         if not is_safe_numeric_hyphen_unit(unit + unit_dot):
             return match.group(0)
         return f"{match.group('num')} {unit}{unit_dot}"

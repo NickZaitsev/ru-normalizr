@@ -1,6 +1,6 @@
 # Plan: Refactor unit normalization into a validated registry and bounded expression parser
 
-Status: plan, 2026-08-05.
+Status: implemented 2026-08-05 in branch main.
 
 > Note for agents: this plan is a point-in-time snapshot — its "codebase facts" describe the code as of the date above and may be outdated. Do NOT treat it as current architecture docs; verify every fact against the actual code before relying on it.
 
@@ -181,6 +181,21 @@ Use the new registry/parser to address unit defects, but move an `xfail` only wh
 - A functional redesign of currency and percentage normalization, including major/minor currency splitting.
 - Fixing unrelated numeral-case, decimal morphology, formula, display-resolution, or mathematical-expression gaps merely because their examples contain a unit.
 - A package version bump or release work.
+
+## Implementation outcome
+
+The registry, bounded prefix generation, registered expression matcher and shared
+renderer are implemented. Seven complete strict known-gap sentences graduated to
+regular regression tests; the benchmark, full suite and built-wheel smoke test
+pass.
+
+One structural detail deliberately differs from the initial migration sketch:
+the validated legacy alias inventory remains the compatibility data source in
+`_constants.py` and is adapted into `UnitRegistry`, while newly generated families
+and expressions live in `unit_data.py`. Moving all 377 established spellings at
+once offered no runtime benefit and would have made differential review much less
+reliable. Runtime resolution, case policy, generated aliases and compound matching
+do not depend on direct lowercase lookup.
 
 ---
 **Maintenance note (for the implementing agent):** when this plan is implemented, update the `Status:` line above, e.g. `Status: implemented YYYY-MM-DD in branch <branch>.` If the plan changes during implementation, update the affected sections too — the plan must not lie about what was built.

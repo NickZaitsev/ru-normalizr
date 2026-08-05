@@ -588,6 +588,11 @@ def get_numeral_case(
                 return get_numeral_case(tokens, back, _context=_context)
     if idx > 1 and tokens[idx - 1] in {"-", "–", "—"} and is_integer_token(tokens[idx - 2]):
         return get_numeral_case(tokens, idx - 2, _context=_context)
+    if idx > 0 and tokens[idx - 1] in {"-", "–", "—"}:
+        # An em dash after an elided subject/predicate starts a fresh quantity:
+        # "первый канал — 2 Мбит/с". Do not inherit an accidental pymorphy
+        # case from the adjective before the dash (notably ambiguous "второй").
+        return "nomn"
 
     if is_range_start and idx > 0:
         prev_token = tokens[idx - 1].strip(".,!?;:")

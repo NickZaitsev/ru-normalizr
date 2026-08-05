@@ -15,7 +15,6 @@ from .dictionary import apply_dictionary_rules
 from .latinization import DEFAULT_DICTIONARIES_PATH, apply_latinization
 from .numbering import convert_bracketed_numbers, convert_line_numbering
 from .numerals import (
-    ALL_UNITS,
     _contains_numeral_candidates,
     normalize_compound_numeric_adjectives,
     normalize_decimals,
@@ -26,6 +25,7 @@ from .numerals import (
     normalize_ordinals,
     normalize_versions,
 )
+from .numerals._constants import is_unit_token
 from .numerals._hyphen import (
     ORDINAL_SUFFIXES,
     normalize_numeric_unit_hyphen_links,
@@ -323,7 +323,7 @@ class PipelineNormalizer:
             return "thousand_suffix"
         if word_lower in GLUED_NUMERIC_SUFFIXES or word_lower in {"о", "а"}:
             return "hyphen"
-        if word_lower in ALL_UNITS or word_lower in GLUED_PREPOSITIONS:
+        if is_unit_token(word) or word_lower in GLUED_PREPOSITIONS:
             return "space"
 
         parsed = first_parse_required(word_lower)
@@ -336,7 +336,20 @@ class PipelineNormalizer:
     def _fix_glued_numbers(self, text: str) -> str:
         def fix_glued(match: re.Match[str]) -> str:
             num, word = match.group(1), match.group(2)
-            rhs_kind = self._classify_glued_numeric_rhs(word)
+            start = match.start()
+            previous_is_letter = start > 0 and text[start - 1].isalpha()
+            previous_is_spaced_letter = (
+                start > 1 and text[start - 1].isspace() and text[start - 2].isalpha()
+            )
+            embedded_in_alphanumeric_code = (
+                (previous_is_letter or previous_is_spaced_letter)
+                and len(word) == 1
+            )
+            rhs_kind = (
+                "hyphen"
+                if embedded_in_alphanumeric_code
+                else self._classify_glued_numeric_rhs(word)
+            )
             if rhs_kind == "thousand_suffix":
                 return f"{num} тыс"
             if rhs_kind == "hyphen":
