@@ -304,6 +304,7 @@ class PipelineNormalizer:
             dictionaries_path=self.dictionaries_path,
             dictionary_filename=self.options.latin_dictionary_filename,
             include_stress_markers=self.options.enable_latinization_stress_marks,
+            letter_vowel_mode=self.options.letter_vowel_mode,
         )
 
     def run_finalize(self, text: str) -> str:

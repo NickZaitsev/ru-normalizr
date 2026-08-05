@@ -1,6 +1,6 @@
 # Plan: Universal letter vowel mode
 
-Status: plan, 2026-08-05.
+Status: implemented 2026-08-05 in branch `main`.
 
 > Note for agents: this plan is a point-in-time snapshot — its "codebase facts" describe the code as of the date above and may be outdated. Do NOT treat it as current architecture docs; verify every fact against the actual code before relying on it.
 
@@ -22,7 +22,7 @@ The change must make vowel length a single mode applied to every independently p
 ## Key codebase facts
 
 - `src/ru_normalizr/constants.py` defines `RU_LETTER_NAMES`, `RU_DOUBLED_VOWEL_INITIAL_NAMES`, `EN_LETTER_NAMES`, and `KNOWN_ABBREVIATIONS`.
-- `KNOWN_ABBREVIATIONS` contains embedded doubled vowel tokens in readings for `США`, `ЕЭС`, `НБА`, `ВТО`, `ОАО`, `ЗАО`, `ООО`, and `ОРЗ`; other repeated vowels in `src/ru_normalizr/dictionaries/latinization/latinization_rules.dic` are lexical pronunciation data and are out of scope.
+- Mode-aware standalone vowel tokens occur in 21 `KNOWN_ABBREVIATIONS` readings, including `США`, `ООН`, `ГРУ`, `ЕЭС`, `ОАО`, `ООО`, `НИИ`, `USB`, and `ОРЗ`; other repeated vowels in `src/ru_normalizr/dictionaries/latinization/latinization_rules.dic` are lexical pronunciation data and are out of scope.
 - `src/ru_normalizr/abbreviations.py::expand_person_initials` is the only current consumer of `RU_DOUBLED_VOWEL_INITIAL_NAMES`.
 - `src/ru_normalizr/abbreviations.py::expand_letter_abbreviations` reads generated Cyrillic and Latin abbreviations and returns `KNOWN_ABBREVIATIONS` values before generic heuristics.
 - `src/ru_normalizr/latinization.py::apply_latinization` uses `EN_LETTER_NAMES` directly for Latin suffix letters matched by `ALPHANUMERIC_SUFFIX_LETTER_PATTERN`.
@@ -62,7 +62,7 @@ The change must make vowel length a single mode applied to every independently p
 
 ## Testing & verification
 
-- Add table-driven resolver tests for all Cyrillic doubled vowels and Latin `E`/`U`, plus unchanged consonants and unknown characters.
+- Add table-driven letter-reading tests for all Cyrillic vowel forms and Latin `E`/`U`, plus unchanged consonants.
 - Extend `tests/test_abbreviation_stage.py` to cover single/double Cyrillic and Latin generated abbreviations and mode-aware known readings such as `США`, `ООО`, and `USB`.
 - Extend `tests/test_e2e_options.py` to prove that `letter_vowel_mode` changes initials, Cyrillic abbreviations, Latin abbreviations, and alphanumeric suffixes through `normalize`, while unrelated lexical latinization is unchanged.
 - Add compatibility tests for the legacy option name, matching aliases, conflicting aliases, and preset attributes.

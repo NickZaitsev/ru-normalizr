@@ -33,6 +33,20 @@ class RuNormalizrHyphenTokenTests(unittest.TestCase):
             "модель-восемьдесят-эй",
         )
 
+    def test_latinization_applies_vowel_mode_to_alphanumeric_suffixes(self):
+        cases = (("single", "модель-восемьдесят-ю"), ("double", "модель-восемьдесят-юю"))
+        for vowel_mode, expected in cases:
+            with self.subTest(vowel_mode=vowel_mode):
+                self.assertEqual(
+                    apply_latinization(
+                        "модель-восемьдесят-U",
+                        enabled=True,
+                        backend="dictionary",
+                        letter_vowel_mode=vowel_mode,
+                    ),
+                    expected,
+                )
+
     def test_normalize_distinguishes_mixed_case_and_all_caps_latin_index_tokens(self):
         options = NormalizeOptions.tts()
         self.assertEqual(normalize("Stg-44", options), "стг-сорок четыре")

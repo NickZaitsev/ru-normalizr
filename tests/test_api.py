@@ -966,7 +966,7 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertEqual(normalize("по IPsec.", tts), "по ай пи сек.")
 
     def test_tts_expands_unknown_cyrillic_letter_abbreviations(self):
-        self.assertEqual(normalize("ЦРУ", NormalizeOptions.tts()), "цэ эр у")
+        self.assertEqual(normalize("ЦРУ", NormalizeOptions.tts()), "цэ эр уу")
         self.assertEqual(normalize("ФБР", NormalizeOptions.tts()), "эф бэ эр")
 
     def test_tts_expands_single_person_initials_without_touching_non_person_tokens(self):
@@ -997,6 +997,7 @@ class RuNormalizrApiTests(unittest.TestCase):
 
         self.assertFalse(safe.enable_caps_normalization)
         self.assertFalse(safe.enable_initials_expansion)
+        self.assertEqual(safe.letter_vowel_mode, "single")
         self.assertEqual(safe.initials_vowel_mode, "single")
         self.assertEqual(safe.initials_pause_mode, "preserve")
         self.assertFalse(safe.cleanup_malformed_punctuation)
@@ -1007,6 +1008,7 @@ class RuNormalizrApiTests(unittest.TestCase):
 
         self.assertTrue(tts.enable_caps_normalization)
         self.assertTrue(tts.enable_initials_expansion)
+        self.assertEqual(tts.letter_vowel_mode, "double")
         self.assertEqual(tts.initials_vowel_mode, "double")
         self.assertEqual(tts.initials_pause_mode, "comma")
         self.assertTrue(tts.cleanup_malformed_punctuation)
@@ -1037,6 +1039,7 @@ class RuNormalizrApiTests(unittest.TestCase):
         )
         self.assertEqual(default.enable_years_ago_expansion, safe.enable_years_ago_expansion)
         self.assertEqual(default.enable_initials_expansion, safe.enable_initials_expansion)
+        self.assertEqual(default.letter_vowel_mode, safe.letter_vowel_mode)
         self.assertEqual(default.initials_vowel_mode, safe.initials_vowel_mode)
         self.assertEqual(default.initials_pause_mode, safe.initials_pause_mode)
         self.assertEqual(
@@ -1062,6 +1065,21 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertEqual(default.dictionaries_path, safe.dictionaries_path)
         self.assertIsNone(default.mode)
         self.assertEqual(safe.mode, "safe")
+
+    def test_legacy_initials_vowel_mode_aliases_the_general_letter_mode(self):
+        legacy = NormalizeOptions(initials_vowel_mode="double")
+        current = NormalizeOptions(letter_vowel_mode="double")
+        matching = NormalizeOptions(
+            letter_vowel_mode="double", initials_vowel_mode="double"
+        )
+
+        for options in (legacy, current, matching):
+            self.assertEqual(options.letter_vowel_mode, "double")
+            self.assertEqual(options.initials_vowel_mode, "double")
+
+    def test_conflicting_letter_vowel_mode_aliases_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, "letter_vowel_mode"):
+            NormalizeOptions(letter_vowel_mode="single", initials_vowel_mode="double")
 
     def test_default_and_safe_have_same_observable_behavior(self):
         text = "ГЛАВА IV. ГИБДД (1)"

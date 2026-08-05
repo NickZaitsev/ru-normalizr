@@ -138,7 +138,7 @@ from ru_normalizr import NormalizeOptions, normalize
 options = NormalizeOptions.tts(
     latinization_backend="ipa",
     enable_latinization_stress_marks=True,
-    initials_vowel_mode="double",  # "single" для обычных названий гласных
+    letter_vowel_mode="double",    # "single" для обычных названий гласных
     initials_pause_mode="comma",   # "preserve" без дополнительных пауз
 )
 
@@ -167,7 +167,8 @@ print(normalize("YouTube в 2024 г.", options))
 | `enable_contextual_abbreviation_expansion` | `bool` | `True` | `True` | Согласование прилагательных-сокращений по контексту (`гос.` → `государственного`) |
 | `enable_years_ago_expansion` | `bool` | `True` | `True` | Раскрытие `л. н.` → `лет назад` в числовом контексте |
 | `enable_initials_expansion` | `bool` | `False` | `True` | Раскрытие инициалов (`Ч.` → `чэ`) |
-| `initials_vowel_mode` | `"single" \| "double"` | `"single"` | `"double"` | При `double` удваивает одиночные гласные-инициалы (`Е.` → `ее`) |
+| `letter_vowel_mode` | `"single" \| "double"` | `"single"` | `"double"` | При `double` удваивает отдельно произносимые гласные в инициалах, аббревиатурах и буквенных индексах (`Е.` → `ее`, `SU` → `эс юю`) |
+| `initials_vowel_mode` | `"single" \| "double"` | алиас | алиас | Совместимое устаревшее имя `letter_vowel_mode`; разные значения двух имён одновременно запрещены |
 | `initials_pause_mode` | `"preserve" \| "comma"` | `"preserve"` | `"comma"` | При `comma` добавляет паузы-запятые вокруг инициалов в формате «Фамилия И.» |
 | `cleanup_malformed_punctuation` | `bool` | `False` | `True` | В конце конвейера схлопывать мусорную последовательность `.,` в точку; можно отключить в TTS или явно включить для грязного ввода |
 | `enable_letter_abbreviation_expansion` | `bool` | `False` | `True` | Побуквенное чтение аббревиатур (`ГИБДД` → `ги бэ дэ дэ`) |
@@ -490,7 +491,7 @@ from ru_normalizr import NormalizeOptions, normalize
 options = NormalizeOptions.tts(
     latinization_backend="ipa",
     enable_latinization_stress_marks=True,
-    initials_vowel_mode="double",  # use "single" for ordinary vowel names
+    letter_vowel_mode="double",    # use "single" for ordinary vowel names
     initials_pause_mode="comma",   # use "preserve" for source punctuation
 )
 
@@ -519,7 +520,8 @@ uses the **tts** column. Any option can be overridden explicitly.
 | `enable_contextual_abbreviation_expansion` | `bool` | `True` | `True` | Inflect adjective-like abbreviations from context (`гос.` → `государственного`) |
 | `enable_years_ago_expansion` | `bool` | `True` | `True` | Expand `л. н.` → `лет назад` in numeric context |
 | `enable_initials_expansion` | `bool` | `False` | `True` | Expand initials (`Ч.` → `чэ`) |
-| `initials_vowel_mode` | `"single" \| "double"` | `"single"` | `"double"` | With `double`, doubles isolated vowel initials (`Е.` → `ее`) |
+| `letter_vowel_mode` | `"single" \| "double"` | `"single"` | `"double"` | With `double`, doubles independently pronounced vowels in initials, abbreviations, and letter indices (`Е.` → `ее`, `SU` → `эс юю`) |
+| `initials_vowel_mode` | `"single" \| "double"` | alias | alias | Backwards-compatible deprecated name for `letter_vowel_mode`; conflicting simultaneous values are rejected |
 | `initials_pause_mode` | `"preserve" \| "comma"` | `"preserve"` | `"comma"` | With `comma`, adds comma pauses around initials in "Surname I." order |
 | `cleanup_malformed_punctuation` | `bool` | `False` | `True` | At the end of the pipeline, collapse the noisy `.,` sequence to a period; it can be disabled in TTS or enabled explicitly for dirty input |
 | `enable_letter_abbreviation_expansion` | `bool` | `False` | `True` | Read abbreviations letter by letter (`ГИБДД` → `ги бэ дэ дэ`) |

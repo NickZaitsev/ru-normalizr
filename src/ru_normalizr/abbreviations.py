@@ -14,6 +14,7 @@ from .constants import (
     ABBREV_MAX_LEN_RU,
     ABBREV_MIN_LEN,
     ABBREV_SOLID_PATTERN,
+    EN_DOUBLED_VOWEL_LETTER_NAMES,
     EN_LETTER_NAMES,
     KNOWN_ABBREVIATIONS,
     PERSON_INITIALS_SURNAME_PATTERN,
@@ -21,14 +22,15 @@ from .constants import (
     PERSON_SURNAME_INITIALS_PATTERN,
     PERSON_SURNAME_SINGLE_INITIAL_PATTERN,
     REAL_WORD_POS,
-    RU_DOUBLED_VOWEL_INITIAL_NAMES,
     RU_LETTER_NAMES,
     RU_VOWELS,
     RUSSIAN_NAME_TOKEN,
+    apply_letter_vowel_mode,
+    resolve_letter_name,
 )
 from .numerals._constants import VERB_CASE
 from .numerals._helpers import safe_inflect
-from .options import InitialsPauseMode, InitialsVowelMode, NormalizeOptions
+from .options import InitialsPauseMode, LetterVowelMode, NormalizeOptions
 
 _ETC_ABBREVIATION_PATTERN = re.compile(
     r"(?<!\w)(?P<abbr>т\.?\s*[дп]\.)(?P<tail>\s*)(?!\w)", re.IGNORECASE
@@ -64,7 +66,9 @@ _WORD_AMPERSAND_PATTERN = re.compile(
     r"(?P<left>[A-Za-zА-Яа-яЁё]+(?:[-'][A-Za-zА-Яа-яЁё0-9]+)*)\s*&\s*(?P<right>[A-Za-zА-Яа-яЁё]+(?:[-'][A-Za-zА-Яа-яЁё0-9]+)*)"
 )
 _SINGLE_TOKEN_EN_LETTER_NAMES = frozenset(
-    value.lower() for value in EN_LETTER_NAMES.values() if " " not in value
+    value.lower()
+    for value in (*EN_LETTER_NAMES.values(), *EN_DOUBLED_VOWEL_LETTER_NAMES.values())
+    if " " not in value
 )
 _LANGUAGE_ORIGIN_ABBREVIATIONS = {
     key: ADJECTIVE_ABBREVIATION_EXPANSIONS[key]
@@ -355,15 +359,11 @@ def _expand_language_origin_abbreviations(text: str) -> str:
 def expand_person_initials(
     text: str,
     *,
-    vowel_mode: InitialsVowelMode = "single",
+    vowel_mode: LetterVowelMode = "single",
     pause_mode: InitialsPauseMode = "preserve",
 ) -> str:
     def initial_name(ch: str) -> str:
-        if vowel_mode == "double":
-            doubled_name = RU_DOUBLED_VOWEL_INITIAL_NAMES.get(ch.upper())
-            if doubled_name is not None:
-                return doubled_name
-        return RU_LETTER_NAMES.get(ch.upper(), ch.lower())
+        return resolve_letter_name(ch, vowel_mode) or ch.lower()
 
     def pause_separated(*parts: str) -> str:
         separator = ", " if pause_mode == "comma" else " "
@@ -520,7 +520,9 @@ def expand_person_initials(
     return PERSON_SINGLE_INITIAL_SURNAME_PATTERN.sub(repl_single_initial_surname, text)
 
 
-def expand_letter_abbreviations(text: str) -> str:
+def expand_letter_abbreviations(
+    text: str, *, vowel_mode: LetterVowelMode = "single"
+) -> str:
     def expand_token(token: str, is_dotted: bool) -> str:
         tail_dot = token.endswith(".")
         letters = [char for char in token if char.isalpha()]
@@ -530,7 +532,9 @@ def expand_letter_abbreviations(text: str) -> str:
         letters_upper = [char.upper() for char in letters]
         joined_key = "".join(letters_upper)
         if joined_key in KNOWN_ABBREVIATIONS:
-            custom_reading = KNOWN_ABBREVIATIONS[joined_key]
+            custom_reading = apply_letter_vowel_mode(
+                KNOWN_ABBREVIATIONS[joined_key], vowel_mode
+            )
             return custom_reading + "." if tail_dot else custom_reading
 
         if all(char in RU_LETTER_NAMES for char in letters_upper):
@@ -543,11 +547,11 @@ def expand_letter_abbreviations(text: str) -> str:
                     return token
                 if sum(1 for char in letters_upper if char in RU_VOWELS) > 1:
                     return token
-            names = [RU_LETTER_NAMES[char] for char in letters_upper]
+            names = [resolve_letter_name(char, vowel_mode) or char for char in letters_upper]
         elif all(char in EN_LETTER_NAMES for char in letters_upper):
             if not is_dotted and len(letters_upper) > ABBREV_MAX_LEN_EN:
                 return token
-            names = [EN_LETTER_NAMES[char] for char in letters_upper]
+            names = [resolve_letter_name(char, vowel_mode) or char for char in letters_upper]
         else:
             return token
 
@@ -634,5 +638,5 @@ def expand_abbreviations(text: str, options: NormalizeOptions | None = None) -> 
             pause_mode=active.initials_pause_mode,
         )
     if active.enable_letter_abbreviation_expansion:
-        text = expand_letter_abbreviations(text)
+        text = expand_letter_abbreviations(text, vowel_mode=active.letter_vowel_mode)
     return _normalize_contextual_ampersands(text, active)
