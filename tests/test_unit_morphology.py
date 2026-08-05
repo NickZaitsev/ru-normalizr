@@ -125,12 +125,21 @@ def test_exact_roman_shaped_unit_is_protected_before_roman_stage() -> None:
     )
 
 
-def test_micrometre_alias_must_not_capture_micromolar_notation() -> None:
-    assert resolve_unit_info("мкМ") is None
+def test_molar_concentration_requires_fully_written_unit() -> None:
+    # Short forms ending in uppercase "М" overlap length notation and are
+    # common artefacts of damaged source formatting. Never assign them a molar
+    # meaning; only an explicit amount-per-volume alias may represent it.
+    molar_lemmas = {"моль", "миллимоль", "микромоль", "наномоль"}
+    for token in ("М", "мМ", "ММ", "мкМ", "нМ"):
+        descriptor = resolve_unit_info(token)
+        assert descriptor is None or not (
+            descriptor.lemma in molar_lemmas and descriptor.suffix == "на литр"
+        )
 
-    micromole = resolve_unit_info("мкмоль")
-    assert micromole is not None
-    assert micromole.lemma == "микромоль"
+    explicit_concentration = resolve_unit_info("ммоль/л")
+    assert explicit_concentration is not None
+    assert explicit_concentration.lemma == "миллимоль"
+    assert explicit_concentration.suffix == "на литр"
 
 
 @pytest.mark.parametrize(

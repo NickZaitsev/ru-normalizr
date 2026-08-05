@@ -703,10 +703,10 @@ UNITS_DATA = _upgrade_units({
     "oz": ("унция", "femn", "measure"),
     "унция": ("унция", "femn", "measure"),
     "lb": ("фунт", "masc", "measure"),
+    # Do not register bare or prefixed "М" spellings as molarity. They overlap
+    # length symbols and are especially noisy in damaged source text; amount
+    # concentration is supported only through explicit aliases such as "ммоль/л".
     "м": ("метр", "masc", "measure"),
-    # Do not add "мкм" -> "микрометр" to this case-insensitive table:
-    # lowercasing would also turn the distinct micromolar notation "мкМ"
-    # into "мкм". A micrometre alias must use exact-case resolution.
     "нм.": ("нанометр", "masc", "measure"),
     "нм": ("нанометр", "masc", "measure"),
     "метр": ("метр", "masc", "measure"),
