@@ -667,6 +667,9 @@ E2E_KNOWN_GAP_CASES = (
         ),
     ),
     pytest.param(
+        # This cannot be fixed by adding "мкм" to the case-insensitive unit
+        # table: that would also misread the distinct micromolar notation
+        # "мкМ" as "микрометр". The alias must be resolved in exact case.
         "Лазер работает на длине волны 532 нм, толщина покрытия — 2,5 мкм.",
         "Лазер работает на длине волны пятьсот тридцать два нанометра, толщина покрытия — две целых пять десятых микрометра.",
         id="wavelength_and_thickness",

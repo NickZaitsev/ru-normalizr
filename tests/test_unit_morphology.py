@@ -125,6 +125,14 @@ def test_exact_roman_shaped_unit_is_protected_before_roman_stage() -> None:
     )
 
 
+def test_micrometre_alias_must_not_capture_micromolar_notation() -> None:
+    assert resolve_unit_info("мкМ") is None
+
+    micromole = resolve_unit_info("мкмоль")
+    assert micromole is not None
+    assert micromole.lemma == "микромоль"
+
+
 @pytest.mark.parametrize(
     ("source", "expected"),
     [
