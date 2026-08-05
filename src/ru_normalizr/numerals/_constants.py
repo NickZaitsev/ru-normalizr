@@ -704,6 +704,9 @@ UNITS_DATA = _upgrade_units({
     "унция": ("унция", "femn", "measure"),
     "lb": ("фунт", "masc", "measure"),
     "м": ("метр", "masc", "measure"),
+    # Do not add "мкм" -> "микрометр" to this case-insensitive table:
+    # lowercasing would also turn the distinct micromolar notation "мкМ"
+    # into "мкм". A micrometre alias must use exact-case resolution.
     "нм.": ("нанометр", "masc", "measure"),
     "нм": ("нанометр", "masc", "measure"),
     "метр": ("метр", "masc", "measure"),
