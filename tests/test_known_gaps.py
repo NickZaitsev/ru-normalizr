@@ -528,13 +528,12 @@ E2E_KNOWN_GAP_CASES = (
         ),
     ),
     pytest.param(
-        "Концентрации растворов составляют 5 мМ и 8 нМ.",
-        "Концентрации растворов составляют пять миллимолей на литр и восемь "
-        "наномолей на литр.",
-        id="molar_concentration_case",
+        "В повреждённом источнике указано значение 5 М без пояснений.",
+        "В повреждённом источнике указано значение пять М без пояснений.",
+        id="ambiguous_uppercase_single_letter_unit",
         marks=pytest.mark.xfail(
             strict=True,
-            reason="case folding mistakes millimolar and nanomolar notation for length units",
+            reason="a bare uppercase M is case-folded to metre even though single-letter case repair is too ambiguous",
         ),
     ),
     pytest.param(
