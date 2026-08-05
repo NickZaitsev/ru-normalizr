@@ -266,6 +266,27 @@ def test_initials_vowel_mode_changes_only_vowel_letter_name() -> None:
     assert double == "Редактор ее Харитонова подготовила две версии."
 
 
+def test_letter_vowel_mode_applies_across_public_letter_reading_paths() -> None:
+    source = "Редактор Е. Харитонова сравнила США, SU, support и модель-восемьдесят-U."
+    common = {
+        "enable_initials_expansion": True,
+        "enable_letter_abbreviation_expansion": True,
+        "enable_latinization": True,
+        "latinization_backend": "dictionary",
+        "initials_pause_mode": "preserve",
+    }
+
+    single = normalize(source, NormalizeOptions.safe(letter_vowel_mode="single", **common))
+    double = normalize(source, NormalizeOptions.safe(letter_vowel_mode="double", **common))
+
+    assert single == (
+        "Редактор е Харитонова сравнила сэ шэ а, эс ю, сапорт и модель-восемьдесят-ю."
+    )
+    assert double == (
+        "Редактор ее Харитонова сравнила сэ шэ аа, эс юю, сапорт и модель-восемьдесят-юю."
+    )
+
+
 def test_initials_pause_mode_changes_only_surname_first_pauses() -> None:
     source = "Доклад подготовил Иванов А. Б. вчера за 2 часа."
     common = {"enable_initials_expansion": True, "initials_vowel_mode": "double"}

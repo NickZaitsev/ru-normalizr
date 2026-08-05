@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import re
+from typing import Literal
+
+LetterVowelMode = Literal["single", "double"]
 
 RU_LETTER_NAMES = {
     "А": "а",
@@ -38,7 +41,7 @@ RU_LETTER_NAMES = {
     "Я": "я",
 }
 
-RU_DOUBLED_VOWEL_INITIAL_NAMES = {
+RU_DOUBLED_VOWEL_LETTER_NAMES = {
     "А": "аа",
     "Е": "ее",
     "И": "ии",
@@ -55,7 +58,7 @@ EN_LETTER_NAMES = {
     "B": "би",
     "C": "си",
     "D": "ди",
-    "E": "ии",
+    "E": "и",
     "F": "эф",
     "G": "джи",
     "H": "эйч",
@@ -71,13 +74,62 @@ EN_LETTER_NAMES = {
     "R": "ар",
     "S": "эс",
     "T": "ти",
-    "U": "юю",
+    "U": "ю",
     "V": "ви",
     "W": "дабел ю",
     "X": "экс",
     "Y": "уай",
     "Z": "зи",
 }
+
+EN_DOUBLED_VOWEL_LETTER_NAMES = {
+    "E": "ии",
+    "U": "юю",
+}
+
+_SINGLE_TO_DOUBLE_VOWEL_NAMES = {
+    **{
+        RU_LETTER_NAMES[letter]: doubled
+        for letter, doubled in RU_DOUBLED_VOWEL_LETTER_NAMES.items()
+    },
+    **{
+        EN_LETTER_NAMES[letter]: doubled
+        for letter, doubled in EN_DOUBLED_VOWEL_LETTER_NAMES.items()
+    },
+}
+_DOUBLE_TO_SINGLE_VOWEL_NAMES = {
+    doubled: single for single, doubled in _SINGLE_TO_DOUBLE_VOWEL_NAMES.items()
+}
+_STANDALONE_VOWEL_NAME_PATTERN = re.compile(
+    rf"(?<!\S)({'|'.join(sorted((*_SINGLE_TO_DOUBLE_VOWEL_NAMES, *_DOUBLE_TO_SINGLE_VOWEL_NAMES), key=len, reverse=True))})(?!\S)"
+)
+
+
+def resolve_letter_name(
+    letter: str, vowel_mode: LetterVowelMode = "single"
+) -> str | None:
+    """Return the spoken name of one Cyrillic or Latin letter."""
+    upper = letter.upper()
+    if vowel_mode == "double":
+        doubled = RU_DOUBLED_VOWEL_LETTER_NAMES.get(upper)
+        if doubled is not None:
+            return doubled
+        doubled = EN_DOUBLED_VOWEL_LETTER_NAMES.get(upper)
+        if doubled is not None:
+            return doubled
+    return RU_LETTER_NAMES.get(upper) or EN_LETTER_NAMES.get(upper)
+
+
+def apply_letter_vowel_mode(reading: str, vowel_mode: LetterVowelMode) -> str:
+    """Adjust only standalone vowel-name tokens in a custom reading."""
+    replacements = (
+        _SINGLE_TO_DOUBLE_VOWEL_NAMES
+        if vowel_mode == "double"
+        else _DOUBLE_TO_SINGLE_VOWEL_NAMES
+    )
+    return _STANDALONE_VOWEL_NAME_PATTERN.sub(
+        lambda match: replacements.get(match.group(0), match.group(0)), reading
+    )
 
 KNOWN_ABBREVIATIONS = {
     "ЛСД": "лсд",

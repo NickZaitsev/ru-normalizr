@@ -4,9 +4,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+from .constants import LetterVowelMode
+
 NormalizeMode = Literal["safe", "tts"]
 LatinizationBackend = Literal["ipa", "dictionary"]
-InitialsVowelMode = Literal["single", "double"]
+InitialsVowelMode = LetterVowelMode
 InitialsPauseMode = Literal["preserve", "comma"]
 
 _SAFE_MODE_DEFAULTS = {
@@ -23,7 +25,7 @@ _SAFE_MODE_DEFAULTS = {
     "enable_contextual_abbreviation_expansion": True,
     "enable_years_ago_expansion": True,
     "enable_initials_expansion": False,
-    "initials_vowel_mode": "single",
+    "letter_vowel_mode": "single",
     "initials_pause_mode": "preserve",
     "enable_letter_abbreviation_expansion": False,
     "enable_dictionary_normalization": True,
@@ -46,7 +48,7 @@ _TTS_MODE_DEFAULTS = {
     "enable_contextual_abbreviation_expansion": True,
     "enable_years_ago_expansion": True,
     "enable_initials_expansion": True,
-    "initials_vowel_mode": "double",
+    "letter_vowel_mode": "double",
     "initials_pause_mode": "comma",
     "enable_letter_abbreviation_expansion": True,
     "enable_dictionary_normalization": True,
@@ -80,6 +82,7 @@ class NormalizeOptions:
     enable_contextual_abbreviation_expansion: bool
     enable_years_ago_expansion: bool
     enable_initials_expansion: bool
+    letter_vowel_mode: LetterVowelMode
     initials_vowel_mode: InitialsVowelMode
     initials_pause_mode: InitialsPauseMode
     enable_letter_abbreviation_expansion: bool
@@ -110,6 +113,7 @@ class NormalizeOptions:
         enable_contextual_abbreviation_expansion: bool | None = None,
         enable_years_ago_expansion: bool | None = None,
         enable_initials_expansion: bool | None = None,
+        letter_vowel_mode: LetterVowelMode | None = None,
         initials_vowel_mode: InitialsVowelMode | None = None,
         initials_pause_mode: InitialsPauseMode | None = None,
         enable_letter_abbreviation_expansion: bool | None = None,
@@ -125,6 +129,18 @@ class NormalizeOptions:
     ) -> None:
         defaults = _mode_defaults(mode)
 
+        if (
+            letter_vowel_mode is not None
+            and initials_vowel_mode is not None
+            and letter_vowel_mode != initials_vowel_mode
+        ):
+            raise ValueError(
+                "letter_vowel_mode and initials_vowel_mode must match when both are provided"
+            )
+        effective_letter_vowel_mode = (
+            letter_vowel_mode if letter_vowel_mode is not None else initials_vowel_mode
+        )
+
         values = {
             "cleanup_malformed_punctuation": cleanup_malformed_punctuation,
             "enable_caps_normalization": enable_caps_normalization,
@@ -139,7 +155,7 @@ class NormalizeOptions:
             "enable_contextual_abbreviation_expansion": enable_contextual_abbreviation_expansion,
             "enable_years_ago_expansion": enable_years_ago_expansion,
             "enable_initials_expansion": enable_initials_expansion,
-            "initials_vowel_mode": initials_vowel_mode,
+            "letter_vowel_mode": effective_letter_vowel_mode,
             "initials_pause_mode": initials_pause_mode,
             "enable_letter_abbreviation_expansion": enable_letter_abbreviation_expansion,
             "enable_dictionary_normalization": enable_dictionary_normalization,
@@ -154,6 +170,8 @@ class NormalizeOptions:
                 field_name,
                 defaults[field_name] if explicit_value is None else explicit_value,
             )
+
+        object.__setattr__(self, "initials_vowel_mode", self.letter_vowel_mode)
 
         object.__setattr__(self, "remove_links_ignore_interval", remove_links_ignore_interval)
         object.__setattr__(self, "latin_dictionary_filename", latin_dictionary_filename)

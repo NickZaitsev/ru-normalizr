@@ -230,6 +230,16 @@ def test_expanded_abbreviation_at_sentence_start_is_capitalized():
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="the custom ЗАО reading contains 'зз' instead of the letter name 'зэ'",
+)
+def test_zao_abbreviation_uses_the_correct_consonant_letter_name():
+    assert normalize("Документы передали в ЗАО «Вектор».", NormalizeOptions.tts()) == (
+        "Документы передали в зэ аа оо «Вектор»."
+    )
+
+
 E2E_KNOWN_GAP_CASES = (
     pytest.param(
         "Встреча назначена на 12.05.2025 в 09:07, кабинет 315.",
@@ -573,15 +583,6 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="the colon before a network port remains a raw punctuation symbol",
-        ),
-    ),
-    pytest.param(
-        "Рейс SU 213 вылетает из терминала B в 23:40.",
-        "Рейс эс ю двести тринадцать вылетает из терминала би в двадцать три, сорок.",
-        id="flight_number",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the final letter of the Latin airline code is duplicated",
         ),
     ),
     pytest.param(

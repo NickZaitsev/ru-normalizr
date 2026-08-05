@@ -7,7 +7,7 @@ from collections import OrderedDict
 from functools import lru_cache
 from pathlib import Path
 
-from .constants import EN_LETTER_NAMES
+from .constants import LetterVowelMode, resolve_letter_name
 from .dictionary import DictionaryNormalizer
 
 DEFAULT_DICTIONARIES_PATH = Path(__file__).resolve().parent / "dictionaries"
@@ -395,12 +395,14 @@ def apply_latinization(
     dictionaries_path: Path | None = None,
     dictionary_filename: str = "latinization_rules.dic",
     include_stress_markers: bool = False,
+    letter_vowel_mode: LetterVowelMode = "single",
 ) -> str:
     if not enabled or not re.search(r"[A-Za-z]", text):
         return text
 
     text = ALPHANUMERIC_SUFFIX_LETTER_PATTERN.sub(
-        lambda match: EN_LETTER_NAMES[match.group("letter").upper()],
+        lambda match: resolve_letter_name(match.group("letter"), letter_vowel_mode)
+        or match.group("letter"),
         text,
     )
 

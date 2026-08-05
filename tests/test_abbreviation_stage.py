@@ -352,6 +352,58 @@ class LetterAbbreviationTests(unittest.TestCase):
         self.assertEqual(expand_letter_abbreviations("ABC"), "эй би си")
         self.assertEqual(expand_letter_abbreviations("FBI"), "эф би ай")
 
+    def test_vowel_mode_applies_to_generated_cyrillic_and_latin_readings(self):
+        cases = (
+            (
+                "А.Е.Ё.И.О.У.Ы.Э.Ю.Я.",
+                "а е ё и о у ы э ю я.",
+                "аа ее ё ии оо уу ыы ээ юю яя.",
+            ),
+            ("EU", "и ю", "ии юю"),
+            ("BUD", "би ю ди", "би юю ди"),
+        )
+        for source, single, double in cases:
+            with self.subTest(source=source):
+                self.assertEqual(
+                    expand_letter_abbreviations(source, vowel_mode="single"), single
+                )
+                self.assertEqual(
+                    expand_letter_abbreviations(source, vowel_mode="double"), double
+                )
+
+    def test_vowel_mode_applies_to_standalone_letters_in_known_readings(self):
+        cases = (
+            ("США", "сэ шэ а", "сэ шэ аа"),
+            ("ООН", "о он", "оо он"),
+            ("ГРУ", "гэ рэ у", "гэ рэ уу"),
+            ("УССР", "у эс эс эр", "уу эс эс эр"),
+            ("ЕЭС", "е э эс", "ее ээ эс"),
+            ("ЕС", "е эс", "ее эс"),
+            ("НБА", "эн бэ а", "эн бэ аа"),
+            ("ВТО", "вэ тэ о", "вэ тэ оо"),
+            ("АЗС", "а зэ эс", "аа зэ эс"),
+            ("ОАО", "о а о", "оо аа оо"),
+            ("ЗАО", "зз а о", "зз аа оо"),
+            ("ООО", "о о о", "оо оо оо"),
+            ("ИП", "и пэ", "ии пэ"),
+            ("ГБУ", "гэ бэ у", "гэ бэ уу"),
+            ("МБУ", "эм бэ у", "эм бэ уу"),
+            ("ФГБУ", "эф гэ бэ у", "эф гэ бэ уу"),
+            ("НИИ", "ни и", "ни ии"),
+            ("ПТУ", "пэ тэ у", "пэ тэ уу"),
+            ("ГТО", "гэ тэ о", "гэ тэ оо"),
+            ("USB", "ю эс би", "юю эс би"),
+            ("ОРЗ", "о эр зэ", "оо эр зэ"),
+        )
+        for source, single, double in cases:
+            with self.subTest(source=source):
+                self.assertEqual(
+                    expand_letter_abbreviations(source, vowel_mode="single"), single
+                )
+                self.assertEqual(
+                    expand_letter_abbreviations(source, vowel_mode="double"), double
+                )
+
     def test_known_acronym_uses_its_dictionary_reading(self):
         cases = (("ВУЗ", "вуз"), ("НАТО", "нато"), ("АЭС", "аэс"))
         for source, expected in cases:
@@ -362,7 +414,7 @@ class LetterAbbreviationTests(unittest.TestCase):
         # The dotted spelling carries the sentence dot in its own last position,
         # so the dictionary reading has to give it back.
         cases = (
-            ("Флаг подняли в С.Ш.А.", "Флаг подняли в сэ шэ аа."),
+            ("Флаг подняли в С.Ш.А.", "Флаг подняли в сэ шэ а."),
             ("Договор подписан в С.С.С.Р.", "Договор подписан в эс эс эс эр."),
             ("Он вступил в Н.А.Т.О.", "Он вступил в нато."),
         )
