@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterator
-from dataclasses import dataclass
+
+from .unit_data import explicit_expression_aliases, generated_prefixed_aliases
+from .unit_registry import UnitDescriptor, UnitMorphology, UnitRegistry
 
 POST_NUMERAL_ABBREVIATION_PATTERNS = [
     (re.compile(r"(?<!\w)тыс\.(?!\w)", re.IGNORECASE), "тысяч"),
@@ -267,48 +268,6 @@ VERB_CASE = {
     "заключаться": "loct",
     "стоить": "accs",
 }
-
-@dataclass(frozen=True)
-class UnitMorphology:
-    expected_normal_form: str | None = None
-    animacy: str | None = "inan"
-    indeclinable: bool = False
-    preferred_grammemes: frozenset[str] = frozenset()
-    forbidden_grammemes: frozenset[str] = frozenset()
-    morphology_seed: str | None = None
-    paradigm: tuple[tuple[str, str, str], ...] = ()
-    plural_only: bool = False
-    byte_family: bool = False
-
-    def form(self, case: str, number: str) -> str | None:
-        return next(
-            (
-                word
-                for form_case, form_number, word in self.paradigm
-                if form_case == case and form_number == number
-            ),
-            None,
-        )
-
-
-@dataclass(frozen=True)
-class UnitDescriptor:
-    lemma: str
-    gender: str
-    category: str
-    suffix: str | None = None
-    morphology: UnitMorphology = UnitMorphology()
-
-    def __iter__(self) -> Iterator[str]:
-        yield self.lemma
-        yield self.gender
-        yield self.category
-        if self.suffix is not None:
-            yield self.suffix
-
-    def __getitem__(self, index: int) -> str:
-        return tuple(self)[index]
-
 
 def _paradigm(
     singular: tuple[str, str, str, str, str, str],
@@ -906,16 +865,42 @@ CASE_SENSITIVE_UNITS_DATA["Mb"] = UnitDescriptor(
 )
 
 
+def _merge_exact_units(generated: dict[str, UnitDescriptor]) -> None:
+    for alias, descriptor in generated.items():
+        existing = CASE_SENSITIVE_UNITS_DATA.get(alias)
+        if existing is not None and existing != descriptor:
+            raise ValueError(
+                f"Generated unit alias {alias!r} conflicts with a manual declaration"
+            )
+        CASE_SENSITIVE_UNITS_DATA[alias] = descriptor
+
+
+_merge_exact_units(generated_prefixed_aliases(_UNIT_MORPHOLOGY))
+_merge_exact_units(explicit_expression_aliases(_UNIT_MORPHOLOGY))
+
+# Uppercase one-letter SI symbols are valid only when explicitly registered.
+# They must not depend on case repair: that would also turn arbitrary uppercase
+# letters such as bare "М" into lowercase units.
+for _symbol, _source_alias in {
+    "А": "ампер",
+    "A": "ампер",
+    "В": "v",
+    "V": "v",
+    "W": "w",
+    "Н": "н",
+    "N": "n",
+    "Ф": "ф",
+    "F": "f",
+    "H": "h",
+    "C": "c",
+}.items():
+    CASE_SENSITIVE_UNITS_DATA[_symbol] = UNITS_DATA[_source_alias]
+
+UNIT_REGISTRY = UnitRegistry(UNITS_DATA, CASE_SENSITIVE_UNITS_DATA)
+
+
 def resolve_unit_info(unit: str) -> UnitDescriptor | None:
-    original = unit.strip()
-    exact = CASE_SENSITIVE_UNITS_DATA.get(original)
-    if exact is not None:
-        return exact
-    direct = UNITS_DATA.get(original.lower())
-    if direct is not None:
-        return direct
-    cleaned = original.strip(".")
-    return CASE_SENSITIVE_UNITS_DATA.get(cleaned) or UNITS_DATA.get(cleaned.lower())
+    return UNIT_REGISTRY.resolve(unit)
 
 
 def resolve_unit_form(token: str) -> UnitDescriptor | None:
@@ -944,7 +929,15 @@ def resolve_unit_form(token: str) -> UnitDescriptor | None:
 
 
 def is_exact_unit_token(token: str) -> bool:
-    return token.strip() in CASE_SENSITIVE_UNITS_DATA
+    return UNIT_REGISTRY.is_exact_symbol(token)
+
+
+def is_unit_token(token: str) -> bool:
+    return UNIT_REGISTRY.is_unit_token(token)
+
+
+def unit_entity_category(token: str) -> str | None:
+    return UNIT_REGISTRY.entity_category(token)
 
 ENTITY_KEYWORDS = {"percent": set(), "money": set(), "measure": set()}
 for key, descriptor in (*UNITS_DATA.items(), *CASE_SENSITIVE_UNITS_DATA.items()):
@@ -963,7 +956,7 @@ ALL_UNITS = (
 
 UNIT_TOKEN_FRAGMENT = (
     r"[а-яА-ЯёЁa-zA-ZµμΩ%°$€₽]+"
-    r"(?:[./^][а-яА-ЯёЁa-zA-ZµμΩ%°$€₽]+|\d+|[²³])*"
+    r"(?:[./^·][а-яА-ЯёЁa-zA-ZµμΩ%°$€₽]+|\d+|[²³])*"
 )
 
 NUMERIC_UNIT_RANGE_PATTERN = re.compile(

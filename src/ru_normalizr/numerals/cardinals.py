@@ -32,6 +32,8 @@ from ._helpers import (
     should_consume_abbreviation_dot,
     should_keep_tokenized_decimal_unit_dot,
 )
+from .unit_expressions import match_unit_tokens
+from .unit_rendering import render_unit_expression
 
 logger = logging.getLogger(__name__)
 
@@ -137,21 +139,12 @@ def normalize_cardinal_numerals(text: str) -> str:
         )
 
     def extract_unit_candidate(start_index: int) -> tuple[str, str, int] | None:
-        best_match: tuple[str, str, int] | None = None
-        max_end = min(len(tokens), start_index + 4)
-        for end_index in range(start_index + 1, max_end + 1):
-            chunk = tokens[start_index:end_index]
-            if any("\n" in token for token in chunk):
-                break
-            candidate_raw = "".join(chunk)
-            candidate_key = candidate_raw.lower().strip(".")
-            if resolve_unit_info(candidate_raw) is not None:
-                if should_skip_unit_candidate(
-                    start_index, end_index - start_index, candidate_raw
-                ):
-                    continue
-                best_match = (candidate_key, candidate_raw, end_index - start_index)
-        return best_match
+        match = match_unit_tokens(tokens, start_index)
+        if match is None or should_skip_unit_candidate(
+            start_index, match.consumed_tokens, match.source
+        ):
+            return None
+        return match.alias.casefold().strip("."), match.source, match.consumed_tokens
 
     def is_redundant_unit_token(token_index: int, expected_lemma: str) -> bool:
         if token_index >= len(tokens):
@@ -199,7 +192,11 @@ def normalize_cardinal_numerals(text: str) -> str:
             clean_noun = noun_token.lower().strip(PUNCT_STRIP)
             p_adj = select_parse(clean_adj, pos={"ADJF", "PRTF"})
             p_noun = select_parse(clean_noun, pos="NOUN")
-            if p_adj is not None and p_noun is not None:
+            if (
+                p_adj is not None
+                and p_noun is not None
+                and resolve_unit_info(adj_token) is None
+            ):
                 gender = p_noun.tag.gender
                 is_anim = "anim" in p_noun.tag
                 target_num_case = paucal_accusative_case(val, case, animate=is_anim)
@@ -326,10 +323,15 @@ def normalize_cardinal_numerals(text: str) -> str:
                     unit_form = noun_number_form(val)
                     inflected_unit = "человека" if unit_form == "few" else "человек"
                 else:
-                    inflected_unit = inflect_unit_lemma(
-                        unit_info, get_target_tags_for_number(val, case, u_gender)
+                    inflected_unit = render_unit_expression(
+                        unit_info,
+                        get_target_tags_for_number(val, case, u_gender),
                     )
-                full_unit = inflected_unit + (f" {u_suffix}" if u_suffix else "")
+                full_unit = (
+                    inflected_unit + (f" {u_suffix}" if u_suffix else "")
+                    if lemma == "человек" and case in {"nomn", "accs"}
+                    else inflected_unit
+                )
                 match_unit = (
                     re.search(re.escape(next_token_lower), noun_token, re.IGNORECASE)
                     if unit_token_span == 1
@@ -362,12 +364,9 @@ def normalize_cardinal_numerals(text: str) -> str:
                     next_next_token = tokens[i + 2]
                     nn_unit_info = resolve_unit_info(next_next_token)
                     if nn_unit_info:
-                        nn_suffix = nn_unit_info.suffix
-                        nn_inflected = inflect_unit_lemma(
+                        nn_inflected = render_unit_expression(
                             nn_unit_info, {"gent", "plur"}
                         )
-                        if nn_suffix:
-                            nn_inflected += f" {nn_suffix}"
                         result_tokens.append(nn_inflected)
                         i += step + 1
                         continue

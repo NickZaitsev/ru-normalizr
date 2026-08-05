@@ -210,6 +210,7 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
             "Обмен тремя — пятью квартирами прошёл успешно.",
         )
 
+
 @pytest.mark.xfail(
     strict=True,
     reason="the predicate context incorrectly puts a nominative counted numeral in genitive",
@@ -380,16 +381,6 @@ E2E_KNOWN_GAP_CASES = (
         ),
     ),
     pytest.param(
-        "Лампа мощностью 9 Вт потребляет 0,075 кВт·ч за 8 ч.",
-        "Лампа мощностью девять ватт потребляет ноль целых семьдесят пять тысячных "
-        "киловатт-часа за восемь часов.",
-        id="electricity_units",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the middle-dot kilowatt-hour symbol is split and left partly unexpanded",
-        ),
-    ),
-    pytest.param(
         "Согласно п. 2 ст. 15 ФЗ № 123 заявление рассматривают 30 дней.",
         "Согласно пункту второму статьи пятнадцатой федерального закона номер сто двадцать "
         "три заявление рассматривают тридцать дней.",
@@ -478,16 +469,6 @@ E2E_KNOWN_GAP_CASES = (
         ),
     ),
     pytest.param(
-        "Введите 0,25 мл раствора со скоростью 2 мл/мин.",
-        "Введите ноль целых двадцать пять сотых миллилитра раствора со скоростью двух "
-        "миллилитров в минуту.",
-        id="injection_dosage",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the per-minute denominator in a dosage rate remains abbreviated",
-        ),
-    ),
-    pytest.param(
         "Концентрация вещества составляет 1 × 10⁻³ моль/л.",
         "Концентрация вещества составляет один умножить на десять в минус третьей степени "
         "моль на литр.",
@@ -518,35 +499,6 @@ E2E_KNOWN_GAP_CASES = (
         ),
     ),
     pytest.param(
-        "Датчик зарегистрировал давление 5 мПа, силу 2 мН и частоту 3 мГц.",
-        "Датчик зарегистрировал давление пять миллипаскалей, силу два миллиньютона "
-        "и частоту три миллигерца.",
-        id="case_sensitive_si_prefixes",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="case folding confuses the milli prefix with mega for Cyrillic SI symbols",
-        ),
-    ),
-    pytest.param(
-        "В повреждённом источнике указано значение 5 М без пояснений.",
-        "В повреждённом источнике указано значение пять М без пояснений.",
-        id="ambiguous_uppercase_single_letter_unit",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a bare uppercase M is case-folded to metre even though single-letter case repair is too ambiguous",
-        ),
-    ),
-    pytest.param(
-        "Первый канал передаёт 5 Mb/s, второй — 2 kBps, третий — 3 GBps.",
-        "Первый канал передаёт пять мегабит в секунду, второй — два килобайта "
-        "в секунду, третий — три гигабайта в секунду.",
-        id="case_sensitive_bit_byte_rates",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="incomplete exact-case rate aliases confuse bits with bytes",
-        ),
-    ),
-    pytest.param(
         "Процессор работает на частоте 3,2 ГГц при напряжении 1,15 В.",
         "Процессор работает на частоте трёх целых двух десятых гигагерца при напряжении "
         "одной целой пятнадцати сотых вольта.",
@@ -564,15 +516,6 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="inch marks stay raw and screen dimensions are treated as multiplication with wrong cases",
-        ),
-    ),
-    pytest.param(
-        "Препарат назначают по 5 мг/кг массы тела 2 раза в сутки.",
-        "Препарат назначают по пять миллиграммов на килограмм массы тела два раза в сутки.",
-        id="weight_based_dosage",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the denominator of a weight-based dosage loses the spoken 'на килограмм'",
         ),
     ),
     pytest.param(
@@ -694,15 +637,6 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True, reason="microgram and decimal dosage forms use incorrect morphology"
         ),
-    ),
-    pytest.param(
-        # This cannot be fixed by adding "мкм" to the case-insensitive unit
-        # table: that would also misread the distinct micromolar notation
-        # "мкМ" as "микрометр". The alias must be resolved in exact case.
-        "Лазер работает на длине волны 532 нм, толщина покрытия — 2,5 мкм.",
-        "Лазер работает на длине волны пятьсот тридцать два нанометра, толщина покрытия — две целых пять десятых микрометра.",
-        id="wavelength_and_thickness",
-        marks=pytest.mark.xfail(strict=True, reason="the micrometre symbol is left unexpanded"),
     ),
     pytest.param(
         "План напечатан в масштабе 1:50 000 и охватывает площадь 12 км².",

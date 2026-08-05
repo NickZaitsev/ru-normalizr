@@ -12,10 +12,10 @@ from ._constants import PREP_CASE, UNIT_TOKEN_FRAGMENT, resolve_unit_info
 from ._helpers import (
     get_numeral_case,
     inflect_numeral_string,
-    inflect_unit_lemma,
     safe_inflect,
     should_keep_decimal_unit_dot,
 )
+from .unit_rendering import render_unit_expression
 
 # A bare "-" only reads as a unary minus when nothing word-like precedes it;
 # otherwise it is a hyphen joining the number to the previous token ("GLM-5.2").
@@ -155,9 +155,7 @@ def normalize_decimals(text: str) -> str:
             unit2_processed = False
             if unit_info:
                 lemma = unit_info.lemma
-                result += " " + inflect_unit_lemma(unit_info, {"gent", "sing"})
-                if unit_info.suffix:
-                    result += " " + unit_info.suffix
+                result += " " + render_unit_expression(unit_info, {"gent", "sing"})
                 if unit_consumes_second_token:
                     unit2_processed = True
                 elif unit2_raw:
@@ -168,11 +166,9 @@ def normalize_decimals(text: str) -> str:
                         if lemma2 == "человек":
                             result += " человек"
                         else:
-                            result += " " + inflect_unit_lemma(
+                            result += " " + render_unit_expression(
                                 unit2_info, {"gent", "plur"}
                             )
-                        if unit2_info.suffix:
-                            result += " " + unit2_info.suffix
                         unit2_processed = True
                 if unit2_raw and not unit2_processed:
                     result += " " + unit2_raw

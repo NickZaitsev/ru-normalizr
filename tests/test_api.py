@@ -850,9 +850,11 @@ class RuNormalizrApiTests(unittest.TestCase):
         )
 
     def test_normalize_supports_single_letter_cyrillic_units_when_boundary_is_clear(self):
+        # Uppercase damage is not repaired for bare one-letter symbols: unlike
+        # "°C", standalone "С" does not carry enough information to guess.
         self.assertEqual(
             normalize("длина 5 м, температура 300 °C. Ждали 5 С."),
-            "длина пять метров, температура триста градусов Цельсия. Ждали пять секунд.",
+            "длина пять метров, температура триста градусов Цельсия. Ждали пять С.",
         )
 
     def test_normalize_supports_safe_hyphenated_numeric_units(self):
