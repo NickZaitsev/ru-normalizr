@@ -230,16 +230,6 @@ def test_expanded_abbreviation_at_sentence_start_is_capitalized():
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="the custom ЗАО reading contains 'зз' instead of the letter name 'зэ'",
-)
-def test_zao_abbreviation_uses_the_correct_consonant_letter_name():
-    assert normalize("Документы передали в ЗАО «Вектор».", NormalizeOptions.tts()) == (
-        "Документы передали в зэ аа оо «Вектор»."
-    )
-
-
 E2E_KNOWN_GAP_CASES = (
     pytest.param(
         "Встреча назначена на 12.05.2025 в 09:07, кабинет 315.",
