@@ -518,6 +518,36 @@ E2E_KNOWN_GAP_CASES = (
         ),
     ),
     pytest.param(
+        "Датчик зарегистрировал давление 5 мПа, силу 2 мН и частоту 3 мГц.",
+        "Датчик зарегистрировал давление пять миллипаскалей, силу два миллиньютона "
+        "и частоту три миллигерца.",
+        id="case_sensitive_si_prefixes",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="case folding confuses the milli prefix with mega for Cyrillic SI symbols",
+        ),
+    ),
+    pytest.param(
+        "Концентрации растворов составляют 5 мМ и 8 нМ.",
+        "Концентрации растворов составляют пять миллимолей на литр и восемь "
+        "наномолей на литр.",
+        id="molar_concentration_case",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="case folding mistakes millimolar and nanomolar notation for length units",
+        ),
+    ),
+    pytest.param(
+        "Первый канал передаёт 5 Mb/s, второй — 2 kBps, третий — 3 GBps.",
+        "Первый канал передаёт пять мегабит в секунду, второй — два килобайта "
+        "в секунду, третий — три гигабайта в секунду.",
+        id="case_sensitive_bit_byte_rates",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="incomplete exact-case rate aliases confuse bits with bytes",
+        ),
+    ),
+    pytest.param(
         "Процессор работает на частоте 3,2 ГГц при напряжении 1,15 В.",
         "Процессор работает на частоте трёх целых двух десятых гигагерца при напряжении "
         "одной целой пятнадцати сотых вольта.",
