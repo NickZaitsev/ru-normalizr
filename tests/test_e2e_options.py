@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from ru_normalizr import NormalizeOptions, normalize
 
 
@@ -194,6 +196,37 @@ def test_abbreviation_expansion_toggle_keeps_numeral_stage_active() -> None:
 
     assert enabled == "Автор пояснил: то есть документ содержит три раздела."
     assert disabled == "Автор пояснил: т. Е. Документ содержит три раздела."
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (
+            "Т. е. документ содержит 3 раздела.",
+            "То есть документ содержит три раздела.",
+        ),
+        (
+            "Т. к. документ содержит 3 раздела, его приняли.",
+            "Так как документ содержит три раздела, его приняли.",
+        ),
+        (
+            "«Т. е. документ содержит 3 раздела». Подробнее — ниже.",
+            '"То есть документ содержит три раздела". Подробнее — ниже.',
+        ),
+        (
+            "Автор пояснил: т. е. документ содержит 3 раздела.",
+            "Автор пояснил: то есть документ содержит три раздела.",
+        ),
+        (
+            "Вводная строка.\nТ. е. документ содержит 3 раздела.",
+            "Вводная строка.\nТо есть документ содержит три раздела.",
+        ),
+    ],
+)
+def test_abbreviation_expansion_preserves_sentence_start_case(
+    source: str, expected: str
+) -> None:
+    assert normalize(source, NormalizeOptions.safe()) == expected
 
 
 def test_contextual_abbreviation_toggle_keeps_numeral_stage_active() -> None:

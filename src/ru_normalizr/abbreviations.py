@@ -84,6 +84,8 @@ _LANGUAGE_ORIGIN_ABBREVIATIONS = {
         "лат.",
     )
 }
+_SENTENCE_OPENING_CHARS = " \t\r\"'«„“([{"
+_SENTENCE_END_CHARS = ".!?…"
 _LANGUAGE_ORIGIN_PATTERN = re.compile(
     rf"(?<!\w)(?P<prep>от|из|с|со)\s+(?P<abbr>{'|'.join(sorted((re.escape(key) for key in _LANGUAGE_ORIGIN_ABBREVIATIONS), key=len, reverse=True))})"
     r"(?P<space>\s+)(?P<word>[^\s.,;:!?()\"\[\]{}«»]+)",
@@ -354,6 +356,39 @@ def _expand_language_origin_abbreviations(text: str) -> str:
         )
 
     return _LANGUAGE_ORIGIN_PATTERN.sub(repl, text)
+
+
+def _expand_rule_preserving_sentence_case(
+    match: re.Match[str], replacement: str, source: str
+) -> str:
+    expanded = match.expand(replacement)
+    source_words = re.findall(r"[^\W\d_]+", match.group(0))
+    if len(source_words) < 2 or any(len(word) != 1 for word in source_words):
+        return expanded
+    first_source_letter = next((char for char in match.group(0) if char.isalpha()), "")
+    if not first_source_letter.isupper():
+        return expanded
+
+    prefix_index = match.start() - 1
+    while prefix_index >= 0 and source[prefix_index] in _SENTENCE_OPENING_CHARS:
+        prefix_index -= 1
+    if (
+        prefix_index >= 0
+        and source[prefix_index] not in _SENTENCE_END_CHARS
+        and source[prefix_index] != "\n"
+    ):
+        return expanded
+
+    first_expansion_letter = next(
+        (index for index, char in enumerate(expanded) if char.isalpha()), None
+    )
+    if first_expansion_letter is None:
+        return expanded
+    return (
+        expanded[:first_expansion_letter]
+        + expanded[first_expansion_letter].upper()
+        + expanded[first_expansion_letter + 1 :]
+    )
 
 
 def expand_person_initials(
@@ -640,7 +675,12 @@ def expand_abbreviations(text: str, options: NormalizeOptions | None = None) -> 
         ):
             if literal_hint is not None and literal_hint not in folded_text:
                 continue
-            updated = pattern.sub(replacement, text)
+            updated = pattern.sub(
+                lambda match, repl=replacement, source=text: (
+                    _expand_rule_preserving_sentence_case(match, repl, source)
+                ),
+                text,
+            )
             if updated != text:
                 text = updated
                 folded_text = text.casefold()
