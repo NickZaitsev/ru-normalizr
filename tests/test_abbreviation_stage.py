@@ -223,6 +223,14 @@ class InitialsTests(unittest.TestCase):
     def test_existing_sentence_punctuation_is_not_doubled(self):
         self.assertEqual(abbr("Иванов А. Б.!"), "Иванов аа бэ!")
 
+    def test_pause_comma_is_not_added_before_existing_clause_punctuation(self):
+        for tail in (",", ";", ":", " —", " –", " -"):
+            with self.subTest(tail=tail):
+                self.assertEqual(
+                    abbr(f"Иванов А. Б.{tail} далее"),
+                    f"Иванов, аа, бэ{tail} далее",
+                )
+
     def test_closing_bracket_does_not_make_the_name_non_final(self):
         self.assertEqual(abbr("Иванов А. Б.)"), "Иванов аа бэ.)")
 

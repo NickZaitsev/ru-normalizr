@@ -369,9 +369,13 @@ def expand_person_initials(
         separator = ", " if pause_mode == "comma" else " "
         return separator.join(parts)
 
-    def surname_first_non_final(*parts: str) -> str:
+    def surname_first_non_final(
+        *parts: str, add_trailing_pause: bool = True
+    ) -> str:
         expanded = pause_separated(*parts)
-        return f"{expanded}," if pause_mode == "comma" else expanded
+        if pause_mode == "comma" and add_trailing_pause:
+            return f"{expanded},"
+        return expanded
 
     def candidate_grammemes(candidate) -> frozenset[str]:
         grammemes = getattr(candidate.tag, "grammemes", None)
@@ -429,28 +433,28 @@ def expand_person_initials(
             return False
         return is_confident_person_name_token(match.group("token"))
 
-    def choose_tail(match_end: int) -> tuple[bool, str]:
+    def choose_tail(match_end: int) -> tuple[bool, bool]:
         tail = text[match_end:]
         stripped = tail.lstrip()
         if not stripped:
-            return True, ""
+            return True, False
         # Opening marks only. A closing mark means the quotation ends here, so it
         # must reach the strip loop below instead: with "»" in this set too, the
         # opening test won and "Иванов А. Б.»" got the non-final comma form.
         # '"' and "'" stay here because they are ambiguous and default to opening.
         if stripped[0] in "\"'«“„‟‚‘‹([{":
-            return False, ""
+            return False, False
         while stripped and stripped[0] in "\"'»”’›)]}":
             stripped = stripped[1:].lstrip()
         if not stripped:
-            return True, ""
+            return True, False
         if stripped[0] in ".!?…":
-            return True, ""
+            return True, False
         if stripped[0] in ",;:—–-":
-            return False, ""
+            return False, True
         if stripped[0].islower() or stripped[0].isdigit():
-            return False, ""
-        return True, ""
+            return False, False
+        return True, False
 
     def repl_surname_initials(match):
         if has_following_person_name_token(match.end()):
@@ -458,7 +462,7 @@ def expand_person_initials(
         surname = match.group("surname")
         i1 = initial_name(match.group("i1"))
         i2 = initial_name(match.group("i2"))
-        is_final, non_final_tail = choose_tail(match.end())
+        is_final, has_clause_punctuation = choose_tail(match.end())
         if is_final:
             terminal = (
                 ""
@@ -466,7 +470,12 @@ def expand_person_initials(
                 else "."
             )
             return f"{surname} {i1} {i2}{terminal}"
-        return f"{surname_first_non_final(surname, i1, i2)}{non_final_tail}"
+        return surname_first_non_final(
+            surname,
+            i1,
+            i2,
+            add_trailing_pause=not has_clause_punctuation,
+        )
 
     def repl_surname_single_initial(match):
         if has_following_person_name_token(match.end()):
@@ -475,7 +484,7 @@ def expand_person_initials(
         if not is_likely_person_name_token(surname):
             return match.group(0)
         i1 = initial_name(match.group("i1"))
-        is_final, non_final_tail = choose_tail(match.end())
+        is_final, has_clause_punctuation = choose_tail(match.end())
         if is_final:
             terminal = (
                 ""
@@ -483,13 +492,17 @@ def expand_person_initials(
                 else "."
             )
             return f"{surname} {i1}{terminal}"
-        return f"{surname_first_non_final(surname, i1)}{non_final_tail}"
+        return surname_first_non_final(
+            surname,
+            i1,
+            add_trailing_pause=not has_clause_punctuation,
+        )
 
     def repl_initials_surname(match):
         i1 = initial_name(match.group("i1"))
         i2 = initial_name(match.group("i2"))
         surname = match.group("surname")
-        is_final, non_final_tail = choose_tail(match.end())
+        is_final, _has_clause_punctuation = choose_tail(match.end())
         if is_final:
             terminal = (
                 ""
@@ -497,14 +510,14 @@ def expand_person_initials(
                 else "."
             )
             return f"{i1} {i2} {surname}{terminal}"
-        return f"{i1} {i2} {surname}{non_final_tail}"
+        return f"{i1} {i2} {surname}"
 
     def repl_single_initial_surname(match):
         surname = match.group("surname")
         if not is_likely_person_name_token(surname):
             return match.group(0)
         i1 = initial_name(match.group("i1"))
-        is_final, non_final_tail = choose_tail(match.end())
+        is_final, _has_clause_punctuation = choose_tail(match.end())
         if is_final:
             terminal = (
                 ""
@@ -512,7 +525,7 @@ def expand_person_initials(
                 else "."
             )
             return f"{i1} {surname}{terminal}"
-        return f"{i1} {surname}{non_final_tail}"
+        return f"{i1} {surname}"
 
     text = PERSON_SURNAME_INITIALS_PATTERN.sub(repl_surname_initials, text)
     text = PERSON_INITIALS_SURNAME_PATTERN.sub(repl_initials_surname, text)
