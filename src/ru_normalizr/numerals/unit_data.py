@@ -42,9 +42,29 @@ PREFIXABLE_UNITS = (
 _CASES = ("nomn", "gent", "datv", "accs", "ablt", "loct")
 
 
-def _generated_morphology(unit: PrefixableUnit, prefix: PrefixDefinition) -> UnitMorphology:
+def _generated_morphology(
+    unit: PrefixableUnit,
+    prefix: PrefixDefinition,
+    morphology_by_lemma: dict[str, UnitMorphology],
+) -> UnitMorphology:
     lemma = f"{prefix.spoken}{unit.lemma}"
-    parsed = select_parse(unit.lemma, pos="NOUN")
+    base_morphology = morphology_by_lemma.get(unit.lemma)
+    if base_morphology is not None and base_morphology.paradigm:
+        return UnitMorphology(
+            expected_normal_form=lemma,
+            paradigm=tuple(
+                (case, number, f"{prefix.spoken}{word}")
+                for case, number, word in base_morphology.paradigm
+            ),
+        )
+
+    parsed = select_parse(
+        unit.lemma,
+        pos="NOUN",
+        required_grammemes={"inan"},
+        forbidden_grammemes={"Coun"},
+        gender=unit.gender,
+    )
     if parsed is None:
         return UnitMorphology(expected_normal_form=lemma)
     forms: list[tuple[str, str, str]] = []
@@ -67,7 +87,9 @@ def generated_prefixed_aliases(
             lemma = f"{prefix.spoken}{unit.lemma}"
             morphology = morphology_by_lemma.get(lemma)
             if morphology is None:
-                morphology = _generated_morphology(unit, prefix)
+                morphology = _generated_morphology(
+                    unit, prefix, morphology_by_lemma
+                )
             descriptor = UnitDescriptor(
                 lemma=lemma,
                 gender=unit.gender,
