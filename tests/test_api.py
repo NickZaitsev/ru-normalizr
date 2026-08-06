@@ -482,6 +482,33 @@ class RuNormalizrApiTests(unittest.TestCase):
             "при минус двадцати градусах Цельсия и минус одном проценте",
         )
 
+    def test_normalize_treats_unary_plus_as_spoken_plus(self):
+        cases = (
+            ("+3", "плюс три"),
+            (
+                "Баланс вырос на +3 единицы.",
+                "Баланс вырос на плюс три единицы.",
+            ),
+            (
+                "Ночью температура изменится от −12 °C до +3 °C.",
+                "Ночью температура изменится от минус двенадцати градусов Цельсия до плюс "
+                "трёх градусов Цельсия.",
+            ),
+            (
+                "Доходность изменилась с +2,5% до −1,75% за месяц.",
+                "Доходность изменилась с плюс двух целых пяти десятых процента до минус одной "
+                "целой семидесяти пяти сотых процента за месяц.",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize(source, NormalizeOptions.tts()), expected)
+        self.assertEqual(normalize("2+3"), "два плюс три")
+        self.assertEqual(
+            normalize("https://example.test/a+3", NormalizeOptions.safe()),
+            "https://example.test/a+3",
+        )
+
     def test_normalize_keeps_percent_subject_after_genitive_noun_phrase(self):
         self.assertEqual(
             normalize(

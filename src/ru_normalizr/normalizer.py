@@ -46,6 +46,7 @@ from .preprocess_utils import (
     normalize_numeric_abbreviations,
     normalize_punctuation_spacing,
     normalize_spaced_ascii_hyphens,
+    normalize_unary_plus_numbers,
     normalize_unicode_fractions,
     protect_binary_math_operators,
     protect_letter_hyphens,
@@ -227,6 +228,7 @@ class PipelineNormalizer:
         if self.options.enable_years_ago_expansion:
             text = expand_years_ago_abbreviation(text)
         text = normalize_numeric_abbreviations(text)
+        text = normalize_unary_plus_numbers(text)
         text = protect_negative_numbers(text)
         text = normalize_explicit_dashes(text)
         text = convert_bracketed_numbers(text, self.options)
