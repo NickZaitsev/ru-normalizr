@@ -232,16 +232,6 @@ E2E_KNOWN_GAP_CASES = (
         ),
     ),
     pytest.param(
-        "Ночью температура изменится от −12 °C до +3 °C.",
-        "Ночью температура изменится от минус двенадцати градусов Цельсия до плюс "
-        "трёх градусов Цельсия.",
-        id="signed_temperature_range",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a unary plus before a temperature is left as a raw symbol",
-        ),
-    ),
-    pytest.param(
         "Участок размером 12,5 × 8 м имеет площадь 100 м².",
         "Участок размером двенадцать целых пять десятых на восемь метров имеет площадь "
         "сто квадратных метров.",
@@ -385,16 +375,6 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a mixing ratio is treated as punctuation instead of an 'X к Y' construction",
-        ),
-    ),
-    pytest.param(
-        "Доходность изменилась с +2,5% до −1,75% за месяц.",
-        "Доходность изменилась с плюс двух целых пяти десятых процента до минус одной "
-        "целой семидесяти пяти сотых процента за месяц.",
-        id="signed_percentages",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a unary plus before a percentage remains a raw symbol",
         ),
     ),
     pytest.param(
@@ -705,6 +685,14 @@ E2E_KNOWN_GAP_CASES = (
         id="pounds_and_pence",
         marks=pytest.mark.xfail(
             strict=True, reason="decimal sterling is not split into pounds and pence"
+        ),
+    ),
+    pytest.param(
+        "Проект перевели на C++17 после обновления компилятора.",
+        "Проект перевели на си плюс плюс семнадцать после обновления компилятора.",
+        id="cpp_language_standard",
+        marks=pytest.mark.xfail(
+            strict=True, reason="C++ is split into a raw Latin letter and two plus symbols"
         ),
     ),
 )

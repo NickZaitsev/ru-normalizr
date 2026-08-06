@@ -92,6 +92,9 @@ YEARS_AGO_ABBREVIATION_PATTERN = re.compile(
 UNARY_MINUS_NUMBER_PATTERN = re.compile(
     r"(?P<prefix>^|[(\[{«]|(?<!\d)\s)(?P<sign>[−-])(?P<space>\s*)(?P<number>\d+(?:[.,]\d+)?)"
 )
+UNARY_PLUS_NUMBER_PATTERN = re.compile(
+    r"(?P<prefix>^|[(\[{«=,:;]|(?<![\d\s])\s)\+(?P<number>\d+(?:[.,]\d+)?)"
+)
 THOUSANDS_SEPARATORS = " \u00a0\u2009\u202f"
 SIGNED_COMMA_NUMBER_PATTERN = re.compile(
     r"^[−-]?(?:\d{1,3}(?:[" + THOUSANDS_SEPARATORS + r"]\d{3})+|\d+),\d+$"
@@ -262,6 +265,14 @@ def protect_negative_numbers(text: str) -> str:
         return f"{prefix}{NEGATIVE_NUMBER_PLACEHOLDER}{number}"
 
     return UNARY_MINUS_NUMBER_PATTERN.sub(repl, text)
+
+
+def normalize_unary_plus_numbers(text: str) -> str:
+    """Read a plus glued to a number as a unary positive sign."""
+
+    return UNARY_PLUS_NUMBER_PATTERN.sub(
+        lambda match: f"{match.group('prefix')}плюс {match.group('number')}", text
+    )
 
 
 def protect_letter_hyphens(text: str) -> str:
