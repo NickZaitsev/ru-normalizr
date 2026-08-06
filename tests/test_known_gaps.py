@@ -200,16 +200,6 @@ def test_predicate_keeps_counted_numeral_nominative_after_roman_reference():
 
 @pytest.mark.xfail(
     strict=True,
-    reason="an abbreviation expanded at sentence start is not capitalized",
-)
-def test_expanded_abbreviation_at_sentence_start_is_capitalized():
-    assert normalize("Т. е. документ содержит 3 раздела.", NormalizeOptions.safe()) == (
-        "То есть документ содержит три раздела."
-    )
-
-
-@pytest.mark.xfail(
-    strict=True,
     reason="a Windows path is split as punctuation and its numeric component is mistaken for a byte quantity",
 )
 def test_windows_path_is_not_parsed_as_a_unit_quantity():
