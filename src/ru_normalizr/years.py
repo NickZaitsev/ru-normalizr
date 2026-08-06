@@ -633,7 +633,11 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         if word_norm:
             if is_abbrev:
                 inflected = YEAR_WORD_FORMS.get((word_norm, case), word_norm)
-                if word.endswith(".") and not inflected.endswith("."):
+                if (
+                    era_text is None
+                    and word.endswith(".")
+                    and not inflected.endswith(".")
+                ):
                     inflected += "."
                 result += f" {inflected}"
             else:
