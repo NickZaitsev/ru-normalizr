@@ -1,9 +1,7 @@
 """Branch coverage for the ordinal stage: headings, compound adjectives, hyphens.
 
 Each stage function is exercised directly, because the case and gender decisions
-they make are invisible in the finished sentence once later stages have run. The
-stage returns a trailing space after a rendered ordinal; `finalize` collapses it,
-so the expectations below keep it.
+they make are invisible in the finished sentence once later stages have run.
 """
 
 import unittest
@@ -14,6 +12,8 @@ import num2words
 
 from ru_normalizr import normalize
 from ru_normalizr.numerals import ordinals
+from ru_normalizr.numerals._helpers import inflect_numeral_string
+from ru_normalizr.numerals.numeric_suffixes import generate_numeric_suffix_candidates
 from ru_normalizr.numerals.ordinals import (
     _heading_parse,
     normalize_compound_numeric_adjectives,
@@ -459,24 +459,21 @@ class HyphenatedWordTests(unittest.TestCase):
         self.assertEqual(normalize_hyphenated_words("5-км"), "5-км")
         self.assertEqual(normalize_hyphenated_words("10-кг"), "10-кг")
 
-    def test_ordinal_suffixes_are_left_to_the_ordinal_stage(self):
-        self.assertEqual(normalize_hyphenated_words("5-ый"), "5-ый")
-        self.assertEqual(normalize_hyphenated_words("5-й"), "5-й")
+    def test_ordinal_suffixes_use_the_shared_resolver(self):
+        self.assertEqual(normalize_hyphenated_words("5-ый"), "пятый")
+        self.assertEqual(normalize_hyphenated_words("5-й"), "пятый")
 
-    def test_dative_suffix_u_is_left_to_the_ordinal_stage(self):
-        self.assertEqual(normalize_hyphenated_words("5-у"), "5-у")
+    def test_suffix_u_requires_an_exact_spoken_ending(self):
+        self.assertEqual(normalize_hyphenated_words("5-у"), "пятому")
 
-    def test_short_ordinal_suffix_above_one_hundred_is_left_untouched(self):
-        # Beyond 100 a bare "-й" is far more likely a model or serial number.
-        self.assertEqual(normalize_hyphenated_words("120-й"), "120-й")
-        self.assertEqual(normalize_hyphenated_words("101-ого"), "101-ого")
+    def test_standalone_suffixes_above_one_hundred_are_normalized(self):
+        self.assertEqual(normalize_hyphenated_words("120-й"), "сто двадцатый")
+        self.assertEqual(normalize_hyphenated_words("101-ого"), "ста одного")
 
-    def test_case_suffix_above_one_hundred_is_left_untouched(self):
-        # Same rule for the case suffixes that reach this guard: "120-х" reads as
-        # an identifier, while "20-х" is still expanded.
-        self.assertEqual(normalize_hyphenated_words("120-х"), "120-х")
-        self.assertEqual(normalize_hyphenated_words("200-ми"), "200-ми")
-        self.assertEqual(normalize_hyphenated_words("20-х"), "двадцати")
+    def test_case_suffixes_above_one_hundred_are_normalized(self):
+        self.assertEqual(normalize_hyphenated_words("120-х"), "сто двадцатых")
+        self.assertEqual(normalize_hyphenated_words("200-ми"), "двумястами")
+        self.assertEqual(normalize_hyphenated_words("20-х"), "двадцатых")
 
     def test_genitive_suffix_renders_the_genitive(self):
         self.assertEqual(normalize_hyphenated_words("5-ти лет"), "пяти лет")
@@ -484,14 +481,12 @@ class HyphenatedWordTests(unittest.TestCase):
 
     def test_instrumental_suffixes_render_the_instrumental(self):
         self.assertEqual(normalize_hyphenated_words("2-мя годами"), "двумя годами")
-        self.assertEqual(normalize_hyphenated_words("7-мя"), "семью")
-        self.assertEqual(normalize_hyphenated_words("7-ми годами"), "семью годами")
+        self.assertEqual(normalize_hyphenated_words("7-мя"), "семь")
+        self.assertEqual(normalize_hyphenated_words("7-ми годами"), "седьмыми годами")
 
-    def test_ambiguous_suffix_h_takes_the_case_from_context(self):
-        # "-х" is genitive or locative; the surrounding words decide, and
-        # anything else falls back to the genitive.
-        self.assertEqual(normalize_hyphenated_words("около 5-х"), "около пяти")
-        self.assertEqual(normalize_hyphenated_words("5-х"), "пяти")
+    def test_suffix_h_requires_an_exact_spoken_ending(self):
+        self.assertEqual(normalize_hyphenated_words("около 5-х"), "около пятых")
+        self.assertEqual(normalize_hyphenated_words("5-х"), "пятых")
 
     def test_adjective_right_hand_side_is_glued_into_one_word(self):
         self.assertEqual(normalize_hyphenated_words("10-кратный"), "десятикратный")
@@ -505,9 +500,9 @@ class HyphenatedWordTests(unittest.TestCase):
 class OrdinalCardinalSuffixTests(unittest.TestCase):
     def test_ordinal_at_text_start_is_capitalized(self):
         cases = (
-            ("21-й участник", "Двадцать первый  участник"),
-            ("  «21-й участник", "  «Двадцать первый  участник"),
-            ("Выступил 21-й участник", "Выступил двадцать первый  участник"),
+            ("21-й участник", "Двадцать первый участник"),
+            ("  «21-й участник", "  «Двадцать первый участник"),
+            ("Выступил 21-й участник", "Выступил двадцать первый участник"),
         )
         for source, expected in cases:
             with self.subTest(source=source):
@@ -516,29 +511,34 @@ class OrdinalCardinalSuffixTests(unittest.TestCase):
                 )
 
     def test_cardinal_suffix_without_a_noun_renders_a_cardinal(self):
-        self.assertEqual(normalize_ordinals("5-ти"), "пять ")
-        self.assertEqual(normalize_ordinals("5-ми"), "пять ")
+        self.assertEqual(normalize_ordinals("5-ти"), "пяти")
+        self.assertEqual(normalize_ordinals("5-ми"), "пятыми")
 
-    def test_cardinal_suffix_is_left_untouched_when_the_backend_fails(self):
-        with patch.object(num2words, "num2words", side_effect=RuntimeError("backend is broken")):
-            self.assertEqual(normalize_ordinals("5-ти"), "5-ти")
-            self.assertEqual(
-                normalize_ordinals("5-ти", capitalize_text_start=True), "5-ти"
-            )
+    def test_backend_failure_does_not_crash_the_shared_resolver(self):
+        generate_numeric_suffix_candidates.cache_clear()
+        inflect_numeral_string.cache_clear()
+        try:
+            with patch.object(
+                num2words, "num2words", side_effect=RuntimeError("backend is broken")
+            ):
+                self.assertEqual(normalize_ordinals("5-ти"), "5")
+        finally:
+            generate_numeric_suffix_candidates.cache_clear()
+            inflect_numeral_string.cache_clear()
 
     def test_suffix_u_renders_an_accusative_agreeing_with_the_noun(self):
-        self.assertEqual(normalize_ordinals("5-у"), "пять ")
+        self.assertEqual(normalize_ordinals("5-у"), "пятому")
 
     def test_ordinal_before_a_month_stays_neuter_nominative(self):
-        self.assertEqual(normalize_ordinals("20-е мая"), "двадцатое  мая")
-        self.assertEqual(normalize_ordinals("1-ое января"), "первое  января")
+        self.assertEqual(normalize_ordinals("20-е мая"), "двадцатое мая")
+        self.assertEqual(normalize_ordinals("1-ое января"), "первое января")
 
     def test_ordinal_agrees_with_the_noun_on_the_right(self):
-        self.assertEqual(normalize_ordinals("5-й дом"), "пятый  дом")
-        self.assertEqual(normalize_ordinals("3-ее место"), "третье  место")
+        self.assertEqual(normalize_ordinals("5-й дом"), "пятый дом")
+        self.assertEqual(normalize_ordinals("3-ее место"), "три место")
 
     def test_ordinal_agrees_with_a_name_on_the_left(self):
-        self.assertEqual(normalize_ordinals("Иван 4-й"), "Иван четвёртый ")
+        self.assertEqual(normalize_ordinals("Иван 4-й"), "Иван четвёртый")
 
 
 if __name__ == "__main__":

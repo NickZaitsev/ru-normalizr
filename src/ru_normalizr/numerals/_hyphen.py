@@ -5,34 +5,9 @@ from typing import Literal
 
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ._constants import UNIT_TOKEN_FRAGMENT, resolve_unit_info
+from .numeric_suffixes import CARDINAL_SUFFIXES, ORDINAL_SUFFIXES
 
-ORDINAL_SUFFIXES = {
-    "й",
-    "ый",
-    "ий",
-    "ой",
-    "я",
-    "ая",
-    "е",
-    "ее",
-    "ое",
-    "ые",
-    "ых",
-    "ыми",
-    "го",
-    "ого",
-    "му",
-    "ому",
-    "м",
-    "ом",
-    "ем",
-    "ю",
-    "ую",
-    "ей",
-    "ым",
-    "им",
-}
-CARDINAL_CASE_SUFFIXES = {"ти", "ми", "х", "мя", "и", "у"}
+CARDINAL_CASE_SUFFIXES = CARDINAL_SUFFIXES
 AMBIGUOUS_SINGLE_LETTER_HYPHEN_UNITS = {"г", "л", "м", "н", "р", "с", "т", "ф", "ч"}
 NUMERIC_UNIT_HYPHEN_PATTERN = re.compile(
     rf"(?<![\d{re.escape(NEGATIVE_NUMBER_PLACEHOLDER)}])"

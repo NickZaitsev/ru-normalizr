@@ -440,7 +440,7 @@ class RuNormalizrStageTests(unittest.TestCase):
             "одна целая пять десятых килограмма",
         )
         self.assertEqual(normalize_fractions("1/4"), "одна четвёртая")
-        self.assertEqual(normalize_ordinals("5-й"), "пятый ")
+        self.assertEqual(normalize_ordinals("5-й"), "пятый")
         self.assertEqual(
             normalize_hyphenated_words("20-этажный дом"),
             "двадцатиэтажный дом",

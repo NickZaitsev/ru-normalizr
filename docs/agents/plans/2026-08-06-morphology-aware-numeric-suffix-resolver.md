@@ -1,6 +1,6 @@
 # Plan: Morphology-aware numeric suffix resolver
 
-Status: plan, 2026-08-06.
+Status: implemented 2026-08-06 in branch `main`.
 
 > Note for agents: this plan is a point-in-time snapshot — its "codebase facts" describe the code as of the date above and may be outdated. Do NOT treat it as current architecture docs; verify every fact against the actual code before relying on it.
 
