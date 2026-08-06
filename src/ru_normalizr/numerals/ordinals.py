@@ -3,27 +3,17 @@ from __future__ import annotations
 import logging
 import re
 
-import num2words
-
 from .._morph import canonicalize_case, parse_word
 from ..ordinal_utils import (
-    find_first_noun_right,
-    find_left_name_anchor,
-    normalize_ordinal_suffix_defaults,
     render_ordinal,
-    render_ordinal_from_noun_parse,
-    resolve_ordinal_plural,
-    resolve_ordinal_suffix_case,
 )
 from ..text_context import simple_tokenize
-from ._constants import HYPHENATED_WORD_PATTERN, ORDINAL_PATTERN
+from ._constants import HYPHENATED_WORD_PATTERN
 from ._helpers import get_numeral_case, inflect_numeral_string
-from ._hyphen import CARDINAL_CASE_SUFFIXES, classify_numeric_hyphen_rhs
-from ._num2words import resolve_num2words_case
+from ._hyphen import classify_numeric_hyphen_rhs
+from .numeric_suffixes import is_numeric_suffix, normalize_numeric_suffixes
 
 logger = logging.getLogger(__name__)
-
-_TEXT_START_PREFIX_CHARS = " \t\r\n\"'«„“([{"
 
 HEADING_WORDS_PATTERN = (
     r"глава|главы|главе|главу|главой|главами|главах|"
@@ -93,21 +83,6 @@ ABBREVIATED_HEADING_PATTERN = re.compile(
     r"\b(?P<head>гл)\.\s*(?P<number>\d+)\b",
     re.IGNORECASE | re.UNICODE,
 )
-OB_BEFORE_CONSONANT_PATTERN = re.compile(r"\bоб(?=\s+[бвгджзйклмнпрстфхцчшщ])", re.IGNORECASE)
-MONTH_GENITIVE_WORDS = {
-    "января",
-    "февраля",
-    "марта",
-    "апреля",
-    "мая",
-    "июня",
-    "июля",
-    "августа",
-    "сентября",
-    "октября",
-    "ноября",
-    "декабря",
-}
 COMPOUND_ADJECTIVE_STEMS = (
     "комнатн",
     "тонн",
@@ -353,61 +328,33 @@ def normalize_compound_numeric_adjectives(text: str) -> str:
     return COMPOUND_ADJECTIVE_PATTERN.sub(repl, text)
 
 
-def normalize_hyphenated_words(text: str) -> str:
+def normalize_hyphenated_words(
+    text: str, *, include_numeric_suffixes: bool = True
+) -> str:
+    if include_numeric_suffixes:
+        text = normalize_numeric_suffixes(text)
+
     def repl(match: re.Match[str]) -> str:
         num_str = match.group(1)
         word = match.group(2)
         word_lower = word.lower()
+        if is_numeric_suffix(word_lower):
+            return match.group(0)
         word_kind = classify_numeric_hyphen_rhs(word)
         if word_kind == "unit":
-            return match.group(0)
-        if word_kind == "ordinal_suffix":
-            return match.group(0)
-        if word_lower == "у":
-            return match.group(0)
-        if (
-            word_lower
-            in {
-                "ый",
-                "ой",
-                "й",
-                "ого",
-                "го",
-                "ому",
-                "ым",
-                "ом",
-                "му",
-                "е",
-                "х",
-                "м",
-                "ми",
-            }
-            and int(num_str) > 100
-        ):
             return match.group(0)
         try:
             int(num_str)
         except ValueError as exc:
             logger.debug("int() failed for %r: %s", num_str, exc)
             return match.group(0)
-        # "х" is deliberately absent: it is ambiguous between genitive and
-        # locative, so it is resolved from context below instead.
-        case_from_suffix = None
-        if word_lower in ("ти", "и"):
-            case_from_suffix = "gent"
-        elif word_lower in ("ми", "мя"):
-            case_from_suffix = "ablt"
         ctx_left = text[max(0, match.start() - 60) : match.start()]
         ctx_right = text[match.end() : match.end() + 60]
         tokens_left = simple_tokenize(ctx_left)
         tokens_right = simple_tokenize(ctx_right)
-        context_case = get_numeral_case([*tokens_left, num_str, *tokens_right], len(tokens_left))
-        if case_from_suffix:
-            case = case_from_suffix
-        elif word_lower == "х":
-            case = context_case if context_case in ("gent", "loct") else "gent"
-        else:
-            case = context_case
+        case = get_numeral_case(
+            [*tokens_left, num_str, *tokens_right], len(tokens_left)
+        )
         word_parses = parse_word(word_lower)
         is_adj_like = any("ADJF" in candidate.tag for candidate in word_parses) or (
             word_lower.endswith(
@@ -426,128 +373,19 @@ def normalize_hyphenated_words(text: str) -> str:
                 )
             )
         )
+        is_noun_like = any("NOUN" in candidate.tag for candidate in word_parses)
+        if not is_adj_like and not is_noun_like:
+            return match.group(0)
         target_case = "gent" if is_adj_like and case == "nomn" else case
         num_words = inflect_numeral_string(num_str, target_case)
-        if word_lower in CARDINAL_CASE_SUFFIXES:
-            return num_words
         if is_adj_like:
             return _join_compound_numeral(_compound_numeral_prefix(num_str), word)
-        return f"{num_words}" if len(word) <= 3 else f"{num_words} {word}"
+        return f"{num_words} {word}"
 
     return HYPHENATED_WORD_PATTERN.sub(repl, text)
 
 
-def _render_cardinal_suffix_number(num: int, case: str) -> str | None:
-    try:
-        return num2words.num2words(
-            num,
-            lang="ru",
-            case=resolve_num2words_case(case),
-        )
-    except Exception as exc:
-        logger.debug("num2words failed for %r (case=%s): %s", num, case, exc)
-        return None
-
-
 def normalize_ordinals(text: str, *, capitalize_text_start: bool = False) -> str:
-    original_text = text
-
-    def render_match(match: re.Match[str]) -> str:
-        num_str = match.group(1)
-        suffix = match.group(2).lower()
-        try:
-            num = int(num_str)
-        except ValueError:
-            return match.group(0)
-        gender = "masc"
-        is_cardinal_suffix = suffix in ("ти", "ми", "у")
-        ctx_left = text[max(0, match.start() - 60) : match.start()]
-        ctx_right = text[match.end() : match.end() + 60]
-        tokens_left = simple_tokenize(ctx_left)
-        tokens_right = simple_tokenize(ctx_right)
-        case = get_numeral_case([*tokens_left, num_str, *tokens_right], len(tokens_left))
-
-        case, gender = resolve_ordinal_suffix_case(case, suffix, tokens_right, gender)
-        plural = resolve_ordinal_plural(suffix, case, tokens_right)
-        right_noun = find_first_noun_right(tokens_right, suffix)
-        left_anchor = find_left_name_anchor(tokens_left)
-        next_clean = tokens_right[0].strip(".,!?;:").lower() if tokens_right else ""
-
-        if suffix == "у":
-            target_case = "accs"
-            target_gender = (
-                right_noun.tag.gender if right_noun and right_noun.tag.gender else "femn"
-            )
-            return inflect_numeral_string(num_str, target_case, target_gender) + " "
-
-        if right_noun is not None:
-            if next_clean in MONTH_GENITIVE_WORDS and suffix in {"е", "ее", "ое"}:
-                return render_ordinal(num, case="nomn", gender="neut") + " "
-            singularize_plural = suffix in {"ее", "ое"}
-            suffix_gender_hint = (
-                "femn"
-                if suffix in {"я", "ая", "ю", "ую", "ей"}
-                else ("neut" if suffix in {"ее", "ое"} else gender)
-            )
-            return (
-                render_ordinal_from_noun_parse(
-                    num,
-                    right_noun,
-                    singularize_plural=singularize_plural,
-                    case_hint=case,
-                    gender_hint=suffix_gender_hint,
-                    plural_hint=plural,
-                    inanimate_hint=True,
-                )
-                + " "
-            )
-
-        if left_anchor is not None and not is_cardinal_suffix:
-            return render_ordinal_from_noun_parse(num, left_anchor) + " "
-
-        default_case, default_gender, default_plural = normalize_ordinal_suffix_defaults(
-            case,
-            suffix,
-        )
-        generation_case = default_case
-        gender = default_gender or gender
-        plural = plural or default_plural
-
-        # Both branches above return whenever a noun was found, so from here on
-        # there is no noun to the right and animacy is unknowable.
-        if is_cardinal_suffix:
-            cardinal = _render_cardinal_suffix_number(num, generation_case)
-            if cardinal is None:
-                return match.group(0)
-            return cardinal + " "
-        return (
-            render_ordinal(
-                num,
-                case=generation_case,
-                gender=gender,
-                plural=plural,
-                inanimate=False,
-            )
-            + " "
-        )
-
-    def preserve_text_start_case(match: re.Match[str]) -> str:
-        replacement = render_match(match)
-        prefix = text[: match.start()]
-        if (
-            capitalize_text_start
-            and replacement != match.group(0)
-            and not prefix.strip(_TEXT_START_PREFIX_CHARS)
-            and replacement[:1].isalpha()
-        ):
-            return replacement[:1].upper() + replacement[1:]
-        return replacement
-
-    text = ORDINAL_PATTERN.sub(preserve_text_start_case, text)
-    if text == original_text:
-        return text
-
-    def preserve_case(match: re.Match[str], replacement: str) -> str:
-        return replacement.capitalize() if match.group(0)[:1].isupper() else replacement
-
-    return OB_BEFORE_CONSONANT_PATTERN.sub(lambda m: preserve_case(m, "о"), text)
+    return normalize_numeric_suffixes(
+        text, capitalize_text_start=capitalize_text_start
+    )

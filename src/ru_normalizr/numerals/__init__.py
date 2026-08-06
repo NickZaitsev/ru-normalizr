@@ -12,6 +12,7 @@ from .cardinals import (
 )
 from .decimals import normalize_decimals
 from .fractions import normalize_fractions
+from .numeric_suffixes import normalize_numeric_suffixes
 from .ordinals import (
     normalize_compound_numeric_adjectives,
     normalize_heading_numbers,
@@ -78,6 +79,7 @@ __all__ = [
     "normalize_hyphenated_words",
     "normalize_math_symbols",
     "normalize_numerals",
+    "normalize_numeric_suffixes",
     "normalize_numeric_unit_ranges",
     "normalize_ordinals",
     "normalize_remaining_post_numeral_abbreviations",

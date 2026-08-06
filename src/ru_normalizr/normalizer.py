@@ -22,15 +22,15 @@ from .numerals import (
     normalize_hyphenated_words,
     normalize_math_symbols,
     normalize_numerals,
-    normalize_ordinals,
+    normalize_numeric_suffixes,
     normalize_versions,
 )
 from .numerals._constants import is_unit_token
 from .numerals._hyphen import (
-    ORDINAL_SUFFIXES,
     normalize_numeric_unit_hyphen_links,
     normalize_spaced_numeric_hyphen_words,
 )
+from .numerals.numeric_suffixes import NUMERIC_SUFFIXES
 from .options import NormalizeOptions
 from .preprocess_utils import (
     SLASH_FIX_PATTERN,
@@ -111,7 +111,23 @@ GLUED_PREPOSITIONS = {
     "около",
     "свыше",
 }
-GLUED_NUMERIC_SUFFIXES = ORDINAL_SUFFIXES | {"ти", "ми", "х", "у"}
+GLUED_NUMERIC_SUFFIXES = NUMERIC_SUFFIXES
+_GLUED_SUFFIX_ALTERNATION = "|".join(
+    re.escape(suffix)
+    for suffix in sorted(NUMERIC_SUFFIXES, key=lambda value: (-len(value), value))
+)
+EMBEDDED_NUMERIC_SUFFIX_CODE_PATTERN = re.compile(
+    rf"(?<=[а-яА-ЯёЁa-zA-Z])\d+-?(?:{_GLUED_SUFFIX_ALTERNATION})(?!\w)",
+    re.IGNORECASE | re.UNICODE,
+)
+STRUCTURED_NUMERIC_SUFFIX_PATTERN = re.compile(
+    rf"(?:"
+    rf"(?<!\w)[а-яА-ЯёЁa-zA-Z][а-яА-ЯёЁa-zA-Z\d_]*\d+"
+    rf"-?(?:{_GLUED_SUFFIX_ALTERNATION})(?!\w)"
+    rf"|(?<![\w.,-])\d+[.,]\d+-(?:{_GLUED_SUFFIX_ALTERNATION})(?!\w)"
+    rf")",
+    re.IGNORECASE | re.UNICODE,
+)
 
 
 class PipelineNormalizer:
@@ -275,6 +291,18 @@ class PipelineNormalizer:
             return text
         if not _contains_numeral_candidates(text):
             return normalize_numerals(text, self.options)
+        protected_tokens: list[str] = []
+        token_placeholders: list[str] = []
+
+        def protect_structured_token(match: re.Match[str]) -> str:
+            if len(protected_tokens) >= 0x20000:
+                return match.group(0)
+            protected_tokens.append(match.group(0))
+            placeholder = chr(0xF0000 + len(protected_tokens) - 1)
+            token_placeholders.append(placeholder)
+            return placeholder
+
+        text = STRUCTURED_NUMERIC_SUFFIX_PATTERN.sub(protect_structured_token, text)
         text = normalize_math_symbols(text)
         text = normalize_spaced_numeric_hyphen_words(text)
         text = normalize_numeric_unit_hyphen_links(text)
@@ -282,12 +310,15 @@ class PipelineNormalizer:
         text = normalize_versions(text)
         text = normalize_decimals(text)
         text = normalize_fractions(text)
-        text = normalize_hyphenated_words(text)
-        text = normalize_ordinals(
+        text = normalize_numeric_suffixes(
             text,
             capitalize_text_start=self.options.enable_caps_normalization,
         )
-        return normalize_numerals(text, self.options)
+        text = normalize_hyphenated_words(text, include_numeric_suffixes=False)
+        text = normalize_numerals(text, self.options)
+        for placeholder, token in zip(token_placeholders, protected_tokens, strict=True):
+            text = text.replace(placeholder, token)
+        return text
 
     def run_abbreviations(self, text: str) -> str:
         return expand_abbreviations(text, self.options)
@@ -339,6 +370,12 @@ class PipelineNormalizer:
         return "hyphen"
 
     def _fix_glued_numbers(self, text: str) -> str:
+        protected_codes: list[str] = []
+
+        def protect_code(match: re.Match[str]) -> str:
+            protected_codes.append(match.group(0))
+            return f"\ue010{len(protected_codes) - 1:x}\ue011"
+
         def fix_glued(match: re.Match[str]) -> str:
             num, word = match.group(1), match.group(2)
             start = match.start()
@@ -363,6 +400,7 @@ class PipelineNormalizer:
                 return f"{num} {word}"
             return f"{num}-{word}"
 
+        text = EMBEDDED_NUMERIC_SUFFIX_CODE_PATTERN.sub(protect_code, text)
         text = LEADING_LETTER_DIGIT_PATTERN.sub(r" \1", text)
         previous = None
         iteration = 0
@@ -370,6 +408,8 @@ class PipelineNormalizer:
             previous = text
             text = GLUED_NUMBER_WORD_PATTERN.sub(fix_glued, text)
             iteration += 1
+        for index, code in enumerate(protected_codes):
+            text = text.replace(f"\ue010{index:x}\ue011", code)
         return text
 
 
