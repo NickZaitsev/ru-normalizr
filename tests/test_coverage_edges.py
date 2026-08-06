@@ -331,6 +331,7 @@ class NumeralHelperBranchTests(unittest.TestCase):
             ("", True),
             (" \nслово", True),
             (" ! слово", True),
+            (", продолжение", False),
             (" слово", False),
             (" 2", False),
             (" Слово", True),
@@ -342,6 +343,7 @@ class NumeralHelperBranchTests(unittest.TestCase):
         tokenized_cases = (
             (["", "\n"], True),
             (["!"], True),
+            ([","], False),
             (["слово"], False),
             (["2"], False),
             (["Слово"], True),
