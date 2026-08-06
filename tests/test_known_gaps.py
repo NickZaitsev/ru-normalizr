@@ -85,23 +85,6 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
     @pytest.mark.xfail(
         strict=True,
-        reason="the dot of an expanded unit abbreviation is left before the comma",
-    )
-    def test_expanded_unit_abbreviation_drops_its_dot_and_keeps_the_comma(self):
-        # The other half of the same cleanup: here the dot is a leftover from
-        # "кг." spelled out as a word, so it is the dot that has to go and the
-        # comma that has to stay — the opposite of the initials case above.
-        self.assertEqual(
-            normalize("Цена 5,5 кг., доставка бесплатно."),
-            "Цена пяти целых пяти десятых килограмма, доставка бесплатно.",
-        )
-        self.assertEqual(
-            normalize("Итого 3,5 млн руб., без НДС."),
-            "Итого три целых пять десятых миллиона рублей, без НДС.",
-        )
-
-    @pytest.mark.xfail(
-        strict=True,
         reason="with no modifier to agree with, every head noun parse scores the "
         "same and pymorphy's parse order decides the case",
     )

@@ -377,6 +377,8 @@ def should_keep_decimal_unit_dot(rest: str) -> bool:
     next_char = stripped_rest[:1]
     if next_char in ".!?…":
         return True
+    if next_char == ",":
+        return False
     return not (next_char.islower() or next_char.isdigit())
 
 
@@ -390,6 +392,8 @@ def should_keep_tokenized_decimal_unit_dot(tokens: list[str], start_index: int) 
         next_char = token[:1]
         if next_char in ".!?…":
             return True
+        if next_char == ",":
+            return False
         return not (next_char.islower() or next_char.isdigit())
     return True
 

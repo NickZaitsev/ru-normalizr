@@ -446,6 +446,26 @@ class RuNormalizrStageTests(unittest.TestCase):
             "двадцатиэтажный дом",
         )
 
+    def test_expanded_decimal_unit_drops_abbreviation_dot_before_comma(self):
+        cases = (
+            (
+                "Цена 5,5 кг., доставка бесплатно.",
+                "Цена пяти целых пяти десятых килограмма, доставка бесплатно.",
+            ),
+            (
+                "Итого 3,5 млн руб., без НДС.",
+                "Итого три целых пять десятых миллиона рублей, без НДС.",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize(source), expected)
+
+        self.assertEqual(
+            normalize_decimals("Масса 5,5 кг."),
+            "Масса пять целых пять десятых килограмма.",
+        )
+
     def test_numeral_stage_supports_safe_hyphenated_units(self):
         normalizer = Normalizer()
         self.assertEqual(
