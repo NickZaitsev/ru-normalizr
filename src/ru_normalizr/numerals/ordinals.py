@@ -23,6 +23,8 @@ from ._num2words import resolve_num2words_case
 
 logger = logging.getLogger(__name__)
 
+_TEXT_START_PREFIX_CHARS = " \t\r\n\"'«„“([{"
+
 HEADING_WORDS_PATTERN = (
     r"глава|главы|главе|главу|главой|главами|главах|"
     r"часть|части|частью|частях|"
@@ -447,10 +449,10 @@ def _render_cardinal_suffix_number(num: int, case: str) -> str | None:
         return None
 
 
-def normalize_ordinals(text: str) -> str:
+def normalize_ordinals(text: str, *, capitalize_text_start: bool = False) -> str:
     original_text = text
 
-    def repl(match: re.Match[str]) -> str:
+    def render_match(match: re.Match[str]) -> str:
         num_str = match.group(1)
         suffix = match.group(2).lower()
         try:
@@ -529,7 +531,19 @@ def normalize_ordinals(text: str) -> str:
             + " "
         )
 
-    text = ORDINAL_PATTERN.sub(repl, text)
+    def preserve_text_start_case(match: re.Match[str]) -> str:
+        replacement = render_match(match)
+        prefix = text[: match.start()]
+        if (
+            capitalize_text_start
+            and replacement != match.group(0)
+            and not prefix.strip(_TEXT_START_PREFIX_CHARS)
+            and replacement[:1].isalpha()
+        ):
+            return replacement[:1].upper() + replacement[1:]
+        return replacement
+
+    text = ORDINAL_PATTERN.sub(preserve_text_start_case, text)
     if text == original_text:
         return text
 

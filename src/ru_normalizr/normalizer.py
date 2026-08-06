@@ -281,7 +281,10 @@ class PipelineNormalizer:
         text = normalize_decimals(text)
         text = normalize_fractions(text)
         text = normalize_hyphenated_words(text)
-        text = normalize_ordinals(text)
+        text = normalize_ordinals(
+            text,
+            capitalize_text_start=self.options.enable_caps_normalization,
+        )
         return normalize_numerals(text, self.options)
 
     def run_abbreviations(self, text: str) -> str:

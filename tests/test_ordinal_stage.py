@@ -503,6 +503,18 @@ class HyphenatedWordTests(unittest.TestCase):
 
 
 class OrdinalCardinalSuffixTests(unittest.TestCase):
+    def test_ordinal_at_text_start_is_capitalized(self):
+        cases = (
+            ("21-й участник", "Двадцать первый  участник"),
+            ("  «21-й участник", "  «Двадцать первый  участник"),
+            ("Выступил 21-й участник", "Выступил двадцать первый  участник"),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(
+                    normalize_ordinals(source, capitalize_text_start=True), expected
+                )
+
     def test_cardinal_suffix_without_a_noun_renders_a_cardinal(self):
         self.assertEqual(normalize_ordinals("5-ти"), "пять ")
         self.assertEqual(normalize_ordinals("5-ми"), "пять ")
@@ -510,6 +522,9 @@ class OrdinalCardinalSuffixTests(unittest.TestCase):
     def test_cardinal_suffix_is_left_untouched_when_the_backend_fails(self):
         with patch.object(num2words, "num2words", side_effect=RuntimeError("backend is broken")):
             self.assertEqual(normalize_ordinals("5-ти"), "5-ти")
+            self.assertEqual(
+                normalize_ordinals("5-ти", capitalize_text_start=True), "5-ти"
+            )
 
     def test_suffix_u_renders_an_accusative_agreeing_with_the_noun(self):
         self.assertEqual(normalize_ordinals("5-у"), "пять ")

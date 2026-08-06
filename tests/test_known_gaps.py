@@ -272,16 +272,6 @@ E2E_KNOWN_GAP_CASES = (
         ),
     ),
     pytest.param(
-        "21-й участник поднялся на 14-й этаж за 2 мин 35 сек.",
-        "Двадцать первый участник поднялся на четырнадцатый этаж за две минуты "
-        "тридцать пять секунд.",
-        id="ordinal_and_floor",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="an ordinal expanded at the start of a sentence is not capitalized",
-        ),
-    ),
-    pytest.param(
         "Команда выиграла 3:2, забив 2 из 5 пенальти в 1/4 финала.",
         "Команда выиграла три — два, забив два из пяти пенальти в одну четвёртую финала.",
         id="score_and_fraction",

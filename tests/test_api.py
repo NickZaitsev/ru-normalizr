@@ -378,6 +378,16 @@ class RuNormalizrApiTests(unittest.TestCase):
             ". Девяносто серий этих суперрусских правдюков дают материал для ста восьмидесяти увлекательнейших статей.",
         )
 
+    def test_normalize_capitalizes_initial_suffixed_ordinal(self):
+        self.assertEqual(
+            normalize(
+                "21-й участник поднялся на 14-й этаж за 2 мин 35 сек.",
+                NormalizeOptions.tts(),
+            ),
+            "Двадцать первый участник поднялся на четырнадцатый этаж за две минуты "
+            "тридцать пять секунд.",
+        )
+
     def test_normalize_removes_decorative_separator_without_extra_punctuation(self):
         self.assertEqual(
             normalize(
