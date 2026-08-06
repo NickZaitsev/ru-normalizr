@@ -15,26 +15,6 @@ from ru_normalizr import NormalizeOptions, normalize
 class RuNormalizrKnownGapTests(unittest.TestCase):
     @pytest.mark.xfail(
         strict=True,
-        reason="the plural year abbreviation leaves its dot before a shared era marker",
-    )
-    def test_plural_year_abbreviation_does_not_split_shared_era_marker(self):
-        self.assertEqual(
-            normalize("44-45 гг. до н. э."),
-            "сорок четвёртые — сорок пятые годы до нашей эры.",
-        )
-
-    @pytest.mark.xfail(
-        strict=True,
-        reason="the abbreviated year dot remains before a shared era marker",
-    )
-    def test_singular_year_abbreviation_does_not_split_shared_era_marker(self):
-        self.assertEqual(
-            normalize("В 300-200 г. до н. э."),
-            "В трёхсотых — двухсотых годах до нашей эры.",
-        )
-
-    @pytest.mark.xfail(
-        strict=True,
         reason="CamelCase tokens are never split, so the acronym never reaches "
         "the abbreviation stage",
     )

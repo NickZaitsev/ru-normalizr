@@ -453,7 +453,7 @@ class EraMarkerTests(unittest.TestCase):
     def test_shared_era_marker_covers_a_range(self):
         self.assertEqual(
             years("300-200 гг. до н. э."),
-            "трёхсотые — двухсотые годы. до нашей эры.",
+            "трёхсотые — двухсотые годы до нашей эры.",
         )
 
     def test_era_terminal_dot_is_kept_before_a_sentence_boundary(self):
