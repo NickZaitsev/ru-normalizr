@@ -85,29 +85,6 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
     @pytest.mark.xfail(
         strict=True,
-        reason="the pause comma after initials is emitted even when punctuation "
-        'already follows, giving ",;", ",:" and ", —"',
-    )
-    def test_pause_comma_after_initials_is_dropped_before_other_punctuation(self):
-        tts = NormalizeOptions.tts()
-        for text, expected in (
-            (
-                "Отчёт сдал Иванов А. Б.; проверил Петров.",
-                "Отчёт сдал Иванов, аа, бэ; проверил Петров.",
-            ),
-            (
-                "Акт подписал Иванов А. Б.: копия у Петрова.",
-                "Акт подписал Иванов, аа, бэ: копия у Петрова.",
-            ),
-            (
-                "Список: Иванов А. Б. — далее по тексту.",
-                "Список: Иванов, аа, бэ — далее по тексту.",
-            ),
-        ):
-            self.assertEqual(normalize(text, tts), expected)
-
-    @pytest.mark.xfail(
-        strict=True,
         reason="the dot of an expanded unit abbreviation is left before the comma",
     )
     def test_expanded_unit_abbreviation_drops_its_dot_and_keeps_the_comma(self):

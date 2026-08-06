@@ -146,6 +146,25 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             'О книге эл Мизеса "Либерализм в классической традиции".',
         )
 
+    def test_tts_initials_do_not_duplicate_following_clause_punctuation(self):
+        cases = (
+            (
+                "Отчёт сдал Иванов А. Б.; проверил Петров.",
+                "Отчёт сдал Иванов, аа, бэ; проверил Петров.",
+            ),
+            (
+                "Акт подписал Иванов А. Б.: копия у Петрова.",
+                "Акт подписал Иванов, аа, бэ: копия у Петрова.",
+            ),
+            (
+                "Список: Иванов А. Б. — далее по тексту.",
+                "Список: Иванов, аа, бэ — далее по тексту.",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize(source, NormalizeOptions.tts()), expected)
+
     def test_normalize_keeps_exact_todo_examples_stable(self):
         self.assertEqual(
             normalize(
