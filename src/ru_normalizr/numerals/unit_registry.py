@@ -136,6 +136,14 @@ class UnitRegistry:
                 raise ValueError("Exact unit alias cannot be empty")
             if not descriptor.lemma or not descriptor.category:
                 raise ValueError(f"Incomplete unit descriptor for {alias!r}")
+        for alias in self._folded.keys() & self._exact.keys():
+            if _semantic_key(self._folded[alias]) != _semantic_key(
+                self._exact[alias]
+            ):
+                raise ValueError(
+                    f"Folded unit alias {alias!r} is unreachable because an exact "
+                    "alias with another semantic target shadows it"
+                )
 
     @staticmethod
     def _is_single_letter_symbol(token: str) -> bool:

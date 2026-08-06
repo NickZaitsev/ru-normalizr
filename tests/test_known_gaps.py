@@ -231,6 +231,35 @@ def test_expanded_abbreviation_at_sentence_start_is_capitalized():
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="a Windows path is split as punctuation and its numeric component is mistaken for a byte quantity",
+)
+def test_windows_path_is_not_parsed_as_a_unit_quantity():
+    source = r"Резервная копия лежит в C:\tmp\5MB\s, откройте её вручную."
+    assert normalize(source) == source
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="a unit following a common fraction is left abbreviated instead of joining the fractional quantity",
+)
+def test_common_fraction_consumes_its_following_unit():
+    assert normalize("Для смеси отмерили 5/7 м ленты и добавили краситель.") == (
+        "Для смеси отмерили пять седьмых метра ленты и добавили краситель."
+    )
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="a denominator power is outside the registered expression matcher and is split into unrelated tokens",
+)
+def test_acceleration_unit_with_squared_denominator_is_read_as_one_expression():
+    assert normalize("Ускорение достигло 2 м/с² перед остановкой установки.") == (
+        "Ускорение достигло двух метров в секунду в квадрате перед остановкой установки."
+    )
+
+
 E2E_KNOWN_GAP_CASES = (
     pytest.param(
         "Встреча назначена на 12.05.2025 в 09:07, кабинет 315.",
