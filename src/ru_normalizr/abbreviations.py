@@ -62,6 +62,22 @@ _UNAMBIGUOUS_PREPOSITION_CASES = {
     "при": "loct",
     "у": "gent",
 }
+_CASE_CONTEXT_BARRIER_POS = frozenset(
+    {
+        "ADJF",
+        "ADJS",
+        "COMP",
+        "CONJ",
+        "GRND",
+        "NOUN",
+        "NPRO",
+        "NUMR",
+        "PRED",
+        "PREP",
+        "PRTF",
+        "PRTS",
+    }
+)
 _WORD_AMPERSAND_PATTERN = re.compile(
     r"(?P<left>[A-Za-zА-Яа-яЁё]+(?:[-'][A-Za-zА-Яа-яЁё0-9]+)*)\s*&\s*(?P<right>[A-Za-zА-Яа-яЁё]+(?:[-'][A-Za-zА-Яа-яЁё0-9]+)*)"
 )
@@ -158,8 +174,14 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
             word = token.lower()
             if word in _UNAMBIGUOUS_PREPOSITION_CASES:
                 return _UNAMBIGUOUS_PREPOSITION_CASES[word]
-            verb = select_parse(parse_word(word), pos={"VERB", "INFN"})
+            parses = parse_word(word)
+            verb = select_parse(parses, pos={"VERB", "INFN"})
             if verb is None:
+                if any(
+                    candidate.tag.POS in _CASE_CONTEXT_BARRIER_POS
+                    for candidate in parses
+                ):
+                    break
                 continue
             governed_case = VERB_CASE.get(verb.normal_form)
             if governed_case is not None:
@@ -169,6 +191,21 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
         return None
 
     def choose_head_noun(phrase: str, expected_case: str | None):
+        def case_hint_score(candidate: MorphParse) -> int:
+            if expected_case is None:
+                return 0
+            candidate_case = canonicalize_case(candidate.tag.case)
+            if candidate_case == expected_case:
+                return 2
+            if (
+                expected_case in {"nomn", "accs"}
+                and candidate_case in {"nomn", "accs"}
+                and candidate.tag.number == "plur"
+                and "inan" in candidate.tag
+            ):
+                return 1
+            return 0
+
         words = phrase.split()
         parsed_words = [parse_word(word.lower()) for word in words]
         modifier_parses: list[MorphParse] = []
@@ -214,8 +251,8 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
             def compatibility(
                 noun_candidate,
                 modifiers=tuple(modifier_parses),
-            ) -> int:
-                score = 1 if "inan" in noun_candidate.tag else 0
+            ) -> tuple[int, int, int]:
+                modifier_score = 0
                 noun_case = canonicalize_case(noun_candidate.tag.case)
                 for modifier in modifiers:
                     if canonicalize_case(modifier.tag.case) != noun_case:
@@ -227,8 +264,12 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
                         and modifier.tag.gender != noun_candidate.tag.gender
                     ):
                         continue
-                    score += 2
-                return score
+                    modifier_score += 1
+                return (
+                    modifier_score,
+                    int("inan" in noun_candidate.tag),
+                    case_hint_score(noun_candidate),
+                )
 
             if noun_candidates:
                 best_noun = max(noun_candidates, key=compatibility)

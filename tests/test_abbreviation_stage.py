@@ -111,6 +111,21 @@ class AdjectiveAbbreviationTests(unittest.TestCase):
             with self.subTest(source=source):
                 self.assertEqual(abbr(source), expected)
 
+    def test_ambiguous_head_uses_the_local_governing_case(self):
+        cases = (
+            (
+                "Восстановили гос. пути сообщения.",
+                "Восстановили государственные пути сообщения.",
+            ),
+            (
+                "О гос. пути сообщения.",
+                "О государственном пути сообщения.",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(abbr(source), expected)
+
     def test_substantivized_adjective_can_be_the_head(self):
         cases = (
             (

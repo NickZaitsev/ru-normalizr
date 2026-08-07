@@ -50,6 +50,12 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
         )
         self.assertEqual(normalize("гл. без номера"), "глава без номера")
 
+    def test_contextual_abbreviation_uses_governing_case_for_ambiguous_head(self):
+        self.assertEqual(
+            normalize("Восстановили гос. пути сообщения."),
+            "Восстановили государственные пути сообщения.",
+        )
+
     def test_mixed_case_cyrillic_units_are_reachable(self):
         self.assertIn("градусов Цельсия", normalize("Температура 25 °С сегодня."))
         self.assertEqual(normalize("Ток 5 мА в цепи."), "Ток пять миллиампер в цепи.")

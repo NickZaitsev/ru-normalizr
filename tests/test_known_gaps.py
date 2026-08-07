@@ -41,17 +41,6 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
     @pytest.mark.xfail(
         strict=True,
-        reason="with no modifier to agree with, every head noun parse scores the "
-        "same and pymorphy's parse order decides the case",
-    )
-    def test_head_noun_case_is_not_decided_by_the_parse_order(self):
-        self.assertEqual(
-            normalize("Восстановили гос. пути сообщения."),
-            "Восстановили государственные пути сообщения.",
-        )
-
-    @pytest.mark.xfail(
-        strict=True,
         reason="the numerals stage tokenizes a hyphen between two dotted "
         "abbreviations and detokenize cannot glue it back",
     )
