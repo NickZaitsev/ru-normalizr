@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import math
 import re
 
-from ._morph import MorphParse, canonicalize_case, first_parse_required, parse_word, select_parse
+from ._morph import MorphParse, canonicalize_case, first_parse_required, parse_word
 from .abbreviation_rules import (
     ABBREVIATION_LITERAL_HINTS,
     ABBREVIATION_PATTERNS,
@@ -175,11 +176,30 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
             if word in _UNAMBIGUOUS_PREPOSITION_CASES:
                 return _UNAMBIGUOUS_PREPOSITION_CASES[word]
             parses = parse_word(word)
-            verb = select_parse(parses, pos={"VERB", "INFN"})
-            if verb is None:
-                if any(
-                    candidate.tag.POS in _CASE_CONTEXT_BARRIER_POS
-                    for candidate in parses
+            best_parse = max(parses, key=lambda candidate: candidate.score, default=None)
+            verb_candidates = [
+                candidate
+                for candidate in parses
+                if candidate.tag.POS in {"VERB", "INFN", "GRND"}
+            ]
+            verb = max(
+                verb_candidates,
+                key=lambda candidate: candidate.score,
+                default=None,
+            )
+            if (
+                best_parse is None
+                or verb is None
+                or not math.isclose(
+                    verb.score,
+                    best_parse.score,
+                    rel_tol=1e-9,
+                    abs_tol=1e-12,
+                )
+            ):
+                if (
+                    best_parse is not None
+                    and best_parse.tag.POS in _CASE_CONTEXT_BARRIER_POS
                 ):
                     break
                 continue

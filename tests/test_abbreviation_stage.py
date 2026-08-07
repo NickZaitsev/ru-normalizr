@@ -126,6 +126,21 @@ class AdjectiveAbbreviationTests(unittest.TestCase):
             with self.subTest(source=source):
                 self.assertEqual(abbr(source), expected)
 
+    def test_case_inference_ignores_adverb_homonyms_and_crosses_quantifiers(self):
+        cases = (
+            (
+                "Избегали порой гос. пути сообщения.",
+                "Избегали порой государственного пути сообщения.",
+            ),
+            (
+                "Восстановили часто гос. пути сообщения.",
+                "Восстановили часто государственные пути сообщения.",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(abbr(source), expected)
+
     def test_substantivized_adjective_can_be_the_head(self):
         cases = (
             (

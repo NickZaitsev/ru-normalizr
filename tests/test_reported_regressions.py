@@ -56,6 +56,21 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             "Восстановили государственные пути сообщения.",
         )
 
+    def test_contextual_abbreviation_ignores_adverb_homonyms_in_case_context(self):
+        cases = (
+            (
+                "Избегали порой гос. пути сообщения.",
+                "Избегали порой государственного пути сообщения.",
+            ),
+            (
+                "Восстановили часто гос. пути сообщения.",
+                "Восстановили часто государственные пути сообщения.",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize(source), expected)
+
     def test_mixed_case_cyrillic_units_are_reachable(self):
         self.assertIn("градусов Цельсия", normalize("Температура 25 °С сегодня."))
         self.assertEqual(normalize("Ток 5 мА в цепи."), "Ток пять миллиампер в цепи.")

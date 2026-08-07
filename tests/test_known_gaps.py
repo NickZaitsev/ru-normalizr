@@ -41,6 +41,17 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
     @pytest.mark.xfail(
         strict=True,
+        reason="a cardinal numeral needs a dedicated genitive adjective agreement "
+        "rule before a contextual abbreviation",
+    )
+    def test_cardinal_before_contextual_adjective_abbreviation_agrees_with_the_noun(self):
+        self.assertEqual(
+            normalize("Восстановили два гос. пути сообщения."),
+            "Восстановили два государственных пути сообщения.",
+        )
+
+    @pytest.mark.xfail(
+        strict=True,
         reason="the numerals stage tokenizes a hyphen between two dotted "
         "abbreviations and detokenize cannot glue it back",
     )
