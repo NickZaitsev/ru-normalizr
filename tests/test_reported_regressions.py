@@ -84,6 +84,22 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
         self.assertIn("году в Москве", result)
         self.assertNotIn("году. В Москве", result)
 
+    def test_stressed_year_word_is_inflected_as_one_word(self):
+        cases = (
+            (
+                "Между 1999 и 2000 года́ми разница велика.",
+                "Между тысяча девятьсот девяносто девятым и двухтысячным годами разница велика.",
+            ),
+            (
+                "Период между 2020 и 2025 года́ми оказался насыщенным.",
+                "Период между две тысячи двадцатым и две тысячи двадцать пятым "
+                "годами оказался насыщенным.",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize(source), expected)
+
     def test_years_ago_expansion_does_not_destroy_person_initials(self):
         safe = NormalizeOptions.safe()
 

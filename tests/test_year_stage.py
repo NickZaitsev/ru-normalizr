@@ -248,6 +248,25 @@ class ExplicitYearWordTests(unittest.TestCase):
             with self.subTest(source=source):
                 self.assertEqual(years(source), expected)
 
+    def test_internal_stress_marker_does_not_split_a_year_word(self):
+        cases = (
+            (
+                "В 2020 году.",
+                "В две тысячи двадцатом году.",
+            ),
+            (
+                "В 2020 г+оду.",
+                "В две тысячи двадцатом году.",
+            ),
+            (
+                "Между 1999 и 2000 год+ами разница велика.",
+                "Между тысяча девятьсот девяносто девятым и двухтысячным годами разница велика.",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(years(source), expected)
+
     def test_every_written_suffix_sets_the_case_and_number(self):
         # YEAR_SUFFIX_REGEX is sorted longest first, so the shared tails ("го"
         # inside "ого", "м" inside "ом") only resolve correctly while that order

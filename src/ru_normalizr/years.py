@@ -77,6 +77,11 @@ YEAR_WORD_FORMS = {
     ("годы", "loct"): "годах",
 }
 YEAR_PLURAL_ABBREV_REGEX = r"(?:гг\.?|г\.\s*г\.?)"
+# `preprocess` represents a combining Cyrillic stress mark as `+` before the
+# stressed vowel. Keep that marker inside year words long enough for this stage
+# to recognize the whole word, then canonicalize the matched word before
+# morphology lookup and output.
+YEAR_WORD_PATTERN = r"г\+?о\+?д(?:\+?[а-яё])*"
 PREPOSITIONS_TO_CASE = {
     "в": "loct",
     "во": "loct",
@@ -149,10 +154,14 @@ def _should_keep_era_terminal_dot(source_text: str, match: re.Match[str]) -> boo
 
 
 def _resolve_explicit_year_word_case(prep: str | None, word: str) -> str:
-    word_lower = word.lower()
+    word_lower = word.replace("+", "").lower()
     if word_lower == "году" and prep:
         return "datv" if prep.lower() in ("к", "ко") else "loct"
     return YEAR_WORD_TO_CASE.get(word_lower, "nomn")
+
+
+def _canonicalize_year_word(word: str) -> str:
+    return word.replace("+", "")
 
 
 @functools.lru_cache(maxsize=1024)
@@ -214,23 +223,23 @@ def _year_patterns() -> tuple[re.Pattern[str], ...]:
     flags = re.IGNORECASE | re.UNICODE
     return (
         re.compile(
-            rf"{entry_boundary}(?:(?P<prep>в|во|к|ко|с|со|до|от|на|за)\s+)?(?P<year1>\d{{2,4}})\s*(?P<separator>[-–—]|,)\s*(?P<year2>\d{{2,4}})[-–—](?P<suffix>е|х|м|ми)(?:\s+(?P<word>год[а-яё]*\b))?",
+            rf"{entry_boundary}(?:(?P<prep>в|во|к|ко|с|со|до|от|на|за)\s+)?(?P<year1>\d{{2,4}})\s*(?P<separator>[-–—]|,)\s*(?P<year2>\d{{2,4}})[-–—](?P<suffix>е|х|м|ми)(?:\s+(?P<word>{YEAR_WORD_PATTERN}\b))?",
             flags,
         ),
         re.compile(
-            rf"{entry_boundary}(?P<prep>с|со|от)\s+(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<mid>до|по)\s+(?P<year2>{YEAR_ANY_NUMBER_PATTERN})(?!\d)(?:\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?(?:\s+(?P<era>{ERA_REGEX}))?",
+            rf"{entry_boundary}(?P<prep>с|со|от)\s+(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<mid>до|по)\s+(?P<year2>{YEAR_ANY_NUMBER_PATTERN})(?!\d)(?:\s+(?P<word>{YEAR_WORD_PATTERN}\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?(?:\s+(?P<era>{ERA_REGEX}))?",
             flags,
         ),
         re.compile(
-            rf"{entry_boundary}(?:(?P<prep>с|со|из|от|в|во)\s+)?(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s*[-–—]\s*(?P<year2>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))(?:\s+(?P<era>{ERA_REGEX}))?",
+            rf"{entry_boundary}(?:(?P<prep>с|со|из|от|в|во)\s+)?(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s*[-–—]\s*(?P<year2>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<word>{YEAR_WORD_PATTERN}\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))(?:\s+(?P<era>{ERA_REGEX}))?",
             flags,
         ),
         re.compile(
-            rf"{entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<years>{YEAR_RANGE_NUMBER_PATTERN}(?:\s*,\s*{YEAR_RANGE_NUMBER_PATTERN})*\s+и\s+{YEAR_RANGE_NUMBER_PATTERN})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w))",
+            rf"{entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<years>{YEAR_RANGE_NUMBER_PATTERN}(?:\s*,\s*{YEAR_RANGE_NUMBER_PATTERN})*\s+и\s+{YEAR_RANGE_NUMBER_PATTERN})\s+(?P<word>{YEAR_WORD_PATTERN}\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w))",
             flags,
         ),
         re.compile(
-            rf"(?:^|(?<=\s)|(?<=[«\"'(]))(\d+)[-–—]({YEAR_SUFFIX_REGEX})(?![а-яА-ЯёЁ\d])(?:\s+(год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?",
+            rf"(?:^|(?<=\s)|(?<=[«\"'(]))(\d+)[-–—]({YEAR_SUFFIX_REGEX})(?![а-яА-ЯёЁ\d])(?:\s+({YEAR_WORD_PATTERN}\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?",
             flags,
         ),
         re.compile(
@@ -238,19 +247,19 @@ def _year_patterns() -> tuple[re.Pattern[str], ...]:
             flags,
         ),
         re.compile(
-            rf"{entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year>{YEAR_ANY_NUMBER_PATTERN})(?:\s*[-–—](?P<suffix>{YEAR_SUFFIX_REGEX}))?(?:\s+(?P<word>год[а-яё]*\b|г\.?(?!\w)))?\s+(?P<era>{ERA_REGEX})",
+            rf"{entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year>{YEAR_ANY_NUMBER_PATTERN})(?:\s*[-–—](?P<suffix>{YEAR_SUFFIX_REGEX}))?(?:\s+(?P<word>{YEAR_WORD_PATTERN}\b|г\.?(?!\w)))?\s+(?P<era>{ERA_REGEX})",
             flags,
         ),
         re.compile(
-            rf"{entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s*[-–—]\s*(?P<year2>{YEAR_ANY_NUMBER_PATTERN})(?:\s+(?P<word>год[а-яё]*\b|г\.?(?!\w)))?\s+(?P<era>{ERA_REGEX})",
+            rf"{entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s*[-–—]\s*(?P<year2>{YEAR_ANY_NUMBER_PATTERN})(?:\s+(?P<word>{YEAR_WORD_PATTERN}\b|г\.?(?!\w)))?\s+(?P<era>{ERA_REGEX})",
             flags,
         ),
         re.compile(
-            rf"{entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<word>год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
+            rf"{entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<word>{YEAR_WORD_PATTERN}\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
             flags,
         ),
         re.compile(
-            rf"\s*(?:год[а-яё]*\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
+            rf"\s*(?:{YEAR_WORD_PATTERN}\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
             flags,
         ),
         re.compile(rf"\s*[-–—](?:{YEAR_SUFFIX_REGEX})\b", flags),
@@ -322,7 +331,7 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
             + f"{year_to_ordinal_words(int(m.group('year1')), case, True)} — {year_to_ordinal_words(int(m.group('year2')), case, True)}"
         )
         if m.group("word"):
-            result += f" {m.group('word')}"
+            result += f" {_canonicalize_year_word(m.group('word'))}"
         return result
 
     def replace_s_po(m: re.Match[str]) -> str:
@@ -355,6 +364,8 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         )
         word = m.group("word")
         if word:
+            word = _canonicalize_year_word(word)
+        if word:
             word_lower = word.lower()
             if word_lower in ("г.", "г"):
                 word_norm = "год"
@@ -384,6 +395,8 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         year = int(m.group(1))
         suffix = m.group(2).lower()
         word = m.group(3)
+        if word:
+            word = _canonicalize_year_word(word)
         case = infer_suffix_case(m, suffix)
         plural = suffix in PLURAL_SUFFIXES and not (suffix == "м" and case == "loct")
         if plural:
@@ -420,7 +433,7 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
     def replace_multiple_years(m: re.Match[str]) -> str:
         prep = m.group("prep")
         years_text = m.group("years")
-        word = m.group("word")
+        word = _canonicalize_year_word(m.group("word"))
         word_lower = word.lower()
         if re.fullmatch(YEAR_PLURAL_ABBREV_REGEX, word_lower):
             case = PREPOSITIONS_TO_CASE.get(prep.lower(), "nomn") if prep else "nomn"
@@ -449,6 +462,8 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
     def replace_era_year(m: re.Match[str]) -> str:
         prep = m.group("prep")
         word = m.group("word")
+        if word:
+            word = _canonicalize_year_word(word)
         suffix = m.group("suffix")
         era_text = _normalize_era_marker(m.group("era"))
         if era_text is None:
@@ -485,6 +500,8 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
     def replace_era_range_shared(m: re.Match[str]) -> str:
         prep = m.group("prep")
         word = m.group("word")
+        if word:
+            word = _canonicalize_year_word(word)
         era_text = _normalize_era_marker(m.group("era"))
         if era_text is None:
             return m.group(0)
@@ -538,7 +555,7 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
     def replace_with_word(m: re.Match[str]) -> str:
         prep = m.group("prep")
         year = int(m.group("year"))
-        word = m.group("word")
+        word = _canonicalize_year_word(m.group("word"))
         word_lower = word.lower()
         if word_lower in ("г.", "г"):
             word_norm = "год"
@@ -584,7 +601,7 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
 
     def replace_range(m: re.Match[str]) -> str:
         prep = m.group("prep")
-        word = m.group("word")
+        word = _canonicalize_year_word(m.group("word"))
         year1 = int(m.group("year1"))
         year2 = int(m.group("year2"))
         era_text = (

@@ -67,26 +67,6 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
     @pytest.mark.xfail(
         strict=True,
-        reason="preprocess rewrites the stress mark to a plus before the year "
-        "stage runs, so the year word is matched only up to the plus and its "
-        "tail is left over next to the inflected form",
-    )
-    def test_stressed_year_word_is_inflected_as_one_word(self):
-        # "года́ми" becomes "год+ами" in preprocess; the year stage then matches
-        # the bare "год", inflects it, and the orphaned "+ами" survives beside
-        # the result.
-        self.assertEqual(
-            normalize("Между 1999 и 2000 года́ми разница велика."),
-            "Между тысяча девятьсот девяносто девятым и двухтысячным годами разница велика.",
-        )
-        self.assertEqual(
-            normalize("Период между 2020 и 2025 года́ми оказался насыщенным."),
-            "Период между две тысячи двадцатым и две тысячи двадцать пятым "
-            "годами оказался насыщенным.",
-        )
-
-    @pytest.mark.xfail(
-        strict=True,
         reason="preprocess spaces out the dots of an acronym, so the dotted "
         "abbreviation pattern never matches in the full pipeline",
     )
