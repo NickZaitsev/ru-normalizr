@@ -52,6 +52,17 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
     @pytest.mark.xfail(
         strict=True,
+        reason="a weak noun homonym of a preposition supplies a false case hint "
+        "for an ambiguous numeric suffix",
+    )
+    def test_numeric_suffix_ignores_a_weak_noun_homonym_of_a_preposition(self):
+        self.assertEqual(
+            normalize("Он был 2-м после лидера."),
+            "Он был вторым после лидера.",
+        )
+
+    @pytest.mark.xfail(
+        strict=True,
         reason="the numerals stage tokenizes a hyphen between two dotted "
         "abbreviations and detokenize cannot glue it back",
     )
