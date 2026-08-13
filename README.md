@@ -272,6 +272,17 @@ uv run pytest -q
 uv run pytest -q --cov=src/ru_normalizr --cov-branch --cov-report=term-missing
 ```
 
+Локальный замер полного TTS-пайплайна на синтетических книгах по 500 000 символов
+и сравнение с сохранённым baseline (CI автоматически сравнивает смешанную и
+насыщенную числами книги для pull request и push в `main`). Реальную UTF-8 книгу можно передать
+через `--book`:
+
+```bash
+uv run python scripts/benchmark.py --mode tts --json .benchmarks/base.json
+uv run python scripts/benchmark.py --mode tts --compare .benchmarks/base.json
+uv run python scripts/benchmark.py --mode tts --book path/to/book.txt
+```
+
 Полный цикл проверки выпуска — очистка, сверка версий, линт, типы, тесты, сборка
 и `twine check`:
 
@@ -621,6 +632,16 @@ Branch coverage report:
 
 ```bash
 uv run pytest -q --cov=src/ru_normalizr --cov-branch --cov-report=term-missing
+```
+
+Local full TTS pipeline benchmark on synthetic 500,000-character books and
+comparison against a saved baseline (CI compares the mixed and number-dense books
+automatically for pull requests and pushes to `main`). Pass a real UTF-8 book with `--book`:
+
+```bash
+uv run python scripts/benchmark.py --mode tts --json .benchmarks/base.json
+uv run python scripts/benchmark.py --mode tts --compare .benchmarks/base.json
+uv run python scripts/benchmark.py --mode tts --book path/to/book.txt
 ```
 
 The full release verification cycle — clean, version sync, lint, types, tests,

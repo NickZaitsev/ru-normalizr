@@ -100,3 +100,63 @@ jobs:
           .smoke-venv/bin/python -c "from pymorphy3 import dawg; assert dawg.EXTENSION_AVAILABLE"
           .smoke-venv/bin/ru-normalizr --version
           .smoke-venv/bin/ru-normalizr "тест 123"
+
+  performance:
+    name: Performance regression
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    env:
+      BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+
+    steps:
+      - name: Checkout pull request
+        uses: actions/checkout@v4
+
+      - name: Preserve benchmark harness
+        run: cp scripts/benchmark.py "$RUNNER_TEMP/benchmark.py"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          version: "0.11.29"
+          enable-cache: true
+
+      - name: Checkout base commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASE_SHA }}
+
+      - name: Benchmark base commit
+        run: |
+          uv sync --frozen
+          uv run python "$RUNNER_TEMP/benchmark.py" \
+            --mode tts --case mixed --case number-dense --size 500000 \
+            --samples 3 \
+            --json "$RUNNER_TEMP/base.json"
+
+      - name: Checkout pull request again
+        uses: actions/checkout@v4
+
+      - name: Benchmark and compare pull request
+        run: |
+          uv sync --frozen
+          uv run python scripts/benchmark.py \
+            --mode tts --case mixed --case number-dense --size 500000 \
+            --samples 3 \
+            --compare "$RUNNER_TEMP/base.json" \
+            --json "$RUNNER_TEMP/current.json" \
+            --max-regression-percent 25
+
+      - name: Upload benchmark metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-metrics
+          path: |
+            ${{ runner.temp }}/base.json
+            ${{ runner.temp }}/current.json
