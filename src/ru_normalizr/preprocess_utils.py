@@ -116,16 +116,16 @@ SIGNED_INTEGER_WITH_UNIT_PATTERN = re.compile(
 INTEGER_LIST_PATTERN = re.compile(r"^\d+(?:\s*,\s*\d+)+$")
 INTEGER_RANGE_PATTERN = re.compile(r"^\d+\s*[–—-]\s*\d+$")
 SPACE_INSIDE_QUOTES_PATTERN = re.compile(
-    r'(^|[\s([{\-–—,;:])"\s+([^\n"]+?)\s+"(?=$|[\s)\]}\-–—,.;:!?])'
+    r'(?<![^\s([{\-–—,;:])"\s+([^\n"]+?)\s+"(?=$|[\s)\]}\-–—,.;:!?])'
 )
 SPACE_AFTER_OPEN_QUOTE_PATTERN = re.compile(
-    r'(^|[\s([{\-–—,;:])"([ \t]+)(?=\S)'
+    r'(?<![^\s([{\-–—,;:])"[ \t]+(?=\S)'
 )
 SPACE_BEFORE_CLOSE_QUOTE_PATTERN = re.compile(
     r'(?<=\S)([ \t]+)"(?=$|[\s)\]}\-–—,.;:!?])'
 )
 OPEN_SINGLE_QUOTE_PATTERN = re.compile(
-    r"(?P<prefix>^|[\s([{\-–—,;:])(?P<quote>[‘‚‛‹])(?=\S)"
+    r"(?<![^\s([{\-–—,;:])(?P<quote>[‘‚‛‹])(?=\S)"
 )
 CLOSE_SINGLE_QUOTE_PATTERN = re.compile(
     r"(?<=\S)(?P<quote>[’›])(?=$|[\s)\]}\-–—,.;:!?])"
@@ -181,16 +181,16 @@ def normalize_ascii_quote_pairs(text: str) -> str:
     if QUOTE_SHAPE_PATTERN.search(text) is None:
         if '"' not in text:
             return text
-        text = SPACE_INSIDE_QUOTES_PATTERN.sub(r'\1"\2"', text)
-        text = SPACE_AFTER_OPEN_QUOTE_PATTERN.sub(r'\1"', text)
+        text = SPACE_INSIDE_QUOTES_PATTERN.sub(r'"\1"', text)
+        text = SPACE_AFTER_OPEN_QUOTE_PATTERN.sub('"', text)
         return SPACE_BEFORE_CLOSE_QUOTE_PATTERN.sub('"', text)
     for old, new in QUOTE_PAIR_REPLACEMENTS:
         text = text.replace(old, new)
     text = QUOTE_VARIANT_PATTERN.sub('"', text)
-    text = OPEN_SINGLE_QUOTE_PATTERN.sub(r'\g<prefix>"', text)
+    text = OPEN_SINGLE_QUOTE_PATTERN.sub('"', text)
     text = CLOSE_SINGLE_QUOTE_PATTERN.sub('"', text)
-    text = SPACE_INSIDE_QUOTES_PATTERN.sub(r'\1"\2"', text)
-    text = SPACE_AFTER_OPEN_QUOTE_PATTERN.sub(r'\1"', text)
+    text = SPACE_INSIDE_QUOTES_PATTERN.sub(r'"\1"', text)
+    text = SPACE_AFTER_OPEN_QUOTE_PATTERN.sub('"', text)
     return SPACE_BEFORE_CLOSE_QUOTE_PATTERN.sub('"', text)
 
 
