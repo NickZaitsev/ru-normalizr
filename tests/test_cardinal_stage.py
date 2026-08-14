@@ -201,6 +201,17 @@ class PostNumeralAbbreviationTests(unittest.TestCase):
                 )
                 self.assertIn("кг", result)
 
+    def test_abbreviations_are_expanded_case_insensitively_with_mixed_spacing(self):
+        result = normalize_remaining_post_numeral_abbreviations(
+            "5 ТЫС. 6 Млн. 7 МЛРД. 8 ТРЛН. 9 РУБ. 10 ДОЛЛ. 11 ДОЛ. 12 и\tДР."
+        )
+
+        self.assertEqual(
+            result,
+            "5 тысяч 6 миллионов 7 миллиардов 8 триллионов 9 рублей "
+            "10 долларов 11 долларов 12 и другие.",
+        )
+
 
 class AllDigitsTests(unittest.TestCase):
     def test_every_remaining_digit_group_is_read_out(self):

@@ -24,6 +24,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Read the `IPsec` protocol name as `ай пи сек` in every spelling (`IPSEC`, `IPSec`, `IPsec`, `ipsec`) instead of `ай пи эс ии си` for the all-caps form and `ипсэк` for the rest. This needs an entry in two places by design: the abbreviation stage intercepts all-caps tokens and only consults `KNOWN_ABBREVIATIONS`, while mixed-case and lowercase spellings never match that pattern and are resolved by the latinization dictionary instead
 
 ### Changed
+- Сократить лишние аллокации и повторные проходы на больших книгах: подсчёт
+  регистра выполняется без временного списка, no-op `translate()` пропускается,
+  а постчисловые сокращения обрабатываются единым regex; результат проверен на
+  4 млн символов Карамзина с неизменным output SHA-256
 - Устранить квадратичную деградацию на больших книгах: контекстные regex-callback’и больше не копируют весь хвост текста, а морфологические и единичные операции используют ограниченные кеши; на префиксе Карамзина 4 млн символов медианное время снизилось с 32,497 до 20,288 с при неизменном output SHA-256
 - Разбирать цифровые окончания через единый морфологический резолвер: письменное
   окончание теперь обязано совпадать с концом реальной количественной или

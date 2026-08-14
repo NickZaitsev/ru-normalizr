@@ -33,6 +33,9 @@ EQUATION_PATTERN = re.compile(
     rf"(?<!\w){_EQUATION_OPERAND}(?:\s*[-+*/^=]\s*{_EQUATION_OPERAND})+",
     re.UNICODE,
 )
+_GREEK_PATTERN = re.compile(
+    rf"[{''.join(re.escape(char) for char in GREEK_LETTERS)}]+"
+)
 
 
 def _extract_math_expression_side(text: str, start: int, step: int) -> str:
@@ -126,16 +129,13 @@ def _normalize_contextual_equals(text: str) -> str:
 
 
 def normalize_greek_letters(text: str) -> str:
-    greek_chars = "".join(re.escape(char) for char in GREEK_LETTERS)
-    pattern = re.compile(rf"[{greek_chars}]+")
-
     def repl(match: re.Match[str]) -> str:
         token = match.group(0)
         if len(token) != 1:
             return token
         return GREEK_LETTERS.get(token, token)
 
-    return pattern.sub(repl, text)
+    return _GREEK_PATTERN.sub(repl, text)
 
 
 def normalize_math_symbols(text: str) -> str:

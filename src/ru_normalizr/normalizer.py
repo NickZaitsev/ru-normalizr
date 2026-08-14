@@ -128,6 +128,10 @@ STRUCTURED_NUMERIC_SUFFIX_PATTERN = re.compile(
     rf")",
     re.IGNORECASE | re.UNICODE,
 )
+SUPERSCRIPT_DIGIT_PATTERN = re.compile(r"[⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉]")
+SUPERSCRIPT_DIGIT_TRANSLATION = str.maketrans(
+    "⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉", "01234567890123456789"
+)
 
 
 class PipelineNormalizer:
@@ -224,8 +228,9 @@ class PipelineNormalizer:
         *,
         apply_caps_normalization: bool,
     ) -> str:
-        if text.strip().startswith("+"):
-            text = " " + text.lstrip()
+        leading_text = text.lstrip()
+        if leading_text.startswith("+"):
+            text = " " + leading_text
 
         text = normalize_linebreaks(text)
         text = remove_zero_width_formatting(text)
@@ -255,9 +260,8 @@ class PipelineNormalizer:
         text = protect_binary_math_operators(text)
         text = apply_cleanup_replacements(text)
         text = normalize_unicode_fractions(text)
-        text = text.translate(
-            str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉", "01234567890123456789")
-        )
+        if SUPERSCRIPT_DIGIT_PATTERN.search(text):
+            text = text.translate(SUPERSCRIPT_DIGIT_TRANSLATION)
         text = CURRENCY_AMOUNT_PATTERN.sub(r"\2\1", text)
         text = DEGREE_SPACING_PATTERN.sub(r"\1 °", text)
         text = clean_numbers(text)

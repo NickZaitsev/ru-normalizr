@@ -6,16 +6,20 @@ import re
 from .unit_data import explicit_expression_aliases, generated_prefixed_aliases
 from .unit_registry import UnitDescriptor, UnitMorphology, UnitRegistry
 
-POST_NUMERAL_ABBREVIATION_PATTERNS = [
-    (re.compile(r"(?<!\w)тыс\.(?!\w)", re.IGNORECASE), "тысяч"),
-    (re.compile(r"(?<!\w)млн\.(?!\w)", re.IGNORECASE), "миллионов"),
-    (re.compile(r"(?<!\w)млрд\.(?!\w)", re.IGNORECASE), "миллиардов"),
-    (re.compile(r"(?<!\w)трлн\.(?!\w)", re.IGNORECASE), "триллионов"),
-    (re.compile(r"(?<!\w)руб\.(?!\w)", re.IGNORECASE), "рублей"),
-    (re.compile(r"(?<!\w)долл\.(?!\w)", re.IGNORECASE), "долларов"),
-    (re.compile(r"(?<!\w)дол\.(?!\w)", re.IGNORECASE), "долларов"),
-    (re.compile(r"(?<!\w)и\s+др\.(?!\w)", re.IGNORECASE), "и другие"),
-]
+POST_NUMERAL_ABBREVIATION_PATTERN = re.compile(
+    r"(?<!\w)(?:тыс\.|млн\.|млрд\.|трлн\.|руб\.|долл\.|дол\.|и\s+др\.)(?!\w)",
+    re.IGNORECASE,
+)
+POST_NUMERAL_ABBREVIATION_REPLACEMENTS = {
+    "тыс.": "тысяч",
+    "млн.": "миллионов",
+    "млрд.": "миллиардов",
+    "трлн.": "триллионов",
+    "руб.": "рублей",
+    "долл.": "долларов",
+    "дол.": "долларов",
+    "и др.": "и другие",
+}
 
 GREEK_LETTERS = {
     "α": "альфа",

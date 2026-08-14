@@ -52,6 +52,14 @@ BINARY_MATH_OPERATOR_PLACEHOLDERS = {
     "−": BINARY_MINUS_PLACEHOLDER,
     "^": BINARY_POWER_PLACEHOLDER,
 }
+BINARY_MATH_OPERATOR_TRANSLATION = str.maketrans(
+    {
+        BINARY_PLUS_PLACEHOLDER: "+",
+        BINARY_MINUS_PLACEHOLDER: "−",
+        BINARY_POWER_PLACEHOLDER: "^",
+    }
+)
+EXPLICIT_DASH_TRANSLATION = str.maketrans({"–": "—", "―": "—"})
 
 
 def protect_unit_slashes(text: str) -> str:
@@ -75,15 +83,11 @@ def protect_binary_math_operators(text: str) -> str:
 
 
 def restore_binary_math_operators(text: str) -> str:
-    return text.translate(
-        str.maketrans(
-            {
-                BINARY_PLUS_PLACEHOLDER: "+",
-                BINARY_MINUS_PLACEHOLDER: "−",
-                BINARY_POWER_PLACEHOLDER: "^",
-            }
-        )
-    )
+    if not any(
+        placeholder in text for placeholder in BINARY_MATH_OPERATOR_PLACEHOLDERS.values()
+    ):
+        return text
+    return text.translate(BINARY_MATH_OPERATOR_TRANSLATION)
 YEARS_AGO_ABBREVIATION_PATTERN = re.compile(
     r"(?P<quantity>(?<!\w)(?:\d+(?:[.,]\d+)?|тыс(?:\.|яч[а-яё]*)?|млн\.?|"
     r"миллион[а-яё]*|млрд\.?|миллиард[а-яё]*|несколько|много)\s+)"
@@ -131,6 +135,10 @@ ZERO_WIDTH_FORMATTING_PATTERN = re.compile(r"[\u200B\u200C\u200D\u2060\uFEFF]")
 LINEBREAK_RUN_PATTERN = re.compile(r"\n(?:[ \t]*\n)*[ \t]*")
 LEGACY_LINE_START_PATTERN = re.compile(r'(?:["«„“]\s*)?[А-ЯЁA-Z0-9]')
 QUOTE_PAIR_REPLACEMENTS = (("``", '"'), ("''", '"'), ("‘‘", '"'), ("’’", '"'), ("´´", '"'))
+QUOTE_SHAPE_PATTERN = re.compile(
+    r"``|''|‘‘|’’|´´|[«»“”„‟〝〞＂]|"
+    r"(?<![A-Za-zА-Яа-яЁё])[‘‚‛‹]|[’›](?![A-Za-zА-Яа-яЁё])"
+)
 QUOTE_VARIANT_PATTERN = re.compile(r"[«»“”„‟〝〞＂]")
 QUOTE_CANDIDATES = frozenset('"\'`´«»‘’‚‛‹›“”„‟〝〞＂')
 PAGE_ABBREVIATION_PATTERN = re.compile(r"\b[сp]\.\s*(?=\d)", re.IGNORECASE)
@@ -164,6 +172,10 @@ ERA_ABBREVIATION_PATTERN = re.compile(
 def normalize_ascii_quote_pairs(text: str) -> str:
     if QUOTE_CANDIDATES.isdisjoint(text):
         return text
+    if QUOTE_SHAPE_PATTERN.search(text) is None:
+        text = SPACE_INSIDE_QUOTES_PATTERN.sub(r'\1"\2"', text)
+        text = SPACE_AFTER_OPEN_QUOTE_PATTERN.sub(r'\1"', text)
+        return SPACE_BEFORE_CLOSE_QUOTE_PATTERN.sub('"', text)
     for old, new in QUOTE_PAIR_REPLACEMENTS:
         text = text.replace(old, new)
     text = QUOTE_VARIANT_PATTERN.sub('"', text)
@@ -252,7 +264,9 @@ def normalize_numeric_abbreviations(text: str) -> str:
 
 
 def normalize_explicit_dashes(text: str) -> str:
-    return text.translate(str.maketrans({"–": "—", "―": "—"}))
+    if "–" not in text and "―" not in text:
+        return text
+    return text.translate(EXPLICIT_DASH_TRANSLATION)
 
 
 def normalize_spaced_ascii_hyphens(text: str) -> str:

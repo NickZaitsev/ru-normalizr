@@ -167,10 +167,14 @@ def normalize_caps_lines(
     parts = _LINE_SPLIT_PATTERN.split(text)
     for idx in range(0, len(parts), 2):
         line = parts[idx]
-        letters = [char for char in line if char.isalpha()]
-        if len(letters) >= min_length:
-            uppercase_count = sum(1 for char in letters if char.isupper())
-            caps_ratio = uppercase_count / len(letters)
+        letter_count = 0
+        uppercase_count = 0
+        for char in line:
+            if char.isalpha():
+                letter_count += 1
+                uppercase_count += char.isupper()
+        if letter_count >= min_length:
+            caps_ratio = uppercase_count / letter_count
             if caps_ratio >= caps_threshold:
                 stripped = line.strip()
                 lowered = stripped.lower()
@@ -187,7 +191,7 @@ def normalize_caps_lines(
                 continue
             if uppercase_count < 4:
                 continue
-        elif sum(1 for char in letters if char.isupper()) < 4:
+        elif uppercase_count < 4:
             continue
         parts[idx] = _normalize_inline_caps(line)
     return "".join(parts)

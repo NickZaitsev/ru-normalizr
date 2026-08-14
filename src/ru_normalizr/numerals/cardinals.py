@@ -12,7 +12,8 @@ from ..text_scan import first_non_whitespace_index
 from ._constants import (
     DIGIT_PATTERN,
     NUMERIC_UNIT_RANGE_PATTERN,
-    POST_NUMERAL_ABBREVIATION_PATTERNS,
+    POST_NUMERAL_ABBREVIATION_PATTERN,
+    POST_NUMERAL_ABBREVIATION_REPLACEMENTS,
     PREP_CASE,
     TIME_WORDS,
     UNITS_DATA,
@@ -446,14 +447,12 @@ def normalize_remaining_post_numeral_abbreviations(text: str) -> str:
             return f"{replacement}."
         return replacement
 
-    for pattern, replacement in POST_NUMERAL_ABBREVIATION_PATTERNS:
-        text = pattern.sub(
-            lambda match, repl=replacement, src=text: preserve_sentence_boundary(
-                match, repl, src
-            ),
-            text,
-        )
-    return text
+    def replace_abbreviation(match: re.Match[str]) -> str:
+        key = " ".join(match.group(0).casefold().split())
+        replacement = POST_NUMERAL_ABBREVIATION_REPLACEMENTS[key]
+        return preserve_sentence_boundary(match, replacement, text)
+
+    return POST_NUMERAL_ABBREVIATION_PATTERN.sub(replace_abbreviation, text)
 
 
 def normalize_all_digits_everywhere(text: str) -> str:
