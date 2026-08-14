@@ -8,6 +8,7 @@ import num2words
 from .._morph import first_parse_required, parse_word, select_parse
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_context import PUNCT_STRIP, normalize_context_token, simple_tokenize
+from ..text_scan import first_non_whitespace_index
 from ._constants import (
     DIGIT_PATTERN,
     NUMERIC_UNIT_RANGE_PATTERN,
@@ -36,6 +37,27 @@ from .unit_expressions import match_unit_tokens
 from .unit_rendering import render_unit_expression
 
 logger = logging.getLogger(__name__)
+
+_MULTIPLIER_LEMMAS = frozenset({"тысяча", "миллион", "миллиард", "триллион"})
+_CURRENCY_SYMBOL_UNITS = frozenset(
+    {
+        "$",
+        "€",
+        "₽",
+        "£",
+        "¥",
+        "₴",
+        "₸",
+        "₺",
+        "₹",
+        "¢",
+        "₪",
+        "₩",
+        "₫",
+        "₱",
+        "₦",
+    }
+)
 
 
 def _resolve_range_unit_info(unit_raw: str):
@@ -249,7 +271,12 @@ def normalize_cardinal_numerals(text: str) -> str:
                     unit_info.morphology.indeclinable
                     and next_token_lower.strip(".") == unit_info.lemma
                 ):
-                    case = get_numeral_case(tokens[: i + 1], i)
+                    case = get_numeral_case(
+                        tokens,
+                        i,
+                        _context=token_context,
+                        _visible_length=i + 1,
+                    )
                 preserve_unit_dot = (
                     unit_raw.endswith(".")
                     and not should_consume_abbreviation_dot(
@@ -260,27 +287,9 @@ def normalize_cardinal_numerals(text: str) -> str:
                 u_gender = unit_info.gender
                 u_category = unit_info.category
                 u_suffix = unit_info.suffix
-                multipliers = {"тысяча", "миллион", "миллиард", "триллион"}
-                currency_symbol_units = {
-                    "$",
-                    "€",
-                    "₽",
-                    "£",
-                    "¥",
-                    "₴",
-                    "₸",
-                    "₺",
-                    "₹",
-                    "¢",
-                    "₪",
-                    "₩",
-                    "₫",
-                    "₱",
-                    "₦",
-                }
                 if (
                     u_category == "money"
-                    and next_token_lower in currency_symbol_units
+                    and next_token_lower in _CURRENCY_SYMBOL_UNITS
                     and i + 2 < len(tokens)
                 ):
                     multiplier_token = tokens[i + 2]
@@ -288,7 +297,7 @@ def normalize_cardinal_numerals(text: str) -> str:
                     p_multiplier = first_parse_required(multiplier_lower)
                     if (
                         "NOUN" in p_multiplier.tag
-                        and p_multiplier.normal_form in multipliers
+                        and p_multiplier.normal_form in _MULTIPLIER_LEMMAS
                     ):
                         target_num_case = inanimate_cardinal_case(val, case)
                         multiplier_gender = p_multiplier.tag.gender or "masc"
@@ -360,7 +369,7 @@ def normalize_cardinal_numerals(text: str) -> str:
                     step += 1
                 if is_redundant_unit_token(i + step, lemma):
                     step += 1
-                if lemma in multipliers and i + 2 < len(tokens):
+                if lemma in _MULTIPLIER_LEMMAS and i + 2 < len(tokens):
                     next_next_token = tokens[i + 2]
                     nn_unit_info = resolve_unit_info(next_next_token)
                     if nn_unit_info:
@@ -429,11 +438,10 @@ def normalize_remaining_post_numeral_abbreviations(text: str) -> str:
     def preserve_sentence_boundary(
         match: re.Match[str], replacement: str, source_text: str
     ) -> str:
-        tail = source_text[match.end() :]
-        stripped_tail = tail.lstrip()
-        if not stripped_tail:
+        next_index, _ = first_non_whitespace_index(source_text, match.end())
+        if next_index >= len(source_text):
             return f"{replacement}."
-        next_char = stripped_tail[0]
+        next_char = source_text[next_index]
         if next_char in "\n.!?…":
             return f"{replacement}."
         return replacement

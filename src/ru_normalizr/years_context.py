@@ -10,7 +10,7 @@ from .numerals._constants import (
     resolve_unit_form,
     resolve_unit_info,
 )
-from .text_context import normalize_context_token, simple_tokenize
+from .text_context import TOKEN_PATTERN, normalize_context_token
 
 YEAR_MIN = 1000
 YEAR_MAX = 2100
@@ -33,7 +33,8 @@ _NON_YEAR_LEXICON = (
 
 def _leading_context_tokens(text: str, start: int, limit: int = 3) -> list[str]:
     tokens: list[str] = []
-    for token in simple_tokenize(text[start:]):
+    for token_match in TOKEN_PATTERN.finditer(text, start):
+        token = token_match.group(0)
         normalized = normalize_context_token(token)
         candidate = normalized or token.strip()
         if not candidate or candidate in _TRIVIA_TOKENS:

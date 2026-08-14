@@ -2,18 +2,20 @@ from __future__ import annotations
 
 import logging
 import re
+from functools import lru_cache
 
 import num2words
 
 from .._morph import first_parse_required, parse_word
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_context import PUNCT_STRIP, simple_tokenize
+from ..text_scan import first_non_whitespace_index
 from ._constants import PREP_CASE, UNIT_TOKEN_FRAGMENT, resolve_unit_info
 from ._helpers import (
     get_numeral_case,
     inflect_numeral_string,
     safe_inflect,
-    should_keep_decimal_unit_dot,
+    should_keep_decimal_unit_dot_at,
 )
 from .unit_rendering import render_unit_expression
 
@@ -31,6 +33,24 @@ DECIMAL_PATTERN = re.compile(
 )
 
 logger = logging.getLogger(__name__)
+
+_MULTIPLIER_LEMMAS = frozenset({"тысяча", "миллион", "миллиард", "триллион"})
+
+
+@lru_cache(maxsize=32)
+def _fraction_order_base(digits: int) -> str:
+    try:
+        return num2words.num2words(10**digits, lang="ru", to="ordinal")
+    except Exception as exc:
+        logger.debug("num2words failed for 10**%d ordinal: %s", digits, exc)
+        return {
+            1: "десятая",
+            2: "сотая",
+            3: "тысячная",
+            4: "десятитысячная",
+            5: "стотысячная",
+            6: "миллионная",
+        }.get(digits, "десятитысячная")
 
 
 def normalize_decimals(text: str) -> str:
@@ -63,18 +83,7 @@ def normalize_decimals(text: str) -> str:
     def render_fraction_order_words(digits: int, frac_val: int, case: str) -> str:
         if digits <= 0:
             return ""
-        try:
-            base = num2words.num2words(10**digits, lang="ru", to="ordinal")
-        except Exception as exc:
-            logger.debug("num2words failed for 10**%d ordinal: %s", digits, exc)
-            base = {
-                1: "десятая",
-                2: "сотая",
-                3: "тысячная",
-                4: "десятитысячная",
-                5: "стотысячная",
-                6: "миллионная",
-            }.get(digits, "десятитысячная")
+        base = _fraction_order_base(digits)
         parsed = parse_word(base)
         if not parsed:
             return base
@@ -89,13 +98,13 @@ def normalize_decimals(text: str) -> str:
         clean = token.lower().strip(PUNCT_STRIP)
         return bool(clean) and " " not in clean and clean in PREP_CASE
 
-    def should_skip_unit_candidate(unit_raw: str, rest: str) -> bool:
+    def should_skip_unit_candidate(unit_raw: str, source_text: str, start: int) -> bool:
         if not is_ambiguous_preposition_token(unit_raw):
             return False
-        stripped_rest = rest.lstrip()
-        if not stripped_rest:
+        next_index, _ = first_non_whitespace_index(source_text, start)
+        if next_index >= len(source_text):
             return False
-        next_char = stripped_rest[:1]
+        next_char = source_text[next_index]
         return bool(re.match(r"[^\W_]", next_char, re.UNICODE))
 
     def should_skip_combined_unit_candidate(unit_parts: list[str]) -> bool:
@@ -148,8 +157,9 @@ def normalize_decimals(text: str) -> str:
                     if unit_info:
                         unit_consumes_second_token = True
                         break
+            unit_tail_start = match.end("unit")
             if unit_info is None and not should_skip_unit_candidate(
-                unit_raw, text[match.end("unit") :]
+                unit_raw, text, unit_tail_start
             ):
                 unit_info = resolve_unit_info(unit_raw)
             unit2_processed = False
@@ -160,8 +170,7 @@ def normalize_decimals(text: str) -> str:
                     unit2_processed = True
                 elif unit2_raw:
                     unit2_info = resolve_unit_info(unit2_raw)
-                    multipliers = {"тысяча", "миллион", "миллиард", "триллион"}
-                    if lemma in multipliers and unit2_info:
+                    if lemma in _MULTIPLIER_LEMMAS and unit2_info:
                         lemma2 = unit2_info.lemma
                         if lemma2 == "человек":
                             result += " человек"
@@ -179,11 +188,11 @@ def normalize_decimals(text: str) -> str:
             if (
                 unit2_dot
                 and unit2_raw
-                and should_keep_decimal_unit_dot(text[match.end() :])
+                and should_keep_decimal_unit_dot_at(text, match.end())
             ) or (
                 unit_dot
                 and not unit2_raw
-                and should_keep_decimal_unit_dot(text[match.end() :])
+                and should_keep_decimal_unit_dot_at(text, match.end())
             ):
                 result += "."
         if is_negative:

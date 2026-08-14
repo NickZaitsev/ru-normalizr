@@ -31,8 +31,8 @@ def _render_component(component: str) -> str:
     return " ".join(words)
 
 
-def _is_followed_by_unit(rest: str) -> bool:
-    match = _TRAILING_UNIT_PATTERN.match(rest)
+def _is_followed_by_unit(text: str, start: int) -> bool:
+    match = _TRAILING_UNIT_PATTERN.match(text, start)
     return bool(match) and resolve_unit_info(match.group("unit")) is not None
 
 
@@ -49,7 +49,7 @@ def normalize_versions(text: str) -> str:
         # Two components are a fraction unless a name claims them, and even
         # then a following unit means it really is a measurement ("X-1.5 кг").
         if len(components) < 3 and (
-            not name or _is_followed_by_unit(text[match.end() :])
+            not name or _is_followed_by_unit(text, match.end())
         ):
             return match.group(0)
         spoken = f" {VERSION_SEPARATOR_WORD} ".join(

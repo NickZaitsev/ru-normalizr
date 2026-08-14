@@ -6,6 +6,8 @@
   Detokenizing the remaining suffix for every unit makes long books quadratic.
 - Word-level morphology and latinization caches must remain bounded; large batch
   paths should populate the same reusable per-word results as small paths.
+- Unit resolution, unit inflection, and grammar canonicalization caches must
+  remain bounded and keyed only by immutable semantic inputs.
 - Regex callbacks must match against the source with a start position; slicing
   the remaining document inside every callback makes full-book scans quadratic.
 

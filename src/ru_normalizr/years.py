@@ -15,6 +15,7 @@ from .abbreviation_context import (
 from .numerals._num2words import resolve_num2words_case, resolve_primary_case
 from .options import NormalizeOptions
 from .text_context import normalize_context_token, simple_tokenize
+from .text_scan import first_non_whitespace_index
 from .years_context import (
     YEAR_ANY_NUMBER_PATTERN,
     YEAR_IMPLICIT_PREP_PATTERN,
@@ -135,21 +136,20 @@ def _should_keep_era_terminal_dot(source_text: str, match: re.Match[str]) -> boo
     if raw_era is None or not raw_era.rstrip().endswith("."):
         return False
 
-    rest = source_text[match.end() :]
-    stripped_rest = rest.lstrip()
-    if not stripped_rest:
+    next_index, saw_newline = first_non_whitespace_index(source_text, match.end())
+    if next_index >= len(source_text):
         return True
-    if "\n" in rest[: len(rest) - len(stripped_rest)]:
+    if saw_newline:
         return True
-    next_char = stripped_rest[:1]
+    next_char = source_text[next_index]
     if next_char in '.!?…)"»”]}':
         return True
     if next_char.isupper():
         return True
     return (
         next_char in '"»”)]}'
-        and len(stripped_rest) > 1
-        and stripped_rest[1:2].isupper()
+        and next_index + 1 < len(source_text)
+        and source_text[next_index + 1].isupper()
     )
 
 

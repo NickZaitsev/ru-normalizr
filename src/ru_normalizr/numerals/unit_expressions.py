@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Literal
 
 from ._constants import UNIT_REGISTRY
@@ -18,6 +19,7 @@ class UnitExpression:
     source: str
 
 
+@lru_cache(maxsize=16384)
 def resolve_unit_expression(raw: str) -> UnitMatch | None:
     normalized = _SEPARATOR_SPACING.sub(r"\1", raw.strip())
     descriptor = UNIT_REGISTRY.resolve(normalized)

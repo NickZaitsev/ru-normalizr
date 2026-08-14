@@ -22,6 +22,7 @@ from ..preprocess_utils import (
     normalize_ascii_quote_pairs,
 )
 from ..text_context import PUNCT_STRIP, normalize_context_token
+from ..text_scan import first_non_whitespace_index
 from ._constants import (
     ENTITY_DEFAULT_CASE,
     ENTITY_KEYWORDS,
@@ -35,6 +36,24 @@ from ._num2words import (
     CARDINAL_GENDER_TO_NUM2WORDS,
     resolve_num2words_case,
     resolve_primary_case,
+)
+
+_TIME_CONTEXT_LEMMAS = frozenset(
+    {
+        *TIME_WORDS,
+        "январь",
+        "февраль",
+        "март",
+        "апрель",
+        "май",
+        "июнь",
+        "июль",
+        "август",
+        "сентябрь",
+        "октябрь",
+        "ноябрь",
+        "декабрь",
+    }
 )
 
 logger = logging.getLogger(__name__)
@@ -213,8 +232,16 @@ def inflect_unit_lemma(unit: UnitDescriptor | str, target_tags: set[str]) -> str
     descriptor = (
         unit if isinstance(unit, UnitDescriptor) else _unit_descriptor_for_lemma(unit)
     )
+    canonical_tags = frozenset(canonicalize_grammemes(target_tags))
+    return _inflect_unit_lemma_cached(descriptor, canonical_tags)
+
+
+@functools.lru_cache(maxsize=8192)
+def _inflect_unit_lemma_cached(
+    descriptor: UnitDescriptor, canonical_tags: frozenset[str]
+) -> str:
     lemma = descriptor.lemma
-    target_tags = set(canonicalize_grammemes(target_tags))
+    target_tags = set(canonical_tags)
 
     def pick_preferred_parse(word: str) -> Any | None:
         parsed = parse_word(word)
@@ -368,18 +395,22 @@ def should_consume_abbreviation_dot(tokens: list[str], dot_index: int) -> bool:
     return first_char.islower() or first_char.isdigit()
 
 
-def should_keep_decimal_unit_dot(rest: str) -> bool:
-    stripped_rest = rest.lstrip()
-    if not stripped_rest:
+def should_keep_decimal_unit_dot_at(source_text: str, start: int) -> bool:
+    next_index, saw_newline = first_non_whitespace_index(source_text, start)
+    if next_index >= len(source_text):
         return True
-    if "\n" in rest[: len(rest) - len(stripped_rest)]:
+    if saw_newline:
         return True
-    next_char = stripped_rest[:1]
+    next_char = source_text[next_index]
     if next_char in ".!?…":
         return True
     if next_char == ",":
         return False
     return not (next_char.islower() or next_char.isdigit())
+
+
+def should_keep_decimal_unit_dot(rest: str) -> bool:
+    return should_keep_decimal_unit_dot_at(rest, 0)
 
 
 def should_keep_tokenized_decimal_unit_dot(tokens: list[str], start_index: int) -> bool:
@@ -565,10 +596,14 @@ def get_numeral_case(
     idx: int,
     *,
     _context: _NumeralTokenContext | None = None,
+    _visible_length: int | None = None,
 ) -> str:
     if _context is None:
         _context = _build_numeral_token_context(tokens)
-    is_range_start = idx < len(tokens) - 1 and tokens[idx + 1] in {"-", "–", "—"}
+    visible_length = len(tokens) if _visible_length is None else min(_visible_length, len(tokens))
+    is_range_start = (
+        idx < visible_length - 1 and tokens[idx + 1] in {"-", "–", "—"}
+    )
     left_scan_start = _context.left_scan_starts[idx]
 
     if (
@@ -589,9 +624,13 @@ def get_numeral_case(
             if any(char in tokens[back] for char in ".!?;:"):
                 break
             if is_integer_token(tokens[back]):
-                return get_numeral_case(tokens, back, _context=_context)
+                return get_numeral_case(
+                    tokens, back, _context=_context, _visible_length=visible_length
+                )
     if idx > 1 and tokens[idx - 1] in {"-", "–", "—"} and is_integer_token(tokens[idx - 2]):
-        return get_numeral_case(tokens, idx - 2, _context=_context)
+        return get_numeral_case(
+            tokens, idx - 2, _context=_context, _visible_length=visible_length
+        )
     if idx > 0 and tokens[idx - 1] in {"-", "–", "—"}:
         # An em dash after an elided subject/predicate starts a fresh quantity:
         # "первый канал — 2 Мбит/с". Do not inherit an accidental pymorphy
@@ -632,7 +671,7 @@ def get_numeral_case(
     if prep_match is not None:
         word_left, prep_case = prep_match
         if word_left in {"с", "со"}:
-            for k in range(idx + 1, min(len(tokens), idx + 5)):
+            for k in range(idx + 1, min(visible_length, idx + 5)):
                 if tokens[k].lower() in {"до", "по"}:
                     return "gent"
                 right_parse = first_parse_required(tokens[k])
@@ -641,7 +680,7 @@ def get_numeral_case(
                         return "ablt"
                     break
         if word_left in {"в", "на"}:
-            for j in range(idx + 1, min(len(tokens), idx + 6)):
+            for j in range(idx + 1, min(visible_length, idx + 6)):
                 if any(char in tokens[j] for char in ".!?;:,"):
                     break
                 p = first_parse_required(tokens[j])
@@ -657,23 +696,10 @@ def get_numeral_case(
                         return "accs"
                 if "VERB" in p.tag or "INFN" in p.tag:
                     break
-            for j in range(idx + 1, min(len(tokens), idx + 4)):
+            for j in range(idx + 1, min(visible_length, idx + 4)):
                 p = first_parse_required(tokens[j])
                 word_norm = p.normal_form
-                if word_norm in set(TIME_WORDS) | {
-                    "январь",
-                    "февраль",
-                    "март",
-                    "апрель",
-                    "май",
-                    "июнь",
-                    "июль",
-                    "август",
-                    "сентябрь",
-                    "октябрь",
-                    "ноябрь",
-                    "декабрь",
-                }:
+                if word_norm in _TIME_CONTEXT_LEMMAS:
                     if is_integer_token(tokens[idx]):
                         parsed_num = parse_integer_token(tokens[idx])
                         if parsed_num is None:
@@ -726,7 +752,7 @@ def get_numeral_case(
         if any(char in tokens[i] for char in ".!?"):
             break
 
-    if idx < len(tokens) - 1:
+    if idx < visible_length - 1:
         word_right = tokens[idx + 1].lower().strip(".,!?;:")
         if word_right:
             p_right = first_parse_required(word_right)
@@ -739,7 +765,7 @@ def get_numeral_case(
                     if p_right.normal_form in keywords or word_right in keywords:
                         return ENTITY_DEFAULT_CASE[entity_type]
 
-    if idx < len(tokens) - 1:
+    if idx < visible_length - 1:
         word_right = tokens[idx + 1].lower().strip(".,!?;:")
         if word_right:
             p_right = first_parse_required(word_right)

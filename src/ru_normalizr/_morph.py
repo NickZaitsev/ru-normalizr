@@ -40,11 +40,18 @@ def parse_word(word: str) -> tuple[MorphParse, ...]:
     return _parse_word_lower(word.lower())
 
 
+@functools.lru_cache(maxsize=4096)
+def _canonicalize_grammemes_cached(grammemes: frozenset[str]) -> frozenset[str]:
+    return frozenset(get_morph().TagClass.fix_rare_cases(set(grammemes)))
+
+
 def canonicalize_grammemes(grammemes: Iterable[str]) -> frozenset[str]:
     """Convert pymorphy's rare cases through its authoritative tag policy."""
-    return get_morph().TagClass.fix_rare_cases(set(grammemes))
+    key = grammemes if isinstance(grammemes, frozenset) else frozenset(grammemes)
+    return _canonicalize_grammemes_cached(key)
 
 
+@functools.lru_cache(maxsize=32)
 def canonicalize_case(case: str | None, default: str = "nomn") -> str:
     """Return the primary pymorphy case for a possibly rare-case value."""
     if case is None:

@@ -384,6 +384,8 @@ def resolve_numeric_suffix(
 def normalize_numeric_suffixes(
     text: str, *, capitalize_text_start: bool = False
 ) -> str:
+    text_start_end = len(text) - len(text.lstrip(_TEXT_START_PREFIX_CHARS))
+
     def repl(match: re.Match[str]) -> str:
         number_text = match.group("number")
         suffix = match.group("suffix").casefold()
@@ -397,10 +399,9 @@ def normalize_numeric_suffixes(
         )
         if match.group("sign"):
             reading = f"минус {reading}"
-        prefix = text[: match.start()]
         if (
             capitalize_text_start
-            and not prefix.strip(_TEXT_START_PREFIX_CHARS)
+            and match.start() <= text_start_end
             and reading[:1].isalpha()
         ):
             reading = reading[:1].upper() + reading[1:]

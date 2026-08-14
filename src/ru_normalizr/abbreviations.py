@@ -32,6 +32,7 @@ from .constants import (
 from .numerals._constants import VERB_CASE
 from .numerals._helpers import safe_inflect
 from .options import InitialsPauseMode, LetterVowelMode, NormalizeOptions
+from .text_scan import first_non_whitespace_index
 
 _ETC_ABBREVIATION_PATTERN = re.compile(
     r"(?<!\w)(?P<abbr>т\.?\s*[дп]\.)(?P<tail>\s*)(?!\w)", re.IGNORECASE
@@ -109,7 +110,7 @@ _LANGUAGE_ORIGIN_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _FOLLOWING_NAME_TOKEN_PATTERN = re.compile(
-    rf"^\s+(?P<token>{RUSSIAN_NAME_TOKEN})(?![A-Za-zА-Яа-яЁё])"
+    rf"\s+(?P<token>{RUSSIAN_NAME_TOKEN})(?![A-Za-zА-Яа-яЁё])"
 )
 
 
@@ -120,24 +121,21 @@ def _expand_contextual_etc_abbreviations(text: str) -> str:
         normalized_abbr = re.sub(r"\s+", "", raw_abbr).lower()
         expansion = "так далее" if "д" in normalized_abbr else "тому подобное"
 
-        rest = text[match.end() :]
-        next_char = rest[:1]
-        stripped_rest = rest.lstrip()
-        next_significant = stripped_rest[:1]
-        has_linebreak_before_next = "\n" in tail or (
-            "\n" in rest and rest[: len(rest) - len(stripped_rest)] != ""
-        )
+        next_char = text[match.end()] if match.end() < len(text) else ""
+        next_index, saw_newline = first_non_whitespace_index(text, match.end())
+        next_significant = text[next_index] if next_index < len(text) else ""
+        has_linebreak_before_next = "\n" in tail or saw_newline
 
         keep_terminal_dot = (
-            not stripped_rest
+            not next_significant
             or has_linebreak_before_next
             or (next_significant and next_significant.isupper())
         )
 
         if (
             next_char in '"»”)]}'
-            and len(stripped_rest) > 1
-            and stripped_rest[1:2].isupper()
+            and next_index + 1 < len(text)
+            and text[next_index + 1].isupper()
         ):
             keep_terminal_dot = True
 
@@ -524,31 +522,32 @@ def expand_person_initials(
         )
 
     def has_following_person_name_token(match_end: int) -> bool:
-        match = _FOLLOWING_NAME_TOKEN_PATTERN.match(text[match_end:])
+        match = _FOLLOWING_NAME_TOKEN_PATTERN.match(text, match_end)
         if match is None:
             return False
         return is_confident_person_name_token(match.group("token"))
 
     def choose_tail(match_end: int) -> tuple[bool, bool]:
-        tail = text[match_end:]
-        stripped = tail.lstrip()
-        if not stripped:
+        next_index, _ = first_non_whitespace_index(text, match_end)
+        if next_index >= len(text):
             return True, False
+        stripped_first = text[next_index]
         # Opening marks only. A closing mark means the quotation ends here, so it
         # must reach the strip loop below instead: with "»" in this set too, the
         # opening test won and "Иванов А. Б.»" got the non-final comma form.
         # '"' and "'" stay here because they are ambiguous and default to opening.
-        if stripped[0] in "\"'«“„‟‚‘‹([{":
+        if stripped_first in "\"'«“„‟‚‘‹([{":
             return False, False
-        while stripped and stripped[0] in "\"'»”’›)]}":
-            stripped = stripped[1:].lstrip()
-        if not stripped:
+        while next_index < len(text) and text[next_index] in "\"'»”’›)]}":
+            next_index, _ = first_non_whitespace_index(text, next_index + 1)
+        if next_index >= len(text):
             return True, False
-        if stripped[0] in ".!?…":
+        stripped_first = text[next_index]
+        if stripped_first in ".!?…":
             return True, False
-        if stripped[0] in ",;:—–-":
+        if stripped_first in ",;:—–-":
             return False, True
-        if stripped[0].islower() or stripped[0].isdigit():
+        if stripped_first.islower() or stripped_first.isdigit():
             return False, False
         return True, False
 
@@ -562,7 +561,11 @@ def expand_person_initials(
         if is_final:
             terminal = (
                 ""
-                if text[match.end() :].lstrip().startswith((".", "!", "?", "…"))
+                if (
+                    (next_index := first_non_whitespace_index(text, match.end())[0])
+                    < len(text)
+                    and text[next_index] in ".!?…"
+                )
                 else "."
             )
             return f"{surname} {i1} {i2}{terminal}"
@@ -584,7 +587,11 @@ def expand_person_initials(
         if is_final:
             terminal = (
                 ""
-                if text[match.end() :].lstrip().startswith((".", "!", "?", "…"))
+                if (
+                    (next_index := first_non_whitespace_index(text, match.end())[0])
+                    < len(text)
+                    and text[next_index] in ".!?…"
+                )
                 else "."
             )
             return f"{surname} {i1}{terminal}"
@@ -602,7 +609,11 @@ def expand_person_initials(
         if is_final:
             terminal = (
                 ""
-                if text[match.end() :].lstrip().startswith((".", "!", "?", "…"))
+                if (
+                    (next_index := first_non_whitespace_index(text, match.end())[0])
+                    < len(text)
+                    and text[next_index] in ".!?…"
+                )
                 else "."
             )
             return f"{i1} {i2} {surname}{terminal}"
@@ -617,7 +628,11 @@ def expand_person_initials(
         if is_final:
             terminal = (
                 ""
-                if text[match.end() :].lstrip().startswith((".", "!", "?", "…"))
+                if (
+                    (next_index := first_non_whitespace_index(text, match.end())[0])
+                    < len(text)
+                    and text[next_index] in ".!?…"
+                )
                 else "."
             )
             return f"{i1} {surname}{terminal}"

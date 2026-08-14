@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from ._morph import parse_word
+from .text_scan import first_non_whitespace_index
 
 BIRTH_YEAR_ABBREVIATION_PATTERN = re.compile(
     r"(?<!\w)(?P<year>\d{2,4})\s*г\.\s*р\.(?!\w)",
@@ -12,31 +13,34 @@ MASS_GRAM_ABBREVIATION_PATTERN = re.compile(
     r"(?P<context>\b(?:вес|масса)\b\s+)(?P<num>\d+)\s*г(?P<dot>\.)?(?!\w)",
     re.IGNORECASE,
 )
+_SHORT_ABBREVIATED_YEAR_TOKEN_PATTERN = re.compile(r"[А-Яа-яЁёA-Za-z]+")
 
 
 def should_keep_terminal_abbreviation_dot(source_text: str, match_end: int) -> bool:
-    rest = source_text[match_end:]
-    stripped_rest = rest.lstrip()
-    if not stripped_rest:
+    next_index, saw_newline = first_non_whitespace_index(source_text, match_end)
+    if next_index >= len(source_text):
         return True
 
-    leading_space = rest[: len(rest) - len(stripped_rest)]
-    if "\n" in leading_space:
+    if saw_newline:
         return True
 
-    next_char = stripped_rest[:1]
+    next_char = source_text[next_index]
     if next_char in ".!?…" or next_char.isupper():
         return True
     if next_char in '"»”)]}':
-        after_closer = stripped_rest[1:].lstrip()
-        return not after_closer or after_closer[:1].isupper()
+        after_index, _ = first_non_whitespace_index(source_text, next_index + 1)
+        return after_index >= len(source_text) or source_text[after_index].isupper()
     return False
 
 
 def normalize_birth_year_abbreviations(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
-        tail = text[match.end() :].lstrip()
-        keep_terminal_dot = not tail or tail[:1].isupper() or tail[:1].isdigit()
+        next_index, _ = first_non_whitespace_index(text, match.end())
+        keep_terminal_dot = (
+            next_index >= len(text)
+            or text[next_index].isupper()
+            or text[next_index].isdigit()
+        )
         return f"{match.group('year')} г. рождения{'.' if keep_terminal_dot else ''}"
 
     return BIRTH_YEAR_ABBREVIATION_PATTERN.sub(repl, text)
@@ -59,14 +63,15 @@ def allows_short_abbreviated_year(
 ) -> bool:
     if prep:
         return True
-    tail = source_text[end:]
-    stripped_tail = tail.lstrip()
-    if not stripped_tail:
+    next_index, _ = first_non_whitespace_index(source_text, end)
+    if next_index >= len(source_text):
         return False
-    next_token_match = re.match(r"([А-Яа-яЁёA-Za-z]+)", stripped_tail)
+    next_token_match = _SHORT_ABBREVIATED_YEAR_TOKEN_PATTERN.match(
+        source_text, next_index
+    )
     if next_token_match is None:
         return False
-    next_token = next_token_match.group(1).lower()
+    next_token = next_token_match.group(0).lower()
     return next_token.startswith("рожд")
 
 

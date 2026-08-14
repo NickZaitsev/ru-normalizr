@@ -7,6 +7,7 @@ from .abbreviation_context import (
     normalize_mass_gram_abbreviations,
 )
 from .constants import CLEANUP_REPLACEMENTS, UNICODE_FRACTIONS
+from .text_scan import first_non_whitespace_index
 
 ASCII_DASH_SPACE_PATTERN = re.compile(r" - ")
 DOT_COMMA_PATTERN = re.compile(r"\.,")
@@ -196,19 +197,19 @@ def normalize_era_abbreviations(text: str) -> str:
         abbr = match.group("abbr")
         tail = match.group("tail")
         expansion = "до нашей эры" if abbr.lower().startswith("до") else "нашей эры"
-        rest = text[match.end() :]
-        stripped_rest = rest.lstrip()
+        next_index, _ = first_non_whitespace_index(text, match.end())
         keep_terminal_dot = False
         if abbr.rstrip().endswith("."):
             keep_terminal_dot = (
-                not stripped_rest
+                next_index >= len(text)
                 or "\n" in tail
-                or (stripped_rest[:1] and stripped_rest[:1].isupper())
+                or (next_index < len(text) and text[next_index].isupper())
             )
             if (
-                stripped_rest[:1] in '"»”)]}'
-                and len(stripped_rest) > 1
-                and stripped_rest[1:2].isupper()
+                next_index < len(text)
+                and text[next_index] in '"»”)]}'
+                and next_index + 1 < len(text)
+                and text[next_index + 1].isupper()
             ):
                 keep_terminal_dot = True
         return f"{expansion}{'.' if keep_terminal_dot else ''}{tail}"

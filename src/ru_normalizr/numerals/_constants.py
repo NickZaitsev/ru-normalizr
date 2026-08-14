@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import re
 
 from .unit_data import explicit_expression_aliases, generated_prefixed_aliases
@@ -897,10 +898,12 @@ for _symbol, _source_alias in {
 UNIT_REGISTRY = UnitRegistry(UNITS_DATA, CASE_SENSITIVE_UNITS_DATA)
 
 
+@functools.lru_cache(maxsize=16384)
 def resolve_unit_info(unit: str) -> UnitDescriptor | None:
     return UNIT_REGISTRY.resolve(unit)
 
 
+@functools.lru_cache(maxsize=16384)
 def resolve_unit_form(token: str) -> UnitDescriptor | None:
     direct = resolve_unit_info(token)
     if direct is not None:
