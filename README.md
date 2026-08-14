@@ -281,14 +281,20 @@ uv run pytest -q --cov=src/ru_normalizr --cov-branch --cov-report=term-missing
 uv run python scripts/benchmark.py --mode tts --json .benchmarks/base.json
 uv run python scripts/benchmark.py --mode tts --compare .benchmarks/base.json
 uv run python scripts/benchmark.py --mode tts --book path/to/book.txt
-uv run python scripts/benchmark.py --manifest path/to/MANIFEST.json --real-only --mode tts --samples 3
+uv run python scripts/benchmark.py --manifest benchmarks/corpus/MANIFEST.json \
+  --corpus 03_karamzin_history_of_russian_state \
+  --corpus 06_semenov_tyan_shansky_tien_shan_travel \
+  --real-only --mode tts --samples 3 --warmups 1 \
+  --partial-json .benchmarks/real.partial.json
 ```
 
 В `MANIFEST.json` для каждой книги указываются `plain_text_file` и проверка
 `verification.sha256`/размера/числа символов. Harness проверяет эти значения до
-замера и сохраняет SHA-256 входа в JSON-отчёте, поэтому baseline нельзя случайно
-сравнить с другой редакцией книги. Исходные `.txt` и манифест корпуса не берутся
-из `Downloads` в CI автоматически: runner должен получить тот же набор файлов.
+замера и сохраняет SHA-256 входа и результата, число символов результата и
+peak RSS в JSON-отчёте, поэтому baseline нельзя случайно сравнить с другой
+редакцией книги или изменившимся выводом. Набор public-domain `.txt` закреплён
+в `benchmarks/corpus`; его лицензия и источники описаны в `DATA_LICENSE.md`.
+`--prefix-chars` позволяет снять scaling-кривую на одном и том же тексте.
 
 Полный цикл проверки выпуска — очистка, сверка версий, линт, типы, тесты, сборка
 и `twine check`:
@@ -650,14 +656,18 @@ automatically for pull requests and pushes to `main`). Pass a real UTF-8 book wi
 uv run python scripts/benchmark.py --mode tts --json .benchmarks/base.json
 uv run python scripts/benchmark.py --mode tts --compare .benchmarks/base.json
 uv run python scripts/benchmark.py --mode tts --book path/to/book.txt
-uv run python scripts/benchmark.py --manifest path/to/MANIFEST.json --real-only --mode tts --samples 3
+uv run python scripts/benchmark.py --manifest benchmarks/corpus/MANIFEST.json \
+  --corpus 03_karamzin_history_of_russian_state \
+  --corpus 06_semenov_tyan_shansky_tien_shan_travel \
+  --real-only --mode tts --samples 3 --warmups 1 \
+  --partial-json .benchmarks/real.partial.json
 ```
 
 Each manifest entry must provide `plain_text_file` and `verification.sha256`,
 the byte size, and the character count. The harness verifies those values before
-timing and stores the input SHA-256 in the JSON report, preventing a baseline from
-being compared with a different edition. CI does not fetch files from a local
-`Downloads` directory; the same corpus must be provisioned on the runner first.
+timing, loads only the selected book, and stores input/output hashes, output size,
+and peak RSS in the JSON report. The tracked public-domain corpus lives under
+`benchmarks/corpus`; use `--prefix-chars` to measure scaling on one text.
 
 The full release verification cycle — clean, version sync, lint, types, tests,
 build, and `twine check`:

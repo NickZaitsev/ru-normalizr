@@ -3,10 +3,23 @@ import json
 
 import pytest
 
-from scripts.benchmark import BenchmarkResult, _load_manifest, find_regressions
+from scripts.benchmark import (
+    BenchmarkResult,
+    _load_manifest,
+    _load_report,
+    _write_report,
+    find_regressions,
+)
 
 
-def _result(median_seconds: float, input_sha256: str | None = None) -> BenchmarkResult:
+def _result(
+    median_seconds: float,
+    input_sha256: str | None = None,
+    *,
+    output_chars: int | None = None,
+    output_sha256: str | None = None,
+    peak_rss_bytes: int | None = None,
+) -> BenchmarkResult:
     return BenchmarkResult(
         input_chars=100,
         loops_per_sample=1,
@@ -15,6 +28,9 @@ def _result(median_seconds: float, input_sha256: str | None = None) -> Benchmark
         p95_seconds=median_seconds,
         throughput_chars_per_second=100 / median_seconds if median_seconds else 0,
         input_sha256=input_sha256,
+        output_chars=output_chars,
+        output_sha256=output_sha256,
+        peak_rss_bytes=peak_rss_bytes,
     )
 
 
@@ -74,6 +90,32 @@ def test_find_regressions_rejects_different_input_hash() -> None:
         )
 
 
+def test_find_regressions_rejects_different_output_hash() -> None:
+    with pytest.raises(ValueError, match="SHA-256 результата"):
+        find_regressions(
+            {
+                "scenario": _result(1.0, "a" * 64, output_chars=10, output_sha256="c" * 64)
+            },
+            {
+                "scenario": _result(1.0, "a" * 64, output_chars=10, output_sha256="d" * 64)
+            },
+            max_regression_percent=25.0,
+        )
+
+
+def test_find_regressions_reports_peak_rss_regression() -> None:
+    regressions = find_regressions(
+        {"scenario": _result(1.0, peak_rss_bytes=131)},
+        {"scenario": _result(1.0, peak_rss_bytes=100)},
+        max_regression_percent=25.0,
+        max_memory_regression_percent=30.0,
+    )
+
+    assert [(item.metric, item.change_percent) for item in regressions] == [
+        ("peak_rss_bytes", pytest.approx(31.0))
+    ]
+
+
 def test_load_manifest_reads_and_verifies_plain_text(tmp_path) -> None:
     book = tmp_path / "example.txt"
     text = "В 1856 году было 12 измерений.\n"
@@ -100,9 +142,19 @@ def test_load_manifest_reads_and_verifies_plain_text(tmp_path) -> None:
 
     books = _load_manifest(manifest)
 
-    assert [(book.name, len(book.text), book.input_sha256) for book in books] == [
+    assert [(book.name, book.input_chars, book.input_sha256) for book in books] == [
         ("example", len(text), hashlib.sha256(raw).hexdigest())
     ]
+    assert books[0].text is None
+    assert books[0].load_case().text == text
+    prefix = books[0].load_case(10)
+    assert prefix.name == "example_prefix_10"
+    assert prefix.input_sha256 == hashlib.sha256(text[:10].encode("utf-8")).hexdigest()
+    with pytest.raises(ValueError, match="длиннее текста"):
+        books[0].load_case(len(text) + 1)
+    book.write_text("изменённая версия", encoding="utf-8", newline="")
+    with pytest.raises(ValueError, match="изменился после проверки"):
+        books[0].load_case()
 
 
 def test_load_manifest_rejects_changed_plain_text(tmp_path) -> None:
@@ -125,3 +177,24 @@ def test_load_manifest_rejects_changed_plain_text(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="SHA-256 корпуса"):
         _load_manifest(manifest)
+
+
+def test_report_round_trip_preserves_output_and_memory_metrics(tmp_path) -> None:
+    report_path = tmp_path / "benchmark.json"
+    result = _result(
+        1.25,
+        "a" * 64,
+        output_chars=123,
+        output_sha256="b" * 64,
+        peak_rss_bytes=456,
+    )
+
+    _write_report(
+        report_path,
+        {"scenario": result},
+        samples=9,
+        warmups=1,
+        target_sample_seconds=0.15,
+    )
+
+    assert _load_report(report_path) == {"scenario": result}

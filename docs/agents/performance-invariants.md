@@ -14,9 +14,10 @@
 `scripts/benchmark.py` измеряет полный пайплайн на синтетических книгах размером
 500 000 символов: обычном тексте, смешанном тексте и насыщенном числами тексте.
 Через повторяемый `--book` можно добавить одну или несколько реальных UTF-8 книг
-или каталогов с `text.txt`. `--manifest MANIFEST.json --real-only` загружает набор
-корпусов из манифеста и перед замером проверяет SHA-256, размер и число символов;
-хэш каждого входа попадает в отчёт и участвует в проверке baseline.
+или каталогов с `text.txt`. `--manifest MANIFEST.json --real-only` загружает
+выбранные `--corpus` из манифеста по одному и перед замером проверяет SHA-256,
+размер и число символов; хэш каждого входа и результата, размер результата и
+peak RSS попадают в отчёт и участвуют в проверке baseline.
 Для каждого сценария выводятся
 медиана, p95 и пропускная способность в символах в секунду; перед замерами ленивые
 словари и морфологические кеши прогреваются.
@@ -32,10 +33,14 @@
 uv run python scripts/benchmark.py --mode tts --json .benchmarks/base.json
 uv run python scripts/benchmark.py --mode tts --compare .benchmarks/base.json
 uv run python scripts/benchmark.py --mode tts --book path/to/book.txt
-uv run python scripts/benchmark.py --manifest path/to/MANIFEST.json --real-only --mode tts --samples 3
+uv run python scripts/benchmark.py --manifest benchmarks/corpus/MANIFEST.json \
+  --corpus 03_karamzin_history_of_russian_state \
+  --corpus 06_semenov_tyan_shansky_tien_shan_travel \
+  --real-only --mode tts --samples 3 --warmups 1 \
+  --partial-json .benchmarks/real.partial.json
 ```
 
-Манифест и `.txt` должны быть доступны на машине запуска; локальный путь из
-`Downloads` не является частью CI-окружения автоматически. В репозиторий не
-следует добавлять новую редакцию книги без обновления манифеста и проверки
-лицензии корпуса.
+Зафиксированный public-domain корпус находится в `benchmarks/corpus`; его
+лицензия, источники и SHA-256 указаны в `DATA_LICENSE.md` и `MANIFEST.json`.
+Для scaling-профиля используйте `--prefix-chars`; для длинных запусков
+`--partial-json` сохраняет результат после каждого сценария.

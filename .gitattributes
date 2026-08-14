@@ -4,3 +4,6 @@
 *.yml text eol=lf
 *.toml text eol=lf
 *.dic text eol=lf
+benchmarks/corpus/*.txt text eol=lf
+benchmarks/corpus/MANIFEST.json text eol=lf
+benchmarks/corpus/DATA_LICENSE.md text eol=lf

@@ -112,8 +112,10 @@ jobs:
       - name: Checkout pull request
         uses: actions/checkout@v4
 
-      - name: Preserve benchmark harness
-        run: cp scripts/benchmark.py "$RUNNER_TEMP/benchmark.py"
+      - name: Preserve benchmark harness and corpus
+        run: |
+          cp scripts/benchmark.py "$RUNNER_TEMP/benchmark.py"
+          cp -R benchmarks/corpus "$RUNNER_TEMP/benchmark-corpus"
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -136,8 +138,18 @@ jobs:
           uv sync --frozen
           uv run python "$RUNNER_TEMP/benchmark.py" \
             --mode tts --case mixed --case number-dense --size 500000 \
-            --samples 3 \
-            --json "$RUNNER_TEMP/base.json"
+            --samples 5 --warmups 1 \
+            --json "$RUNNER_TEMP/base-synthetic.json"
+
+      - name: Benchmark base real corpus
+        run: |
+          uv run python "$RUNNER_TEMP/benchmark.py" \
+            --manifest "$RUNNER_TEMP/benchmark-corpus/MANIFEST.json" \
+            --corpus 03_karamzin_history_of_russian_state \
+            --corpus 06_semenov_tyan_shansky_tien_shan_travel \
+            --real-only --mode tts --samples 5 --warmups 1 \
+            --partial-json "$RUNNER_TEMP/base-real.partial.json" \
+            --json "$RUNNER_TEMP/base-real.json"
 
       - name: Checkout pull request again
         uses: actions/checkout@v4
@@ -147,10 +159,24 @@ jobs:
           uv sync --frozen
           uv run python scripts/benchmark.py \
             --mode tts --case mixed --case number-dense --size 500000 \
-            --samples 3 \
-            --compare "$RUNNER_TEMP/base.json" \
-            --json "$RUNNER_TEMP/current.json" \
-            --max-regression-percent 25
+            --samples 5 --warmups 1 \
+            --compare "$RUNNER_TEMP/base-synthetic.json" \
+            --json "$RUNNER_TEMP/current-synthetic.json" \
+            --max-regression-percent 25 \
+            --max-memory-regression-percent 30
+
+      - name: Benchmark and compare real corpus
+        run: |
+          uv run python scripts/benchmark.py \
+            --manifest benchmarks/corpus/MANIFEST.json \
+            --corpus 03_karamzin_history_of_russian_state \
+            --corpus 06_semenov_tyan_shansky_tien_shan_travel \
+            --real-only --mode tts --samples 5 --warmups 1 \
+            --partial-json "$RUNNER_TEMP/current-real.partial.json" \
+            --compare "$RUNNER_TEMP/base-real.json" \
+            --json "$RUNNER_TEMP/current-real.json" \
+            --max-regression-percent 25 \
+            --max-memory-regression-percent 30
 
       - name: Upload benchmark metrics
         if: always()
@@ -158,5 +184,60 @@ jobs:
         with:
           name: performance-metrics
           path: |
-            ${{ runner.temp }}/base.json
-            ${{ runner.temp }}/current.json
+            ${{ runner.temp }}/base-synthetic.json
+            ${{ runner.temp }}/current-synthetic.json
+            ${{ runner.temp }}/base-real.json
+            ${{ runner.temp }}/base-real.partial.json
+            ${{ runner.temp }}/current-real.json
+            ${{ runner.temp }}/current-real.partial.json
+
+  performance-nightly:
+    name: Full corpus performance (nightly)
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          version: "0.11.29"
+          enable-cache: true
+
+      - name: Sync locked dependencies
+        run: uv sync --frozen
+
+      - name: Benchmark every real book in an isolated process
+        shell: bash
+        run: |
+          set -euo pipefail
+          for corpus in \
+            01_solovyov_history_of_russia \
+            02_russian_army_and_navy_modern \
+            02b_russian_army_and_navy_pre_reform \
+            03_karamzin_history_of_russian_state \
+            04_kostomarov_russian_history_biographies \
+            05_nebolsin_conquest_of_siberia \
+            06_semenov_tyan_shansky_tien_shan_travel; do
+            uv run python scripts/benchmark.py \
+              --manifest benchmarks/corpus/MANIFEST.json \
+              --corpus "$corpus" --real-only --mode tts \
+              --samples 3 --warmups 1 \
+              --partial-json "$RUNNER_TEMP/$corpus.partial.json" \
+              --json "$RUNNER_TEMP/$corpus.json"
+          done
+
+      - name: Upload nightly corpus metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-nightly-metrics
+          path: |
+            ${{ runner.temp }}/*.json
