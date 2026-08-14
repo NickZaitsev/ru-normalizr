@@ -10,6 +10,7 @@ from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_context import PUNCT_STRIP, normalize_context_token, simple_tokenize
 from ..text_scan import first_non_whitespace_index
 from ._constants import (
+    CURRENCY_SYMBOLS,
     DIGIT_PATTERN,
     NUMERIC_UNIT_RANGE_PATTERN,
     POST_NUMERAL_ABBREVIATION_PATTERN,
@@ -26,6 +27,7 @@ from ._helpers import (
     detokenize,
     get_numeral_case,
     get_target_tags_for_number,
+    inanimate_cardinal_case,
     inflect_numeral_string,
     inflect_unit_lemma,
     noun_number_form,
@@ -40,25 +42,7 @@ from .unit_rendering import render_unit_expression
 logger = logging.getLogger(__name__)
 
 _MULTIPLIER_LEMMAS = frozenset({"тысяча", "миллион", "миллиард", "триллион"})
-_CURRENCY_SYMBOL_UNITS = frozenset(
-    {
-        "$",
-        "€",
-        "₽",
-        "£",
-        "¥",
-        "₴",
-        "₸",
-        "₺",
-        "₹",
-        "¢",
-        "₪",
-        "₩",
-        "₫",
-        "₱",
-        "₦",
-    }
-)
+_CURRENCY_SYMBOL_UNITS = CURRENCY_SYMBOLS
 
 
 def _resolve_range_unit_info(unit_raw: str):
@@ -135,14 +119,6 @@ def normalize_cardinal_numerals(text: str) -> str:
     def is_ambiguous_preposition_token(token: str) -> bool:
         clean = token.lower().strip(PUNCT_STRIP)
         return bool(clean) and " " not in clean and clean in PREP_CASE
-
-    def inanimate_cardinal_case(value: int, case: str) -> str:
-        if case != "accs":
-            return case
-        final_group_needs_accusative = value % 10 == 1 and value % 100 != 11
-        thousands = (value // 1000) % 1000
-        thousands_need_accusative = thousands % 10 == 1 and thousands % 100 != 11
-        return "accs" if final_group_needs_accusative or thousands_need_accusative else "nomn"
 
     def should_skip_unit_candidate(start_index: int, token_span: int, unit_raw: str) -> bool:
         chunk = tokens[start_index : start_index + token_span]

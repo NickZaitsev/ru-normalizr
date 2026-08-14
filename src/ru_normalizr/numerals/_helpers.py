@@ -364,6 +364,23 @@ def paucal_accusative_case(value: int, case: str, *, animate: bool) -> str:
     return "gent" if animate and value in (2, 3, 4) else "nomn"
 
 
+def inanimate_cardinal_case(value: int, case: str) -> str:
+    """Case for a cardinal in the accusative before an inanimate counted noun.
+
+    Only a numeral whose final group ends in 1 keeps the accusative ("выставили
+    на одну тысячу двести пятьдесят рублей"); every other ending is identical to
+    the nominative, so asking pymorphy for the accusative only risks a wrong
+    form. The thousands group is checked separately because "тысяча" is the word
+    that actually inflects in "одну тысячу двести".
+    """
+    if case != "accs":
+        return case
+    final_group_needs_accusative = value % 10 == 1 and value % 100 != 11
+    thousands = (value // 1000) % 1000
+    thousands_need_accusative = thousands % 10 == 1 and thousands % 100 != 11
+    return "accs" if final_group_needs_accusative or thousands_need_accusative else "nomn"
+
+
 def noun_number_form(n: int) -> str:
     if n == 0:
         return "many"
