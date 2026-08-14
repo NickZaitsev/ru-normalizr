@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import gc
+import hashlib
 import json
 import math
 import platform
@@ -18,7 +19,7 @@ from typing import Any
 
 from ru_normalizr import NormalizeOptions, Normalizer
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 DEFAULT_MAX_REGRESSION_PERCENT = 25.0
 DEFAULT_BOOK_SIZE = 500_000
 
@@ -29,6 +30,7 @@ class BenchmarkCase:
 
     name: str
     text: str
+    input_sha256: str
 
 
 @dataclass(frozen=True)
@@ -41,6 +43,7 @@ class BenchmarkResult:
     median_seconds: float
     p95_seconds: float
     throughput_chars_per_second: float
+    input_sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -57,6 +60,7 @@ class Regression:
 class _Scenario:
     name: str
     input_chars: int
+    input_sha256: str
     operation: Callable[[], object]
 
 
@@ -65,33 +69,31 @@ def _repeated_sample(fragment: str, size: int) -> str:
     return (fragment * repetitions)[:size]
 
 
+def _sha256_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 def _synthetic_cases(size: int) -> dict[str, BenchmarkCase]:
+    plain = _repeated_sample(
+        "Обычный русский текст без специальных конструкций. "
+        "Библиотека должна сохранить смысл, пробелы и пунктуацию. ",
+        size,
+    )
+    mixed = _repeated_sample(
+        "Глава IV. В 1991–2002 годах компания ABC Ltd. выпустила 15 моделей "
+        "iPhone 12. Встреча 12.05.2025 в 10:07. Объём 3,5 ТБ, скорость "
+        "100 МБ/с, точность 99,5%. ",
+        size,
+    )
+    number_dense = _repeated_sample(
+        "В 1995 году 125 человек купили 3,5 кг по цене 1 250 руб. "
+        "с 5 по 10 января; температура 25 °C, главы IV–VI. ",
+        size,
+    )
     return {
-        "plain": BenchmarkCase(
-            "plain",
-            _repeated_sample(
-                "Обычный русский текст без специальных конструкций. "
-                "Библиотека должна сохранить смысл, пробелы и пунктуацию. ",
-                size,
-            ),
-        ),
-        "mixed": BenchmarkCase(
-            "mixed",
-            _repeated_sample(
-                "Глава IV. В 1991–2002 годах компания ABC Ltd. выпустила 15 моделей "
-                "iPhone 12. Встреча 12.05.2025 в 10:07. Объём 3,5 ТБ, скорость "
-                "100 МБ/с, точность 99,5%. ",
-                size,
-            ),
-        ),
-        "number-dense": BenchmarkCase(
-            "number-dense",
-            _repeated_sample(
-                "В 1995 году 125 человек купили 3,5 кг по цене 1 250 руб. "
-                "с 5 по 10 января; температура 25 °C, главы IV–VI. ",
-                size,
-            ),
-        ),
+        "plain": BenchmarkCase("plain", plain, _sha256_text(plain)),
+        "mixed": BenchmarkCase("mixed", mixed, _sha256_text(mixed)),
+        "number-dense": BenchmarkCase("number-dense", number_dense, _sha256_text(number_dense)),
     }
 
 
@@ -102,6 +104,107 @@ def _resolve_book_text(path: Path) -> Path:
     if extracted_text.is_file():
         return extracted_text
     raise FileNotFoundError(f"Не найден текст книги: {path}")
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        while chunk := stream.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _validated_sha256(value: object, *, label: str) -> str:
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(character not in "0123456789abcdefABCDEF" for character in value)
+    ):
+        raise ValueError(f"Некорректный SHA-256 для {label}")
+    return value.lower()
+
+
+def _read_book(
+    path: Path,
+    *,
+    name: str,
+    expected_sha256: str | None = None,
+    expected_bytes: int | None = None,
+    expected_chars: int | None = None,
+) -> BenchmarkCase:
+    book_path = _resolve_book_text(path)
+    actual_bytes = book_path.stat().st_size
+    if expected_bytes is not None and actual_bytes != expected_bytes:
+        raise ValueError(
+            f"Размер корпуса {name!r} не совпадает с MANIFEST: "
+            f"{expected_bytes} -> {actual_bytes} байт"
+        )
+
+    actual_sha256 = _file_sha256(book_path)
+    if expected_sha256 is not None and actual_sha256 != expected_sha256:
+        raise ValueError(
+            f"SHA-256 корпуса {name!r} не совпадает с MANIFEST: "
+            f"ожидался {expected_sha256}, получен {actual_sha256}"
+        )
+
+    with book_path.open("r", encoding="utf-8", newline="") as stream:
+        text = stream.read()
+    if expected_chars is not None and len(text) != expected_chars:
+        raise ValueError(
+            f"Число символов корпуса {name!r} не совпадает с MANIFEST: "
+            f"{expected_chars} -> {len(text)}"
+        )
+    return BenchmarkCase(name, text, actual_sha256)
+
+
+def _load_manifest(path: Path) -> tuple[BenchmarkCase, ...]:
+    raw: Any = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict) or not isinstance(raw.get("works"), list):
+        raise ValueError(f"MANIFEST не содержит массива works: {path}")
+
+    books: list[BenchmarkCase] = []
+    seen_names: set[str] = set()
+    for index, entry in enumerate(raw["works"]):
+        if not isinstance(entry, dict):
+            raise ValueError(f"Некорректная запись works[{index}] в MANIFEST: {path}")
+        plain_text_file = entry.get("plain_text_file")
+        if not isinstance(plain_text_file, str) or not plain_text_file:
+            raise ValueError(f"В works[{index}] отсутствует plain_text_file: {path}")
+
+        relative_path = Path(plain_text_file)
+        book_path = relative_path if relative_path.is_absolute() else path.parent / relative_path
+        name = relative_path.stem or f"book-{index + 1}"
+        if name in seen_names:
+            raise ValueError(f"Дублирующееся имя корпуса {name!r} в MANIFEST: {path}")
+        seen_names.add(name)
+
+        verification = entry.get("verification", {})
+        if not isinstance(verification, dict):
+            raise ValueError(f"Некорректный verification для {name!r} в MANIFEST: {path}")
+        expected_sha256 = verification.get("sha256")
+        if expected_sha256 is not None and not isinstance(expected_sha256, str):
+            raise ValueError(f"Некорректный sha256 для {name!r} в MANIFEST: {path}")
+        if expected_sha256 is not None:
+            expected_sha256 = _validated_sha256(expected_sha256, label=name)
+        expected_bytes = verification.get("bytes")
+        if expected_bytes is not None and not isinstance(expected_bytes, int):
+            raise ValueError(f"Некорректный bytes для {name!r} в MANIFEST: {path}")
+        expected_chars = verification.get("characters")
+        if expected_chars is not None and not isinstance(expected_chars, int):
+            raise ValueError(f"Некорректный characters для {name!r} в MANIFEST: {path}")
+
+        books.append(
+            _read_book(
+                book_path,
+                name=name,
+                expected_sha256=expected_sha256,
+                expected_bytes=expected_bytes,
+                expected_chars=expected_chars,
+            )
+        )
+    if not books:
+        raise ValueError(f"MANIFEST не содержит корпусов: {path}")
+    return tuple(books)
 
 
 def _options_for_mode(mode: str) -> NormalizeOptions:
@@ -133,6 +236,11 @@ def find_regressions(
                 f"Размер входа сценария {name!r} изменился: "
                 f"{baseline_result.input_chars} -> {current_result.input_chars}"
             )
+        if (
+            current_result.input_sha256 is not None
+            or baseline_result.input_sha256 is not None
+        ) and current_result.input_sha256 != baseline_result.input_sha256:
+            raise ValueError(f"SHA-256 входа сценария {name!r} изменился")
         if baseline_result.median_seconds <= 0:
             raise ValueError(f"Некорректная baseline-медиана сценария {name!r}")
         change_percent = (
@@ -151,13 +259,20 @@ def find_regressions(
 
 
 def _build_scenarios(
-    *, size: int, case_names: Sequence[str], modes: Sequence[str], book: Path | None
+    *,
+    size: int,
+    case_names: Sequence[str],
+    modes: Sequence[str],
+    books: Sequence[BenchmarkCase],
+    include_synthetic: bool,
 ) -> tuple[_Scenario, ...]:
-    available_cases = _synthetic_cases(size)
-    cases = [available_cases[name] for name in case_names]
-    if book is not None:
-        book_path = _resolve_book_text(book)
-        cases.append(BenchmarkCase("book", book_path.read_text(encoding="utf-8")))
+    cases: list[BenchmarkCase] = []
+    if include_synthetic:
+        available_cases = _synthetic_cases(size)
+        cases.extend(available_cases[name] for name in case_names)
+    cases.extend(books)
+    if not cases:
+        raise ValueError("Не выбран ни один benchmark-корпус")
 
     scenarios: list[_Scenario] = []
     for case in cases:
@@ -167,6 +282,7 @@ def _build_scenarios(
                 _Scenario(
                     name=f"{case.name}_{mode}",
                     input_chars=len(case.text),
+                    input_sha256=case.input_sha256,
                     operation=lambda case=case, normalizer=normalizer: normalizer.normalize(
                         case.text
                     ),
@@ -211,6 +327,7 @@ def _measure_scenario(
         median_seconds=median_seconds,
         p95_seconds=ordered[p95_index],
         throughput_chars_per_second=scenario.input_chars / median_seconds,
+        input_sha256=scenario.input_sha256,
     )
 
 
@@ -221,7 +338,8 @@ def _run_benchmarks(
     size: int,
     case_names: Sequence[str],
     modes: Sequence[str],
-    book: Path | None,
+    books: Sequence[BenchmarkCase],
+    include_synthetic: bool,
 ) -> dict[str, BenchmarkResult]:
     return {
         scenario.name: _measure_scenario(
@@ -233,7 +351,8 @@ def _run_benchmarks(
             size=size,
             case_names=case_names,
             modes=modes,
-            book=book,
+            books=books,
+            include_synthetic=include_synthetic,
         )
     }
 
@@ -278,6 +397,7 @@ def _load_report(path: Path) -> dict[str, BenchmarkResult]:
                 median_seconds=float(values["median_seconds"]),
                 p95_seconds=float(values["p95_seconds"]),
                 throughput_chars_per_second=float(values["throughput_chars_per_second"]),
+                input_sha256=_validated_sha256(values["input_sha256"], label=name),
             )
     except (KeyError, TypeError, ValueError) as exc:
         raise ValueError(f"Повреждён benchmark-отчёт: {path}") from exc
@@ -323,11 +443,40 @@ def _positive_float(value: str) -> float:
     return parsed
 
 
+def _load_cli_books(paths: Sequence[Path]) -> tuple[BenchmarkCase, ...]:
+    books: list[BenchmarkCase] = []
+    seen_names: set[str] = set()
+    for index, path in enumerate(paths):
+        resolved_path = _resolve_book_text(path)
+        name = "book" if len(paths) == 1 else resolved_path.stem
+        if name in seen_names:
+            name = f"{name}-{index + 1}"
+        seen_names.add(name)
+        books.append(_read_book(path, name=name))
+    return tuple(books)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", type=Path, help="сохранить метрики в JSON")
     parser.add_argument("--compare", type=Path, help="сравнить с JSON baseline")
-    parser.add_argument("--book", type=Path, help="UTF-8 файл книги или каталог с text.txt")
+    parser.add_argument(
+        "--book",
+        type=Path,
+        action="append",
+        dest="books",
+        help="UTF-8 файл книги или каталог с text.txt; параметр можно повторить",
+    )
+    parser.add_argument(
+        "--manifest",
+        type=Path,
+        help="MANIFEST.json с проверенными plain_text_file и SHA-256",
+    )
+    parser.add_argument(
+        "--real-only",
+        action="store_true",
+        help="измерять только --book/--manifest, без синтетических корпусов",
+    )
     parser.add_argument("--mode", choices=("safe", "tts", "both"), default="both")
     parser.add_argument(
         "--case",
@@ -364,13 +513,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         baseline = _load_report(args.compare) if args.compare else None
         modes = ("safe", "tts") if args.mode == "both" else (args.mode,)
         case_names = tuple(args.cases or ("plain", "mixed", "number-dense"))
+        manifest_books = _load_manifest(args.manifest) if args.manifest else ()
+        cli_books = _load_cli_books(tuple(args.books or ()))
+        books = (*manifest_books, *cli_books)
+        book_names = [book.name for book in books]
+        if len(book_names) != len(set(book_names)):
+            raise ValueError("Имена корпусов из --manifest и --book должны быть уникальными")
         current = _run_benchmarks(
             samples=args.samples,
             target_sample_seconds=args.target_sample_seconds,
             size=args.size,
             case_names=case_names,
             modes=modes,
-            book=args.book,
+            books=books,
+            include_synthetic=not args.real_only,
         )
         _print_results(current, baseline)
         if args.json:

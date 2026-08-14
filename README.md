@@ -275,13 +275,20 @@ uv run pytest -q --cov=src/ru_normalizr --cov-branch --cov-report=term-missing
 Локальный замер полного TTS-пайплайна на синтетических книгах по 500 000 символов
 и сравнение с сохранённым baseline (CI автоматически сравнивает смешанную и
 насыщенную числами книги для pull request и push в `main`). Реальную UTF-8 книгу можно передать
-через `--book`:
+через `--book`; параметр можно повторять. Для набора книг используйте `MANIFEST.json`:
 
 ```bash
 uv run python scripts/benchmark.py --mode tts --json .benchmarks/base.json
 uv run python scripts/benchmark.py --mode tts --compare .benchmarks/base.json
 uv run python scripts/benchmark.py --mode tts --book path/to/book.txt
+uv run python scripts/benchmark.py --manifest path/to/MANIFEST.json --real-only --mode tts --samples 3
 ```
+
+В `MANIFEST.json` для каждой книги указываются `plain_text_file` и проверка
+`verification.sha256`/размера/числа символов. Harness проверяет эти значения до
+замера и сохраняет SHA-256 входа в JSON-отчёте, поэтому baseline нельзя случайно
+сравнить с другой редакцией книги. Исходные `.txt` и манифест корпуса не берутся
+из `Downloads` в CI автоматически: runner должен получить тот же набор файлов.
 
 Полный цикл проверки выпуска — очистка, сверка версий, линт, типы, тесты, сборка
 и `twine check`:
@@ -636,13 +643,21 @@ uv run pytest -q --cov=src/ru_normalizr --cov-branch --cov-report=term-missing
 
 Local full TTS pipeline benchmark on synthetic 500,000-character books and
 comparison against a saved baseline (CI compares the mixed and number-dense books
-automatically for pull requests and pushes to `main`). Pass a real UTF-8 book with `--book`:
+automatically for pull requests and pushes to `main`). Pass a real UTF-8 book with `--book`
+(repeat the option for several books), or use a verified `MANIFEST.json`:
 
 ```bash
 uv run python scripts/benchmark.py --mode tts --json .benchmarks/base.json
 uv run python scripts/benchmark.py --mode tts --compare .benchmarks/base.json
 uv run python scripts/benchmark.py --mode tts --book path/to/book.txt
+uv run python scripts/benchmark.py --manifest path/to/MANIFEST.json --real-only --mode tts --samples 3
 ```
+
+Each manifest entry must provide `plain_text_file` and `verification.sha256`,
+the byte size, and the character count. The harness verifies those values before
+timing and stores the input SHA-256 in the JSON report, preventing a baseline from
+being compared with a different edition. CI does not fetch files from a local
+`Downloads` directory; the same corpus must be provisioned on the runner first.
 
 The full release verification cycle — clean, version sync, lint, types, tests,
 build, and `twine check`:
