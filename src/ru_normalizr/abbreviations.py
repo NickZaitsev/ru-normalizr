@@ -81,10 +81,7 @@ _CASE_CONTEXT_BARRIER_POS = frozenset(
     }
 )
 _WORD_AMPERSAND_PATTERN = re.compile(
-    r"&\s*(?P<right>[A-Za-zА-Яа-яЁё]+(?:[-'][A-Za-zА-Яа-яЁё0-9]+)*)"
-)
-_WORD_AMPERSAND_TOKEN_PATTERN = re.compile(
-    r"[A-Za-zА-Яа-яЁё]+(?:[-'][A-Za-zА-Яа-яЁё0-9]+)*\Z"
+    r"(?P<left>[A-Za-zА-Яа-яЁё]+(?:[-'][A-Za-zА-Яа-яЁё0-9]+)*)\s*&\s*(?P<right>[A-Za-zА-Яа-яЁё]+(?:[-'][A-Za-zА-Яа-яЁё0-9]+)*)"
 )
 _AMPERSAND_CANDIDATE_PATTERN = re.compile(r"&")
 _SINGLE_TOKEN_EN_LETTER_NAMES = frozenset(
@@ -706,7 +703,9 @@ def _normalize_contextual_ampersands(
     def is_english_letter_name(token: str) -> bool:
         return token.lower() in _SINGLE_TOKEN_EN_LETTER_NAMES
 
-    def normalize_pair(left: str, right: str, source: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        left = match.group("left")
+        right = match.group("right")
         left_has_ascii = has_ascii_letters(left)
         right_has_ascii = has_ascii_letters(right)
         left_is_english = is_english_letter_name(left)
@@ -732,39 +731,9 @@ def _normalize_contextual_ampersands(
         ):
             return f"{left} и {right}"
 
-        return source
+        return match.group(0)
 
-    pieces: list[str] = []
-    last_end = 0
-    changed = False
-    for match in _WORD_AMPERSAND_PATTERN.finditer(text):
-        left_end = match.start()
-        left_start = left_end
-        while left_start > 0 and text[left_start - 1].isspace():
-            left_start -= 1
-        left_token_end = left_start
-        while left_start > 0 and (
-            text[left_start - 1].isalnum() or text[left_start - 1] in "-'"
-        ):
-            left_start -= 1
-        left = text[left_start:left_token_end]
-        if (
-            left_start < last_end
-            or _WORD_AMPERSAND_TOKEN_PATTERN.fullmatch(left) is None
-        ):
-            continue
-        right = match.group("right")
-        source = text[left_start : match.end()]
-        pieces.append(text[last_end:left_start])
-        replacement = normalize_pair(left, right, source)
-        pieces.append(replacement)
-        changed = changed or replacement != source
-        last_end = match.end()
-
-    if not changed:
-        return text
-    pieces.append(text[last_end:])
-    return "".join(pieces)
+    return _WORD_AMPERSAND_PATTERN.sub(repl, text)
 
 
 def expand_abbreviations(text: str, options: NormalizeOptions | None = None) -> str:
