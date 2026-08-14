@@ -7,7 +7,7 @@ from .abbreviation_context import (
     normalize_mass_gram_abbreviations,
 )
 from .constants import CLEANUP_REPLACEMENTS, UNICODE_FRACTIONS
-from .text_scan import contains_pattern, first_non_whitespace_index
+from .text_scan import first_non_whitespace_index
 
 ASCII_DASH_SPACE_PATTERN = re.compile(r" - ")
 DOT_COMMA_PATTERN = re.compile(r"\.,")
@@ -17,7 +17,6 @@ UNIT_SLASH_PATTERN = re.compile(
     r"(?<![\w/])(?P<left>[A-Za-zА-Яа-яЁёµμ]+(?:\^?[23]|[²³])?)/"
     r"(?P<right>[A-Za-zА-Яа-яЁёµμ]+)(?![\w/])"
 )
-SLASH_CANDIDATE_PATTERN = re.compile(r"/")
 NUMBER_CLEANUP_PATTERN = re.compile(
     r"(?<!\d)(?:\d{1,3}(?:[ \u00A0\u2009\u202F]\d{3})+|\d+)(?:[,\.]\d+)?(?!\d)"
 )
@@ -65,8 +64,6 @@ EXPLICIT_DASH_TRANSLATION = str.maketrans({"–": "—", "―": "—"})
 
 def protect_unit_slashes(text: str) -> str:
     # Lazy import avoids a preprocess -> numerals -> preprocess import cycle.
-    if not contains_pattern(text, SLASH_CANDIDATE_PATTERN):
-        return text
     from .numerals.unit_expressions import resolve_unit_expression
 
     def repl(match: re.Match[str]) -> str:
@@ -103,8 +100,6 @@ UNARY_MINUS_NUMBER_PATTERN = re.compile(
 UNARY_PLUS_NUMBER_PATTERN = re.compile(
     r"(?P<prefix>^|[(\[{«=,:;]|(?<![\d\s])\s)\+(?P<number>\d+(?:[.,]\d+)?)"
 )
-UNARY_MINUS_CANDIDATE_PATTERN = re.compile(r"[-−]")
-UNARY_PLUS_CANDIDATE_PATTERN = re.compile(r"\+")
 THOUSANDS_SEPARATORS = " \u00a0\u2009\u202f"
 SIGNED_COMMA_NUMBER_PATTERN = re.compile(
     r"^[−-]?(?:\d{1,3}(?:[" + THOUSANDS_SEPARATORS + r"]\d{3})+|\d+),\d+$"
@@ -146,7 +141,6 @@ QUOTE_SHAPE_PATTERN = re.compile(
 )
 QUOTE_VARIANT_PATTERN = re.compile(r"[«»“”„‟〝〞＂]")
 QUOTE_CANDIDATES = frozenset('"\'`´«»‘’‚‛‹›“”„‟〝〞＂')
-QUOTE_CANDIDATE_PATTERN = re.compile(r'''["'`´«»‘’‚‛‹›“”„‟〝〞＂]''')
 PAGE_ABBREVIATION_PATTERN = re.compile(r"\b[сp]\.\s*(?=\d)", re.IGNORECASE)
 PAGE_FULL_ABBREVIATION_PATTERN = re.compile(r"\bстр\.\s*(?=\d)", re.IGNORECASE)
 ARTICLE_ABBREVIATION_PATTERN = re.compile(r"\bст\.\s*(?=\d)", re.IGNORECASE)
@@ -176,11 +170,9 @@ ERA_ABBREVIATION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 def normalize_ascii_quote_pairs(text: str) -> str:
-    if not contains_pattern(text, QUOTE_CANDIDATE_PATTERN):
+    if QUOTE_CANDIDATES.isdisjoint(text):
         return text
     if QUOTE_SHAPE_PATTERN.search(text) is None:
-        if '"' not in text:
-            return text
         text = SPACE_INSIDE_QUOTES_PATTERN.sub(r'\1"\2"', text)
         text = SPACE_AFTER_OPEN_QUOTE_PATTERN.sub(r'\1"', text)
         return SPACE_BEFORE_CLOSE_QUOTE_PATTERN.sub('"', text)
@@ -282,9 +274,6 @@ def normalize_spaced_ascii_hyphens(text: str) -> str:
 
 
 def protect_negative_numbers(text: str) -> str:
-    if not contains_pattern(text, UNARY_MINUS_CANDIDATE_PATTERN):
-        return text
-
     def repl(match: re.Match[str]) -> str:
         prefix = match.group("prefix")
         number = match.group("number")
@@ -296,8 +285,6 @@ def protect_negative_numbers(text: str) -> str:
 def normalize_unary_plus_numbers(text: str) -> str:
     """Read a plus glued to a number as a unary positive sign."""
 
-    if not contains_pattern(text, UNARY_PLUS_CANDIDATE_PATTERN):
-        return text
     return UNARY_PLUS_NUMBER_PATTERN.sub(
         lambda match: f"{match.group('prefix')}плюс {match.group('number')}", text
     )

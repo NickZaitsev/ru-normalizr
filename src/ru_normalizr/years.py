@@ -15,7 +15,7 @@ from .abbreviation_context import (
 from .numerals._num2words import resolve_num2words_case, resolve_primary_case
 from .options import NormalizeOptions
 from .text_context import normalize_context_token, simple_tokenize
-from .text_scan import DECIMAL_DIGIT_PATTERN, contains_pattern, first_non_whitespace_index
+from .text_scan import first_non_whitespace_index
 from .years_context import (
     YEAR_ANY_NUMBER_PATTERN,
     YEAR_IMPLICIT_PREP_PATTERN,
@@ -278,7 +278,7 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
     active = options or NormalizeOptions()
     if not active.enable_year_normalization:
         return text
-    if not contains_pattern(text, DECIMAL_DIGIT_PATTERN):
+    if not any(char.isdecimal() for char in text):
         return text
 
     (

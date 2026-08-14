@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
-from ..text_scan import contains_pattern
 from ._constants import resolve_unit_info
 from ._helpers import inflect_numeral_string
 
@@ -20,7 +19,6 @@ VERSION_PATTERN = re.compile(
     r"(?!\w)",
     re.UNICODE,
 )
-VERSION_CANDIDATE_PATTERN = re.compile(r"\d+\.\d")
 _TRAILING_UNIT_PATTERN = re.compile(r"\s*(?P<unit>[^\W\d_]+)\.?(?!\w)", re.UNICODE)
 
 
@@ -44,9 +42,6 @@ def normalize_versions(text: str) -> str:
     Runs before :func:`normalize_decimals`, which would otherwise claim the
     first two components as a fraction and leave the rest as literal text.
     """
-
-    if not contains_pattern(text, VERSION_CANDIDATE_PATTERN):
-        return text
 
     def repl(match: re.Match[str]) -> str:
         name = match.group("name")

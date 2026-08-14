@@ -10,7 +10,6 @@ from .._morph import canonicalize_case, parse_word
 from ..ordinal_utils import render_ordinal
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_context import simple_tokenize
-from ..text_scan import contains_pattern
 from ._helpers import get_numeral_case, inflect_numeral_string
 
 logger = logging.getLogger(__name__)
@@ -60,7 +59,6 @@ NUMERIC_SUFFIX_PATTERN = re.compile(
     rf"(?P<number>\d+)-(?P<suffix>{_SUFFIX_ALTERNATION})(?!\w)",
     re.IGNORECASE | re.UNICODE,
 )
-NUMERIC_SUFFIX_CANDIDATE_PATTERN = re.compile(r"\d+-")
 
 _CASES = ("nomn", "gent", "datv", "accs", "ablt", "loct")
 _CASE_ORDER = {case: index for index, case in enumerate(_CASES)}
@@ -386,8 +384,6 @@ def resolve_numeric_suffix(
 def normalize_numeric_suffixes(
     text: str, *, capitalize_text_start: bool = False
 ) -> str:
-    if not contains_pattern(text, NUMERIC_SUFFIX_CANDIDATE_PATTERN):
-        return text
     text_start_end = len(text) - len(text.lstrip(_TEXT_START_PREFIX_CHARS))
 
     def repl(match: re.Match[str]) -> str:

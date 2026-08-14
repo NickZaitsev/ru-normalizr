@@ -7,7 +7,6 @@ import num2words
 
 from .abbreviation_context import should_keep_terminal_abbreviation_dot
 from .options import NormalizeOptions
-from .text_scan import DECIMAL_DIGIT_PATTERN, contains_pattern
 from .years import year_to_ordinal_words
 
 logger = logging.getLogger(__name__)
@@ -331,7 +330,7 @@ def normalize_dates_and_time(text: str, options: NormalizeOptions | None = None)
     active = options or NormalizeOptions()
     if not active.enable_dates_time_normalization:
         return text
-    if not contains_pattern(text, DECIMAL_DIGIT_PATTERN):
+    if not any(char.isdecimal() for char in text):
         return text
     text = normalize_text_dates(text)
     text = normalize_dates(text)
