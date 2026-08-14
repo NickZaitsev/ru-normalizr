@@ -32,7 +32,7 @@ from .constants import (
 from .numerals._constants import VERB_CASE
 from .numerals._helpers import safe_inflect
 from .options import InitialsPauseMode, LetterVowelMode, NormalizeOptions
-from .text_scan import first_non_whitespace_index
+from .text_scan import contains_pattern, first_non_whitespace_index
 
 _ETC_ABBREVIATION_PATTERN = re.compile(
     r"(?<!\w)(?P<abbr>т\.?\s*[дп]\.)(?P<tail>\s*)(?!\w)", re.IGNORECASE
@@ -83,6 +83,7 @@ _CASE_CONTEXT_BARRIER_POS = frozenset(
 _WORD_AMPERSAND_PATTERN = re.compile(
     r"(?P<left>[A-Za-zА-Яа-яЁё]+(?:[-'][A-Za-zА-Яа-яЁё0-9]+)*)\s*&\s*(?P<right>[A-Za-zА-Яа-яЁё]+(?:[-'][A-Za-zА-Яа-яЁё0-9]+)*)"
 )
+_AMPERSAND_CANDIDATE_PATTERN = re.compile(r"&")
 _SINGLE_TOKEN_EN_LETTER_NAMES = frozenset(
     value.lower()
     for value in (*EN_LETTER_NAMES.values(), *EN_DOUBLED_VOWEL_LETTER_NAMES.values())
@@ -689,7 +690,7 @@ def expand_letter_abbreviations(
 def _normalize_contextual_ampersands(
     text: str, options: NormalizeOptions | None = None
 ) -> str:
-    if "&" not in text:
+    if not contains_pattern(text, _AMPERSAND_CANDIDATE_PATTERN):
         return text
     active = options or NormalizeOptions()
 

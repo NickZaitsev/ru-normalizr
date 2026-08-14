@@ -59,6 +59,7 @@ from .preprocess_utils import (
     restore_letter_hyphens,
 )
 from .roman_numerals import normalize_roman
+from .text_scan import DECIMAL_DIGIT_PATTERN, contains_pattern
 from .urls import ProtectedUrls, normalize_urls, protect_urls
 from .years import normalize_numeric_ranges, normalize_years
 
@@ -280,7 +281,7 @@ class PipelineNormalizer:
         return normalize_roman(text, self.options)
 
     def run_years(self, text: str) -> str:
-        if not any(char.isdecimal() for char in text):
+        if not contains_pattern(text, DECIMAL_DIGIT_PATTERN):
             return text
         text = normalize_years(text, self.options)
         return normalize_numeric_ranges(text)

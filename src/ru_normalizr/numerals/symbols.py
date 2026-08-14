@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from ..text_scan import contains_pattern
 from ._constants import (
     CURRENCY_STANDALONE,
     GREEK_LETTERS,
@@ -11,6 +12,7 @@ from ._constants import (
 
 MATH_EXPRESSION_CHAR_PATTERN = re.compile(r"[0-9A-Za-zА-Яа-яЁё_,.%()+\-/*^°№]")
 APPROXIMATE_NUMBER_PATTERN = re.compile(r"(?<!\w)~\s*(?=(?:\ue001)?\d)")
+APPROXIMATE_NUMBER_CANDIDATE_PATTERN = re.compile(r"~")
 BINARY_MATH_OPERATOR_PATTERN = re.compile(
     r"(?<=\d)\s*(?P<operator>[+−^*])\s*(?=\d)"
 )
@@ -142,7 +144,8 @@ def normalize_math_symbols(text: str) -> str:
     # Before the equals sign is spoken, while it still marks the expression.
     text = normalize_arithmetic_minus(text)
     text = _normalize_contextual_equals(text)
-    text = APPROXIMATE_NUMBER_PATTERN.sub("примерно ", text)
+    if contains_pattern(text, APPROXIMATE_NUMBER_CANDIDATE_PATTERN):
+        text = APPROXIMATE_NUMBER_PATTERN.sub("примерно ", text)
     text = BINARY_MATH_OPERATOR_PATTERN.sub(
         lambda match: BINARY_MATH_OPERATOR_READINGS[match.group("operator")],
         text,
