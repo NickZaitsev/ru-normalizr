@@ -407,10 +407,12 @@ class PipelineNormalizer:
 
         text = EMBEDDED_NUMERIC_SUFFIX_CODE_PATTERN.sub(protect_code, text)
         text = LEADING_LETTER_DIGIT_PATTERN.sub(r" \1", text)
-        for _ in range(5):
-            text, replacements = GLUED_NUMBER_WORD_PATTERN.subn(fix_glued, text)
-            if replacements == 0:
-                break
+        previous = None
+        iteration = 0
+        while previous != text and iteration < 5:
+            previous = text
+            text = GLUED_NUMBER_WORD_PATTERN.sub(fix_glued, text)
+            iteration += 1
         for index, code in enumerate(protected_codes):
             text = text.replace(f"\ue010{index:x}\ue011", code)
         return text
