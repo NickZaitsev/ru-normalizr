@@ -24,6 +24,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Read the `IPsec` protocol name as `ай пи сек` in every spelling (`IPSEC`, `IPSec`, `IPsec`, `ipsec`) instead of `ай пи эс ии си` for the all-caps form and `ипсэк` for the rest. This needs an entry in two places by design: the abbreviation stage intercepts all-caps tokens and only consults `KNOWN_ABBREVIATIONS`, while mixed-case and lowercase spellings never match that pattern and are resolved by the latinization dictionary instead
 
 ### Changed
+- Завершать стабилизацию склеенных чисел сразу после прохода без замен; финальные
+  проходы кавычек, пунктуации и переносов сохранены, потому что они реально
+  меняют результат после остальных стадий.
 - Добавить обязательные литеральные префильтры перед редкими полнотекстовыми
   regex-проходами для дат, версий, числовых окончаний, кавычек, ссылок, знаков
   и единиц измерения; результат нормализации не меняется.
