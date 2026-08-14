@@ -10,13 +10,21 @@ from .._morph import first_parse_required, parse_word
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_context import PUNCT_STRIP, simple_tokenize
 from ..text_scan import first_non_whitespace_index
-from ._constants import PREP_CASE, UNIT_TOKEN_FRAGMENT, resolve_unit_info
+from ._constants import (
+    CURRENCY_MINOR_UNITS,
+    PREP_CASE,
+    UNIT_TOKEN_FRAGMENT,
+    resolve_unit_info,
+)
 from ._helpers import (
     get_numeral_case,
+    get_target_tags_for_number,
+    inanimate_cardinal_case,
     inflect_numeral_string,
     safe_inflect,
     should_keep_decimal_unit_dot_at,
 )
+from .unit_registry import UnitDescriptor
 from .unit_rendering import render_unit_expression
 
 # A bare "-" only reads as a unary minus when nothing word-like precedes it;
@@ -35,6 +43,47 @@ DECIMAL_PATTERN = re.compile(
 logger = logging.getLogger(__name__)
 
 _MULTIPLIER_LEMMAS = frozenset({"тысяча", "миллион", "миллиард", "триллион"})
+
+# Beyond two digits the fractional part is no longer a subunit count: "1,005 ₽"
+# is a thousandth of a rouble, not five kopecks, so it keeps the fraction
+# reading.
+_MONEY_MINOR_DIGITS = 2
+
+
+def render_counted_money(
+    descriptor: UnitDescriptor, value: int, case: str
+) -> str:
+    """Render "<numeral> <currency>" with both parts agreeing with the numeral."""
+    numeral = inflect_numeral_string(
+        str(value), inanimate_cardinal_case(value, case), descriptor.gender, False
+    )
+    noun = render_unit_expression(
+        descriptor, get_target_tags_for_number(value, case, descriptor.gender)
+    )
+    return f"{numeral} {noun}"
+
+
+def render_money_amount(
+    unit_info: UnitDescriptor, int_part_s: str, frac_part_s: str, case: str
+) -> str | None:
+    """Read a decimal money amount as major and minor units, or decline to.
+
+    Returns ``None`` whenever the amount is not a currency with a spoken subunit
+    or the fractional part cannot be one, leaving the caller's plain
+    decimal-fraction reading in place.
+    """
+    if unit_info.category != "money":
+        return None
+    minor_info = CURRENCY_MINOR_UNITS.get(unit_info.lemma)
+    if minor_info is None or len(frac_part_s) > _MONEY_MINOR_DIGITS:
+        return None
+    # "100,5 ₽" is fifty kopecks, not five: the fractional part is positional.
+    minor_value = int(frac_part_s.ljust(_MONEY_MINOR_DIGITS, "0"))
+    major = render_counted_money(unit_info, int(int_part_s), case)
+    if minor_value == 0:
+        # "100,00 ₽" is plain "сто рублей" — nobody voices "ноль копеек".
+        return major
+    return f"{major} {render_counted_money(minor_info, minor_value, case)}"
 
 
 @lru_cache(maxsize=32)
@@ -163,9 +212,29 @@ def normalize_decimals(text: str) -> str:
             ):
                 unit_info = resolve_unit_info(unit_raw)
             unit2_processed = False
+
+            def trailing_unit_dot() -> str:
+                # The pattern happily takes the first word of the next sentence
+                # as "unit2", so an abbreviation dot that ends a sentence sits in
+                # the middle of the match and the tail check below never sees it.
+                # Without this the two sentences merge: "Цена 3,50 руб. Доставка
+                # бесплатна." -> "...пятьдесят копеек Доставка бесплатна."
+                if not unit_dot or not unit2_raw:
+                    return ""
+                keep = should_keep_decimal_unit_dot_at(text, match.start("unit2"))
+                return "." if keep else ""
+
             if unit_info:
                 lemma = unit_info.lemma
-                result += " " + render_unit_expression(unit_info, {"gent", "sing"})
+                money_words = (
+                    None
+                    if unit_consumes_second_token
+                    else render_money_amount(unit_info, int_part_s, frac_part_s, case)
+                )
+                if money_words is not None:
+                    result = money_words
+                else:
+                    result += " " + render_unit_expression(unit_info, {"gent", "sing"})
                 if unit_consumes_second_token:
                     unit2_processed = True
                 elif unit2_raw:
@@ -180,11 +249,11 @@ def normalize_decimals(text: str) -> str:
                             )
                         unit2_processed = True
                 if unit2_raw and not unit2_processed:
-                    result += " " + unit2_raw
+                    result += trailing_unit_dot() + " " + unit2_raw
             else:
                 result += " " + unit_raw
                 if unit2_raw:
-                    result += " " + unit2_raw
+                    result += trailing_unit_dot() + " " + unit2_raw
             if (
                 unit2_dot
                 and unit2_raw

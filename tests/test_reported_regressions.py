@@ -468,7 +468,7 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
     def test_normalize_dotted_clock_times_do_not_hijack_plain_decimals(self):
         self.assertEqual(
             normalize("Цена: 3.50 руб."),
-            "Цена: три целых пятьдесят сотых рубля.",
+            "Цена: три рубля пятьдесят копеек.",
         )
         self.assertEqual(
             normalize("масса 2.15 кг"),

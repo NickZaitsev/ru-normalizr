@@ -901,6 +901,20 @@ for _symbol, _source_alias in {
 
 UNIT_REGISTRY = UnitRegistry(UNITS_DATA, CASE_SENSITIVE_UNITS_DATA)
 
+# A decimal money amount is spoken as major plus minor units ("89,40 ₽" ->
+# "восемьдесят девять рублей сорок копеек"), not as a fraction of the major
+# unit. Only currencies whose subunit is actually pronounced in Russian are
+# listed: an obscure subunit (тиын, куруш, агора) would be read out where a
+# speaker says nothing, so those currencies deliberately keep the plain
+# decimal-fraction reading.
+CURRENCY_MINOR_UNITS = _upgrade_units({
+    "рубль": ("копейка", "femn", "money"),
+    "гривна": ("копейка", "femn", "money"),
+    "доллар": ("цент", "masc", "money"),
+    "евро": ("цент", "masc", "money"),
+    "фунт": ("пенс", "masc", "money"),
+})
+
 
 @functools.lru_cache(maxsize=16384)
 def resolve_unit_info(unit: str) -> UnitDescriptor | None:
@@ -959,9 +973,20 @@ ALL_UNITS = (
     }
 )
 
+CURRENCY_SYMBOLS = frozenset(
+    alias
+    for alias, descriptor in UNITS_DATA.items()
+    if descriptor.category == "money" and len(alias) == 1 and not alias.isalnum()
+)
+
+# Every currency symbol has to be reachable from the fragment, otherwise a
+# decimal amount matches the number but not its currency and the symbol is left
+# raw in the output ("девятнадцать целых девяносто пять сотых £").
+_UNIT_FRAGMENT_CHARS = "а-яА-ЯёЁa-zA-ZµμΩ%°" + re.escape("".join(sorted(CURRENCY_SYMBOLS)))
+
 UNIT_TOKEN_FRAGMENT = (
-    r"[а-яА-ЯёЁa-zA-ZµμΩ%°$€₽]+"
-    r"(?:[./^·][а-яА-ЯёЁa-zA-ZµμΩ%°$€₽]+|\d+|[²³])*"
+    rf"[{_UNIT_FRAGMENT_CHARS}]+"
+    rf"(?:[./^·][{_UNIT_FRAGMENT_CHARS}]+|\d+|[²³])*"
 )
 
 NUMERIC_UNIT_RANGE_PATTERN = re.compile(

@@ -120,6 +120,40 @@ class RuNormalizrKnownGapTests(unittest.TestCase):
 
 @pytest.mark.xfail(
     strict=True,
+    reason="a transitive verb does not put the numeral it governs in the accusative",
+)
+def test_transitive_verb_governs_the_accusative_of_a_counted_numeral():
+    assert normalize("Он купил 21 книгу вчера в букинистическом магазине.") == (
+        "Он купил двадцать одну книгу вчера в букинистическом магазине."
+    )
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="the currency of a dashed money range never reaches its left endpoint",
+)
+def test_dashed_money_range_gives_both_endpoints_the_currency():
+    assert normalize("Тариф 10,50–12,25 ₽ действует весь месяц.") == (
+        "Тариф от десяти рублей пятидесяти копеек до двенадцати рублей двадцати пяти "
+        "копеек действует весь месяц."
+    )
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="an inflected currency word is not resolved, so it splits into major and "
+    "minor units only when spelled as a symbol or an indeclinable lemma",
+)
+def test_inflected_currency_word_splits_like_its_symbol():
+    # "5,25 евро" already splits because the lemma is indeclinable and matches
+    # the written form; "5,25 рубля" must not read differently.
+    assert normalize("Стоимость 5,25 рубля указана в кассовом чеке.") == (
+        "Стоимость пяти рублей двадцати пяти копеек указана в кассовом чеке."
+    )
+
+
+@pytest.mark.xfail(
+    strict=True,
     reason="the predicate context incorrectly puts a nominative counted numeral in genitive",
 )
 def test_predicate_keeps_counted_numeral_nominative_after_roman_reference():
@@ -215,16 +249,6 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a sports score keeps punctuation and the counted masculine penalty gives the numeral feminine gender",
-        ),
-    ),
-    pytest.param(
-        "Курс вырос с 89,40 ₽ до 91,05 ₽ за 1 USD.",
-        "Курс вырос с восьмидесяти девяти рублей сорока копеек до девяноста одного рубля "
-        "пяти копеек за один доллар.",
-        id="currency_exchange",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="decimal currency amounts are read as abstract fractions instead of major and minor units",
         ),
     ),
     pytest.param(
@@ -372,26 +396,6 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="superscript negative powers and molar concentration units stay as symbols",
-        ),
-    ),
-    pytest.param(
-        "Билет стоил 49,99 €, включая сбор 2,50 €.",
-        "Билет стоил сорок девять евро девяносто девять центов, включая сбор два евро "
-        "пятьдесят центов.",
-        id="euro_and_cents",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="decimal euro amounts are read as abstract fractions instead of euros and cents",
-        ),
-    ),
-    pytest.param(
-        "Счёт выставили на 1 250,50 $, а аванс составил 300 $.",
-        "Счёт выставили на одну тысячу двести пятьдесят долларов пятьдесят центов, а "
-        "аванс составил триста долларов.",
-        id="dollars_and_cents",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a grouped decimal dollar amount is misparsed and never split into cents",
         ),
     ),
     pytest.param(
@@ -624,14 +628,6 @@ E2E_KNOWN_GAP_CASES = (
         id="fahrenheit_temperature",
         marks=pytest.mark.xfail(
             strict=True, reason="the comparison predicate does not govern the Celsius quantity"
-        ),
-    ),
-    pytest.param(
-        "Заказ стоил 19,95 £, а доставка — 4 £.",
-        "Заказ стоил девятнадцать фунтов девяносто пять пенсов, а доставка — четыре фунта.",
-        id="pounds_and_pence",
-        marks=pytest.mark.xfail(
-            strict=True, reason="decimal sterling is not split into pounds and pence"
         ),
     ),
     pytest.param(

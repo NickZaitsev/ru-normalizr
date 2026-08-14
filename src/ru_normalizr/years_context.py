@@ -16,9 +16,15 @@ YEAR_MIN = 1000
 YEAR_MAX = 2100
 YEAR_THOUSANDS_SEPARATORS = " \u00A0\u2009\u202F"
 SPACED_THOUSANDS_TAIL = rf"(?![{YEAR_THOUSANDS_SEPARATORS}]\d{{3}}\b)"
+# The integer part of a decimal is never a year: without this guard "на 1250,50 ₽"
+# hands "1250" to the year rule and strands ",50" for the numerals stage.
+# Only the fixed-width implicit-preposition pattern carries it — the "\d+" ones
+# would backtrack onto a shorter prefix ("125" of "1250,50") instead of failing,
+# and they already require a following year word to match at all.
+DECIMAL_TAIL = r"(?![.,]\d)"
 YEAR_ANY_NUMBER_PATTERN = rf"\d+{SPACED_THOUSANDS_TAIL}"
 YEAR_RANGE_NUMBER_PATTERN = rf"\d{{3,4}}{SPACED_THOUSANDS_TAIL}"
-YEAR_IMPLICIT_PREP_PATTERN = rf"(?:1\d|20)\d{{2}}{SPACED_THOUSANDS_TAIL}"
+YEAR_IMPLICIT_PREP_PATTERN = rf"(?:1\d|20)\d{{2}}{SPACED_THOUSANDS_TAIL}{DECIMAL_TAIL}"
 
 _TRIVIA_TOKENS = {",", ";", ":", ".", "!", "?", "…", "»", '"', "”", ")", "]", "}"}
 _NON_YEAR_EXCEPTION_LEMMAS = {"раз", "место"}
