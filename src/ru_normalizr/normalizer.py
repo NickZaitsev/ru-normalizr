@@ -5,6 +5,7 @@ from pathlib import Path
 
 from ._morph import first_parse_required
 from .abbreviations import expand_abbreviations
+from .address import expand_address_abbreviations
 from .caps import (
     normalize_caps_lines,
     normalize_first_word_caps,
@@ -149,6 +150,7 @@ class PipelineNormalizer:
             "urls": self.run_urls,
             "preprocess": self.run_preprocess,
             "roman": self.run_roman,
+            "address": self.run_address,
             "years": self.run_years,
             "dates_time": self.run_dates_time,
             "numerals": self.run_numerals,
@@ -235,6 +237,13 @@ class PipelineNormalizer:
         text = normalize_linebreaks(text)
         text = remove_zero_width_formatting(text)
         text = normalize_cyrillic_combining_stress_marks(text)
+        # An address chain is the specific case: «стр. 2» right after a house
+        # number is a building, not a page, and «д.» must lose its dot before
+        # the numerals stage reads it as a sentence end and capitalizes the
+        # house number. Both general rules run further down this pipeline, so
+        # the address stage has to claim its chain first. It also has to run
+        # before protect_letter_hyphens, which would hide the hyphen of «пр-т».
+        text = self.run_address(text)
         text = protect_letter_hyphens(text)
         text = text.replace("◦", " ")
         text = remove_decorative_separators(text)
@@ -278,6 +287,9 @@ class PipelineNormalizer:
 
     def run_roman(self, text: str) -> str:
         return normalize_roman(text, self.options)
+
+    def run_address(self, text: str) -> str:
+        return expand_address_abbreviations(text, self.options)
 
     def run_years(self, text: str) -> str:
         if not any(char.isdecimal() for char in text):

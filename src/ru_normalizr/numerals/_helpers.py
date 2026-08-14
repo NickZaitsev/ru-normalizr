@@ -70,6 +70,29 @@ GENITIVE_QUANTITY_GOVERNORS = {
     "стоимость",
     "цена",
 }
+#: Nouns whose immediately following bare number labels them instead of
+#: counting them. The label never inherits the noun's case: "ключи от квартиры
+#: тридцать пять", not "от квартиры тридцати пяти". Postal elements are here
+#: because the address stage now expands "кв. 35" into a declinable noun.
+LABEL_NOUN_LEMMAS = frozenset(
+    {
+        "том",
+        "номер",
+        "дом",
+        "корпус",
+        "квартира",
+        "строение",
+        "владение",
+        "помещение",
+        "офис",
+        "этаж",
+        "подъезд",
+        "кабинет",
+        "комната",
+        "палата",
+        "литера",
+    }
+)
 #: Gender of the magnitude nouns num2words emits, for agreement of the unit
 #: word before them ("одна тысяча" but "один миллион").
 MAGNITUDE_GENDERS = {
@@ -677,6 +700,11 @@ def get_numeral_case(
             if immediate_left in {"том", "номер"}:
                 return "nomn"
             left_noun = first_parse_required(immediate_left)
+            if (
+                is_case_reliable_noun(left_noun)
+                and left_noun.normal_form in LABEL_NOUN_LEMMAS
+            ):
+                return "nomn"
             if (
                 is_case_reliable_noun(left_noun)
                 and left_noun.normal_form in GENITIVE_QUANTITY_GOVERNORS

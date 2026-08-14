@@ -154,6 +154,17 @@ def test_inflected_currency_word_splits_like_its_symbol():
 
 @pytest.mark.xfail(
     strict=True,
+    reason="the dot of an abbreviation that stays abbreviated is read as a sentence "
+    "end, so the number after it is capitalized",
+)
+def test_unexpanded_abbreviation_dot_does_not_capitalize_the_next_number():
+    assert normalize("Дело хранится в д. 5 архива областного суда.") == (
+        "Дело хранится в д. пять архива областного суда."
+    )
+
+
+@pytest.mark.xfail(
+    strict=True,
     reason="the predicate context incorrectly puts a nominative counted numeral in genitive",
 )
 def test_predicate_keeps_counted_numeral_nominative_after_roman_reference():
@@ -571,14 +582,6 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="camera aperture and shutter-speed notation is parsed as generic fractions",
-        ),
-    ),
-    pytest.param(
-        "Курьер прибудет по адресу: ул. Полевая, д. 10, корп. 2, кв. 35.",
-        "Курьер прибудет по адресу: улица Полевая, дом десять, корпус два, квартира тридцать пять.",
-        id="apartment_address",
-        marks=pytest.mark.xfail(
-            strict=True, reason="common postal address abbreviations remain unexpanded"
         ),
     ),
     pytest.param(
