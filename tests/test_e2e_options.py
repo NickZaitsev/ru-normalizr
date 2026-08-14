@@ -195,7 +195,7 @@ def test_abbreviation_expansion_toggle_keeps_numeral_stage_active() -> None:
     disabled = normalize(source, NormalizeOptions.safe(enable_abbreviation_expansion=False))
 
     assert enabled == "Автор пояснил: то есть документ содержит три раздела."
-    assert disabled == "Автор пояснил: т. Е. Документ содержит три раздела."
+    assert disabled == "Автор пояснил: т. е. документ содержит три раздела."
 
 
 @pytest.mark.parametrize(
@@ -242,7 +242,7 @@ def test_contextual_abbreviation_toggle_keeps_numeral_stage_active() -> None:
     )
 
     assert enabled == "В государственной школе открыли три кабинета."
-    assert disabled == "В гос. Школе открыли три кабинета."
+    assert disabled == "В гос. школе открыли три кабинета."
 
 
 def test_years_ago_toggle_keeps_roman_stage_active() -> None:
@@ -261,8 +261,8 @@ def test_years_ago_toggle_keeps_roman_stage_active() -> None:
         NormalizeOptions.safe(enable_years_ago_expansion=False, **common),
     )
 
-    assert enabled == "Это произошло 5 млн лет назад, см. Главу четвёртую."
-    assert disabled == "Это произошло 5 млн л. Н., см. Главу четвёртую."
+    assert enabled == "Это произошло 5 млн лет назад, см. главу четвёртую."
+    assert disabled == "Это произошло 5 млн л. н., см. главу четвёртую."
 
 
 def test_initials_expansion_toggle_keeps_numeral_stage_active() -> None:

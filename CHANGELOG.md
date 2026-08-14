@@ -33,6 +33,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Read the `IPsec` protocol name as `ай пи сек` in every spelling (`IPSEC`, `IPSec`, `IPsec`, `ipsec`) instead of `ай пи эс ии си` for the all-caps form and `ипсэк` for the rest. This needs an entry in two places by design: the abbreviation stage intercepts all-caps tokens and only consults `KNOWN_ABBREVIATIONS`, while mixed-case and lowercase spellings never match that pattern and are resolved by the latinization dictionary instead
 
 ### Changed
+- Не считать точку нераскрытого сокращения концом предложения: `в д. 5 архива`
+  → «в д. пять архива» вместо «в д. Пять архива», `т. е. документ` →
+  «т. е. документ» вместо «т. е. Документ». Сокращение определяется по морфологии
+  (все разборы помечены `Abbr` либо слова нет в словаре) и по орфографии
+  однобуквенных сокращений; короткое настоящее слово в конце предложения
+  (`сто.`, `раз.`, `я.`) границу сохраняет. Настоящий конец предложения после
+  сокращения не страдает: следующее слово в исходном тексте уже с заглавной
 - Не склонять номер-метку после нумерующего существительного: `ключи от
   квартиры 35` → «от квартиры тридцать пять» вместо «от квартиры тридцати
   пяти». Прежнее правило знало только формы `том` и `номер`; теперь оно

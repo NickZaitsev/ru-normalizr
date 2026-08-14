@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import functools
 import re
 
-from ._morph import first_parse_required
+from ._morph import first_parse_required, parse_word
 from .constants import KNOWN_ABBREVIATIONS
 
 _LINE_SPLIT_PATTERN = re.compile(r"(\n)")
@@ -14,6 +15,44 @@ _SENTENCE_START_PATTERN = re.compile(
     r"(?P<letter>[a-zA-Zа-яА-ЯёЁ])"
 )
 _CAPS_CONNECTORS = {"А", "В", "И", "К", "О", "С", "У"}
+_ABBREVIATION_TAIL_PATTERN = re.compile(r"(?<![\w.])(?P<token>[A-Za-zА-Яа-яЁё]{1,4})\Z")
+_ABBREVIATION_TAIL_MAX_LOOKBACK = 8
+
+
+@functools.lru_cache(maxsize=4096)
+def _is_abbreviation_fragment(token: str) -> bool:
+    """Check whether a short lowercase token before a dot is an abbreviation.
+
+    A dotted single letter is an abbreviation or an initial by orthography; the
+    one-letter words that could stand before a real sentence end are all
+    prepositions and conjunctions, which cannot end a sentence at all. «я» is
+    the exception and keeps its boundary.
+
+    Longer fragments need two disjoint signals, because pymorphy knows some
+    abbreviations and guesses at the rest: a dictionary entry whose every
+    reading is tagged ``Abbr`` («стр», «руб», «ул»), or no dictionary entry at
+    all («мкр», «пом», «эт»). A short real word that merely happens to end a
+    sentence («сто», «раз», «дом») fails both and keeps its boundary.
+    """
+
+    if not token.islower():
+        return False
+    if len(token) == 1:
+        return token != "я"
+    parses = parse_word(token)
+    if not parses:
+        return False
+    if all("Abbr" in parse.tag for parse in parses):
+        return True
+    return not any(getattr(parse, "is_known", False) for parse in parses)
+
+
+def _ends_with_abbreviation(text: str, dot_index: int) -> bool:
+    start = max(0, dot_index - _ABBREVIATION_TAIL_MAX_LOOKBACK)
+    match = _ABBREVIATION_TAIL_PATTERN.search(text, start, dot_index)
+    if match is None:
+        return False
+    return _is_abbreviation_fragment(match.group("token"))
 
 
 def normalize_first_word_caps(text: str, enabled: bool = True) -> str:
@@ -48,6 +87,13 @@ def normalize_sentence_start_caps(text: str, enabled: bool = True) -> str:
             and any(quote in prefix for quote in ('"', "'", "»", "”"))
             and letter.islower()
         ):
+            return match.group(0)
+        # The dot of an abbreviation the pipeline left alone is not a sentence
+        # end. Capitalizing after it produced «в д. Пять архива» — a spurious
+        # sentence break in the middle of a phrase, which a TTS engine reads as
+        # a pause. A genuine sentence end after an abbreviation is unaffected:
+        # its next word is already capitalized in the source.
+        if punctuation == "." and _ends_with_abbreviation(text, match.start("punct")):
             return match.group(0)
         return f"{punctuation}{prefix}{letter.upper()}"
 

@@ -154,17 +154,6 @@ def test_inflected_currency_word_splits_like_its_symbol():
 
 @pytest.mark.xfail(
     strict=True,
-    reason="the dot of an abbreviation that stays abbreviated is read as a sentence "
-    "end, so the number after it is capitalized",
-)
-def test_unexpanded_abbreviation_dot_does_not_capitalize_the_next_number():
-    assert normalize("Дело хранится в д. 5 архива областного суда.") == (
-        "Дело хранится в д. пять архива областного суда."
-    )
-
-
-@pytest.mark.xfail(
-    strict=True,
     reason="the predicate context incorrectly puts a nominative counted numeral in genitive",
 )
 def test_predicate_keeps_counted_numeral_nominative_after_roman_reference():
