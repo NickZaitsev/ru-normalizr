@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import re
 
+import num2words
+
 from .abbreviation_context import (
     normalize_birth_year_abbreviations,
     normalize_mass_gram_abbreviations,
 )
 from .constants import CLEANUP_REPLACEMENTS, UNICODE_FRACTIONS
+from .ordinal_utils import render_ordinal
 from .text_scan import first_non_whitespace_index
 
 ASCII_DASH_SPACE_PATTERN = re.compile(r" - ")
@@ -15,7 +18,7 @@ LETTER_HYPHEN_PATTERN = re.compile(r"(?<=[A-Za-zА-Яа-яЁё])-(?=[A-Za-zА-Я
 SLASH_FIX_PATTERN = re.compile(r"(?<=[a-zA-Zа-яА-ЯёЁ+])/(?=[a-zA-Zа-яА-ЯёЁ+])")
 UNIT_SLASH_PATTERN = re.compile(
     r"(?<![\w/])(?P<left>[A-Za-zА-Яа-яЁёµμ]+(?:\^?[23]|[²³])?)/"
-    r"(?P<right>[A-Za-zА-Яа-яЁёµμ]+)(?![\w/])"
+    r"(?P<right>[A-Za-zА-Яа-яЁёµμ]+(?:\^?[23]|[²³])?)(?![\w/])"
 )
 NUMBER_CLEANUP_PATTERN = re.compile(
     r"(?<!\d)(?:\d{1,3}(?:[ \u00A0\u2009\u202F]\d{3})+|\d+)(?:[,\.]\d+)?(?!\d)"
@@ -127,7 +130,12 @@ CLOSE_SINGLE_QUOTE_PATTERN = re.compile(
 )
 ELLIPSIS_SPACE_BEFORE_PATTERN = re.compile(r"[ \t]+(?=…)")
 ELLIPSIS_SPACE_AFTER_PATTERN = re.compile(r"(?<=…)(?=[^\s.,;:!?…)\]}\"])\S")
-SENTENCE_SPACE_AFTER_PATTERN = re.compile(r"(?<=[.!?…])(?=[\"(«„“]?[A-ZА-ЯЁ])")
+# A run such as "С.Ш.А." is a dotted acronym, not three sentence ends. The
+# fixed-width negative lookbehind keeps the spacing pass linear.
+SENTENCE_SPACE_AFTER_PATTERN = re.compile(
+    r'(?<=[.!?…])(?<![A-ZА-ЯЁ]\.)'
+    r'(?=["(«„“]?[A-ZА-ЯЁ])'
+)
 CYRILLIC_COMBINING_STRESS_PATTERN = re.compile(
     r"([АЕЁИОУЫЭЮЯаеёиоуыэюя])([\u0300\u0301])"
 )
@@ -143,6 +151,10 @@ QUOTE_VARIANT_PATTERN = re.compile(r"[«»“”„‟〝〞＂]")
 QUOTE_CANDIDATES = frozenset('"\'`´«»‘’‚‛‹›“”„‟〝〞＂')
 PAGE_ABBREVIATION_PATTERN = re.compile(r"\b[сp]\.\s*(?=\d)", re.IGNORECASE)
 PAGE_FULL_ABBREVIATION_PATTERN = re.compile(r"\bстр\.\s*(?=\d)", re.IGNORECASE)
+PAGE_REFERENCE_PATTERN = re.compile(
+    r"\b(?:стр\.|с\.)\s*(?:(?P<left>\d+)\s*[–—-]\s*(?P<right>\d+)|(?P<number>\d+))",
+    re.IGNORECASE,
+)
 ARTICLE_ABBREVIATION_PATTERN = re.compile(r"\bст\.\s*(?=\d)", re.IGNORECASE)
 FIGURE_ABBREVIATION_PATTERN = re.compile(r"\bрис\.\s*(?=\d)", re.IGNORECASE)
 TABLE_ABBREVIATION_PATTERN = re.compile(r"\bтабл\.\s*(?=\d)", re.IGNORECASE)
@@ -159,6 +171,29 @@ BIBLIOGRAPHIC_NUMBER_ABBREVIATIONS = (
 )
 LEGAL_ARTICLE_REFERENCE_PATTERN = re.compile(
     r"\b(?:ст\.|статья)\s*(?P<number>\d+)\s+(?P<code>УК|АК)\s+РФ\b",
+    re.IGNORECASE,
+)
+LEGAL_COMPLEX_REFERENCE_PATTERN = re.compile(
+    r"(?<!\w)п\.\s*(?P<point>\d+)\s+ст\.\s*(?P<article>\d+)\s+"
+    r"ФЗ\s+№\s*(?P<code>\d+)(?!\w)",
+    re.IGNORECASE,
+)
+ADMINISTRATIVE_LAW_REFERENCE_PATTERN = re.compile(
+    r"(?<!\w)(?:(?P<prep>в|во|о|об|согласно)\s+)?ч\.\s*(?P<part>\d+)\s+ст\.\s*"
+    r"(?P<article>\d+(?:\.\d+)?)\s+КоАП\s+РФ(?!\w)",
+    re.IGNORECASE,
+)
+SECTION_REFERENCE_PATTERN = re.compile(
+    r"(?<!\w)§\s*(?P<first>\d+(?:\.\d+)+)"
+    r"(?:\s+и\s+§\s*(?P<second>\d+(?:\.\d+)+))?"
+)
+AGE_RANGE_PATTERN = re.compile(
+    r"(?<!\w)(?P<left>\d+)\s*[—–-]\s*(?P<right>\d+)\s+"
+    r"(?P<unit>лет|года|год)(?!\w)",
+    re.IGNORECASE,
+)
+ISBN_PATTERN = re.compile(
+    r"(?<!\w)(?P<prefix>ISBN)\s+(?P<groups>\d+(?:[-–—]\d+){3,4})(?!\w)",
     re.IGNORECASE,
 )
 LEGAL_CODE_GENITIVE_EXPANSIONS = {
@@ -261,6 +296,166 @@ def normalize_numeric_abbreviations(text: str) -> str:
         text = pattern.sub(replacement, text)
     text = LEGAL_ARTICLE_REFERENCE_PATTERN.sub(legal_article_repl, text)
     return normalize_era_abbreviations(text)
+
+
+def normalize_page_references(text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        left_context = text[max(0, match.start() - 24) : match.start()]
+        preceding = re.search(
+            r"(?:^|\s)(?P<word>на|в|во|см\.|смотри)\s*$",
+            left_context,
+            re.IGNORECASE,
+        )
+        if preceding is None:
+            return match.group(0)
+        directive = preceding.group("word").casefold().rstrip(".")
+        if match.group("left") is not None:
+            left = render_ordinal(
+                int(match.group("left")), case="gent", gender="femn", inanimate=True
+            )
+            right = render_ordinal(
+                int(match.group("right")), case="accs", gender="femn", inanimate=True
+            )
+            return f"страницах с {left} по {right}"
+        case = "accs" if directive in {"см", "смотри"} else "loct"
+        noun = "страницу" if case == "accs" else "странице"
+        number = render_ordinal(
+            int(match.group("number")), case=case, gender="femn", inanimate=True
+        )
+        return f"{noun} {number}"
+
+    return PAGE_REFERENCE_PATTERN.sub(repl, text)
+
+
+def normalize_complex_legal_references(text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        left_context = text[max(0, match.start() - 32) : match.start()]
+        prep_match = re.search(
+            r"(?:^|\s)(?P<word>согласно|в|во|о|об|по|к|ко|из|с|со|до|от)\s*$",
+            left_context,
+            re.IGNORECASE,
+        )
+        prep = prep_match.group("word").casefold() if prep_match else ""
+        if prep in {"согласно", "по", "к", "ко"}:
+            point_case = "datv"
+            point_word = "пункту"
+        elif prep in {"в", "во", "о", "об"}:
+            point_case = "loct"
+            point_word = "пункте"
+        elif prep in {"из", "с", "со", "до", "от"}:
+            point_case = "gent"
+            point_word = "пункта"
+        else:
+            point_case = "nomn"
+            point_word = "пункт"
+        point = render_ordinal(
+            int(match.group("point")),
+            case=point_case,
+            gender="masc",
+            inanimate=True,
+        )
+        article = render_ordinal(
+            int(match.group("article")),
+            case="gent",
+            gender="femn",
+            inanimate=True,
+        )
+        return (
+            f"{point_word} {point} статьи {article} федерального закона "
+            f"номер {match.group('code')}"
+        )
+
+    return LEGAL_COMPLEX_REFERENCE_PATTERN.sub(repl, text)
+
+
+def normalize_administrative_law_references(text: str) -> str:
+    def render_hierarchical_number(raw: str) -> str | None:
+        words: list[str] = []
+        for part in raw.split("."):
+            try:
+                words.append(num2words.num2words(int(part), lang="ru"))
+            except (TypeError, ValueError):
+                return None
+        return " точка ".join(words)
+
+    def repl(match: re.Match[str]) -> str:
+        prep = match.group("prep")
+        governed_part = prep is not None
+        try:
+            part = render_ordinal(
+                int(match.group("part")),
+                case="gent" if governed_part else "ablt",
+                gender="femn",
+                inanimate=True,
+            )
+        except (TypeError, ValueError):
+            return match.group(0)
+        article = render_hierarchical_number(match.group("article"))
+        if article is None:
+            return match.group(0)
+        part_word = "части" if governed_part else "частью"
+        prefix = f"{prep} " if prep else ""
+        return (
+            f"{prefix}{part_word} {part} статьи {article} Кодекса Российской Федерации "
+            "об административных правонарушениях"
+        )
+
+    return ADMINISTRATIVE_LAW_REFERENCE_PATTERN.sub(repl, text)
+
+
+def normalize_section_references(text: str) -> str:
+    def render_hierarchical_number(raw: str) -> str | None:
+        words: list[str] = []
+        for part in raw.split("."):
+            try:
+                words.append(num2words.num2words(int(part), lang="ru"))
+            except (TypeError, ValueError):
+                return None
+        return " точка ".join(words)
+
+    def repl(match: re.Match[str]) -> str:
+        first = render_hierarchical_number(match.group("first"))
+        second_raw = match.group("second")
+        second = render_hierarchical_number(second_raw) if second_raw else None
+        if first is None or (second_raw is not None and second is None):
+            return match.group(0)
+        left_context = text[max(0, match.start() - 24) : match.start()]
+        noun = "параграфах" if re.search(r"\bв\s*$", left_context) else "параграф"
+        return f"{noun} {first}" + (f" и {second}" if second else "")
+
+    return SECTION_REFERENCE_PATTERN.sub(repl, text)
+
+
+def normalize_age_ranges(text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        left_context = text[max(0, match.start() - 64) : match.start()]
+        # Only a group of people named before the range makes "6–12 лет" an age
+        # span that has to be read as "от … до …". After "возраст" the numbers
+        # are the value of that attribute and stay a plain range ("возраст
+        # десять — двадцать лет"), which is also how every other range in the
+        # text is read.
+        if not re.search(r"\bдет(?:и|ей|ям|ях)\b", left_context, re.IGNORECASE):
+            return match.group(0)
+        return (
+            f"от {match.group('left')} до {match.group('right')} "
+            f"{match.group('unit')}"
+        )
+
+    return AGE_RANGE_PATTERN.sub(repl, text)
+
+
+def normalize_isbn_identifiers(text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        groups = re.split(r"[-–—]", match.group("groups"))
+        if len(groups) not in {4, 5}:
+            return match.group(0)
+        try:
+            rendered = [num2words.num2words(int(group), lang="ru") for group in groups]
+        except (TypeError, ValueError):
+            return match.group(0)
+        return f"{match.group('prefix')} {' — '.join(rendered)}"
+
+    return ISBN_PATTERN.sub(repl, text)
 
 
 def normalize_explicit_dashes(text: str) -> str:

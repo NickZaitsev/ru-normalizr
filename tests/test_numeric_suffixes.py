@@ -28,6 +28,12 @@ def test_numeric_suffix_contract(source: str, expected: str) -> None:
     assert normalize(source, NormalizeOptions.safe()) == expected
 
 
+def test_copular_predicate_selects_instrumental_ordinal_after_a_preposition_homonym() -> None:
+    assert normalize("Он был 2-м после лидера.", NormalizeOptions.safe()) == (
+        "Он был вторым после лидера."
+    )
+
+
 @pytest.mark.parametrize(
     "source",
     [

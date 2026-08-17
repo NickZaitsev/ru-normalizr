@@ -86,6 +86,13 @@ _ROMAN_SHARED_SEPARATOR_PATTERN = re.compile(r"(\s*,\s*|\s+и\s+)")
 _ROMAN_CONTEXT_WORD_PATTERN = r"[A-Za-zА-ЯЁа-яё]+\.?"
 _ROMAN_CYRILLIC_LOOKALIKE_CHARS = frozenset("ХхСсІіМм")
 _ROMAN_LATIN_CHARS = frozenset("IVXLCDM")
+_ROMAN_SHARED_CENTURY_RANGE_PATTERN = re.compile(
+    r"\b(?P<left_head>конце|начале|середине)\s+"
+    r"(?P<left>[IVXLCDM]+)\s*[—–-]\s*"
+    r"(?P<right_head>конце|начале|середине)\s+"
+    r"(?P<right>[IVXLCDM]+)\s+(?P<word>вв?\.|веков?|века)(?!\w)",
+    re.IGNORECASE,
+)
 
 
 def _split_context_word_punctuation(word: str) -> tuple[str, str]:
@@ -491,6 +498,27 @@ def convert_roman_century_ranges(text: str) -> str:
     return pattern.sub(repl, text)
 
 
+def convert_shared_roman_century_ranges(text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        try:
+            left_number = roman.fromRoman(match.group("left").upper())
+            right_number = roman.fromRoman(match.group("right").upper())
+        except roman.InvalidRomanNumeralError:
+            return match.group(0)
+        left_ordinal = render_ordinal(
+            left_number, case="gent", gender="masc", inanimate=True
+        )
+        right_ordinal = render_ordinal(
+            right_number, case="gent", gender="masc", inanimate=True
+        )
+        return (
+            f"{match.group('left_head')} {left_ordinal} — "
+            f"{match.group('right_head')} {right_ordinal} веков"
+        )
+
+    return _ROMAN_SHARED_CENTURY_RANGE_PATTERN.sub(repl, text)
+
+
 def convert_hyphenated_roman_ranges(text: str) -> str:
     pattern = re.compile(
         rf"\b(?P<left>[IVXLCDM]+)\s*[-–—]\s*(?P<right>[IVXLCDM]+)\s+(?P<word>{_ROMAN_CONTEXT_WORD_PATTERN})(?!\w)"
@@ -720,6 +748,7 @@ def normalize_roman(text: str, options: NormalizeOptions | None = None) -> str:
     if not active.enable_roman_normalization:
         return text
     text = normalize_cyrillic_roman(text)
+    text = convert_shared_roman_century_ranges(text)
     text = convert_roman_century_ranges(text)
     text = convert_hyphenated_roman_ranges(text)
     text = convert_shared_roman_words(text)

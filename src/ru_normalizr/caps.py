@@ -17,6 +17,9 @@ _SENTENCE_START_PATTERN = re.compile(
 _CAPS_CONNECTORS = {"А", "В", "И", "К", "О", "С", "У"}
 _ABBREVIATION_TAIL_PATTERN = re.compile(r"(?<![\w.])(?P<token>[A-Za-zА-Яа-яЁё]{1,4})\Z")
 _ABBREVIATION_TAIL_MAX_LOOKBACK = 8
+_INITIAL_SEQUENCE_TAIL_PATTERN = re.compile(
+    r"(?:\b[A-ZА-ЯЁ]\.\s*)+[A-ZА-ЯЁ]\Z"
+)
 
 
 @functools.lru_cache(maxsize=4096)
@@ -48,6 +51,8 @@ def _is_abbreviation_fragment(token: str) -> bool:
 
 
 def _ends_with_abbreviation(text: str, dot_index: int) -> bool:
+    if _INITIAL_SEQUENCE_TAIL_PATTERN.search(text[max(0, dot_index - 8) : dot_index]):
+        return True
     start = max(0, dot_index - _ABBREVIATION_TAIL_MAX_LOOKBACK)
     match = _ABBREVIATION_TAIL_PATTERN.search(text, start, dot_index)
     if match is None:

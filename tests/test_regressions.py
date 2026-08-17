@@ -231,7 +231,11 @@ class RuNormalizrRegressionTests(unittest.TestCase):
 
     def test_preposition_case_does_not_cross_a_verb(self):
         tokens = simple_tokenize("из-за которой упустили 150 тысяч долларов")
-        self.assertEqual(get_numeral_case(tokens, tokens.index("150")), "nomn")
+        # The numeral is the direct object of "упустили", so the accusative is
+        # correct; what must never happen is inheriting the genitive of "из-за"
+        # from behind the verb. For an ending other than 1 the accusative and
+        # the nominative render identically, which the assertion below pins.
+        self.assertEqual(get_numeral_case(tokens, tokens.index("150")), "accs")
         self.assertEqual(
             normalize("из-за которой упустили 150 тысяч долларов."),
             "из-за которой упустили сто пятьдесят тысяч долларов.",

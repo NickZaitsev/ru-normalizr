@@ -517,6 +517,18 @@ class LetterAbbreviationTests(unittest.TestCase):
         # protect vowel-heavy ordinary words are not applied.
         self.assertEqual(expand_letter_abbreviations("А.Е.И."), "а е и.")
 
+    def test_dotted_acronym_drops_a_non_terminal_abbreviation_dot(self):
+        self.assertEqual(
+            expand_letter_abbreviations("Флаг С.Ш.А. висел над входом."),
+            "Флаг сэ шэ а висел над входом.",
+        )
+
+    def test_camel_case_trailing_acronym_is_spelled_out_in_tts(self):
+        options = NormalizeOptions.tts()
+        assert "эс кью эл" in expand_abbreviations("PostgreSQL", options)
+        assert "кью эл" in expand_abbreviations("GraphQL", options)
+        assert "ви пи эн" in expand_abbreviations("OpenVPN", options)
+
     def test_lowercase_dotted_form_is_not_an_acronym(self):
         self.assertEqual(expand_letter_abbreviations("и.о."), "и.о.")
 

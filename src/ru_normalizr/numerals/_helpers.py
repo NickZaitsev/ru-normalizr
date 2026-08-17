@@ -251,17 +251,27 @@ def _unit_descriptor_for_lemma(lemma: str) -> UnitDescriptor:
     )
 
 
-def inflect_unit_lemma(unit: UnitDescriptor | str, target_tags: set[str]) -> str:
+def inflect_unit_lemma(
+    unit: UnitDescriptor | str, target_tags: set[str], *, paucal: bool = False
+) -> str:
+    """Inflect a unit lemma.
+
+    ``paucal`` says the genitive singular was requested because a numeral
+    ending in 2–4 counts the unit. A two-word unit needs that distinction: the
+    noun stays genitive singular either way, but its modifier goes plural only
+    under a paucal numeral ("три кубических метра"), not after a decimal
+    ("три целых пять десятых кубического метра").
+    """
     descriptor = (
         unit if isinstance(unit, UnitDescriptor) else _unit_descriptor_for_lemma(unit)
     )
     canonical_tags = frozenset(canonicalize_grammemes(target_tags))
-    return _inflect_unit_lemma_cached(descriptor, canonical_tags)
+    return _inflect_unit_lemma_cached(descriptor, canonical_tags, paucal)
 
 
 @functools.lru_cache(maxsize=8192)
 def _inflect_unit_lemma_cached(
-    descriptor: UnitDescriptor, canonical_tags: frozenset[str]
+    descriptor: UnitDescriptor, canonical_tags: frozenset[str], paucal: bool = False
 ) -> str:
     lemma = descriptor.lemma
     target_tags = set(canonical_tags)
@@ -352,7 +362,11 @@ def _inflect_unit_lemma_cached(
         for tag in target_tags
         if tag in {"nomn", "gent", "datv", "accs", "ablt", "loct", "sing", "plur"}
     }
-    if adj_tags == {"gent", "sing"}:
+    if paucal and adj_tags == {"gent", "sing"}:
+        # A numeral ending in 2–4 keeps the counted noun in the genitive
+        # singular but pushes its modifier into the plural: genitive for
+        # masculine and neuter ("три кубических метра"), nominative for
+        # feminine ("две международные единицы").
         noun_gender = noun_parsed.tag.gender
         adj_tags = {"plur", "nomn"} if noun_gender == "femn" else {"gent", "plur"}
     elif "plur" not in adj_tags:
@@ -653,6 +667,68 @@ def get_numeral_case(
     ):
         return "nomn"
     if (
+        idx + 2 < visible_length
+        and normalize_context_token(tokens[idx + 1]) in {"×", "умножить"}
+        and normalize_context_token(tokens[idx + 2]) == "на"
+    ):
+        return "nomn"
+    if (
+        idx + 2 < visible_length
+        and normalize_context_token(tokens[idx + 1]) == "к"
+        and is_integer_token(tokens[idx + 2])
+    ):
+        # The left operand of a ratio is independent of a preceding context:
+        # "в масштабе 1 к пятидесяти" keeps "один", not the locative form
+        # inherited from "в масштабе".
+        return "nomn"
+    if (
+        idx + 2 < visible_length
+        and normalize_context_token(tokens[idx + 1]) == "на"
+        and is_integer_token(tokens[idx + 2])
+    ):
+        # In a resolution/dimension construction the first coordinate is a
+        # label-like nominative: "разрешение 2560 на 1440 пикселей".  A bare
+        # "число на число" remains governed by the ordinary context rules.
+        for back in range(idx - 1, max(-1, idx - 5), -1):
+            if any(char in tokens[back] for char in ".!?;:"):
+                break
+            if normalize_context_token(tokens[back]) in {
+                "размер",
+                "размером",
+                "разрешение",
+                "габарит",
+                "габаритами",
+                "ширина",
+                "высота",
+            }:
+                return "nomn"
+    if (
+        idx > 0
+        and normalize_context_token(tokens[idx - 1]) == "равно"
+        and idx + 2 < visible_length
+        and normalize_context_token(tokens[idx + 1]) == "°"
+        and normalize_context_token(tokens[idx + 2]) in {"с", "c", "f", "к", "k"}
+    ):
+        # Temperature equality uses the dative: "равно ста семидесяти семи
+        # градусам Цельсия". Plain equations keep their established
+        # nominative operands.
+        return "datv"
+    if idx >= 3:
+        comparison = " ".join(
+            normalize_context_token(token) for token in tokens[idx - 3 : idx]
+        )
+        if comparison in {"больше или равно", "меньше или равно"}:
+            return "gent"
+    if idx < visible_length - 1:
+        next_unit = normalize_context_token(tokens[idx + 1])
+        if next_unit in {"°", "градус", "мин", "минута", "сек", "секунда"}:
+            for back in range(idx - 1, max(-1, idx - 7), -1):
+                previous = normalize_context_token(tokens[back])
+                if previous in {"равен", "равна", "равно"}:
+                    return "datv"
+                if any(char in tokens[back] for char in ".!?;:"):
+                    break
+    if (
         idx > 1
         and normalize_context_token(tokens[idx - 1]) == "степени"
         and normalize_context_token(tokens[idx - 2]) == "в"
@@ -681,6 +757,11 @@ def get_numeral_case(
         prev_token = tokens[idx - 1].strip(".,!?;:")
         if prev_token:
             p_prev = first_parse_required(prev_token)
+            if p_prev.tag.POS == "VERB" and p_prev.normal_form in {
+                "выиграть",
+                "победить",
+            }:
+                return "nomn"
             prev_case = "loct" if "loc2" in p_prev.tag else p_prev.tag.case
             if prev_case:
                 if is_case_reliable_noun(p_prev):
@@ -697,6 +778,8 @@ def get_numeral_case(
     if idx > 0:
         immediate_left = normalize_context_token(tokens[idx - 1])
         if immediate_left:
+            if immediate_left in {"iso", "f"}:
+                return "nomn"
             if immediate_left in {"том", "номер"}:
                 return "nomn"
             left_noun = first_parse_required(immediate_left)
@@ -711,6 +794,53 @@ def get_numeral_case(
                 and left_noun.tag.case in {"nomn", "gent"}
             ):
                 return "gent"
+            # An oblique noun immediately before a decimal or a bare number is
+            # a stronger local signal than an ambiguous preposition farther to
+            # the left: "на частоте 3,2" and "при напряжении 1,15" are
+            # locative, while the same prepositions before a numeral without a
+            # noun remain context-dependent.
+            #
+            # A substantivized adjective is excluded: "в среднем", "в целом" and
+            # "в общем" are adverbial phrases that govern nothing, and every one
+            # of them still parses as an adjective, unlike a real measurement
+            # noun such as "частоте".
+            if (
+                is_case_reliable_noun(left_noun)
+                and not any(
+                    "ADJF" in candidate.tag for candidate in parse_word(immediate_left)
+                )
+                and (
+                    left_noun.tag.case in {"gent", "datv", "ablt", "loct"}
+                    or "loc2" in left_noun.tag
+                )
+                and idx + 1 < visible_length
+                and normalize_context_token(tokens[idx + 1])
+                and idx > 1
+                and normalize_context_token(tokens[idx - 2])
+                in {"в", "во", "на", "о", "об", "при"}
+            ):
+                return "loct" if "loc2" in left_noun.tag else left_noun.tag.case
+
+    # In a coordinated quantity the second noun governs both numerals:
+    # "управление 3 и 5 заводами".  Do not use a genitive noun here: it is the
+    # ordinary counted-noun construction ("три и пять книг"), not government.
+    if idx + 2 < visible_length and normalize_context_token(tokens[idx + 1]) == "и":
+        for j in range(idx + 2, min(visible_length, idx + 6)):
+            token = tokens[j].strip(".,!?;:()[]{}")
+            if not token:
+                continue
+            if any(char in tokens[j] for char in ".!?;:"):
+                break
+            parsed = parse_word(token)
+            p_noun = select_parse(parsed, pos="NOUN")
+            if p_noun is not None and is_case_reliable_noun(p_noun):
+                noun_case = "loct" if "loc2" in p_noun.tag else p_noun.tag.case
+                if noun_case in {"datv", "ablt", "loct"}:
+                    return noun_case
+                break
+            p = first_parse_required(token)
+            if p.tag.POS in {"VERB", "INFN"}:
+                break
 
     prep_match = _get_preposition_before_number(tokens, idx)
     if prep_match is not None:
@@ -778,6 +908,15 @@ def get_numeral_case(
             blocked_by_noun = True
             break
 
+    # A short passive participle is a predicate, not a government source for a
+    # following numeral: "перечислены 3 причины" has a nominative subject.
+    for i in range(idx - 1, max(left_scan_start - 1, idx - 3), -1):
+        p = first_parse_required(tokens[i])
+        if p.tag.POS == "PRTS" and "pssv" in p.tag:
+            return "nomn"
+        if p.tag.POS in {"NOUN", "ADJF", "PRTF"}:
+            break
+
     for i in range(max(local_left_scan_start, idx - 2), idx):
         p = first_parse_required(tokens[i])
         if blocked_by_noun and p.tag.POS in {"ADJF", "PRTF"}:
@@ -794,6 +933,14 @@ def get_numeral_case(
         # adjective scan so the numeral stays in its predicate (nominative) case.
         if p_verb is not None and p_verb.normal_form in VERB_CASE:
             return VERB_CASE[p_verb.normal_form]
+        # pymorphy marks transitive verbs with ``tran``, so an ordinary direct
+        # object needs no verb allow-list. Verbs that govern another case are
+        # listed in VERB_CASE above and are already resolved. The accusative
+        # only changes the rendered numeral when its last group ends in 1
+        # ("заплатили одну тысячу"); ``inanimate_cardinal_case`` keeps every
+        # other ending identical to the nominative.
+        if p_verb is not None and "tran" in p_verb.tag:
+            return "accs"
         if any(char in tokens[i] for char in ".!?"):
             break
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 from ._morph import first_parse_required
@@ -11,6 +12,7 @@ from .caps import (
     normalize_first_word_caps,
     normalize_sentence_start_caps,
 )
+from .constants import resolve_letter_name
 from .dates_time import normalize_dates_and_time
 from .dictionary import apply_dictionary_rules
 from .latinization import DEFAULT_DICTIONARIES_PATH, apply_latinization
@@ -26,7 +28,7 @@ from .numerals import (
     normalize_numeric_suffixes,
     normalize_versions,
 )
-from .numerals._constants import is_unit_token
+from .numerals._constants import is_unit_token, resolve_unit_info
 from .numerals._hyphen import (
     normalize_numeric_unit_hyphen_links,
     normalize_spaced_numeric_hyphen_words,
@@ -40,12 +42,18 @@ from .preprocess_utils import (
     clean_numbers,
     cleanup_malformed_punctuation,
     expand_years_ago_abbreviation,
+    normalize_administrative_law_references,
+    normalize_age_ranges,
     normalize_ascii_quote_pairs,
+    normalize_complex_legal_references,
     normalize_cyrillic_combining_stress_marks,
     normalize_explicit_dashes,
+    normalize_isbn_identifiers,
     normalize_linebreaks,
     normalize_numeric_abbreviations,
+    normalize_page_references,
     normalize_punctuation_spacing,
+    normalize_section_references,
     normalize_spaced_ascii_hyphens,
     normalize_unary_plus_numbers,
     normalize_unicode_fractions,
@@ -71,7 +79,38 @@ DECORATIVE_MARKER_PATTERN = re.compile(r"(?:[*=_~+#\-\xad\u2010-\u2015]\s*){5,}"
 ASTERISK_SEPARATOR_PATTERN = re.compile(r"(?:\*\s*){3,}")
 CURRENCY_AMOUNT_PATTERN = re.compile(r"([$€₽])\s?(\d+(?:[.,]\d+)?)")
 DEGREE_SPACING_PATTERN = re.compile(r"(\d)°")
-LEADING_LETTER_DIGIT_PATTERN = re.compile(r"(?<=[а-яА-ЯёЁa-zA-Z])(\d+)")
+WINDOWS_PATH_PATTERN = re.compile(
+    r"(?<![\w@])(?P<path>[A-Za-z]:\\[^\s<>\"']+)"
+)
+WINDOWS_PATH_PLACEHOLDER_RANGE = (0xF1000, 0xF1FFD)
+LEADING_LETTER_DIGIT_PATTERN = re.compile(
+    r"(?<!/)(?P<letters>[а-яА-ЯёЁa-zA-Z]+)(?P<number>\d+)"
+)
+NUMBER_SIGN_PATTERN = re.compile(r"(?<!\w)№\s*(?=\d)")
+NUMBER_SIGN_WITH_PREPOSITION_PATTERN = re.compile(
+    r"(?P<prep>под|с|со|к|ко|по|у|из|от|до)\s+№\s*(?=\d)",
+    re.IGNORECASE,
+)
+PHONE_NUMBER_PATTERN = re.compile(
+    r"(?<!\w)(?P<country>\+?\d{1,3})\s*\(\s*(?P<area>\d{3})\s*\)\s*"
+    r"(?P<first>\d{3})\s*-\s*(?P<second>\d{2})\s*-\s*(?P<third>\d{2})(?!\w)"
+)
+# A house or office letter suffix is written glued ("дом 7Б") or hyphenated
+# ("дом 7-Б"). A single letter separated by a bare space is the next word, not
+# a suffix — usually a preposition or conjunction ("строение 2 в цехе"), so the
+# separator may never be whitespace alone.
+IDENTIFIER_LETTER_SUFFIX_PATTERN = re.compile(
+    r"(?P<prefix>\b(?:номер|дом|корпус|квартира|строение|владение|"
+    r"помещение|офис|этаж|подъезд|комната|палата|литера|место|выход)\s+)"
+    r"(?P<number>\d+)(?:\s*[-–—]\s*)?(?P<letter>[A-Za-zА-Яа-яЁё])(?!\w)",
+    re.IGNORECASE,
+)
+VEHICLE_PLATE_PATTERN = re.compile(
+    r"(?P<prefix>\b(?:номер(?:ом|а|у|е)?|госномер|государственный\s+номер)\s+)"
+    r"(?P<leading>[A-Za-zА-Яа-яЁё])\s*(?P<number>\d{3})\s*"
+    r"(?P<series>[A-Za-zА-Яа-яЁё]{2})\s*(?P<region>\d{2,3})(?!\w)",
+    re.IGNORECASE,
+)
 GLUED_NUMBER_WORD_PATTERN = re.compile(r"(\d+)([а-яА-ЯёЁa-zA-Z+]{1,})")
 
 GLUED_PREPOSITIONS = {
@@ -135,6 +174,61 @@ SUPERSCRIPT_DIGIT_TRANSLATION = str.maketrans(
 )
 
 
+@dataclass(frozen=True, slots=True)
+class ProtectedWindowsPaths:
+    text: str
+    placeholder: str | None = None
+    paths: tuple[str, ...] = ()
+
+    def restore(self, text: str) -> str:
+        if self.placeholder is None:
+            return text
+        for path in self.paths:
+            if self.placeholder not in text:
+                break
+            text = text.replace(self.placeholder, path, 1)
+        return text
+
+
+def _split_windows_path_trailing_punctuation(path: str) -> tuple[str, str]:
+    trailing: list[str] = []
+    while path and path[-1] in ".,;:!?":
+        trailing.append(path[-1])
+        path = path[:-1]
+    return path, "".join(reversed(trailing))
+
+
+def protect_windows_paths(text: str) -> ProtectedWindowsPaths:
+    if not WINDOWS_PATH_PATTERN.search(text):
+        return ProtectedWindowsPaths(text)
+    occupied = set(text)
+    placeholder = next(
+        (
+            chr(codepoint)
+            for codepoint in range(
+                WINDOWS_PATH_PLACEHOLDER_RANGE[0],
+                WINDOWS_PATH_PLACEHOLDER_RANGE[1] + 1,
+            )
+            if chr(codepoint) not in occupied
+        ),
+        None,
+    )
+    if placeholder is None:
+        return ProtectedWindowsPaths(text)
+
+    paths: list[str] = []
+
+    def repl(match: re.Match[str]) -> str:
+        path, suffix = _split_windows_path_trailing_punctuation(match.group("path"))
+        if not path:
+            return match.group(0)
+        paths.append(path)
+        return f"{placeholder}{suffix}"
+
+    protected = WINDOWS_PATH_PATTERN.sub(repl, text)
+    return ProtectedWindowsPaths(protected, placeholder, tuple(paths)) if paths else ProtectedWindowsPaths(text)
+
+
 class PipelineNormalizer:
     """Fixed-order Russian normalization pipeline with toggleable stages."""
 
@@ -174,6 +268,8 @@ class PipelineNormalizer:
             protected_urls = protect_urls(text)
             text = protected_urls.text
         text = self.run_urls(text)
+        protected_paths = protect_windows_paths(text)
+        text = protected_paths.text
         text = self._run_preprocess_steps(
             text,
             apply_caps_normalization=False,
@@ -201,7 +297,9 @@ class PipelineNormalizer:
         # rewritten the token into Cyrillic.
         text = self.run_dictionary(text)
         text = self.run_latinization(text)
-        return protected_urls.restore(self.run_finalize(text))
+        text = self.run_finalize(text)
+        text = protected_paths.restore(text)
+        return protected_urls.restore(text)
 
     def run_preprocess(
         self, text: str, keep_paragraph_placeholders: bool = False
@@ -257,10 +355,20 @@ class PipelineNormalizer:
         text = normalize_punctuation_spacing(text)
         if self.options.enable_years_ago_expansion:
             text = expand_years_ago_abbreviation(text)
+        text = normalize_page_references(text)
+        text = normalize_section_references(text)
+        text = normalize_administrative_law_references(text)
+        text = normalize_complex_legal_references(text)
         text = normalize_numeric_abbreviations(text)
+        text = self._normalize_number_signs(text)
+        text = self._normalize_vehicle_registration_plates(text)
+        text = self._normalize_identifier_letter_suffixes(text)
+        text = self._normalize_phone_numbers(text)
         text = normalize_unary_plus_numbers(text)
         text = protect_negative_numbers(text)
         text = normalize_explicit_dashes(text)
+        text = normalize_age_ranges(text)
+        text = normalize_isbn_identifiers(text)
         text = convert_bracketed_numbers(text, self.options)
         text = convert_line_numbering(text)
         if apply_caps_normalization:
@@ -385,6 +493,80 @@ class PipelineNormalizer:
             return "space"
         return "hyphen"
 
+    def _normalize_identifier_letter_suffixes(self, text: str) -> str:
+        def repl(match: re.Match[str]) -> str:
+            letter = match.group("letter")
+            vowel_mode = self.options.letter_vowel_mode if letter.isascii() else "single"
+            letter_name = resolve_letter_name(letter, vowel_mode)
+            if letter_name is None:
+                return match.group(0)
+            return f"{match.group('prefix')}{match.group('number')} {letter_name}"
+
+        return IDENTIFIER_LETTER_SUFFIX_PATTERN.sub(repl, text)
+
+    def _normalize_vehicle_registration_plates(self, text: str) -> str:
+        def repl(match: re.Match[str]) -> str:
+            leading = match.group("leading")
+            vowel_mode = (
+                self.options.letter_vowel_mode
+                if leading.isascii()
+                else "single"
+            )
+            letter_name = resolve_letter_name(leading, vowel_mode)
+            if letter_name is None:
+                return match.group(0)
+            return (
+                f"{match.group('prefix')}{letter_name} {match.group('number')} "
+                f"{match.group('series')} {match.group('region')}"
+            )
+
+        return VEHICLE_PLATE_PATTERN.sub(repl, text)
+
+    def _normalize_number_signs(self, text: str) -> str:
+        forms = {
+            "под": "под номером ",
+            "с": "с номером ",
+            # The vocalized variants "со"/"ко" exist only before a consonant
+            # cluster. The sign expands to "номером"/"номеру", so the base form
+            # of the preposition is the grammatical one.
+            "со": "с номером ",
+            "к": "к номеру ",
+            "ко": "к номеру ",
+            "по": "по номеру ",
+            "у": "у номера ",
+            "из": "из номера ",
+            "от": "от номера ",
+            "до": "до номера ",
+        }
+
+        def with_preposition(match: re.Match[str]) -> str:
+            prep = match.group("prep")
+            expansion = forms[prep.casefold()]
+            # "Со № 5" starts the sentence, and the expansion replaces the word
+            # that carried the capital letter, so the case has to be carried over.
+            if prep[:1].isupper():
+                return expansion[:1].upper() + expansion[1:]
+            return expansion
+
+        text = NUMBER_SIGN_WITH_PREPOSITION_PATTERN.sub(with_preposition, text)
+        return NUMBER_SIGN_PATTERN.sub("номер ", text)
+
+    def _normalize_phone_numbers(self, text: str) -> str:
+        def repl(match: re.Match[str]) -> str:
+            left_context = text[max(0, match.start() - 48) : match.start()]
+            if not re.search(r"\b(?:номер|телефон|позвон\w*)\b", left_context, re.IGNORECASE):
+                return match.group(0)
+            parts = (
+                match.group("country"),
+                match.group("area"),
+                match.group("first"),
+                match.group("second"),
+                match.group("third"),
+            )
+            return ", ".join(parts)
+
+        return PHONE_NUMBER_PATTERN.sub(repl, text)
+
     def _fix_glued_numbers(self, text: str) -> str:
         protected_codes: list[str] = []
 
@@ -417,7 +599,13 @@ class PipelineNormalizer:
             return f"{num}-{word}"
 
         text = EMBEDDED_NUMERIC_SUFFIX_CODE_PATTERN.sub(protect_code, text)
-        text = LEADING_LETTER_DIGIT_PATTERN.sub(r" \1", text)
+        def split_leading_letter_number(match: re.Match[str]) -> str:
+            token = match.group(0)
+            if resolve_unit_info(token) is not None:
+                return token
+            return f"{match.group('letters')} {match.group('number')}"
+
+        text = LEADING_LETTER_DIGIT_PATTERN.sub(split_leading_letter_number, text)
         previous = None
         iteration = 0
         while previous != text and iteration < 5:

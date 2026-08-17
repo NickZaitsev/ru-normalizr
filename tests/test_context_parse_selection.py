@@ -71,6 +71,18 @@ def test_following_noun_without_a_preposition_sets_the_numeral_case(
     assert normalize(source) == expected
 
 
+def test_coordinated_numerals_share_an_oblique_counted_noun_case() -> None:
+    assert normalize("Управление 3 и 5 заводами затруднено.") == (
+        "Управление тремя и пятью заводами затруднено."
+    )
+
+
+def test_numeric_noun_range_inflects_both_endpoints() -> None:
+    assert normalize("Обмен 3-5 квартирами прошёл успешно.") == (
+        "Обмен тремя — пятью квартирами прошёл успешно."
+    )
+
+
 @pytest.mark.parametrize(
     ("source", "expected"),
     [
@@ -97,6 +109,37 @@ def test_verb_candidate_governs_case_below_short_adjective_homonym() -> None:
     assert normalize("К концу квартала мы достигаем 5 целей программы.") == (
         "К концу квартала мы достигаем пяти целей программы."
     )
+
+
+def test_transitive_verb_marks_a_direct_object_as_accusative() -> None:
+    assert normalize("Он купил 21 книгу вчера в букинистическом магазине.") == (
+        "Он купил двадцать одну книгу вчера в букинистическом магазине."
+    )
+
+
+def test_short_passive_participle_keeps_a_following_subject_nominative() -> None:
+    assert normalize("В главе IV перечислены 3 причины.") == (
+        "В главе четвёртой перечислены три причины."
+    )
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (
+            "Работаем на частоте 3,2 ГГц.",
+            "Работаем на частоте трёх целых двух десятых гигагерца.",
+        ),
+        (
+            "Измерение при напряжении 1,15 В.",
+            "Измерение при напряжении одной целой пятнадцати сотых вольта.",
+        ),
+    ],
+)
+def test_oblique_noun_before_a_number_beats_an_ambiguous_preposition(
+    source: str, expected: str
+) -> None:
+    assert normalize(source) == expected
 
 
 def test_inflected_unit_in_year_range_is_measurement_not_implicit_year() -> None:

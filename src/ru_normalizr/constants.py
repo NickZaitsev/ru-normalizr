@@ -77,7 +77,7 @@ EN_LETTER_NAMES = {
     "U": "ю",
     "V": "ви",
     "W": "дабел ю",
-    "X": "экс",
+    "X": "икс",
     "Y": "уай",
     "Z": "зи",
 }
@@ -132,6 +132,8 @@ def apply_letter_vowel_mode(reading: str, vowel_mode: LetterVowelMode) -> str:
     )
 
 KNOWN_ABBREVIATIONS = {
+    "UTC": "ю ти си",
+    "ISO": "ай эс о",
     "ЛСД": "лсд",
     "СПИД": "спид",
     "ВИЧ": "вич",

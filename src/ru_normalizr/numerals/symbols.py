@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import re
 
+from ..ordinal_utils import render_ordinal
 from ._constants import (
     CURRENCY_STANDALONE,
     GREEK_LETTERS,
     MATH_SYMBOLS,
     STANDALONE_CURRENCY_PATTERN,
+    UNIT_TOKEN_FRAGMENT,
+    resolve_unit_info,
 )
+from .unit_rendering import render_unit_expression
 
 MATH_EXPRESSION_CHAR_PATTERN = re.compile(r"[0-9A-Za-zА-Яа-яЁё_,.%()+\-/*^°№]")
 APPROXIMATE_NUMBER_PATTERN = re.compile(r"(?<!\w)~\s*(?=(?:\ue001)?\d)")
@@ -28,6 +32,58 @@ BINARY_MATH_OPERATOR_READINGS = {
 # inside an arithmetic expression, where it is a subtraction. An equals sign is
 # what tells the two apart: "10-20" is a range, "10-5 = 5" is not.
 ASCII_BINARY_MINUS_PATTERN = re.compile(r"(?<=\d)\s*-\s*(?=\d)")
+DIMENSION_OPERATOR_PATTERN = re.compile(
+    r"(?P<left>\d+(?:[.,]\d+)?)\s*×\s*(?P<right>\d+(?:[.,]\d+)?)"
+)
+INCH_MARK_PATTERN = re.compile(r"(?P<value>\d+(?:[.,]\d+)?)\s*″")
+INCH_CONTEXT_PATTERN = re.compile(
+    r"\b(?:монитор\w*|экран\w*|диспле\w*|размер\w*|диаметр\w*|"
+    r"ширин\w*|высот\w*)\b[^.!?;:]{0,32}$",
+    re.IGNORECASE,
+)
+DIMENSION_HEAD_PATTERN = re.compile(
+    r"\b(?:размер(?:ом|ы)?|разрешение|габарит(?:ами|ы)?|ширина|высота)\s*$",
+    re.IGNORECASE,
+)
+NUMERIC_RELATION_PATTERN = re.compile(
+    r"(?<![\w.])(?P<left>\d+(?:[ \u00a0\u2009\u202f]\d{3})*)"
+    r"\s*:\s*"
+    r"(?P<right>\d+(?:[ \u00a0\u2009\u202f]\d{3})*)(?!\d)"
+)
+INEQUALITY_OPERATOR_PATTERN = re.compile(
+    r"(?P<left>\b(?:\d+(?:[.,]\d+)?|[A-Za-zА-Яа-яЁё]+)\b)"
+    r"\s+(?P<operator>[<>])\s+(?=\d)"
+)
+MATH_X_VARIABLE_PATTERN = re.compile(r"(?<!\w)[xX](?=\s*(?:[<>≤≥]))")
+WORD_PLUS_NUMBER_PATTERN = re.compile(
+    r"(?<=[A-Za-zА-Яа-яЁё])\s*\+\s*(?=\d)"
+)
+DOUBLE_PLUS_VERSION_PATTERN = re.compile(
+    r"(?<!\w)(?P<name>[A-Za-z][A-Za-z0-9]*)\s*\+\s*\+\s*(?P<version>\d+)\b"
+)
+ANGLE_MINUTE_MARK_PATTERN = re.compile(r"(?P<value>\d+(?:[.,]\d+)?)\s*′")
+ANGLE_SECOND_MARK_PATTERN = re.compile(r"(?P<value>\d+(?:[.,]\d+)?)\s*″")
+ANGLE_CONTEXT_PATTERN = re.compile(
+    r"(?:°|\bугол\w*|\bкоординат\w*|\bотклонени\w*)",
+    re.IGNORECASE,
+)
+CAMERA_APERTURE_PATTERN = re.compile(
+    r"(?<!\w)f\s*/\s*(?P<whole>\d+)\.(?P<fraction>\d+)(?!\w)",
+    re.IGNORECASE,
+)
+IPV4_PORT_PATTERN = re.compile(
+    r"(?<![\w.])(?P<address>(?:\d{1,3}\.){3}\d{1,3}):(?P<port>\d+)(?!\w)"
+)
+SCIENTIFIC_EXPONENT_PATTERN = re.compile(
+    rf"(?P<base>\d+(?:[.,]\d+)?)\s*⁻(?P<exponent>\d+)"
+    rf"(?:\s+(?P<unit>{UNIT_TOKEN_FRAGMENT}))?"
+)
+RATIO_CONTEXT_PATTERN = re.compile(
+    r"\b(?:пропорци\w*|масштаб\w*|соотношени\w*)\s*$", re.IGNORECASE
+)
+SCORE_CONTEXT_PATTERN = re.compile(
+    r"\b(?:выиграл\w*|победил\w*|сч[её]т\w*)\s*$", re.IGNORECASE
+)
 _EQUATION_OPERAND = r"\(*(?:\d+(?:[.,]\d+)?|[^\W\d_]\w*)\)*"
 EQUATION_PATTERN = re.compile(
     rf"(?<!\w){_EQUATION_OPERAND}(?:\s*[-+*/^=]\s*{_EQUATION_OPERAND})+",
@@ -128,6 +184,127 @@ def _normalize_contextual_equals(text: str) -> str:
     return "".join(parts)
 
 
+def _normalize_dimension_operator(text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        tail = text[match.end() : match.end() + 40]
+        unit_match = re.match(rf"\s+(?P<unit>{UNIT_TOKEN_FRAGMENT})(?!\w)", tail)
+        if unit_match is not None and resolve_unit_info(unit_match.group("unit")) is not None:
+            return f"{match.group('left')} на {match.group('right')}"
+        left_context = text[max(0, match.start() - 30) : match.start()]
+        if DIMENSION_HEAD_PATTERN.search(left_context):
+            return f"{match.group('left')} на {match.group('right')}"
+        return match.group(0)
+
+    return DIMENSION_OPERATOR_PATTERN.sub(repl, text)
+
+
+def _normalize_inch_marks(text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        left_context = text[max(0, match.start() - 64) : match.start()]
+        if not INCH_CONTEXT_PATTERN.search(left_context):
+            return match.group(0)
+        return f"{match.group('value')} дюйм"
+
+    return INCH_MARK_PATTERN.sub(repl, text)
+
+
+def _normalize_angle_marks(text: str) -> str:
+    def has_angle_context(start: int) -> bool:
+        left_context = text[max(0, start - 80) : start]
+        return ANGLE_CONTEXT_PATTERN.search(left_context) is not None
+
+    def minute_repl(match: re.Match[str]) -> str:
+        if not has_angle_context(match.start()):
+            return match.group(0)
+        return f"{match.group('value')} мин"
+
+    def second_repl(match: re.Match[str]) -> str:
+        if not has_angle_context(match.start()):
+            return match.group(0)
+        return f"{match.group('value')} сек"
+
+    text = ANGLE_MINUTE_MARK_PATTERN.sub(minute_repl, text)
+    return ANGLE_SECOND_MARK_PATTERN.sub(second_repl, text)
+
+
+def _normalize_numeric_relations(text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        left_context = text[max(0, match.start() - 40) : match.start()]
+        if RATIO_CONTEXT_PATTERN.search(left_context):
+            relation = "к"
+        elif SCORE_CONTEXT_PATTERN.search(left_context):
+            relation = "—"
+        else:
+            return match.group(0)
+        return f"{match.group('left')} {relation} {match.group('right')}"
+
+    return NUMERIC_RELATION_PATTERN.sub(repl, text)
+
+
+def _normalize_inequality_operators(text: str) -> str:
+    return INEQUALITY_OPERATOR_PATTERN.sub(
+        lambda match: (
+            f"{match.group('left')} меньше "
+            if match.group("operator") == "<"
+            else f"{match.group('left')} больше "
+        ),
+        text,
+    )
+
+
+def _normalize_math_variables(text: str) -> str:
+    return MATH_X_VARIABLE_PATTERN.sub("икс", text)
+
+
+def _normalize_word_plus_number(text: str) -> str:
+    return WORD_PLUS_NUMBER_PATTERN.sub(" плюс ", text)
+
+
+def _normalize_double_plus_versions(text: str) -> str:
+    return DOUBLE_PLUS_VERSION_PATTERN.sub(
+        lambda match: f"{match.group('name')} плюс плюс {match.group('version')}",
+        text,
+    )
+
+
+def _normalize_scientific_exponents(text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        try:
+            exponent = int(match.group("exponent"))
+            ordinal = render_ordinal(
+                exponent, case="gent", gender="femn", inanimate=True
+            )
+        except (TypeError, ValueError):
+            return match.group(0)
+        result = f"{match.group('base')} в минус {ordinal} степени"
+        unit_raw = match.group("unit")
+        if unit_raw:
+            unit_info = resolve_unit_info(unit_raw)
+            if unit_info is None:
+                return match.group(0)
+            result += " " + render_unit_expression(unit_info, {"nomn", "sing"})
+        return result
+
+    return SCIENTIFIC_EXPONENT_PATTERN.sub(repl, text)
+
+
+def _normalize_camera_aperture(text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        left_context = text[max(0, match.start() - 80) : match.start()]
+        if not re.search(r"\b(?:iso|кадр\w*|диафрагм\w*|выдержк\w*)\b", left_context, re.IGNORECASE):
+            return match.group(0)
+        return f"f {match.group('whole')} и {match.group('fraction')}"
+
+    return CAMERA_APERTURE_PATTERN.sub(repl, text)
+
+
+def _normalize_ipv4_ports(text: str) -> str:
+    return IPV4_PORT_PATTERN.sub(
+        lambda match: f"{match.group('address')} двоеточие {match.group('port')}",
+        text,
+    )
+
+
 def normalize_greek_letters(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
         token = match.group(0)
@@ -140,6 +317,17 @@ def normalize_greek_letters(text: str) -> str:
 
 def normalize_math_symbols(text: str) -> str:
     # Before the equals sign is spoken, while it still marks the expression.
+    text = _normalize_inch_marks(text)
+    text = _normalize_angle_marks(text)
+    text = _normalize_math_variables(text)
+    text = _normalize_double_plus_versions(text)
+    text = _normalize_scientific_exponents(text)
+    text = _normalize_camera_aperture(text)
+    text = _normalize_ipv4_ports(text)
+    text = _normalize_word_plus_number(text)
+    text = _normalize_dimension_operator(text)
+    text = _normalize_numeric_relations(text)
+    text = _normalize_inequality_operators(text)
     text = normalize_arithmetic_minus(text)
     text = _normalize_contextual_equals(text)
     text = APPROXIMATE_NUMBER_PATTERN.sub("примерно ", text)

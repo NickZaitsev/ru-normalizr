@@ -67,7 +67,10 @@ class AccusativeAgreementTests(unittest.TestCase):
 
     def test_bare_paucal_numeral_is_genitive_before_an_animate_noun(self):
         self.assertEqual(
-            normalize_cardinal_numerals("Вижу 2 человека"), "Вижу двух человека"
+            normalize_cardinal_numerals("Вижу 2 человека"), "Вижу двух человек"
+        )
+        self.assertEqual(
+            normalize_cardinal_numerals("Вижу 2 гостя"), "Вижу двух гостей"
         )
 
     def test_inanimate_noun_keeps_the_nominative_numeral(self):

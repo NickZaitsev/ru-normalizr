@@ -82,11 +82,16 @@ def test_unit_slash_protection_does_not_claim_urls_or_plain_fractions() -> None:
     assert normalize(source) == expected
 
 
+def test_squared_denominator_unit_is_a_registered_rate_expression() -> None:
+    assert normalize("Ускорение достигло 2 м/с² перед остановкой установки.") == (
+        "Ускорение достигло двух метров в секунду в квадрате перед остановкой установки."
+    )
+
+
 @pytest.mark.parametrize(
     "raw",
     [
         "мг/кг/сут",
-        "м/с²",
         "foo/bar",
         "C:/tmp",
         "5/7",

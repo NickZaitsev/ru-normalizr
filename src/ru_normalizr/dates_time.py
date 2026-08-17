@@ -88,10 +88,48 @@ MONTHS_GENT_BY_NUMBER = {
     11: "ноября",
     12: "декабря",
 }
+MONTH_ABBREVIATIONS = {
+    "янв": 1,
+    "фев": 2,
+    "февр": 2,
+    "мар": 3,
+    "апр": 4,
+    "май": 5,
+    "июн": 6,
+    "июл": 7,
+    "авг": 8,
+    "сен": 9,
+    "сент": 9,
+    "окт": 10,
+    "ноя": 11,
+    "нояб": 11,
+    "дек": 12,
+}
+ABBREVIATED_TEXT_DATE_PATTERN = re.compile(
+    r"(?<!\w)(?P<day>0?[1-9]|[12]\d|3[01])\s+"
+    r"(?P<month>янв\.?|февр?\.?|мар\.?|апр\.?|май\.?|июн\.?|июл\.?|"
+    r"авг\.?|сент?\.?|окт\.?|нояб?\.?|дек\.?)\s+"
+    r"(?P<year>\d{4})(?:\s+г\.?)?(?![-–—]?[A-Za-zА-Яа-яЁё])",
+    re.IGNORECASE,
+)
+DAY_MONTH_DATE_PATTERN = re.compile(
+    r"(?<![\w.])(?P<day>0?[1-9]|[12]\d|3[01])\."
+    r"(?P<month>0?[1-9]|1[0-2])(?!\d)(?!\.\d)"
+)
+DAY_MONTH_DATE_CONTEXT_PATTERN = re.compile(
+    r"\b(?:дат(?:а|у|ой|е)|срок\w*|при[её]м\w*|встреч\w*|мероприяти\w*|"
+    r"заявк\w*|законч\w*|начал\w*|назнач\w*|родил\w*|праздник\w*|дн[её]м)\b",
+    re.IGNORECASE,
+)
 NUMERIC_DATE_PATTERN = re.compile(
     r"\b(?P<day>0?[1-9]|[12]\d|3[01])\.(?P<month>0?[1-9]|1[0-2])\.(?P<year>\d{2,4})(?!\w)"
     + YEAR_ERA_TAIL_FRAGMENT,
     re.IGNORECASE,
+)
+ISO_DATE_PATTERN = re.compile(
+    r"(?<![\w.])(?P<year>\d{4})[-–—](?P<month>0?[1-9]|1[0-2])[-–—]"
+    r"(?P<day>0?[1-9]|[12]\d|3[01])(?!\d)"
+    r"(?![-–—]?[A-Za-zА-Яа-яЁё])"
 )
 TIME_PATTERN = re.compile(
     r"\b(?P<hour>[01]?\d|2[0-3]):(?P<minute>[0-5]\d)(?::(?P<second>[0-5]\d))?\b"
@@ -229,6 +267,14 @@ def normalize_text_dates(text: str) -> str:
 
 
 def normalize_dates(text: str) -> str:
+    def date_case(source_text: str, start: int) -> str:
+        left_context = source_text[max(0, start - 12) : start]
+        if re.search(r"\b(?:на|по)\s*$", left_context, re.IGNORECASE):
+            return "accusative"
+        if re.search(r"\b(?:с|со|от|до)\s*$", left_context, re.IGNORECASE):
+            return "genitive"
+        return "genitive"
+
     def repl(match: re.Match[str]) -> str:
         day = int(match.group("day"))
         month = int(match.group("month"))
@@ -239,7 +285,11 @@ def normalize_dates(text: str) -> str:
             year = 1900 + year if year >= 50 else 2000 + year
         try:
             day_words = num2words.num2words(
-                day, lang="ru", to="ordinal", case="genitive", gender="n"
+                day,
+                lang="ru",
+                to="ordinal",
+                case=date_case(text, match.start()),
+                gender="n",
             )
         except Exception as exc:
             logger.debug("num2words genitive ordinal failed for day %r: %s", day, exc)
@@ -260,6 +310,35 @@ def normalize_dates(text: str) -> str:
     return NUMERIC_DATE_PATTERN.sub(repl, text)
 
 
+def normalize_abbreviated_text_dates(text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        month_key = match.group("month").lower().rstrip(".")
+        month = MONTH_ABBREVIATIONS.get(month_key)
+        if month is None:
+            return match.group(0)
+        return f"{match.group('day')}.{month:02d}.{match.group('year')}"
+
+    return ABBREVIATED_TEXT_DATE_PATTERN.sub(repl, text)
+
+
+def normalize_day_month_dates(text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        left_context = text[max(0, match.start() - 64) : match.start()]
+        right_context = text[match.end() : match.end() + 16]
+        if not (
+            DAY_MONTH_DATE_CONTEXT_PATTERN.search(left_context)
+            or re.match(r"\s+в\s+\d{1,2}:\d{2}\b", right_context, re.IGNORECASE)
+        ):
+            return match.group(0)
+        day = _day_to_ordinal(int(match.group("day")), case="genitive")
+        if day is None:
+            return match.group(0)
+        month = MONTHS_GENT_BY_NUMBER[int(match.group("month"))]
+        return f"{day} {month}"
+
+    return DAY_MONTH_DATE_PATTERN.sub(repl, text)
+
+
 def normalize_time(text: str) -> str:
     def counted_noun(value: int, forms: tuple[str, str, str]) -> str:
         last_two = value % 100
@@ -272,16 +351,25 @@ def normalize_time(text: str) -> str:
             return forms[1]
         return forms[2]
 
+    def genitive_counted_noun(value: int, forms: tuple[str, str, str]) -> str:
+        return forms[1] if value % 10 == 1 and value % 100 != 11 else forms[2]
+
     def render_time(match: re.Match[str]) -> str:
         hour = int(match.group("hour"))
         minute_str = match.group("minute")
+        minute = int(minute_str)
         second_str = match.groupdict().get("second")
+        left_context = text[max(0, match.start() - 12) : match.start()]
+        governed_range = bool(
+            re.search(r"\b(?:с|со|от|до|после)\s*$", left_context, re.IGNORECASE)
+        )
         if second_str is not None:
-            minute = int(minute_str)
             second = int(second_str)
             try:
                 hour_words = num2words.num2words(hour, lang="ru")
-                minute_words = num2words.num2words(minute, lang="ru")
+                minute_words = num2words.num2words(
+                    minute, lang="ru", gender="feminine"
+                )
                 second_words = num2words.num2words(second, lang="ru")
             except Exception as exc:
                 logger.debug("num2words failed for time %02d:%02d:%02d: %s", hour, minute, second, exc)
@@ -292,7 +380,12 @@ def normalize_time(text: str) -> str:
                 f"{second_words} {counted_noun(second, ('секунда', 'секунды', 'секунд'))}"
             )
         try:
-            hour_words = num2words.num2words(hour, lang="ru")
+            if governed_range:
+                hour_words = num2words.num2words(
+                    hour, lang="ru", case="genitive"
+                )
+            else:
+                hour_words = num2words.num2words(hour, lang="ru")
         except Exception as exc:
             logger.debug("num2words failed for hour %r: %s", hour, exc)
             hour_words = str(hour)
@@ -310,6 +403,18 @@ def normalize_time(text: str) -> str:
             except Exception as exc:
                 logger.debug("num2words failed for minute %r: %s", minute_str, exc)
                 minute_words = minute_str
+        if governed_range:
+            try:
+                minute_words = num2words.num2words(
+                    int(minute_str), lang="ru", case="genitive"
+                )
+            except Exception as exc:
+                logger.debug("num2words genitive minute failed for %r: %s", minute_str, exc)
+                minute_words = minute_str
+            return (
+                f"{hour_words} {genitive_counted_noun(hour, ('час', 'часа', 'часов'))} "
+                f"{minute_words} {genitive_counted_noun(minute, ('минута', 'минуты', 'минут'))}"
+            )
         return f"{hour_words}, {minute_words}"
 
     def render_dotted_time(match: re.Match[str]) -> str:
@@ -332,7 +437,15 @@ def normalize_dates_and_time(text: str, options: NormalizeOptions | None = None)
         return text
     if not any(char.isdecimal() for char in text):
         return text
+    text = normalize_abbreviated_text_dates(text)
+    text = normalize_day_month_dates(text)
     text = normalize_text_dates(text)
+    text = ISO_DATE_PATTERN.sub(
+        lambda match: (
+            f"{match.group('day')}.{match.group('month')}.{match.group('year')}"
+        ),
+        text,
+    )
     text = normalize_dates(text)
     text = normalize_time(text)
     return text

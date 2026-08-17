@@ -185,6 +185,23 @@ class UrlBranchTests(unittest.TestCase):
             with self.subTest(source=source):
                 self.assertEqual(normalize_urls(source, enabled=True), expected)
 
+    def test_url_stage_normalizes_social_handles_and_hashtags_before_preprocess(self):
+        self.assertEqual(
+            normalize_urls("@support_team #Наука2025", enabled=True),
+            "собака support подчёркивание team решётка наука 2025",
+        )
+
+    def test_url_stage_does_not_claim_email_fragments_or_numeric_hashes_as_handles(self):
+        source = "Почта help@example.ru, формула C# и ссылка #123."
+        self.assertEqual(
+            normalize_urls(source, enabled=True),
+            "Почта help собака example точка ру, формула C# и ссылка #123.",
+        )
+
+    def test_url_stage_leaves_social_tokens_untouched_when_disabled(self):
+        source = "@support_team #Наука2025"
+        self.assertEqual(normalize_urls(source, enabled=False), source)
+
     def test_url_stage_keeps_balanced_closers_inside_the_url(self):
         cases = (
             (

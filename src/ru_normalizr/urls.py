@@ -10,8 +10,27 @@ URL_PATTERN = re.compile(
     r"(?P<url>(?:(?<![\w@])https?://|(?<![\w@.-])www\.(?=[^\W_]))[^\s<>\"]+)",
     re.IGNORECASE,
 )
+EMAIL_PATTERN = re.compile(
+    r"(?<![\w@])(?P<email>[A-Za-z0-9][A-Za-z0-9._%+\-]*@"
+    r"(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,})(?!\w)",
+    re.IGNORECASE,
+)
+BARE_DOMAIN_PATTERN = re.compile(
+    r"(?<![\w@.-])(?P<domain>(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}"
+    r"(?:/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]*)?)(?!\w)",
+    re.IGNORECASE,
+)
+SOCIAL_HANDLE_PATTERN = re.compile(
+    r"(?<![\w@])@(?P<handle>[A-Za-z][A-Za-z0-9_]*)(?!\w)",
+    re.IGNORECASE,
+)
+HASHTAG_PATTERN = re.compile(
+    r"(?<!\w)#(?P<tag>[A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё0-9_]*)(?!\w)",
+    re.IGNORECASE,
+)
 ALNUM_CHUNK_PATTERN = re.compile(r"[A-Za-z0-9]+|[^A-Za-z0-9]")
 MIXED_CHUNK_PATTERN = re.compile(r"\d+|[A-Za-z]+")
+TAG_CHUNK_PATTERN = re.compile(r"[A-Za-zА-Яа-яЁё]+|\d+|_")
 
 URL_SEPARATOR_WORDS: dict[str, str] = {
     ":": "двоеточие",
@@ -146,11 +165,21 @@ def _normalize_alnum_chunk(chunk: str) -> str:
 
 def _normalize_url(url: str) -> str:
     pieces: list[str] = []
-    for chunk in ALNUM_CHUNK_PATTERN.findall(url):
+    for match in ALNUM_CHUNK_PATTERN.finditer(url):
+        chunk = match.group(0)
         if not chunk:
             continue
         if chunk.isalnum():
-            pieces.append(_normalize_alnum_chunk(chunk))
+            if (
+                chunk.casefold() == "ru"
+                and match.start() > 0
+                and url[match.start() - 1] == "."
+            ):
+                pieces.append("ру")
+            elif chunk.casefold() == "docs":
+                pieces.append("докс")
+            else:
+                pieces.append(_normalize_alnum_chunk(chunk))
             continue
         for char in chunk:
             pieces.append(URL_SEPARATOR_WORDS.get(char) or char)
@@ -158,7 +187,13 @@ def _normalize_url(url: str) -> str:
 
 
 def normalize_urls(text: str, *, enabled: bool) -> str:
-    if not enabled or not URL_PATTERN.search(text):
+    if not enabled or not (
+        URL_PATTERN.search(text)
+        or EMAIL_PATTERN.search(text)
+        or BARE_DOMAIN_PATTERN.search(text)
+        or SOCIAL_HANDLE_PATTERN.search(text)
+        or HASHTAG_PATTERN.search(text)
+    ):
         return text
 
     def repl(match: re.Match[str]) -> str:
@@ -168,4 +203,34 @@ def normalize_urls(text: str, *, enabled: bool) -> str:
             return raw_url
         return f"{_normalize_url(url)}{suffix}"
 
-    return URL_PATTERN.sub(repl, text)
+    text = URL_PATTERN.sub(repl, text)
+
+    def normalize_bare(match: re.Match[str]) -> str:
+        raw_url = match.group("email") if "email" in match.groupdict() else match.group("domain")
+        url, suffix = _split_trailing_punctuation(raw_url)
+        if not url:
+            return match.group(0)
+        return f"{_normalize_url(url)}{suffix}"
+
+    text = EMAIL_PATTERN.sub(normalize_bare, text)
+    text = BARE_DOMAIN_PATTERN.sub(normalize_bare, text)
+
+    def normalize_handle(match: re.Match[str]) -> str:
+        parts = [part for part in re.split(r"(_)", match.group("handle")) if part]
+        return "собака " + " ".join(
+            "подчёркивание" if part == "_" else part for part in parts
+        )
+
+    def normalize_hashtag(match: re.Match[str]) -> str:
+        parts: list[str] = []
+        for part in TAG_CHUNK_PATTERN.findall(match.group("tag")):
+            if part == "_":
+                parts.append("подчёркивание")
+            elif any("А" <= char <= "я" or char in "Ёё" for char in part):
+                parts.append(part.casefold())
+            else:
+                parts.append(part)
+        return "решётка " + " ".join(parts)
+
+    text = SOCIAL_HANDLE_PATTERN.sub(normalize_handle, text)
+    return HASHTAG_PATTERN.sub(normalize_hashtag, text)

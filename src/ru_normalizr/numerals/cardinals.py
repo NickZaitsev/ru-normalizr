@@ -30,9 +30,11 @@ from ._helpers import (
     inanimate_cardinal_case,
     inflect_numeral_string,
     inflect_unit_lemma,
+    is_case_reliable_noun,
     noun_number_form,
     parse_integer_token,
     paucal_accusative_case,
+    safe_inflect,
     should_consume_abbreviation_dot,
     should_keep_tokenized_decimal_unit_dot,
 )
@@ -43,6 +45,11 @@ logger = logging.getLogger(__name__)
 
 _MULTIPLIER_LEMMAS = frozenset({"тысяча", "миллион", "миллиард", "триллион"})
 _CURRENCY_SYMBOL_UNITS = CURRENCY_SYMBOLS
+_NUMERIC_NOUN_RANGE_PATTERN = re.compile(
+    r"(?<![\w.,])(?P<left>\d+)-(?P<right>\d+)"
+    r"(?P<space>\s+)(?P<noun>[^\W\d_]+)",
+    re.UNICODE,
+)
 
 
 def _resolve_range_unit_info(unit_raw: str):
@@ -145,6 +152,37 @@ def normalize_cardinal_numerals(text: str) -> str:
             return None
         return match.alias.casefold().strip("."), match.source, match.consumed_tokens
 
+    def counted_noun_across_range(index: int) -> tuple[str | None, bool] | None:
+        """Gender and animacy of the noun counted by a range's left endpoint.
+
+        In "2 — 3 книги" the left numeral has no noun next to it, yet it agrees
+        with the noun that follows the right endpoint ("две — три книги"). The
+        lookahead is bounded to the dash, the right endpoint and an optional
+        modifier, so it stays constant-time.
+        """
+        if index + 3 >= len(tokens):
+            return None
+        if tokens[index + 1].strip(PUNCT_STRIP) not in {"—", "–", "-"}:
+            return None
+        if not tokens[index + 2].strip(PUNCT_STRIP).isdigit():
+            return None
+        for offset in (3, 4):
+            if index + offset >= len(tokens):
+                break
+            candidate = tokens[index + offset].lower().strip(PUNCT_STRIP)
+            if not candidate or is_ambiguous_preposition_token(candidate):
+                break
+            # A modifier is checked first: a substantivized adjective such as
+            # "рабочих" also parses as an animate noun, and taking it for the
+            # counted noun would read "2 — 3 рабочих дня" as counting people.
+            if select_parse(candidate, pos={"ADJF", "PRTF"}) is not None:
+                continue
+            p_noun = select_parse(candidate, pos="NOUN")
+            if p_noun is not None:
+                return p_noun.tag.gender, "anim" in p_noun.tag
+            break
+        return None
+
     def is_redundant_unit_token(token_index: int, expected_lemma: str) -> bool:
         if token_index >= len(tokens):
             return False
@@ -181,7 +219,24 @@ def normalize_cardinal_numerals(text: str) -> str:
         is_negative, clean_token = parsed_num
         val = int(clean_token)
         case = get_numeral_case(tokens, i, _context=token_context)
-        inflected_num = inflect_numeral_string(clean_token, case)
+        # Without a counted noun the animacy of the accusative is unknown, and
+        # pymorphy answers with the animate form ("двух"). A numeral standing on
+        # its own is read as inanimate ("займёт два — три рабочих дня"); every
+        # branch below that does find its noun recomputes the case with the real
+        # animacy.
+        range_agreement = counted_noun_across_range(i)
+        if range_agreement is not None:
+            range_gender, range_anim = range_agreement
+            inflected_num = inflect_numeral_string(
+                clean_token,
+                paucal_accusative_case(val, case, animate=range_anim),
+                range_gender,
+                range_anim,
+            )
+        else:
+            inflected_num = inflect_numeral_string(
+                clean_token, inanimate_cardinal_case(val, case)
+            )
         num_words = build_number_token(token, clean_token, inflected_num, is_negative)
 
         if i + 2 < len(tokens):
@@ -190,7 +245,11 @@ def normalize_cardinal_numerals(text: str) -> str:
             clean_adj = adj_token.lower().strip(PUNCT_STRIP)
             clean_noun = noun_token.lower().strip(PUNCT_STRIP)
             p_adj = select_parse(clean_adj, pos={"ADJF", "PRTF"})
-            p_noun = select_parse(clean_noun, pos="NOUN")
+            p_noun = (
+                None
+                if is_ambiguous_preposition_token(clean_noun)
+                else select_parse(clean_noun, pos="NOUN")
+            )
             if (
                 p_adj is not None
                 and p_noun is not None
@@ -307,11 +366,19 @@ def normalize_cardinal_numerals(text: str) -> str:
                 )
                 if lemma == "человек" and case in {"nomn", "accs"}:
                     unit_form = noun_number_form(val)
-                    inflected_unit = "человека" if unit_form == "few" else "человек"
+                    # Bare 2–4 before an animate noun use the genitive numeral,
+                    # but the counted noun itself stays in the accusative
+                    # singular: "вижу двух человек".
+                    inflected_unit = (
+                        "человек"
+                        if case == "accs" and unit_form == "few"
+                        else ("человека" if unit_form == "few" else "человек")
+                    )
                 else:
                     inflected_unit = render_unit_expression(
                         unit_info,
                         get_target_tags_for_number(val, case, u_gender),
+                        paucal=noun_number_form(val) == "few",
                     )
                 full_unit = (
                     inflected_unit + (f" {u_suffix}" if u_suffix else "")
@@ -359,7 +426,11 @@ def normalize_cardinal_numerals(text: str) -> str:
                 i += step
                 continue
 
-            p_noun = select_parse(next_token_lower, pos="NOUN")
+            p_noun = (
+                None
+                if is_ambiguous_preposition_token(next_token_lower)
+                else select_parse(next_token_lower, pos="NOUN")
+            )
             if p_noun is not None:
                 gender = TIME_WORDS.get(next_token_lower, p_noun.tag.gender)
                 is_anim = "anim" in p_noun.tag
@@ -372,7 +443,24 @@ def normalize_cardinal_numerals(text: str) -> str:
                     ),
                     is_negative,
                 )
-                result_tokens.extend([num_words, noun_token])
+                counted_noun = noun_token
+                if case == "accs" and is_anim and val in {2, 3, 4}:
+                    if p_noun.normal_form == "человек":
+                        inflected_noun = "человек"
+                    else:
+                        inflected_noun = safe_inflect(
+                            p_noun,
+                            {"gent", "plur"},
+                            fallback_word=next_token_lower,
+                        )
+                    counted_noun = re.sub(
+                        re.escape(next_token_lower),
+                        inflected_noun,
+                        noun_token,
+                        count=1,
+                        flags=re.IGNORECASE,
+                    )
+                result_tokens.extend([num_words, counted_noun])
                 i += 2
                 continue
 
@@ -391,7 +479,26 @@ def normalize_numeric_unit_ranges(text: str) -> str:
             return match.group(0)
         context = text[max(0, match.start() - 40) : match.start()]
         tokens_left = simple_tokenize(context)
-        case = get_numeral_case([*tokens_left, left], len(tokens_left))
+        context_after = text[match.end() : match.end() + 40]
+        following_case: str | None = None
+        for token in simple_tokenize(context_after)[:5]:
+            clean_token = token.strip(".,!?;:()[]{}")
+            if not clean_token:
+                continue
+            if any(char in token for char in ".!?;:"):
+                break
+            p_noun = select_parse(parse_word(clean_token), pos="NOUN")
+            if p_noun is not None and is_case_reliable_noun(p_noun):
+                noun_case = "loct" if "loc2" in p_noun.tag else p_noun.tag.case
+                if noun_case in {"gent", "datv", "ablt", "loct"}:
+                    following_case = noun_case
+                break
+            p_token = select_parse(parse_word(clean_token), pos={"VERB", "INFN"})
+            if p_token is not None:
+                break
+        case = following_case or get_numeral_case(
+            [*tokens_left, left], len(tokens_left)
+        )
         u_gender = unit_info.gender
         u_suffix = unit_info.suffix
 
@@ -402,13 +509,36 @@ def normalize_numeric_unit_ranges(text: str) -> str:
 
         right_value = int(right)
         unit_words = inflect_unit_lemma(
-            unit_info, get_target_tags_for_number(right_value, case, u_gender)
+            unit_info,
+            get_target_tags_for_number(right_value, case, u_gender),
+            paucal=noun_number_form(right_value) == "few",
         )
         if u_suffix:
             unit_words += f" {u_suffix}"
         return f"{numeral_for_range(left)} — {numeral_for_range(right)} {unit_words}"
 
-    return NUMERIC_UNIT_RANGE_PATTERN.sub(repl, text)
+    normalized = NUMERIC_UNIT_RANGE_PATTERN.sub(repl, text)
+
+    def normalize_noun_range(match: re.Match[str]) -> str:
+        noun = match.group("noun")
+        p_noun = select_parse(parse_word(noun), pos="NOUN")
+        if p_noun is None or not is_case_reliable_noun(p_noun):
+            return match.group(0)
+
+        noun_case = "loct" if "loc2" in p_noun.tag else p_noun.tag.case
+        # Only a noun in an oblique case governs the range and needs this rule
+        # ("обмен 3-5 квартирами"). A nominative or genitive noun is the
+        # ordinary counted noun, and the range then belongs to the year stage
+        # and the main cardinal pass, which read the whole sentence context.
+        if noun_case not in {"datv", "ablt", "loct"}:
+            return match.group(0)
+        case = noun_case
+        gender = p_noun.tag.gender
+        left_words = inflect_numeral_string(match.group("left"), case, gender, False)
+        right_words = inflect_numeral_string(match.group("right"), case, gender, False)
+        return f"{left_words} — {right_words}{match.group('space')}{noun}"
+
+    return _NUMERIC_NOUN_RANGE_PATTERN.sub(normalize_noun_range, normalized)
 
 
 def normalize_remaining_post_numeral_abbreviations(text: str) -> str:

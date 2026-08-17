@@ -37,8 +37,11 @@ ABBREVIATION_DOT_CASES = (
         id="single_letter_abbreviation_clause",
     ),
     pytest.param(
+        # The case only guards against a capital letter after the abbreviation
+        # dot. The page reference itself is read as "на странице седьмой", the
+        # form the page-reference rule produces everywhere else.
         "Ссылка ведёт на стр. 7 приложения к договору.",
-        "Ссылка ведёт на страница семь приложения к договору.",
+        "Ссылка ведёт на странице седьмой приложения к договору.",
         id="expanded_abbreviation_needs_no_guard",
     ),
 )
@@ -136,6 +139,11 @@ def test_guard_ignores_a_capitalized_abbreviation():
     assert normalize_sentence_start_caps("Приехали на Ул. полевую утром.") == (
         "Приехали на Ул. Полевую утром."
     )
+
+
+def test_initial_sequence_before_a_conjunction_is_not_a_sentence_boundary():
+    source = "В комиссию вошли Петров В. Г. и Сидоров."
+    assert normalize(source) == source
 
 
 def test_disabled_option_leaves_the_text_untouched():

@@ -112,6 +112,17 @@ _LANGUAGE_ORIGIN_PATTERN = re.compile(
 _FOLLOWING_NAME_TOKEN_PATTERN = re.compile(
     rf"\s+(?P<token>{RUSSIAN_NAME_TOKEN})(?![A-Za-zА-Яа-яЁё])"
 )
+_CARDINAL_ONE_WORDS = frozenset({"один", "одна", "одно", "одну"})
+
+
+def _has_non_one_cardinal_before_abbreviation(left_context: str) -> bool:
+    tokens = _LEFT_CONTEXT_TOKEN_PATTERN.findall(left_context[-40:])
+    if not tokens:
+        return False
+    preceding = tokens[-1].casefold()
+    if preceding in _CARDINAL_ONE_WORDS:
+        return False
+    return any(candidate.tag.POS == "NUMR" for candidate in parse_word(preceding))
 
 
 def _expand_contextual_etc_abbreviations(text: str) -> str:
@@ -320,7 +331,9 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
                 modifier_parses.extend(adjective_candidates)
         return fallback_noun
 
-    def inflect_adjective(lemma: str, noun_parse) -> str:
+    def inflect_adjective(
+        lemma: str, noun_parse, *, counted_by_non_one_cardinal: bool = False
+    ) -> str:
         parsed = parse_word(lemma)
         adjective_parse = next(
             (
@@ -336,16 +349,26 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
         noun_case = canonicalize_case(noun_parse.tag.case)
         if noun_case is None:
             return lemma
-        target_tags = {noun_case}
         is_plural = "plur" in noun_parse.tag
-        if is_plural:
-            target_tags.add("plur")
+        if counted_by_non_one_cardinal:
+            # The noun's surface form is ambiguous in phrases such as "пути";
+            # cardinal government still requires a genitive-plural modifier:
+            # "два государственных пути".
+            target_tags = {"gent", "plur"}
         else:
-            target_tags.add("sing")
-            if noun_parse.tag.gender:
-                target_tags.add(noun_parse.tag.gender)
-        if noun_case == "accs" and (
-            is_plural or noun_parse.tag.gender == "masc"
+            target_tags = {noun_case}
+            if is_plural:
+                target_tags.add("plur")
+            else:
+                target_tags.add("sing")
+                if noun_parse.tag.gender:
+                    target_tags.add(noun_parse.tag.gender)
+        # Animacy only matters for a real accusative target; the cardinal branch
+        # above already fixed the modifier at genitive plural.
+        if (
+            not counted_by_non_one_cardinal
+            and noun_case == "accs"
+            and (is_plural or noun_parse.tag.gender == "masc")
         ):
             for animacy in ("anim", "inan"):
                 if animacy in noun_parse.tag:
@@ -371,7 +394,13 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
         noun_parse = choose_head_noun(phrase, expected_case)
         if noun_parse is None:
             return match.group(0)
-        expanded = inflect_adjective(lemma, noun_parse)
+        expanded = inflect_adjective(
+            lemma,
+            noun_parse,
+            counted_by_non_one_cardinal=_has_non_one_cardinal_before_abbreviation(
+                text[left_context_start : match.start()]
+            ),
+        )
         if abbr[:1].isupper():
             expanded = expanded[:1].upper() + expanded[1:]
         return f"{expanded}{match.group('space')}{phrase}"
@@ -647,8 +676,22 @@ def expand_person_initials(
 def expand_letter_abbreviations(
     text: str, *, vowel_mode: LetterVowelMode = "single"
 ) -> str:
-    def expand_token(token: str, is_dotted: bool) -> str:
-        tail_dot = token.endswith(".")
+    def keep_dotted_tail_dot(match: re.Match[str]) -> bool:
+        next_index, saw_newline = first_non_whitespace_index(text, match.end())
+        if next_index >= len(text) or saw_newline:
+            return True
+        next_char = text[next_index]
+        if next_char in ".!?…":
+            return True
+        if next_char in "\"»”)]}":
+            next_index, _ = first_non_whitespace_index(text, next_index + 1)
+            return next_index >= len(text) or text[next_index].isupper()
+        return next_char.isupper()
+
+    def expand_token(
+        token: str, is_dotted: bool, *, keep_terminal_dot: bool = True
+    ) -> str:
+        tail_dot = token.endswith(".") and keep_terminal_dot
         letters = [char for char in token if char.isalpha()]
         if len(letters) < ABBREV_MIN_LEN:
             return token
@@ -656,9 +699,9 @@ def expand_letter_abbreviations(
         letters_upper = [char.upper() for char in letters]
         joined_key = "".join(letters_upper)
         if joined_key in KNOWN_ABBREVIATIONS:
-            custom_reading = apply_letter_vowel_mode(
-                KNOWN_ABBREVIATIONS[joined_key], vowel_mode
-            )
+            custom_reading = KNOWN_ABBREVIATIONS[joined_key]
+            if joined_key not in {"UTC", "ISO"}:
+                custom_reading = apply_letter_vowel_mode(custom_reading, vowel_mode)
             return custom_reading + "." if tail_dot else custom_reading
 
         if all(char in RU_LETTER_NAMES for char in letters_upper):
@@ -682,7 +725,12 @@ def expand_letter_abbreviations(
         expanded = " ".join(names)
         return expanded + "." if tail_dot else expanded
 
-    text = ABBREV_DOTTED_PATTERN.sub(lambda m: expand_token(m.group(0), True), text)
+    text = ABBREV_DOTTED_PATTERN.sub(
+        lambda m: expand_token(
+            m.group(0), True, keep_terminal_dot=keep_dotted_tail_dot(m)
+        ),
+        text,
+    )
     return ABBREV_SOLID_PATTERN.sub(lambda m: expand_token(m.group(0), False), text)
 
 
@@ -767,5 +815,13 @@ def expand_abbreviations(text: str, options: NormalizeOptions | None = None) -> 
             pause_mode=active.initials_pause_mode,
         )
     if active.enable_letter_abbreviation_expansion:
+        # A trailing all-caps run in a CamelCase protocol or product name is a
+        # real acronym (PostgreSQL, GraphQL, OpenVPN). Split only a terminal
+        # run of at least two capitals; ordinary iPhone-like words stay intact.
+        text = re.sub(
+            r"(?<=[a-zа-яё])(?=[A-ZА-ЯЁ]{2,}\b)",
+            " ",
+            text,
+        )
         text = expand_letter_abbreviations(text, vowel_mode=active.letter_vowel_mode)
     return _normalize_contextual_ampersands(text, active)
