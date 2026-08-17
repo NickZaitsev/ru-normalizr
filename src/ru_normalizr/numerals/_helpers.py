@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import functools
 import logging
+import math
 import re
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -384,6 +386,24 @@ def _inflect_unit_lemma_cached(
 
 def is_case_reliable_noun(parsed_word: Any) -> bool:
     return "NOUN" in parsed_word.tag and "Fixd" not in parsed_word.tag
+
+
+def top_scoring_verb_parses(parses: Sequence[MorphParse]) -> list[MorphParse]:
+    """Verb parses that are as likely as the word's best parse overall.
+
+    A low-frequency verb homonym of a noun must not govern the numeral's case:
+    in "на встречу пришли 3 сотрудницы" the noun "встреча" outscores the verb
+    "встретить" by an order of magnitude, so the phrase has no governing verb.
+    """
+    if not parses:
+        return []
+    top_score = max(candidate.score for candidate in parses)
+    return [
+        candidate
+        for candidate in parses
+        if candidate.tag.POS in {"VERB", "INFN"}
+        and math.isclose(candidate.score, top_score, rel_tol=1e-9, abs_tol=1e-12)
+    ]
 
 
 def paucal_accusative_case(value: int, case: str, *, animate: bool) -> str:
@@ -927,19 +947,22 @@ def get_numeral_case(
     for i in range(idx - 1, max(left_scan_start - 1, idx - 5), -1):
         word_left = tokens[i].lower().strip(".,!?;:")
         parsed_left = parse_word(word_left)
-        p_verb = select_parse(parsed_left, pos={"VERB", "INFN"})
         # Full participles ("ожидаемый", "требуемый") are attributive modifiers of
         # a following noun, not governors of the numeral's case; leave them to the
         # adjective scan so the numeral stays in its predicate (nominative) case.
-        if p_verb is not None and p_verb.normal_form in VERB_CASE:
-            return VERB_CASE[p_verb.normal_form]
+        top_verbs = top_scoring_verb_parses(parsed_left)
+        for candidate in top_verbs:
+            if candidate.normal_form in VERB_CASE:
+                return VERB_CASE[candidate.normal_form]
         # pymorphy marks transitive verbs with ``tran``, so an ordinary direct
         # object needs no verb allow-list. Verbs that govern another case are
         # listed in VERB_CASE above and are already resolved. The accusative
         # only changes the rendered numeral when its last group ends in 1
         # ("заплатили одну тысячу"); ``inanimate_cardinal_case`` keeps every
-        # other ending identical to the nominative.
-        if p_verb is not None and "tran" in p_verb.tag:
+        # other ending identical to the nominative. An intransitive reading among
+        # the equally likely ones blocks the accusative: "пришли" is both
+        # "прийти" and the imperative of "прислать", and only the latter governs.
+        if top_verbs and all("tran" in candidate.tag for candidate in top_verbs):
             return "accs"
         if any(char in tokens[i] for char in ".!?"):
             break
