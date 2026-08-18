@@ -54,8 +54,9 @@ Whenever you identify a workaround, defect, or reliability risk, please highligh
 - A change that drops throughput is not "Done" until the loss is recovered or the
   user has explicitly accepted it. Record every measurement in
   `docs/SPEED_OBSERVATIONS.md` with the commit it was taken on.
-- The target is currently NOT met: see
-  [speed regression](docs/agents/speed-regression-2026-08.md).
+- Measure only on an idle machine: a background build stole two thirds of the
+  throughput in the August 2026 measurements. Check for foreign CPU consumers
+  first, then measure. See [speed regression](docs/agents/speed-regression-2026-08.md).
 
 ## Error handling
 
