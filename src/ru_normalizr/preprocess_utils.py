@@ -5,6 +5,7 @@ import re
 import num2words
 
 from .abbreviation_context import (
+    ends_with_plain_word,
     normalize_birth_year_abbreviations,
     normalize_mass_gram_abbreviations,
 )
@@ -228,7 +229,20 @@ def normalize_punctuation_spacing(text: str) -> str:
 
 
 def cleanup_malformed_punctuation(text: str) -> str:
-    return DOT_COMMA_PATTERN.sub(".", text)
+    """Drop a stray dot that a full word carries in front of a comma.
+
+    «Фраза., затем» is a typo; «Мыльников пер., рядом» is not. Collapsing the
+    abbreviation dot together with the comma would delete the clause boundary
+    and a TTS engine would run both halves of the sentence together, so the
+    dot is only removed when the word in front of it is unambiguously whole.
+    """
+
+    def repl(match: re.Match[str]) -> str:
+        if ends_with_plain_word(text, match.start()):
+            return "."
+        return match.group(0)
+
+    return DOT_COMMA_PATTERN.sub(repl, text)
 
 
 def normalize_cyrillic_combining_stress_marks(text: str) -> str:

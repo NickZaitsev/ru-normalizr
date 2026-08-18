@@ -6,7 +6,7 @@
 
 import pytest
 
-from ru_normalizr import normalize
+from ru_normalizr import NormalizeOptions, normalize
 
 LETTER_SUFFIX_CASES = (
     pytest.param("Дом 7Б готов к сдаче.", "Дом семь бэ готов к сдаче.", id="glued"),
@@ -179,3 +179,55 @@ NUMBER_SIGN_CASES = (
 )
 def test_gap_fix_edge_cases(source: str, expected: str) -> None:
     assert normalize(source) == expected
+
+
+ABBREVIATION_DOT_CASES = (
+    # Точка сокращения не начинает предложение и не съедает запятую.
+    pytest.param(
+        "Ссылка дана на примеч. 257 в конце главы.",
+        "Ссылка дана на примеч. двести пятьдесят семь в конце главы.",
+        id="truncated_abbreviation_keeps_lowercase",
+    ),
+    pytest.param(
+        "Дом стоял в Мыльников пер., рядом была типография.",
+        "Дом стоял в Мыльников пер., рядом была типография.",
+        id="abbreviation_dot_keeps_comma",
+    ),
+    # Незнакомое словарю целое слово — не сокращение: продолжений в словаре у
+    # него нет, поэтому граница предложения сохраняется.
+    pytest.param(
+        "Мы завершили деплой. 12 сервисов работают штатно.",
+        "Мы завершили деплой. Двенадцать сервисов работают штатно.",
+        id="unknown_whole_word_keeps_sentence_break",
+    ),
+    # Обычное слово перед точкой — граница предложения, а точка перед запятой
+    # у него лишняя.
+    pytest.param(
+        "Работа закончена. 15 листов сданы в архив.",
+        "Работа закончена. Пятнадцать листов сданы в архив.",
+        id="plain_word_keeps_sentence_break",
+    ),
+    pytest.param(
+        "Фраза., затем 2 слова.",
+        "Фраза. затем два слова.",
+        id="plain_word_drops_stray_dot",
+    ),
+    # Короткое настоящее слово в конце предложения не считается сокращением.
+    pytest.param(
+        "Их было сто. 40 человек ушли раньше.",
+        "Их было сто. Сорок человек ушли раньше.",
+        id="short_real_word_keeps_sentence_break",
+    ),
+    # Длинное слово (больше десяти букв) не может быть усечением: проверять
+    # его как сокращение нельзя, иначе граница предложения теряется.
+    pytest.param(
+        "Работа была завершена. 7 томов ушли в переплёт.",
+        "Работа была завершена. Семь томов ушли в переплёт.",
+        id="long_word_keeps_sentence_break",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), ABBREVIATION_DOT_CASES)
+def test_abbreviation_dot_edges(source: str, expected: str) -> None:
+    assert normalize(source, NormalizeOptions.tts()) == expected

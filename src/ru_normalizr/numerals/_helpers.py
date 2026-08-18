@@ -63,6 +63,10 @@ logger = logging.getLogger(__name__)
 SENTENCE_PUNCTUATION_PATTERN = re.compile(r"\s+([.,!?;:])")
 POINT_NUMBER_SPACING_PATTERN = re.compile(r"(?<=\.) (?=\d)")
 NUMERAL_CONTEXT_BARRIERS = {"равно", "="}
+#: Sentence-final punctuation ends the region a numeral may look back over.
+#: Nothing before it can govern the numeral's case, so «Мы завершили деплой.
+#: 12 задач осталось.» must not inherit a case from the previous sentence.
+SENTENCE_BOUNDARY_TOKENS = frozenset({".", "!", "?", "…", ";"})
 MORPHOLOGICAL_CONTEXT_BARRIER_POS = {"VERB", "INFN", "GRND"}
 GENITIVE_QUANTITY_GOVERNORS = {
     "выигрыш",
@@ -132,7 +136,10 @@ def _build_numeral_token_context(tokens: list[str]) -> _NumeralTokenContext:
     current_start = 0
     for position, token in enumerate(tokens):
         left_scan_starts.append(current_start)
-        if normalize_context_token(token) in NUMERAL_CONTEXT_BARRIERS:
+        if (
+            normalize_context_token(token) in NUMERAL_CONTEXT_BARRIERS
+            or token in SENTENCE_BOUNDARY_TOKENS
+        ):
             current_start = position + 1
     return _NumeralTokenContext(tuple(left_scan_starts))
 

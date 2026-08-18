@@ -105,28 +105,6 @@ E2E_KNOWN_GAP_CASES = (
             reason="Ц. is spelled as a letter name and swallows the sentence boundary",
         ),
     ),
-    # Запятая после точки сокращения — часть структуры фразы; вычищать её
-    # нельзя, иначе TTS теряет паузу и склеивает части предложения.
-    pytest.param(
-        "Дом стоял в Мыльников пер., рядом была типография.",
-        "Дом стоял в Мыльников пер., рядом была типография.",
-        id="comma_after_abbreviation_dot",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="cleanup_malformed_punctuation collapses abbreviation dot plus comma to a dot",
-        ),
-    ),
-    # Точка неизвестного сокращения не начинает предложение, поэтому
-    # следующее числительное остаётся строчным.
-    pytest.param(
-        "Ссылка дана на примеч. 257 в конце главы.",
-        "Ссылка дана на примеч. двести пятьдесят семь в конце главы.",
-        id="capitalization_after_unknown_abbreviation",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="dot of an out-of-dictionary abbreviation is treated as a sentence end",
-        ),
-    ),
     # Римская цифра при сокращении тома — порядковое числительное, как и в
     # «том II»; после точки сокращения регистр тоже не меняется.
     pytest.param(
