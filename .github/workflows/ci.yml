@@ -5,15 +5,56 @@ on:
     branches: [main]
   pull_request:
   schedule:
-    # Weekly run so upstream dependency releases (e.g. num2words, which has no
-    # upper bound while tests assert exact output) are caught here, not by users.
+    # Weekly run so upstream dependency releases (e.g. num2words, whose upper
+    # bound has to be raised deliberately) are caught here, not by users.
     - cron: "0 6 * * 1"
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Абсолютная цель из AGENTS.md. Сравнение с base commit её не защищает: пайплайн
+  # может уезжать сколько угодно долго, пока каждый PR замедляет его меньше 25%.
+  MIN_CHARS_PER_SECOND: "180000"
+
 jobs:
+  lint:
+    name: Lint and type check
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # pyright гоняется и на Windows: cp1251/cp1252 уже приносили баги,
+        # которые видны только на этой платформе.
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.29"
+          enable-cache: true
+
+      - name: Sync locked dependencies
+        run: uv sync --frozen
+
+      - name: Lint
+        if: runner.os == 'Linux'
+        run: uv run ruff check .
+
+      - name: Type check
+        run: uv run pyright
+
   test:
     runs-on: ${{ matrix.os }}
 
@@ -25,15 +66,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v8.3.2
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.11.29"
           enable-cache: true
@@ -51,15 +92,13 @@ jobs:
       - name: Verify compiled morphology backend
         run: uv run python -c "from pymorphy3 import dawg; assert dawg.EXTENSION_AVAILABLE"
 
-      - name: Lint
-        run: uv run ruff check .
-
-      - name: Type check
-        if: runner.os == 'Linux'
-        run: uv run pyright
-
+      # Сборка wheel занимает ~24 с и нужна один раз, а не в каждой из 8 ячеек.
       - name: Test
-        run: uv run pytest -q
+        run: uv run pytest -q -m "not packaging"
+
+      - name: Test packaging
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        run: uv run pytest -q -m packaging
 
       - name: Branch coverage report
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
@@ -74,15 +113,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v8.3.2
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.11.29"
           enable-cache: true
@@ -105,12 +144,31 @@ jobs:
     name: Performance regression
     if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
-    env:
-      BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
 
     steps:
       - name: Checkout pull request
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # Нужна история, чтобы разрешить base commit при push-событии.
+          fetch-depth: 0
+
+      # github.event.before — нулевой SHA при force-push и первом push в ветку,
+      # и checkout такого ref падает. В этом случае берём merge-base с main.
+      - name: Resolve base commit
+        id: base
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          zero="0000000000000000000000000000000000000000"
+          if [ -z "$base" ] || [ "$base" = "$zero" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "base commit '$base' недоступен, откатываемся на main"
+            # actions/checkout не создаёт ref origin/main, поэтому берём FETCH_HEAD.
+            git fetch --no-tags origin main
+            base="$(git merge-base HEAD FETCH_HEAD)"
+          fi
+          echo "Базовый commit: $base"
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
 
       - name: Preserve benchmark harness and corpus
         run: |
@@ -118,20 +176,20 @@ jobs:
           cp -R benchmarks/corpus "$RUNNER_TEMP/benchmark-corpus"
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v8.3.2
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.11.29"
           enable-cache: true
 
       - name: Checkout base commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ env.BASE_SHA }}
+          ref: ${{ steps.base.outputs.sha }}
 
       - name: Benchmark base commit
         run: |
@@ -152,7 +210,7 @@ jobs:
             --json "$RUNNER_TEMP/base-real.json"
 
       - name: Checkout pull request again
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Benchmark and compare pull request
         run: |
@@ -180,7 +238,7 @@ jobs:
 
       - name: Upload benchmark metrics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: performance-metrics
           path: |
@@ -198,15 +256,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v8.3.2
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.11.29"
           enable-cache: true
@@ -214,6 +272,8 @@ jobs:
       - name: Sync locked dependencies
         run: uv sync --frozen
 
+      # Абсолютный порог живёт только здесь: на PR-раннере разброс слишком велик,
+      # чтобы падать по абсолютной цифре, а nightly гоняет полный корпус.
       - name: Benchmark every real book in an isolated process
         shell: bash
         run: |
@@ -230,13 +290,14 @@ jobs:
               --manifest benchmarks/corpus/MANIFEST.json \
               --corpus "$corpus" --real-only --mode tts \
               --samples 3 --warmups 1 \
+              --min-chars-per-second "$MIN_CHARS_PER_SECOND" \
               --partial-json "$RUNNER_TEMP/$corpus.partial.json" \
               --json "$RUNNER_TEMP/$corpus.json"
           done
 
       - name: Upload nightly corpus metrics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: performance-nightly-metrics
           path: |
