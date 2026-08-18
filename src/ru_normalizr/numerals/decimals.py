@@ -6,6 +6,7 @@ from functools import lru_cache
 
 import num2words
 
+from .._log_once import warn_once
 from .._morph import first_parse_required, parse_word
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_context import PUNCT_STRIP, normalize_context_token, simple_tokenize
@@ -95,7 +96,13 @@ def _fraction_order_base(digits: int) -> str:
     try:
         return num2words.num2words(10**digits, lang="ru", to="ordinal")
     except Exception as exc:
-        logger.debug("num2words failed for 10**%d ordinal: %s", digits, exc)
+        warn_once(
+            logger,
+            f"num2words-order:{digits}",
+            "num2words failed for 10**%d ordinal: %s",
+            digits,
+            exc,
+        )
         return {
             1: "десятая",
             2: "сотая",

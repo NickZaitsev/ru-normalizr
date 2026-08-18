@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import weakref
 from collections.abc import Iterator, Sequence
+from contextvars import ContextVar
 from typing import TypeAlias
 
 try:  # Python 3.11+ moved the regex parser out of the deprecated top-level module.
@@ -18,24 +19,30 @@ _GUARDED_PATTERNS: weakref.WeakSet[GuardedPattern] = weakref.WeakSet()
 #: The last casefolded document, so that the case-insensitive guards of one pass
 #: fold it once instead of once each. Compared by identity, which makes a stale
 #: entry impossible; :func:`clear_fold_cache` drops the reference afterwards.
-_FOLD_CACHE: tuple[str, str] | None = None
+#:
+#: Хранится в ``ContextVar``, а не в глобале: у одного слота два конкурентных
+#: ``Normalizer`` в разных потоках выбивали записи друг друга (каждый промах —
+#: casefold всего документа), а ``clear_fold_cache`` из одного потока стирал
+#: кеш другого прямо посреди прохода. На корпусе ``_casefolded`` вызывается
+#: ~116 раз на документ, так что 36 нс разницы на чтение — 4 мкс на документ.
+_FOLD_CACHE: ContextVar[tuple[str, str] | None] = ContextVar(
+    "ru_normalizr_fold_cache", default=None
+)
 
 
 def _casefolded(text: str) -> str:
-    global _FOLD_CACHE
-    cached = _FOLD_CACHE
+    cached = _FOLD_CACHE.get()
     if cached is not None and cached[0] is text:
         return cached[1]
     folded = text.casefold()
-    _FOLD_CACHE = (text, folded)
+    _FOLD_CACHE.set((text, folded))
     return folded
 
 
 def clear_fold_cache() -> None:
     """Drop the cached casefolded document so it is not kept alive after a run."""
 
-    global _FOLD_CACHE
-    _FOLD_CACHE = None
+    _FOLD_CACHE.set(None)
 
 
 class GuardedPattern:

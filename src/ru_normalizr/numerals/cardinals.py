@@ -5,6 +5,7 @@ import re
 
 import num2words
 
+from .._log_once import warn_once
 from .._morph import first_parse_required, parse_word, select_parse
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_context import (
@@ -660,7 +661,13 @@ def normalize_all_digits_everywhere(text: str) -> str:
         try:
             return num2words.num2words(int(match.group(0)), lang="ru")
         except Exception as exc:
-            logger.debug("num2words failed for %r: %s", match.group(0), exc)
+            warn_once(
+                logger,
+                f"num2words-digits:{match.group(0)}",
+                "num2words failed for %r: %s",
+                match.group(0),
+                exc,
+            )
             return match.group(0)
 
     return DIGIT_PATTERN.sub(repl, text)

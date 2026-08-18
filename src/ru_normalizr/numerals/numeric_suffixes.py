@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
+from .._log_once import warn_once
 from .._morph import canonicalize_case, parse_word, select_parse
 from ..ordinal_utils import render_ordinal
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
@@ -466,7 +467,13 @@ def resolve_numeric_suffix(
             if candidate.exact
         ]
     except Exception as exc:  # pragma: no cover - dependency boundary
-        logger.debug("numeric suffix morphology failed for %r: %s", number_text, exc)
+        warn_once(
+            logger,
+            f"suffix-morphology:{number_text}:{suffix}",
+            "numeric suffix morphology failed for %r: %s",
+            number_text,
+            exc,
+        )
         return inflect_numeral_string(number_text, "nomn")
     if not exact:
         return _fallback_cardinal(

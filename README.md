@@ -307,6 +307,23 @@ uv run python scripts/dev.py check
 версионирования — в [VERSIONING.md](VERSIONING.md), соглашения для правок кода —
 в [AGENTS.md](AGENTS.md) и [docs/agents/](docs/agents/README.md).
 
+### Многопоточность
+
+`normalize()` и `Normalizer.normalize()` не держат изменяемого состояния между
+вызовами, поэтому вызывать их из нескольких потоков безопасно:
+
+- `NormalizeOptions` — неизменяемый frozen dataclass, его можно свободно делить
+  между потоками;
+- анализатор `pymorphy3.MorphAnalyzer` один на процесс и используется только для
+  чтения; его собственные кеши защищены GIL;
+- кеш casefold-копии документа и реестр словарных нормализаторов живут в
+  `ContextVar` и в ограниченном LRU соответственно, так что потоки не вытесняют
+  записи друг друга;
+- один экземпляр `Normalizer` можно использовать из нескольких потоков, но
+  собственный экземпляр на поток даёт лучшую локальность кешей.
+
+Гарантий для нескольких **процессов** не требуется: общего состояния нет.
+
 ## Сравнение с другими нормализаторами
 
 Сравнение проводилось на одном компьютере на одних и тех же текстах. Качество можете оценить сами по примерам ниже.
@@ -679,6 +696,22 @@ uv run python scripts/dev.py check
 The PyPI release procedure is described in [docs/RELEASING.md](docs/RELEASING.md),
 the versioning policy in [VERSIONING.md](VERSIONING.md), and the code conventions
 in [AGENTS.md](AGENTS.md) and [docs/agents/](docs/agents/README.md).
+
+### Threading
+
+`normalize()` and `Normalizer.normalize()` keep no mutable state between calls,
+so calling them from several threads is safe:
+
+- `NormalizeOptions` is an immutable frozen dataclass and can be shared freely;
+- the `pymorphy3.MorphAnalyzer` is a single per-process instance used read-only;
+  its own caches are protected by the GIL;
+- the casefolded-document cache lives in a `ContextVar` and the dictionary
+  normalizer registry is a bounded LRU, so threads do not evict each other's
+  entries;
+- one `Normalizer` instance may be shared across threads, but a per-thread
+  instance gives better cache locality.
+
+No guarantees are needed across **processes**: there is no shared state.
 
 ## Comparison with other normalizers
 

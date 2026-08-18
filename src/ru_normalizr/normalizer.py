@@ -321,11 +321,7 @@ class PipelineNormalizer:
         text = protected_paths.restore(text)
         return protected_urls.restore(text)
 
-    def run_preprocess(
-        self, text: str, keep_paragraph_placeholders: bool = False
-    ) -> str:
-        # Retained for compatibility with the established public method signature.
-        del keep_paragraph_placeholders
+    def run_preprocess(self, text: str) -> str:
         text = self._run_preprocess_steps(
             text,
             apply_caps_normalization=True,

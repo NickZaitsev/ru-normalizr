@@ -10,6 +10,7 @@ from typing import Any
 
 import num2words
 
+from .._log_once import warn_once
 from .._morph import (
     MorphParse,
     canonicalize_case,
@@ -274,7 +275,14 @@ def safe_inflect(
         if inflected:
             return inflected.word
     except Exception as exc:
-        logger.debug("inflect failed for %r -> %s: %s", parsed_word.word, target_tags, exc)
+        warn_once(
+            logger,
+            f"inflect:{parsed_word.word}:{target_tags}",
+            "inflect failed for %r -> %s: %s",
+            parsed_word.word,
+            target_tags,
+            exc,
+        )
     pos = parsed_word.tag.POS
     if (
         (pos_filter is None or pos in pos_filter)
@@ -385,7 +393,9 @@ def _inflect_unit_lemma_cached(
             inflected = safe_inflect(selected, target_tags, fallback_word="")
             if inflected:
                 return inflected
-        logger.debug(
+        warn_once(
+            logger,
+            f"unit-morphology:{lemma}:{target_tags}",
             "No validated morphology form for unit %r and tags %s",
             lemma,
             target_tags,
@@ -618,11 +628,18 @@ def _inflect_numeral_string_cached(
                 kwargs["animate"] = animate
             return num2words.num2words(value, lang="ru", **kwargs)
         except Exception as exc:
-            logger.debug("num2words failed for %r (kwargs=%s): %s", value, kwargs, exc)
+            warn_once(
+                logger,
+                f"num2words-gendered:{value}",
+                "num2words failed for %r (kwargs=%s): %s",
+                value,
+                kwargs,
+                exc,
+            )
     try:
         words = num2words.num2words(value, lang="ru").split()
     except Exception as exc:
-        logger.debug("num2words failed for %r: %s", value, exc)
+        warn_once(logger, f"num2words:{value}", "num2words failed for %r: %s", value, exc)
         return num_str
     if case == "nomn" and gender is None:
         return " ".join(words)

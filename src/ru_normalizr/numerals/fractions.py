@@ -5,6 +5,7 @@ import re
 
 import num2words
 
+from .._log_once import warn_once
 from .._morph import canonicalize_case, first_parse_required, select_parse
 from ..text_context import simple_tokenize
 from ..text_scan import compile_scan
@@ -101,7 +102,13 @@ def normalize_fractions(text: str) -> str:
         try:
             denom_text = num2words.num2words(denom, lang="ru", to="ordinal")
         except Exception as exc:
-            logger.debug("num2words failed for denominator %r: %s", denom, exc)
+            warn_once(
+                logger,
+                f"num2words-denominator:{denom}",
+                "num2words failed for denominator %r: %s",
+                denom,
+                exc,
+            )
             return None
         words = denom_text.split()
         if len(words) > 1:
