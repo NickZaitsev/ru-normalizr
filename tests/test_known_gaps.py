@@ -349,6 +349,187 @@ E2E_KNOWN_GAP_CASES = (
             reason="a cardinal following a date pair is absorbed by the year context",
         ),
     ),
+    # --- Найдено сплошным чтением книги 06 (Семёнов-Тян-Шанский) ---
+    # «гг.» после диапазона лет не раскрывается: точка остаётся и следующее
+    # слово получает заглавную букву.
+    pytest.param(
+        "Путешествие в Тянь-Шань в 1856—1857 гг. осталось единственным его исследованием.",
+        "Путешествие в Тянь-Шань в тысяча восемьсот пятьдесят шестом — "
+        "тысяча восемьсот пятьдесят седьмом годах осталось единственным его исследованием.",
+        id="year_range_before_gg_abbreviation",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="гг. after a year range keeps its dot and capitalizes the next word",
+        ),
+    ),
+    # «г.» после года перед словом с заглавной буквы принимается за конец
+    # предложения: в тексте с именами это рвёт фразу на каждом датированном месте.
+    pytest.param(
+        "В 1867 г. Семёнов поместил в записках общества описание своей поездки.",
+        "В тысяча восемьсот шестьдесят седьмом году Семёнов поместил "
+        "в записках общества описание своей поездки.",
+        id="sentence_break_after_year_abbreviation_before_a_name",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="г. before a capitalized word is treated as a sentence end",
+        ),
+    ),
+    # Век после «к середине» получает падеж от предлога «к», а не родительный
+    # от управляющего существительного.
+    pytest.param(
+        "Наука подошла к середине XIX в., хорошо изучив побережья материка.",
+        "Наука подошла к середине девятнадцатого века, хорошо изучив побережья материка.",
+        id="century_takes_case_from_the_preposition",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="century after к середине is rendered in the dative instead of the genitive",
+        ),
+    ),
+    # Диапазон веков «IV—VII вв.» читается именительным единственного числа
+    # вместо родительного множественного.
+    pytest.param(
+        "Сведения шли от миссионеров буддизма IV—VII вв. и от чиновников новейших времён.",
+        "Сведения шли от миссионеров буддизма четвёртого — седьмого веков "
+        "и от чиновников новейших времён.",
+        id="century_range_abbreviation",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a century range before вв. stays nominative singular",
+        ),
+    ),
+    # Висячий дефис первой части сложного слова («в оро- и гидрографическом»)
+    # превращается в тире, разрывая слово.
+    pytest.param(
+        "Работа интересна в оро- и гидрографическом отношениях для всей страны.",
+        "Работа интересна в оро- и гидрографическом отношениях для всей страны.",
+        id="dangling_hyphen_in_coordinated_compound",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a dangling hyphen of a coordinated compound becomes a dash",
+        ),
+    ),
+    # Угловые минуты после градусов не читаются: апостроф остаётся отдельным
+    # символом.
+    pytest.param(
+        "Пиренеи лежат между 42°30' и 43° северной широты по всей длине.",
+        "Пиренеи лежат между сорока двумя градусами тридцатью минутами "
+        "и сорока тремя градусами северной широты по всей длине.",
+        id="arc_minutes_after_degrees",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="arc minutes after a degree sign are left as a bare apostrophe",
+        ),
+    ),
+    # Сокращение единицы после смешанной дроби не раскрывается: остаётся точка
+    # и заглавная буква у следующего слова.
+    pytest.param(
+        "За прогоны платили по 1 1/2 коп. с версты и лошади на почтовом тракте.",
+        "За прогоны платили по одной целой одной второй копейки с версты "
+        "и лошади на почтовом тракте.",
+        id="unit_abbreviation_after_mixed_fraction",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a unit abbreviation after a mixed fraction is left unexpanded",
+        ),
+    ),
+    # Сокращённая запись пары лет «1856/57 гг.» не распознаётся как диапазон.
+    pytest.param(
+        "Мне пришлось провести зиму 1856/57 гг. в Барнауле за разбором коллекций.",
+        "Мне пришлось провести зиму тысяча восемьсот пятьдесят шестого — "
+        "пятьдесят седьмого годов в Барнауле за разбором коллекций.",
+        id="split_year_notation",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the 1856/57 year notation is not read as a range",
+        ),
+    ),
+    # Многоточие внутри цитаты принимается за конец предложения, и следующее
+    # слово получает заглавную букву.
+    pytest.param(
+        "Он писал так: «.... факты, разработанные лучшими учёными нашего века, скудны».",
+        'Он писал так: ".... факты, разработанные лучшими учёными нашего века, скудны".',
+        id="caps_after_inline_ellipsis",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="an ellipsis inside a quotation capitalizes the next word",
+        ),
+    ),
+    # Минус перед температурой набран тире и остаётся тире, теряя «минус».
+    pytest.param(
+        "Ночь была холодная, и к утру было —2° Ц в палатке.",
+        "Ночь была холодная, и к утру было минус два градуса Цельсия в палатке.",
+        id="dash_as_minus_before_temperature",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a dash used as a minus before a temperature stays a dash",
+        ),
+    ),
+    # Инициалы перед фамилией принимаются за сокращение: «В. Д.» читается как
+    # «восточной долготы», «Г. Г.» — как «годы».
+    pytest.param(
+        "Он спорил с князем В. Д. Горчаковым о судьбе отряда.",
+        "Он спорил с князем вэ дэ Горчаковым о судьбе отряда.",
+        id="initials_read_as_an_abbreviation",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="initials before a surname are expanded as a domain abbreviation",
+        ),
+    ),
+    # Разрядка подчёркиваниями («в_н_е в_с_я_к_о_г_о») превращается в
+    # последовательность отдельных букв вместо слова.
+    pytest.param(
+        "Найденные окаменелости определили, в_н_е в_с_я_к_о_г_о с_о_м_н_е_н_и_я, эпоху пластов.",
+        "Найденные окаменелости определили, вне всякого сомнения, эпоху пластов.",
+        id="letterspaced_emphasis_with_underscores",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="underscore letter-spacing is read as separate letters",
+        ),
+    ),
+    # Односимвольные римские цифры в перечислении читаются названиями латинских
+    # букв, хотя соседние двухсимвольные раскрываются правильно.
+    pytest.param(
+        "Статьи вышли в выпусках I, II, IV, V этого издания за один год.",
+        "Статьи вышли в выпусках первом, втором, четвёртом, пятом этого издания за один год.",
+        id="single_letter_roman_numerals_in_a_list",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="single-letter roman numerals in a list are read as latin letter names",
+        ),
+    ),
+    # Сокращение раскрывается в именительном падеже независимо от управления:
+    # «оз.» → «озеро», «ред.» → «Редактор», «сост.» → «Составитель».
+    pytest.param(
+        "Отряд дошёл до западной оконечности оз. Иссык-Куль в июне того года.",
+        "Отряд дошёл до западной оконечности озера Иссык-Куль в июне того года.",
+        id="abbreviation_expanded_in_the_nominative",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="an expanded abbreviation ignores the government of the phrase",
+        ),
+    ),
+    # Год в библиографической ссылке читается количественным («одна тысяча
+    # восемьсот пятьдесят»), хотя тот же год после «за» читается порядковым.
+    pytest.param(
+        "Книга напечатана в типографии, СПБ, 1850.",
+        "Книга напечатана в типографии, эс пэ бэ, тысяча восемьсот пятидесятый.",
+        id="bibliographic_year_read_as_cardinal",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a year in a bibliographic reference is read as a bare cardinal",
+        ),
+    ),
+    # Во втором члене сочинённой пары номер остаётся количественным: «гл. 8 и 9»
+    # → «глава восьмая и девять».
+    pytest.param(
+        "Об этом сказано в гл. 8 и 9 второго тома издания.",
+        "Об этом сказано в главах восьмой и девятой второго тома издания.",
+        id="second_number_of_a_coordinated_pair",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the second number of a coordinated pair stays a cardinal",
+        ),
+    ),
 )
 
 
