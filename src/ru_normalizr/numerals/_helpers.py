@@ -33,6 +33,7 @@ from ._constants import (
     VERB_CASE,
     UnitDescriptor,
     UnitMorphology,
+    is_unit_token,
 )
 from ._num2words import (
     CARDINAL_GENDER_TO_NUM2WORDS,
@@ -672,6 +673,40 @@ def _get_preposition_before_number(tokens: list[str], idx: int) -> tuple[str, st
     return None
 
 
+def _is_counting_group(tokens: Sequence[str], idx: int, visible_length: int) -> bool:
+    """Whether the integer at ``idx`` and the word after it form a counting group.
+
+    A quantitative group is a syntactic island: «в городе 12 лет», «на глубине
+    200 м», «в Киеве 3177 человек». The written counted word tells the group
+    apart from a genuinely oblique quantity, because a counting group puts it
+    into the form the *nominative* numeral requires («лет», «человек», «м»),
+    while an oblique quantity agrees with the numeral instead («в 12 городах»,
+    «с 200 метрами»). Only a preposition or a verb can govern such a group; a
+    neighbouring noun or adjective is modified by it, so it must not push its
+    own case in — that produced «в городе двенадцати лет» and «на глубине
+    двухстах метрах».
+    """
+    if idx + 1 >= visible_length:
+        return False
+    parsed_num = parse_integer_token(tokens[idx])
+    if parsed_num is None:
+        return False
+    value = int(parsed_num[1])
+    counted = tokens[idx + 1].lower().strip(PUNCT_STRIP)
+    if not counted:
+        return False
+    if is_unit_token(counted):
+        # A unit symbol is not inflected, so it cannot report government either;
+        # its bare presence means the numeral counts something.
+        return True
+    required = canonicalize_grammemes(get_target_tags_for_number(value, "nomn"))
+    return any(
+        is_case_reliable_noun(parse)
+        and required.issubset(canonicalize_grammemes(parse.tag.grammemes))
+        for parse in parse_word(counted)
+    )
+
+
 def get_numeral_case(
     tokens: list[str],
     idx: int,
@@ -762,6 +797,19 @@ def get_numeral_case(
     ):
         return "nomn"
 
+    if (
+        idx > 0
+        and normalize_context_token(tokens[idx - 1]) == "в"
+        and idx + 2 < visible_length
+        and is_unit_token(tokens[idx + 1].lower().strip(PUNCT_STRIP))
+        and normalize_context_token(tokens[idx + 2]) in {"от", "до"}
+    ):
+        # A distance measured off a landmark is locative: «в 200 м от дома» →
+        # «в двухстах метрах от дома». A unit symbol carries no case of its own,
+        # so nothing else in the phrase reports the government and «в» would
+        # otherwise fall back to its accusative reading.
+        return "loct"
+
     if idx > 1 and tokens[idx - 1] == "и":
         for back in range(idx - 2, max(-1, idx - 6), -1):
             if any(char in tokens[back] for char in ".!?;:"):
@@ -833,6 +881,7 @@ def get_numeral_case(
             # noun such as "частоте".
             if (
                 is_case_reliable_noun(left_noun)
+                and not _is_counting_group(tokens, idx, visible_length)
                 and not any(
                     "ADJF" in candidate.tag for candidate in parse_word(immediate_left)
                 )
@@ -944,12 +993,13 @@ def get_numeral_case(
         if p.tag.POS in {"NOUN", "ADJF", "PRTF"}:
             break
 
-    for i in range(max(local_left_scan_start, idx - 2), idx):
-        p = first_parse_required(tokens[i])
-        if blocked_by_noun and p.tag.POS in {"ADJF", "PRTF"}:
-            continue
-        if p.tag.POS in {"ADJF", "PRTF"} and p.tag.case:
-            return p.tag.case
+    if not _is_counting_group(tokens, idx, visible_length):
+        for i in range(max(local_left_scan_start, idx - 2), idx):
+            p = first_parse_required(tokens[i])
+            if blocked_by_noun and p.tag.POS in {"ADJF", "PRTF"}:
+                continue
+            if p.tag.POS in {"ADJF", "PRTF"} and p.tag.case:
+                return p.tag.case
 
     for i in range(idx - 1, max(left_scan_start - 1, idx - 5), -1):
         word_left = tokens[i].lower().strip(".,!?;:")

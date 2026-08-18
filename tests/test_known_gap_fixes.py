@@ -102,6 +102,11 @@ E2E_FIXED_CASES = (
     pytest.param("Проект перевели на C++17 после обновления компилятора.", "Проект перевели на си плюс плюс семнадцать после обновления компилятора.", id="cpp_language_standard"),
     pytest.param("Дом стоял в Мыльников пер., рядом была типография.", "Дом стоял в Мыльников пер., рядом была типография.", id="comma_after_abbreviation_dot"),
     pytest.param("Ссылка дана на примеч. 257 в конце главы.", "Ссылка дана на примеч. двести пятьдесят семь в конце главы.", id="capitalization_after_unknown_abbreviation"),
+    pytest.param("Мы живём в городе 12 лет.", "Мы живём в городе двенадцать лет.", id="duration_after_locative_place"),
+    pytest.param("В отряде 40 человек осталось.", "В отряде сорок человек осталось.", id="count_group_after_locative_collective"),
+    pytest.param("На глубине 200 м вода холодная.", "На глубине двести метров вода холодная.", id="unit_after_locative_measure_head"),
+    pytest.param("Конных и пеших людей всего в Киеве 3177 человек.", "Конных и пеших людей всего в Киеве три тысячи сто семьдесят семь человек.", id="count_group_after_distant_locative"),
+    pytest.param("Послано татар казанских и свияжских 100 человек.", "Послано татар казанских и свияжских сто человек.", id="count_group_after_genitive_attributes"),
 )
 
 

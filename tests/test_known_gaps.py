@@ -5,60 +5,6 @@ import pytest
 from ru_normalizr import NormalizeOptions, normalize
 
 E2E_KNOWN_GAP_CASES = (
-    # Локатив места или вместилища не управляет счётной группой: «в городе»,
-    # «в отряде», «на глубине» — обстоятельства, а число называет величину.
-    pytest.param(
-        "Мы живём в городе 12 лет.",
-        "Мы живём в городе двенадцать лет.",
-        id="duration_after_locative_place",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="locative place noun leaks its case into the duration",
-        ),
-    ),
-    pytest.param(
-        "В отряде 40 человек осталось.",
-        "В отряде сорок человек осталось.",
-        id="count_group_after_locative_collective",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="locative collective noun leaks its case into the counted group",
-        ),
-    ),
-    # Даже если числительное считать косвенным, единица измерения в счётной
-    # группе не может стоять в предложном падеже.
-    pytest.param(
-        "На глубине 200 м вода холодная.",
-        "На глубине двести метров вода холодная.",
-        id="unit_after_locative_measure_head",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="locative measure head puts both numeral and unit into the prepositional case",
-        ),
-    ),
-    # Счётная группа «N человек» — приложение к перечислению, а не дополнение
-    # предлога: далёкое «в Киеве» не должно ни склонять числительное, ни
-    # менять лемму счётного слова.
-    pytest.param(
-        "Конных и пеших людей всего в Киеве 3177 человек.",
-        "Конных и пеших людей всего в Киеве три тысячи сто семьдесят семь человек.",
-        id="count_group_after_distant_locative",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="distant locative place name leaks its case into the counted group",
-        ),
-    ),
-    # Родительные определения перед счётной группой описывают предмет счёта,
-    # а не управляют им.
-    pytest.param(
-        "Послано татар казанских и свияжских 100 человек.",
-        "Послано татар казанских и свияжских сто человек.",
-        id="count_group_after_genitive_attributes",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="preceding genitive attributes leak their case into the counted group",
-        ),
-    ),
     # Родительное приложение после счётной группы тоже не управляет ею.
     pytest.param(
         "К ним отправили 4 человека детей боярских.",

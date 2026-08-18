@@ -231,3 +231,82 @@ ABBREVIATION_DOT_CASES = (
 @pytest.mark.parametrize(("source", "expected"), ABBREVIATION_DOT_CASES)
 def test_abbreviation_dot_edges(source: str, expected: str) -> None:
     assert normalize(source, NormalizeOptions.tts()) == expected
+
+
+COUNTING_GROUP_CASES = (
+    # Счётная группа — синтаксический остров: соседнее существительное или
+    # прилагательное её не склоняет.
+    pytest.param(
+        "Мы живём в городе 12 лет.",
+        "Мы живём в городе двенадцать лет.",
+        id="locative_place_before_duration",
+    ),
+    pytest.param(
+        "На глубине 200 м вода холодная.",
+        "На глубине двести метров вода холодная.",
+        id="locative_measure_head_before_unit",
+    ),
+    pytest.param(
+        "Послано татар казанских и свияжских 100 человек.",
+        "Послано татар казанских и свияжских сто человек.",
+        id="genitive_attributes_before_count",
+    ),
+    # А вот согласованная косвенная группа остаётся косвенной: считанное слово
+    # стоит не в счётной форме, а согласовано с числительным.
+    pytest.param(
+        "В 12 городах открыли пункты выдачи.",
+        "В двенадцати городах открыли пункты выдачи.",
+        id="agreeing_locative_plural_stays_oblique",
+    ),
+    pytest.param(
+        "Он приехал с 200 метрами кабеля.",
+        "Он приехал с двумястами метрами кабеля.",
+        id="agreeing_instrumental_stays_oblique",
+    ),
+    # Предлог и глагол по-прежнему управляют счётной группой.
+    pytest.param(
+        "Он заплатил за 3 книги наличными.",
+        "Он заплатил за три книги наличными.",
+        id="preposition_still_governs_count",
+    ),
+    pytest.param(
+        "Работы шли в течение 12 лет без перерыва.",
+        "Работы шли в течение двенадцати лет без перерыва.",
+        id="compound_preposition_still_governs_count",
+    ),
+    pytest.param(
+        "Сумма 5 рублей указана в квитанции.",
+        "Сумма пяти рублей указана в квитанции.",
+        id="quantity_governor_still_assigns_genitive",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), COUNTING_GROUP_CASES)
+def test_counting_group_edges(source: str, expected: str) -> None:
+    assert normalize(source, NormalizeOptions.tts()) == expected
+
+
+DISTANCE_FROM_LANDMARK_CASES = (
+    pytest.param(
+        "В 200 м от дома есть парк.",
+        "В двухстах метрах от дома есть парк.",
+        id="distance_from_landmark_is_locative",
+    ),
+    pytest.param(
+        "В 5 км от города открыли завод.",
+        "В пяти километрах от города открыли завод.",
+        id="distance_with_prefixed_unit",
+    ),
+    # Без ориентира «в» сохраняет винительное чтение: это не расстояние.
+    pytest.param(
+        "Он вложил в 3 км дороги много сил.",
+        "Он вложил в три километра дороги много сил.",
+        id="accusative_quantity_without_landmark",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), DISTANCE_FROM_LANDMARK_CASES)
+def test_distance_from_landmark_edges(source: str, expected: str) -> None:
+    assert normalize(source, NormalizeOptions.tts()) == expected
