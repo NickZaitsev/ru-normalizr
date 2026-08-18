@@ -42,6 +42,21 @@ Whenever you identify a workaround, defect, or reliability risk, please highligh
 - No filler tests: no test without a meaningful assertion, no test whose only assertion is "the mock was called", no test that restates the implementation. Deleting a worthless test is an improvement.
 - A task is "Done" only when tests pass and the change is verified end-to-end and committed.
 
+## Performance target
+
+- TTS throughput must stay at or above **180 000 characters per second**. Measure
+  before and after any change to the numeral, unit, date, or preprocess stages:
+
+  ```
+  uv run python scripts/benchmark.py --real-only --mode tts --samples 1 --warmups 1 --prefix-chars 250000 --book benchmarks/corpus/03_karamzin_history_of_russian_state.txt
+  ```
+
+- A change that drops throughput is not "Done" until the loss is recovered or the
+  user has explicitly accepted it. Record every measurement in
+  `docs/SPEED_OBSERVATIONS.md` with the commit it was taken on.
+- The target is currently NOT met: see
+  [speed regression](docs/agents/speed-regression-2026-08.md).
+
 ## Error handling
 
 - Error handling is mandatory, not optional: every operation that can fail at runtime (network calls, external APIs, DB, filesystem, subprocesses) must handle failure explicitly — never leave a bare call whose error crashes the app or disappears silently.
