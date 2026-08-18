@@ -150,6 +150,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Correct the console-script name in the README from `ru_normalizr` to `ru-normalizr`
 
 ### Fixed
+- Не падать с `AttributeError` при поиске продолжения слова в словаре, если
+  pymorphy работает на чистопитоновом бэкенде `dawg_python`: у него нет
+  `has_keys_with_prefix`, поэтому используется общий для обоих бэкендов
+  `iterkeys`. Раньше без скомпилированного DAWG падала вся нормализация текста
+  с сокращениями
 - Закрыть воспроизводимые пробелы нормализации из E2E-корпуса: даты и время
   (`2025-12-31`, `05.09`, `5 янв. 2026 г.`, `01:42:35`, `14:00 UTC+3`),
   диапазоны дат и времени, дроби с единицей (`5/7 м`, `1/4 ч. л.`), размеры и

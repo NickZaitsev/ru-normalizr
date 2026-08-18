@@ -106,10 +106,14 @@ _INITIAL_SEQUENCE_TAIL_PATTERN = re.compile(r"(?:\b[A-ZА-ЯЁ]\.\s*)+[A-ZА-Я�
 
 
 def _has_dictionary_continuation(token: str) -> bool:
-    """Check whether the dictionary holds a longer word starting with ``token``."""
+    """Check whether the dictionary holds a longer word starting with ``token``.
+
+    ``iterkeys`` is the only prefix lookup shared by both DAWG backends: the
+    pure-Python ``dawg_python`` fallback has no ``has_keys_with_prefix``.
+    """
     from ._morph import get_morph
 
-    return bool(get_morph().dictionary.words.has_keys_with_prefix(token))
+    return next(iter(get_morph().dictionary.words.iterkeys(token)), None) is not None
 
 
 @functools.lru_cache(maxsize=4096)

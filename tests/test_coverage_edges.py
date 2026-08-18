@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from ru_normalizr import NormalizeOptions
 from ru_normalizr.abbreviation_context import (
+    _has_dictionary_continuation,
     allows_short_abbreviated_year,
     has_mass_measurement_context,
     should_keep_terminal_abbreviation_dot,
@@ -726,6 +727,25 @@ class YearBranchTests(unittest.TestCase):
             normalize_numeric_ranges("10—20; 30–40 кг"),
             "10, 20; 30–40 кг",
         )
+
+
+class DictionaryContinuationTests(unittest.TestCase):
+    """The prefix lookup must work on both pymorphy DAWG backends."""
+
+    def test_prefix_of_a_longer_word_is_a_continuation(self):
+        self.assertTrue(_has_dictionary_continuation("професс"))
+
+    def test_letter_sequence_absent_from_the_dictionary_is_not(self):
+        self.assertFalse(_has_dictionary_continuation("ъыь"))
+
+    def test_lookup_needs_only_the_pure_python_dawg_api(self):
+        # `dawg_python` (the fallback used when no compiled wheel is available)
+        # exposes `iterkeys` but not `has_keys_with_prefix`; a stub with just
+        # that method must be enough.
+        words = SimpleNamespace(iterkeys=lambda prefix: iter(["профессор"]))
+        morph = SimpleNamespace(dictionary=SimpleNamespace(words=words))
+        with patch("ru_normalizr._morph.get_morph", return_value=morph):
+            self.assertTrue(_has_dictionary_continuation("професс"))
 
 
 if __name__ == "__main__":
