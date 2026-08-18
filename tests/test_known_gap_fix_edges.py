@@ -575,3 +575,40 @@ DUAL_DATING_CASES = (
 @pytest.mark.parametrize(("source", "expected"), DUAL_DATING_CASES)
 def test_dual_dating_edges(source: str, expected: str) -> None:
     assert normalize(source, NormalizeOptions.tts()) == expected
+
+
+PARTICLE_DASH_CASES = (
+    # Тире, приклеенное к слову слева, — опечатка вместо дефиса частицы.
+    pytest.param(
+        "Он сказал что— то важное о деле.",
+        "Он сказал что-то важное о деле.",
+        id="glued_dash_before_particle",
+    ),
+    pytest.param(
+        "Кто—либо из них обязательно придёт на встречу.",
+        "Кто-либо из них обязательно придёт на встречу.",
+        id="glued_dash_before_libo",
+    ),
+    # Тире с пробелом слева — настоящая пунктуация, а не частица.
+    pytest.param(
+        "Он вернулся домой — с добычей и славой.",
+        "Он вернулся домой — с добычей и славой.",
+        id="spaced_dash_before_single_letter_preposition",
+    ),
+    pytest.param(
+        "И неправды, что над тобой сталось — то сам ведаешь и помнишь.",
+        "И неправды, что над тобой сталось — то сам ведаешь и помнишь.",
+        id="spaced_dash_before_particle_to",
+    ),
+    # Слово, начинающееся с «то…», не считается частицей.
+    pytest.param(
+        "Он шёл вперёд — только вперёд, не оглядываясь.",
+        "Он шёл вперёд — только вперёд, не оглядываясь.",
+        id="spaced_dash_before_tolko",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), PARTICLE_DASH_CASES)
+def test_particle_dash_edges(source: str, expected: str) -> None:
+    assert normalize(source, NormalizeOptions.tts()) == expected

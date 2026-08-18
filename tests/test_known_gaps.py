@@ -198,17 +198,6 @@ E2E_KNOWN_GAP_CASES = (
             reason="counted человек is replaced by the suppletive людей",
         ),
     ),
-    # Тире перед односимвольным предлогом склеивается с предыдущим словом в
-    # дефисное сочетание («домой-с»).
-    pytest.param(
-        "Он вернулся домой — с добычей и славой.",
-        "Он вернулся домой — с добычей и славой.",
-        id="em_dash_before_single_letter_preposition",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="an em dash before a single-letter preposition is glued into a hyphen compound",
-        ),
-    ),
     # Многоточие после восклицательного знака теряет точку.
     pytest.param(
         "Он больше не нашёл себе продолжателей!..",
@@ -652,17 +641,6 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a footnote number glued to a word is read aloud",
-        ),
-    ),
-    # Тире перед частицей «то» превращается в дефис и приклеивается к
-    # предыдущему слову.
-    pytest.param(
-        "И неправды, что над тобой сталось — то сам ведаешь и помнишь.",
-        "И неправды, что над тобой сталось — то сам ведаешь и помнишь.",
-        id="dash_before_the_particle_to",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a dash before the particle то becomes a hyphen glued to the word",
         ),
     ),
     # Скобка внутри слова отделяется пробелом и разрывает слово.

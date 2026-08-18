@@ -73,8 +73,12 @@ from .text_scan import clear_fold_cache, compile_scan
 from .urls import ProtectedUrls, normalize_urls, protect_urls
 from .years import normalize_numeric_ranges, normalize_years
 
+# A dash typed instead of a particle hyphen is glued to its word on the left
+# («кто— то», «что—либо»). A dash separated by a space on the left is real
+# punctuation: «вернулся домой — с добычей» and «сталось — то сам ведаешь»
+# must keep the dash, so the left side may not be whitespace.
 PARTICLE_PATTERN = compile_scan(
-    r"(?<=[а-яА-ЯёЁ])\s*[–—―]\s*(?=(?:то|либо|нибудь|ка|таки|де|с)\b)",
+    r"(?<=[а-яА-ЯёЁ])[–—―]\s*(?=(?:то|либо|нибудь|ка|таки|де|с)\b)",
     re.IGNORECASE,
 )
 DECORATIVE_MARKER_PATTERN = compile_scan(r"(?:[*=_~+#\-\xad\u2010-\u2015]\s*){5,}")
