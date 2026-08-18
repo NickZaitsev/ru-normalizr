@@ -1194,6 +1194,117 @@ E2E_KNOWN_GAP_CASES = (
             reason="a number before тысяч takes the dative of the governing verb",
         ),
     ),
+    # --- Найдено сплошным чтением книги 03 (Карамзин, «История государства Российского») ---
+    # Греческое слово транслитерируется частично: отдельные буквы заменяются
+    # русскими названиями, остальные остаются как есть.
+    pytest.param(
+        "Греки называли это море Μαῦρο θάλασσα, а турки давали ему своё имя.",
+        "Греки называли это море Μαῦρο θάλασσα, а турки давали ему своё имя.",
+        id="greek_word_transliterated_letter_by_letter",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a greek word is partially replaced with russian letter names",
+        ),
+    ),
+    # Сокращение «кн.» перед римским номером не раскрывается, а номер получает
+    # женский род по самому сокращению.
+    pytest.param(
+        "Геродот пишет об этом в кн. IV, где описаны обычаи скифов и соседних народов.",
+        "Геродот пишет об этом в книге четвёртой, где описаны обычаи скифов и соседних народов.",
+        id="book_abbreviation_before_a_roman_numeral",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="кн. before a roman numeral is not expanded and the numeral agrees with it",
+        ),
+    ),
+    # Перечисление римских веков через «или» рассыпается: первые номера теряют
+    # падеж, а «в» превращается в «век».
+    pytest.param(
+        "Жители её могли в VII, VIII или IX веке быть известны варягам.",
+        "Жители её могли в седьмом, восьмом или девятом веке быть известны варягам.",
+        id="roman_century_list_joined_by_ili",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a list of roman centuries joined by или loses the shared preposition",
+        ),
+    ),
+    # Год после «около» уходит в родительный падеж вместо порядкового.
+    pytest.param(
+        "Аспарух перешёл за Дунай около 678 года и основал там своё царство.",
+        "Аспарух перешёл за Дунай около шестьсот семьдесят восьмого года "
+        "и основал там своё царство.",
+        id="year_after_okolo_read_as_a_genitive_cardinal",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a year after около is read as a genitive cardinal instead of an ordinal",
+        ),
+    ),
+    # Дореформенное название месяца («Маия») не распознаётся, и день остаётся
+    # количественным.
+    pytest.param(
+        "Пётр торжествовал принесение мощей 2 Маия и раздавал милостыню нищим.",
+        "Пётр торжествовал принесение мощей второго мая и раздавал милостыню нищим.",
+        id="pre_reform_month_name_not_recognised",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a pre-reform month name is not recognised, so the day stays cardinal",
+        ),
+    ),
+    # Римское число перед существительным в родительном множественном становится
+    # порядковым: «XII книг» → «двенадцатой книг».
+    pytest.param(
+        "Император Маврикий сочинил XII книг о военном искусстве своего времени.",
+        "Император Маврикий сочинил двенадцать книг о военном искусстве своего времени.",
+        id="roman_count_before_a_genitive_plural_noun",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a roman count before a genitive plural noun is turned into an ordinal",
+        ),
+    ),
+    # «на прим.» в значении «например» раскрывается как «примечание».
+    pytest.param(
+        "Ежели другие славяне, на прим. сербы, оставили эту азбуку, то дело ясно.",
+        "Ежели другие славяне, например сербы, оставили эту азбуку, то дело ясно.",
+        id="na_prim_expanded_as_primechanie",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="на прим. meaning например is expanded as примечание",
+        ),
+    ),
+    # Круглое число после даты принимается за год: «7000 человек» →
+    # «семитысячного года человек».
+    pytest.param(
+        "В одном Киеве умерло от 14 Ноября до 1 Февраля 7000 человек.",
+        "В одном Киеве умерло от четырнадцатого ноября до первого февраля семь тысяч человек.",
+        id="round_number_after_a_date_read_as_a_year",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a round number after a date is taken for a year",
+        ),
+    ),
+    # Восклицательный знак перед закрывающей кавычкой не считается концом
+    # предложения, и следующее слово остаётся строчным.
+    pytest.param(
+        "Он воскликнул: «Спасёт вас Господь от тирана!» 15 июня царь выехал из Новагорода.",
+        'Он воскликнул: "Спасёт вас Господь от тирана!" Пятнадцатого июня '
+        "царь выехал из Новагорода.",
+        id="no_caps_after_an_exclamation_inside_quotes",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a sentence-ending exclamation before a closing quote does not capitalise",
+        ),
+    ),
+    # Служебный символ из приватной области Unicode попадает в результат, если
+    # дефис-тире стоит внутри цитаты.
+    pytest.param(
+        "Он писал так: «Я выехал из Москвы, - пишет он, - 13 апреля и прибыл к вечеру».",
+        'Он писал так: "Я выехал из Москвы, — пишет он, — тринадцатого апреля и прибыл к вечеру".',
+        id="private_use_sentinel_leaks_into_the_output",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="an internal private-use sentinel character leaks into the output",
+        ),
+    ),
 )
 
 
