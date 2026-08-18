@@ -1047,6 +1047,153 @@ E2E_KNOWN_GAP_CASES = (
             reason="л. meaning years is read as litres",
         ),
     ),
+    # --- Найдено сплошным чтением книги 04 (Костомаров, «Русская история») ---
+    # Римская «X» с наращением падежа принимается за латинскую букву «икс».
+    pytest.param(
+        "Такие своды составлялись в IX-го и X-го века, когда письменность была редкостью.",
+        "Такие своды составлялись в девятого и десятого века, когда письменность была редкостью.",
+        id="roman_x_with_a_case_ending_read_as_a_latin_letter",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a roman X with a case ending is read as the latin letter name",
+        ),
+    ),
+    # Сокращение «гл.» после числа раскрывается в именительном, а само число
+    # остаётся количественным.
+    pytest.param(
+        "Об этом сказано в 8 гл. кн. Царств, и с тем согласны все толкователи.",
+        "Об этом сказано в восьмой главе книги Царств, и с тем согласны все толкователи.",
+        id="chapter_abbreviation_after_a_number",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="гл. after a number is expanded in the nominative and the number stays cardinal",
+        ),
+    ),
+    # Число перед существительным в винительном падеже остаётся количественным
+    # вместо порядкового.
+    pytest.param(
+        "Работы были назначены на 27 неделю по церковному календарю того года.",
+        "Работы были назначены на двадцать седьмую неделю по церковному календарю того года.",
+        id="number_before_an_accusative_noun_stays_cardinal",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a number before an accusative noun stays cardinal instead of ordinal",
+        ),
+    ),
+    # Апостроф внутри кириллического имени отбивается пробелами с обеих сторон.
+    pytest.param(
+        "В Петербург под именем д’Эона приехал французский посланник короля.",
+        "В Петербург под именем д’Эона приехал французский посланник короля.",
+        id="apostrophe_inside_a_cyrillic_name",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="an apostrophe inside a cyrillic name is padded with spaces",
+        ),
+    ),
+    # Местоимение «те» перед точкой принимается за сокращение «т. е.»,
+    # и предложение склеивается со следующим.
+    pytest.param(
+        "Прежние времена были не те. Елисавета вступила на престол при общем ликовании.",
+        "Прежние времена были не те. Елисавета вступила на престол при общем ликовании.",
+        id="pronoun_te_read_as_the_t_e_abbreviation",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the pronoun те before a dot is taken for the abbreviation т. е.",
+        ),
+    ),
+    # Наращение «-го» у числа перед месяцем даёт родительный падеж вместо
+    # порядкового: «1-го октября» → «одного октября».
+    pytest.param(
+        "Указ был подписан 1-го октября и разослан по всем губерниям.",
+        "Указ был подписан первого октября и разослан по всем губерниям.",
+        id="day_ordinal_with_go_read_as_a_genitive_cardinal",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a day with the -го ending before a month is read as a genitive cardinal",
+        ),
+    ),
+    # «к.» в значении «копеек» после числа не раскрывается.
+    pytest.param(
+        "Хлеб продавался по 1 р. 92 к. за четверть, и цена эта считалась высокой.",
+        "Хлеб продавался по одному рублю девяносто две копейки за четверть, "
+        "и цена эта считалась высокой.",
+        id="kopeck_abbreviation_after_a_number",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="к. meaning kopecks after a number is not expanded",
+        ),
+    ),
+    # Наращение «-ти-» перед «летняя» не сворачивается: остаётся дефис.
+    pytest.param(
+        "На выданье была 17-ти-летняя дочь стольника, воспитанная в старых обычаях.",
+        "На выданье была семнадцатилетняя дочь стольника, воспитанная в старых обычаях.",
+        id="ti_infix_before_letniy_keeps_the_hyphen",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the -ти- infix before летняя keeps the hyphen instead of folding",
+        ),
+    ),
+    # Наращение «-ми» удваивается: «8-мивершковое» → «восьмимивершковое».
+    pytest.param(
+        "Взято было 8-мивершковое бревно, годное для постройки крепостной стены.",
+        "Взято было восьмивершковое бревно, годное для постройки крепостной стены.",
+        id="mi_infix_duplicated_in_an_attribute",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the -ми infix is duplicated when folding a numeral attribute",
+        ),
+    ),
+    # «н.с.» («нового стиля») после даты читается как «ньютонов с.».
+    pytest.param(
+        "Сражение произошло 20 н.с. и продолжалось до самого вечера.",
+        "Сражение произошло двадцатого нового стиля и продолжалось до самого вечера.",
+        id="n_s_abbreviation_read_as_newtons",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="н.с. meaning new style is read as newtons",
+        ),
+    ),
+    # Число после «у меня» уходит в родительный падеж вместо именительного.
+    pytest.param(
+        "У меня 350 казаков, и с ними я готов идти на неприятеля.",
+        "У меня триста пятьдесят казаков, и с ними я готов идти на неприятеля.",
+        id="count_after_u_menya_read_in_the_genitive",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a count after у меня is put into the genitive",
+        ),
+    ),
+    # Наращение «-ным» у числа-определения отрывается и превращается в тире.
+    pytest.param(
+        "Он подошёл к городу с 40000-ным войском и обложил его со всех сторон.",
+        "Он подошёл к городу с сорокатысячным войском и обложил его со всех сторон.",
+        id="thousands_attribute_with_a_hyphenated_suffix",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the -ным suffix of a numeral attribute becomes a dash",
+        ),
+    ),
+    # Разделительное «по» с числом даёт винительный вместо родительного:
+    # «по 2 бургомистра» → «по двух бургомистров».
+    pytest.param(
+        "В каждом городе выбирали по 2 бургомистра из числа торговых людей.",
+        "В каждом городе выбирали по два бургомистра из числа торговых людей.",
+        id="distributive_po_with_a_count_noun",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="distributive по with a count noun produces the wrong case",
+        ),
+    ),
+    # Число перед «тысяч» уходит в дательный падеж вслед за глаголом.
+    pytest.param(
+        "Ему предлагали 300 тысяч рейхсталеров, но он отказался от этих денег.",
+        "Ему предлагали триста тысяч рейхсталеров, но он отказался от этих денег.",
+        id="number_before_thousands_read_in_the_dative",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a number before тысяч takes the dative of the governing verb",
+        ),
+    ),
 )
 
 

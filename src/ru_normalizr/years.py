@@ -15,7 +15,7 @@ from .abbreviation_context import (
 from .numerals._num2words import resolve_num2words_case, resolve_primary_case
 from .options import NormalizeOptions
 from .text_context import normalize_context_token, simple_tokenize
-from .text_scan import first_non_whitespace_index
+from .text_scan import ScanPattern, compile_scan, first_non_whitespace_index
 from .years_context import (
     YEAR_ANY_NUMBER_PATTERN,
     YEAR_IMPLICIT_PREP_PATTERN,
@@ -100,7 +100,7 @@ PREPOSITIONS_TO_CASE = {
     "между": "ablt",
     "около": "gent",
 }
-NUMERIC_RANGE_PATTERN = re.compile(
+NUMERIC_RANGE_PATTERN = compile_scan(
     r"(\d+)\s*[—–]\s*(\d+)(?!\d)(?!\s*[а-яА-ЯёЁa-zA-Z%°$€₽Ω])"
 )
 YEAR_PREPOSITION_REGEX = r"в|во|о|об|к|ко|с|со|до|от|за|на|по|между|около"
@@ -227,62 +227,62 @@ def normalize_numeric_ranges(text: str) -> str:
 
 
 @functools.lru_cache(maxsize=1)
-def _year_patterns() -> tuple[re.Pattern[str], ...]:
+def _year_patterns() -> tuple[ScanPattern, ...]:
     entry_boundary = r"(?<!\w)"
     flags = re.IGNORECASE | re.UNICODE
     return (
-        re.compile(
+        compile_scan(
             rf"{entry_boundary}(?:(?P<prep>в|во|к|ко|с|со|до|от|на|за)\s+)?(?P<year1>\d{{2,4}})\s*(?P<separator>[-–—]|,)\s*(?P<year2>\d{{2,4}})[-–—](?P<suffix>е|х|м|ми)(?:\s+(?P<word>{YEAR_WORD_PATTERN}\b))?",
             flags,
         ),
-        re.compile(
+        compile_scan(
             rf"{entry_boundary}(?P<prep>с|со|от)\s+(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<mid>до|по)\s+(?P<year2>{YEAR_ANY_NUMBER_PATTERN})(?!\d)(?:\s+(?P<word>{YEAR_WORD_PATTERN}\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?(?:\s+(?P<era>{ERA_REGEX}))?",
             flags,
         ),
-        re.compile(
+        compile_scan(
             rf"{entry_boundary}(?:(?P<prep>с|со|из|от|в|во)\s+)?(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s*[-–—]\s*(?P<year2>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<word>{YEAR_WORD_PATTERN}\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))(?:\s+(?P<era>{ERA_REGEX}))?",
             flags,
         ),
-        re.compile(
+        compile_scan(
             rf"{entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<years>{YEAR_RANGE_NUMBER_PATTERN}(?:\s*,\s*{YEAR_RANGE_NUMBER_PATTERN})*\s+и\s+{YEAR_RANGE_NUMBER_PATTERN})\s+(?P<word>{YEAR_WORD_PATTERN}\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w))",
             flags,
         ),
-        re.compile(
+        compile_scan(
             rf"(?:^|(?<=\s)|(?<=[«\"'(]))(\d+)[-–—]({YEAR_SUFFIX_REGEX})(?![а-яА-ЯёЁ\d])(?:\s+({YEAR_WORD_PATTERN}\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w)))?",
             flags,
         ),
-        re.compile(
+        compile_scan(
             rf"{entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year1>\d{{3,4}})\s*"
             rf"(?P<open>[\(\[])(?P<year2>\d{{3,4}})(?P<close>[\)\]])\s+"
             rf"(?P<word>{YEAR_WORD_PATTERN}\b|г\.?(?!\w))",
             flags,
         ),
-        re.compile(
+        compile_scan(
             r"(?P<open>[\(\[])(?P<year>1\d{3}|20\d{2})(?P<close>[\)\]])",
             flags,
         ),
-        re.compile(
+        compile_scan(
             rf"{entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year>{YEAR_ANY_NUMBER_PATTERN})(?:\s*[-–—](?P<suffix>{YEAR_SUFFIX_REGEX}))?(?:\s+(?P<word>{YEAR_WORD_PATTERN}\b|г\.?(?!\w)))?\s+(?P<era>{ERA_REGEX})",
             flags,
         ),
-        re.compile(
+        compile_scan(
             rf"{entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year1>{YEAR_ANY_NUMBER_PATTERN})\s*[-–—]\s*(?P<year2>{YEAR_ANY_NUMBER_PATTERN})(?:\s+(?P<word>{YEAR_WORD_PATTERN}\b|г\.?(?!\w)))?\s+(?P<era>{ERA_REGEX})",
             flags,
         ),
-        re.compile(
+        compile_scan(
             rf"{entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year>{YEAR_ANY_NUMBER_PATTERN})\s+(?P<word>{YEAR_WORD_PATTERN}\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
             flags,
         ),
-        re.compile(
+        compile_scan(
             rf"\s*(?:{YEAR_WORD_PATTERN}\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
             flags,
         ),
-        re.compile(rf"\s*[-–—](?:{YEAR_SUFFIX_REGEX})\b", flags),
-        re.compile(
+        compile_scan(rf"\s*[-–—](?:{YEAR_SUFFIX_REGEX})\b", flags),
+        compile_scan(
             rf"{entry_boundary}(?P<prep>с|со|от)\s+(?P<year1>{YEAR_RANGE_NUMBER_PATTERN})\s+(?P<mid>до|по)\s+(?P<year2>{YEAR_RANGE_NUMBER_PATTERN})(?!\d)",
             flags,
         ),
-        re.compile(
+        compile_scan(
             rf"\b(?P<prep>{YEAR_IMPLICIT_PREP_REGEX})\s+(?P<year>{YEAR_IMPLICIT_PREP_PATTERN})(?![\d/])",
             flags,
         ),

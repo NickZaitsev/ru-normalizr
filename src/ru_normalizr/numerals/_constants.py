@@ -3,10 +3,11 @@ from __future__ import annotations
 import functools
 import re
 
+from ..text_scan import compile_scan
 from .unit_data import explicit_expression_aliases, generated_prefixed_aliases
 from .unit_registry import UnitDescriptor, UnitMorphology, UnitRegistry
 
-POST_NUMERAL_ABBREVIATION_PATTERN = re.compile(
+POST_NUMERAL_ABBREVIATION_PATTERN = compile_scan(
     r"(?<!\w)(?:тыс\.|млн\.|млрд\.|трлн\.|руб\.|долл\.|дол\.|и\s+др\.)(?!\w)",
     re.IGNORECASE,
 )
@@ -1005,13 +1006,13 @@ UNIT_TOKEN_FRAGMENT = (
     rf"(?:[./^·][{_UNIT_FRAGMENT_CHARS}]+|\d+|[²³])*"
 )
 
-NUMERIC_UNIT_RANGE_PATTERN = re.compile(
+NUMERIC_UNIT_RANGE_PATTERN = compile_scan(
     rf"(?<!\d)(?P<left>\d+)\s*[—–-]\s*(?P<right>\d+)\s*(?P<unit>{UNIT_TOKEN_FRAGMENT}(?:\s+[^\W\d_]+){{0,2}})(?!\w)"
 )
-FRACTION_PATTERN = re.compile(r"(?<![\d,])(\d+)/(\d+)(?![\d,])")
-HYPHENATED_WORD_PATTERN = re.compile(r"(?<![\w\d])(\d+)-([а-яА-ЯёЁ]{1,})")
-STANDALONE_CURRENCY_PATTERN = re.compile(r"(?<!\S)([$€£¥₽₴₸₺₹¢])(?!\S)")
-DIGIT_PATTERN = re.compile(r"\d+")
+FRACTION_PATTERN = compile_scan(r"(?<![\d,])(\d+)/(\d+)(?![\d,])")
+HYPHENATED_WORD_PATTERN = compile_scan(r"(?<![\w\d])(\d+)-([а-яА-ЯёЁ]{1,})")
+STANDALONE_CURRENCY_PATTERN = compile_scan(r"(?<!\S)([$€£¥₽₴₸₺₹¢])(?!\S)")
+DIGIT_PATTERN = compile_scan(r"\d+")
 
 TIME_WORDS = {
     "год": "masc",

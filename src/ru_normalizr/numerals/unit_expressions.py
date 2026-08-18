@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Literal
 
+from ..text_scan import compile_scan
 from ._constants import UNIT_REGISTRY
 from .unit_registry import UnitMatch
 
 MAX_UNIT_TOKENS = 4
-_SEPARATOR_SPACING = re.compile(r"\s*([/·])\s*")
+_SEPARATOR_SPACING = compile_scan(r"\s*([/·])\s*")
 
 
 @dataclass(frozen=True)

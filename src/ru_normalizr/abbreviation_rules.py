@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from .text_scan import ScanPattern, compile_scan
+
 
 @dataclass(frozen=True, slots=True)
 class RegexRule:
@@ -107,14 +109,14 @@ ADJECTIVE_ABBREVIATION_EXPANSIONS = {
 }
 
 
-def _compile_literal_rule(abbr: str) -> re.Pattern[str]:
-    return re.compile(rf"(?<!\w){re.escape(abbr)}(?!\w)", re.IGNORECASE)
+def _compile_literal_rule(abbr: str) -> ScanPattern:
+    return compile_scan(rf"(?<!\w){re.escape(abbr)}(?!\w)", re.IGNORECASE)
 
 
 ABBREVIATION_PATTERNS = [
     (
         (
-            re.compile(matcher.pattern, matcher.flags)
+            compile_scan(matcher.pattern, matcher.flags)
             if isinstance(matcher, RegexRule)
             else _compile_literal_rule(matcher)
         ),

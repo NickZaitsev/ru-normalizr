@@ -8,6 +8,7 @@ from ..ordinal_utils import (
     render_ordinal,
 )
 from ..text_context import simple_tokenize
+from ..text_scan import compile_scan
 from ._constants import HYPHENATED_WORD_PATTERN
 from ._helpers import get_numeral_case, inflect_numeral_string
 from ._hyphen import classify_numeric_hyphen_rhs
@@ -67,19 +68,19 @@ SINGULAR_HEADING_WORDS_PATTERN = (
     r"книга|книги|книге|книгой|"
     r"квартал|квартала|квартале|кварталу|кварталом"
 )
-HEADING_RANGE_PATTERN = re.compile(
+HEADING_RANGE_PATTERN = compile_scan(
     rf"\b(?P<head>{HEADING_WORDS_PATTERN})\s+(?P<left>\d+)\s*[–—-]\s*(?P<right>\d+)\b",
     re.IGNORECASE | re.UNICODE,
 )
-HEADING_SINGLE_PATTERN = re.compile(
+HEADING_SINGLE_PATTERN = compile_scan(
     rf"\b(?P<head>{SINGULAR_HEADING_WORDS_PATTERN})\s+(?P<number>\d+)\b",
     re.IGNORECASE | re.UNICODE,
 )
-ABBREVIATED_HEADING_RANGE_PATTERN = re.compile(
+ABBREVIATED_HEADING_RANGE_PATTERN = compile_scan(
     r"\b(?P<head>гл)\.\s*(?P<left>\d+)\s*[–—-]\s*(?P<right>\d+)\b",
     re.IGNORECASE | re.UNICODE,
 )
-ABBREVIATED_HEADING_PATTERN = re.compile(
+ABBREVIATED_HEADING_PATTERN = compile_scan(
     r"\b(?P<head>гл)\.\s*(?P<number>\d+)\b",
     re.IGNORECASE | re.UNICODE,
 )
@@ -94,11 +95,11 @@ COMPOUND_ADJECTIVE_STEMS = (
     "часов",
     "летн",
 )
-COMPOUND_ADJECTIVE_PATTERN = re.compile(
+COMPOUND_ADJECTIVE_PATTERN = compile_scan(
     rf"(?<!\d)(?P<num>\d+)(?:\s*[-–—]?\s*(?P<suffix>и|х))?\s+(?P<adj>(?:{'|'.join(COMPOUND_ADJECTIVE_STEMS)})[а-яё]+)\b",
     re.IGNORECASE | re.UNICODE,
 )
-PERCENT_COMPOUND_ADJECTIVE_PATTERN = re.compile(
+PERCENT_COMPOUND_ADJECTIVE_PATTERN = compile_scan(
     r"(?<!\d)(?P<num>\d+)\s*%\s*[-–—]?\s*(?P<suffix>н(?:ый|ая|ое|ые|ого|ой|ому|ым|ом|ую|ых|ыми))\b",
     re.IGNORECASE | re.UNICODE,
 )

@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from ..ordinal_utils import render_ordinal
+from ..text_scan import compile_scan
 from ._constants import (
     CURRENCY_STANDALONE,
     GREEK_LETTERS,
@@ -13,9 +14,9 @@ from ._constants import (
 )
 from .unit_rendering import render_unit_expression
 
-MATH_EXPRESSION_CHAR_PATTERN = re.compile(r"[0-9A-Za-zА-Яа-яЁё_,.%()+\-/*^°№]")
-APPROXIMATE_NUMBER_PATTERN = re.compile(r"(?<!\w)~\s*(?=(?:\ue001)?\d)")
-BINARY_MATH_OPERATOR_PATTERN = re.compile(
+MATH_EXPRESSION_CHAR_PATTERN = compile_scan(r"[0-9A-Za-zА-Яа-яЁё_,.%()+\-/*^°№]")
+APPROXIMATE_NUMBER_PATTERN = compile_scan(r"(?<!\w)~\s*(?=(?:\ue001)?\d)")
+BINARY_MATH_OPERATOR_PATTERN = compile_scan(
     r"(?<=\d)\s*(?P<operator>[+−^*])\s*(?=\d)"
 )
 BINARY_MATH_OPERATOR_READINGS = {
@@ -31,65 +32,65 @@ BINARY_MATH_OPERATOR_READINGS = {
 # An ASCII "-" between two numbers is a range separator everywhere except
 # inside an arithmetic expression, where it is a subtraction. An equals sign is
 # what tells the two apart: "10-20" is a range, "10-5 = 5" is not.
-ASCII_BINARY_MINUS_PATTERN = re.compile(r"(?<=\d)\s*-\s*(?=\d)")
-DIMENSION_OPERATOR_PATTERN = re.compile(
+ASCII_BINARY_MINUS_PATTERN = compile_scan(r"(?<=\d)\s*-\s*(?=\d)")
+DIMENSION_OPERATOR_PATTERN = compile_scan(
     r"(?P<left>\d+(?:[.,]\d+)?)\s*×\s*(?P<right>\d+(?:[.,]\d+)?)"
 )
-INCH_MARK_PATTERN = re.compile(r"(?P<value>\d+(?:[.,]\d+)?)\s*″")
-INCH_CONTEXT_PATTERN = re.compile(
+INCH_MARK_PATTERN = compile_scan(r"(?P<value>\d+(?:[.,]\d+)?)\s*″")
+INCH_CONTEXT_PATTERN = compile_scan(
     r"\b(?:монитор\w*|экран\w*|диспле\w*|размер\w*|диаметр\w*|"
     r"ширин\w*|высот\w*)\b[^.!?;:]{0,32}$",
     re.IGNORECASE,
 )
-DIMENSION_HEAD_PATTERN = re.compile(
+DIMENSION_HEAD_PATTERN = compile_scan(
     r"\b(?:размер(?:ом|ы)?|разрешение|габарит(?:ами|ы)?|ширина|высота)\s*$",
     re.IGNORECASE,
 )
-NUMERIC_RELATION_PATTERN = re.compile(
+NUMERIC_RELATION_PATTERN = compile_scan(
     r"(?<![\w.])(?P<left>\d+(?:[ \u00a0\u2009\u202f]\d{3})*)"
     r"\s*:\s*"
     r"(?P<right>\d+(?:[ \u00a0\u2009\u202f]\d{3})*)(?!\d)"
 )
-INEQUALITY_OPERATOR_PATTERN = re.compile(
+INEQUALITY_OPERATOR_PATTERN = compile_scan(
     r"(?P<left>\b(?:\d+(?:[.,]\d+)?|[A-Za-zА-Яа-яЁё]+)\b)"
     r"\s+(?P<operator>[<>])\s+(?=\d)"
 )
-MATH_X_VARIABLE_PATTERN = re.compile(r"(?<!\w)[xX](?=\s*(?:[<>≤≥]))")
-WORD_PLUS_NUMBER_PATTERN = re.compile(
+MATH_X_VARIABLE_PATTERN = compile_scan(r"(?<!\w)[xX](?=\s*(?:[<>≤≥]))")
+WORD_PLUS_NUMBER_PATTERN = compile_scan(
     r"(?<=[A-Za-zА-Яа-яЁё])\s*\+\s*(?=\d)"
 )
-DOUBLE_PLUS_VERSION_PATTERN = re.compile(
+DOUBLE_PLUS_VERSION_PATTERN = compile_scan(
     r"(?<!\w)(?P<name>[A-Za-z][A-Za-z0-9]*)\s*\+\s*\+\s*(?P<version>\d+)\b"
 )
-ANGLE_MINUTE_MARK_PATTERN = re.compile(r"(?P<value>\d+(?:[.,]\d+)?)\s*′")
-ANGLE_SECOND_MARK_PATTERN = re.compile(r"(?P<value>\d+(?:[.,]\d+)?)\s*″")
-ANGLE_CONTEXT_PATTERN = re.compile(
+ANGLE_MINUTE_MARK_PATTERN = compile_scan(r"(?P<value>\d+(?:[.,]\d+)?)\s*′")
+ANGLE_SECOND_MARK_PATTERN = compile_scan(r"(?P<value>\d+(?:[.,]\d+)?)\s*″")
+ANGLE_CONTEXT_PATTERN = compile_scan(
     r"(?:°|\bугол\w*|\bкоординат\w*|\bотклонени\w*)",
     re.IGNORECASE,
 )
-CAMERA_APERTURE_PATTERN = re.compile(
+CAMERA_APERTURE_PATTERN = compile_scan(
     r"(?<!\w)f\s*/\s*(?P<whole>\d+)\.(?P<fraction>\d+)(?!\w)",
     re.IGNORECASE,
 )
-IPV4_PORT_PATTERN = re.compile(
+IPV4_PORT_PATTERN = compile_scan(
     r"(?<![\w.])(?P<address>(?:\d{1,3}\.){3}\d{1,3}):(?P<port>\d+)(?!\w)"
 )
-SCIENTIFIC_EXPONENT_PATTERN = re.compile(
+SCIENTIFIC_EXPONENT_PATTERN = compile_scan(
     rf"(?P<base>\d+(?:[.,]\d+)?)\s*⁻(?P<exponent>\d+)"
     rf"(?:\s+(?P<unit>{UNIT_TOKEN_FRAGMENT}))?"
 )
-RATIO_CONTEXT_PATTERN = re.compile(
+RATIO_CONTEXT_PATTERN = compile_scan(
     r"\b(?:пропорци\w*|масштаб\w*|соотношени\w*)\s*$", re.IGNORECASE
 )
-SCORE_CONTEXT_PATTERN = re.compile(
+SCORE_CONTEXT_PATTERN = compile_scan(
     r"\b(?:выиграл\w*|победил\w*|сч[её]т\w*)\s*$", re.IGNORECASE
 )
 _EQUATION_OPERAND = r"\(*(?:\d+(?:[.,]\d+)?|[^\W\d_]\w*)\)*"
-EQUATION_PATTERN = re.compile(
+EQUATION_PATTERN = compile_scan(
     rf"(?<!\w){_EQUATION_OPERAND}(?:\s*[-+*/^=]\s*{_EQUATION_OPERAND})+",
     re.UNICODE,
 )
-_GREEK_PATTERN = re.compile(
+_GREEK_PATTERN = compile_scan(
     rf"[{''.join(re.escape(char) for char in GREEK_LETTERS)}]+"
 )
 

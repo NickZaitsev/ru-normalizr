@@ -8,7 +8,7 @@ import num2words
 from .._morph import first_parse_required, parse_word, select_parse
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_context import PUNCT_STRIP, normalize_context_token, simple_tokenize
-from ..text_scan import first_non_whitespace_index
+from ..text_scan import compile_scan, first_non_whitespace_index
 from ._constants import (
     CURRENCY_SYMBOLS,
     DIGIT_PATTERN,
@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 
 _MULTIPLIER_LEMMAS = frozenset({"тысяча", "миллион", "миллиард", "триллион"})
 _CURRENCY_SYMBOL_UNITS = CURRENCY_SYMBOLS
-_NUMERIC_NOUN_RANGE_PATTERN = re.compile(
+_NUMERIC_NOUN_RANGE_PATTERN = compile_scan(
     r"(?<![\w.,])(?P<left>\d+)-(?P<right>\d+)"
     r"(?P<space>\s+)(?P<noun>[^\W\d_]+)",
     re.UNICODE,

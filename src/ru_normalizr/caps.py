@@ -5,12 +5,13 @@ import re
 from ._morph import first_parse_required
 from .abbreviation_context import ends_with_abbreviation
 from .constants import KNOWN_ABBREVIATIONS
+from .text_scan import compile_scan
 
-_LINE_SPLIT_PATTERN = re.compile(r"(\n)")
-_FIRST_WORD_CAPS_PATTERN = re.compile(
+_LINE_SPLIT_PATTERN = compile_scan(r"(\n)")
+_FIRST_WORD_CAPS_PATTERN = compile_scan(
     r"^([^\S\r\n]*)([A-ZА-ЯЁ]{2,})(?=\b|\s|[.,!?;:])", re.MULTILINE
 )
-_SENTENCE_START_PATTERN = re.compile(
+_SENTENCE_START_PATTERN = compile_scan(
     r"(?P<punct>[.!?…])(?P<prefix>(?:(?=[^\r\n])\s|[\"'«»„“”()\[\]{}])*)"
     r"(?P<letter>[a-zA-Zа-яА-ЯёЁ])"
 )

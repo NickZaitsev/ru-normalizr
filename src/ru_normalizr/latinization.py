@@ -9,11 +9,12 @@ from pathlib import Path
 
 from .constants import LetterVowelMode, resolve_letter_name
 from .dictionary import DictionaryNormalizer
+from .text_scan import compile_scan
 
 DEFAULT_DICTIONARIES_PATH = Path(__file__).resolve().parent / "dictionaries"
 DEFAULT_LATINIZATION_DICTIONARIES_PATH = DEFAULT_DICTIONARIES_PATH / "latinization"
-LATIN_TOKEN_PATTERN = re.compile(r"[A-Za-z][A-Za-z'\-]*")
-ALPHANUMERIC_SUFFIX_LETTER_PATTERN = re.compile(
+LATIN_TOKEN_PATTERN = compile_scan(r"[A-Za-z][A-Za-z'\-]*")
+ALPHANUMERIC_SUFFIX_LETTER_PATTERN = compile_scan(
     r"(?:(?<=\d)|(?<=[А-Яа-яЁё]-))(?P<letter>[A-Za-z])\b"
 )
 IPA_BATCH_SIZE = 800

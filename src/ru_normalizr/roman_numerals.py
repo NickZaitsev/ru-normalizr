@@ -18,6 +18,7 @@ from .ordinal_utils import (
     render_ordinal_from_noun_word,
 )
 from .text_context import normalize_context_token, simple_tokenize
+from .text_scan import compile_scan
 
 _ROMAN_ABBREVIATION_EXCEPTIONS = frozenset(
     {
@@ -92,11 +93,11 @@ _ROMAN_ABBREVIATION_TO_CONTEXT = {
     "вв": ("век", "plur"),
     "кв": ("квартал", "sing"),
 }
-_ROMAN_SHARED_SEPARATOR_PATTERN = re.compile(r"(\s*,\s*|\s+и\s+)")
+_ROMAN_SHARED_SEPARATOR_PATTERN = compile_scan(r"(\s*,\s*|\s+и\s+)")
 _ROMAN_CONTEXT_WORD_PATTERN = r"[A-Za-zА-ЯЁа-яё]+\.?"
 _ROMAN_CYRILLIC_LOOKALIKE_CHARS = frozenset("ХхСсІіМм")
 _ROMAN_LATIN_CHARS = frozenset("IVXLCDM")
-_ROMAN_SHARED_CENTURY_RANGE_PATTERN = re.compile(
+_ROMAN_SHARED_CENTURY_RANGE_PATTERN = compile_scan(
     r"\b(?P<left_head>конце|начале|середине)\s+"
     r"(?P<left>[IVXLCDM]+)\s*[—–-]\s*"
     r"(?P<right_head>конце|начале|середине)\s+"
@@ -428,7 +429,7 @@ def _render_roman_hyphen_range_with_context(
 
 
 def convert_shared_roman_words(text: str) -> str:
-    pattern = re.compile(
+    pattern = compile_scan(
         rf"\b(?P<series>[IVXLCDM]+(?:\s*(?:,\s*|\s+и\s+)[IVXLCDM]+)+)\s+(?P<suffix>{_ROMAN_CONTEXT_WORD_PATTERN})(?!\w)"
     )
 
@@ -445,7 +446,7 @@ def convert_shared_roman_words(text: str) -> str:
 
 
 def convert_left_shared_roman_words(text: str) -> str:
-    pattern = re.compile(
+    pattern = compile_scan(
         rf"\b(?P<suffix>{_ROMAN_CONTEXT_WORD_PATTERN})\s+(?P<series>[IVXLCDM]+(?:\s*(?:,\s*|\s+и\s+)[IVXLCDM]+)+)\b",
         re.IGNORECASE,
     )
@@ -464,7 +465,7 @@ def convert_left_shared_roman_words(text: str) -> str:
 
 
 def convert_roman_words(text: str) -> str:
-    pattern = re.compile(
+    pattern = compile_scan(
         rf"\b(?P<roman>[IVXLCDM]+)(?P<spacing>\s*)(?P<word>{_ROMAN_CONTEXT_WORD_PATTERN})(?!\w)",
         re.IGNORECASE,
     )
@@ -491,7 +492,7 @@ def convert_roman_words(text: str) -> str:
 
 
 def convert_roman_century_ranges(text: str) -> str:
-    pattern = re.compile(
+    pattern = compile_scan(
         r"\b(?P<prep>с|со|от)\s+(?P<left>[IVXLCDM]+)\s+(?P<mid>до|по)\s+(?P<right>[IVXLCDM]+)\s+(?P<word>век(?:а|у|е|ом|ами|ах|ов)?|в\.|вв\.)(?!\w)",
         re.IGNORECASE,
     )
@@ -541,7 +542,7 @@ def convert_shared_roman_century_ranges(text: str) -> str:
 
 
 def convert_hyphenated_roman_ranges(text: str) -> str:
-    pattern = re.compile(
+    pattern = compile_scan(
         rf"\b(?P<left>[IVXLCDM]+)\s*[-–—]\s*(?P<right>[IVXLCDM]+)\s+(?P<word>{_ROMAN_CONTEXT_WORD_PATTERN})(?!\w)"
     )
 
@@ -564,7 +565,7 @@ def convert_hyphenated_roman_ranges(text: str) -> str:
 
 
 def convert_left_shared_hyphenated_roman_ranges(text: str) -> str:
-    pattern = re.compile(
+    pattern = compile_scan(
         rf"\b(?P<word>{_ROMAN_CONTEXT_WORD_PATTERN})\s+(?P<left>[IVXLCDM]+)\s*[-–—]\s*(?P<right>[IVXLCDM]+)\b",
         re.IGNORECASE,
     )
@@ -639,7 +640,7 @@ def convert_roman_names(text: str) -> str:
 
 
 def convert_suffixed_roman_regnal_names(text: str) -> str:
-    pattern = re.compile(
+    pattern = compile_scan(
         r"\b(?P<name>[А-ЯЁ][а-яё]+)\s+(?P<roman>[IVXLCDM]+)[-–—](?P<suffix>[а-яё]{1,4})\b",
         re.IGNORECASE,
     )
@@ -693,7 +694,7 @@ def _render_abbreviated_heading(text: str, match: re.Match[str]) -> str:
 
 
 def convert_heading_roman_numerals(text: str) -> str:
-    pattern = re.compile(
+    pattern = compile_scan(
         rf"\b(?P<word>{_ROMAN_CONTEXT_WORD_PATTERN})\s+(?P<roman>[IVXLCDM]+)\b",
         re.IGNORECASE,
     )
@@ -768,7 +769,7 @@ def normalize_cyrillic_roman(text: str) -> str:
         "М": "M",
         "м": "M",
     }
-    pattern = re.compile(r"\b([IVXLCDMХхСсІіМм]{2,})\b")
+    pattern = compile_scan(r"\b([IVXLCDMХхСсІіМм]{2,})\b")
 
     def repl(match: re.Match[str]) -> str:
         word = match.group(1)

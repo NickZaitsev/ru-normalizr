@@ -10,6 +10,7 @@ from .._morph import canonicalize_case, parse_word, select_parse
 from ..ordinal_utils import render_ordinal
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_context import PUNCT_STRIP, simple_tokenize
+from ..text_scan import compile_scan
 from ._constants import PREP_CASE
 from ._helpers import get_numeral_case, inflect_numeral_string
 
@@ -55,7 +56,7 @@ NUMERIC_SUFFIXES = ORDINAL_SUFFIXES | CARDINAL_SUFFIXES
 _SUFFIX_ALTERNATION = "|".join(
     re.escape(value) for value in sorted(NUMERIC_SUFFIXES, key=lambda item: (-len(item), item))
 )
-NUMERIC_SUFFIX_PATTERN = re.compile(
+NUMERIC_SUFFIX_PATTERN = compile_scan(
     rf"(?<![\w,-])(?<!\d[.,])(?P<sign>{re.escape(NEGATIVE_NUMBER_PLACEHOLDER)}|-)?"
     rf"(?P<number>\d+)-(?P<suffix>{_SUFFIX_ALTERNATION})(?!\w)",
     re.IGNORECASE | re.UNICODE,
@@ -64,7 +65,7 @@ NUMERIC_SUFFIX_PATTERN = re.compile(
 _CASES = ("nomn", "gent", "datv", "accs", "ablt", "loct")
 _CASE_ORDER = {case: index for index, case in enumerate(_CASES)}
 _TEXT_START_PREFIX_CHARS = " \t\r\n\"'«„“([{"
-_OB_BEFORE_CONSONANT_PATTERN = re.compile(
+_OB_BEFORE_CONSONANT_PATTERN = compile_scan(
     r"\bоб(?=\s+[бвгджзйклмнпрстфхцчшщ])", re.IGNORECASE
 )
 _COPULA_ORDINAL_SUFFIXES = frozenset({"м", "ом", "ем", "ым", "им"})
@@ -309,7 +310,7 @@ def _agreement_score(
 
 
 _COORDINATORS = frozenset({"и", "или", "ни"})
-_SUFFIXED_NUMBER_TOKEN = re.compile(r"\A(?P<number>\d+)-?(?P<suffix>[а-яё]{1,3})\Z", re.IGNORECASE)
+_SUFFIXED_NUMBER_TOKEN = compile_scan(r"\A(?P<number>\d+)-?(?P<suffix>[а-яё]{1,3})\Z", re.IGNORECASE)
 
 
 def _coordinated_suffix_numbers(

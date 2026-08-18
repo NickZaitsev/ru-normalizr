@@ -9,7 +9,7 @@ import num2words
 from .._morph import first_parse_required, parse_word
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_context import PUNCT_STRIP, normalize_context_token, simple_tokenize
-from ..text_scan import first_non_whitespace_index
+from ..text_scan import compile_scan, first_non_whitespace_index
 from ._constants import (
     CURRENCY_MINOR_UNITS,
     PREP_CASE,
@@ -38,7 +38,7 @@ from .unit_rendering import render_unit_expression
 # range separator: normalize_hyphenated_words treats "10-пять целых…" like
 # "10-этажный" and replaces the hyphen with a space. Re-emitting it spaced lets
 # detokenize turn it into an em dash, exactly as it already does for "10-20".
-DECIMAL_PATTERN = re.compile(
+DECIMAL_PATTERN = compile_scan(
     rf"(?:(?<=\d)(?P<range_sep>-))?(?<!\d)(?P<num>(?:(?<![^\W_])-|{re.escape(NEGATIVE_NUMBER_PLACEHOLDER)})?\d+[.,]\d+)(?:\s*(?P<unit>{UNIT_TOKEN_FRAGMENT})(?P<unit_dot>\.)?)?(?:\s+(?P<unit2>{UNIT_TOKEN_FRAGMENT})(?P<unit2_dot>\.)?)?(?!\d)"
 )
 

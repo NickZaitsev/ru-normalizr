@@ -8,14 +8,15 @@ import roman
 
 from .options import NormalizeOptions
 from .preprocess_utils import classify_bracketed_numeric_content
+from .text_scan import compile_scan
 
 logger = logging.getLogger(__name__)
 
-LINE_NUMBERING_PATTERN = re.compile(
+LINE_NUMBERING_PATTERN = compile_scan(
     r"^([ \t]*)([IVXLCDM]+\.|[\d]+(?:\.[\d]+)*\.)(?!\d)([ \t]*)",
     re.IGNORECASE | re.MULTILINE,
 )
-BRACKETED_NUMBER_PATTERN = re.compile(
+BRACKETED_NUMBER_PATTERN = compile_scan(
     r"([(\[{])\s*([^()\[\]{}]+?)\*?\s*([)\]}])", re.IGNORECASE
 )
 

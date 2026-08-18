@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from ._morph import MorphParse, canonicalize_case, parse_word, select_parse
 from .numerals._helpers import safe_inflect
 from .options import NormalizeOptions
+from .text_scan import compile_scan
 
 _NAMED = "named"
 _NUMBERED = "numbered"
@@ -106,13 +107,13 @@ _NUMBER_VALUE = r"\d+(?:[/-]\d+)?[А-ЯЁа-яёA-Za-z]?(?!\w)"
 # The abbreviation alternation is the only case-insensitive part: the value
 # patterns must keep requiring a real capital letter to tell «ул. Лесной» from
 # a stray lowercase word.
-_ADDRESS_ELEMENT_PATTERN = re.compile(
+_ADDRESS_ELEMENT_PATTERN = compile_scan(
     rf"(?<![\w.])(?P<abbr>(?i:{_ABBREVIATION_ALTERNATION}))(?P<gap>[ \t]*)"
     rf"(?:(?P<name>{_NAME_VALUE})|(?P<number>{_NUMBER_VALUE}))"
 )
-_ADDRESS_HINT_PATTERN = re.compile(rf"(?i:{_ABBREVIATION_ALTERNATION})")
-_CHAIN_GAP_PATTERN = re.compile(r"[ \t]*[,;]?[ \t]*")
-_PRECEDING_WORD_PATTERN = re.compile(r"(?P<word>[А-Яа-яЁё]+(?:-[А-Яа-яЁё]+)*)[ \t]*\Z")
+_ADDRESS_HINT_PATTERN = compile_scan(rf"(?i:{_ABBREVIATION_ALTERNATION})")
+_CHAIN_GAP_PATTERN = compile_scan(r"[ \t]*[,;]?[ \t]*")
+_PRECEDING_WORD_PATTERN = compile_scan(r"(?P<word>[А-Яа-яЁё]+(?:-[А-Яа-яЁё]+)*)[ \t]*\Z")
 _NOUN_POS = frozenset({"NOUN"})
 _SUBSTANTIVE_POS = {"NOUN", "ADJF"}
 

@@ -24,7 +24,7 @@ from ..preprocess_utils import (
     normalize_ascii_quote_pairs,
 )
 from ..text_context import PUNCT_STRIP, normalize_context_token
-from ..text_scan import first_non_whitespace_index
+from ..text_scan import compile_scan, first_non_whitespace_index
 from ._constants import (
     ENTITY_DEFAULT_CASE,
     ENTITY_KEYWORDS,
@@ -61,11 +61,11 @@ _TIME_CONTEXT_LEMMAS = frozenset(
 
 logger = logging.getLogger(__name__)
 
-SENTENCE_PUNCTUATION_PATTERN = re.compile(r"\s+([.,!?;:])")
+SENTENCE_PUNCTUATION_PATTERN = compile_scan(r"\s+([.,!?;:])")
 #: A decimal literal, matched at the end of a token so a sign or a protection
 #: placeholder in front of the digits does not hide it.
-DECIMAL_TOKEN_PATTERN = re.compile(r"\d+[.,]\d+\Z")
-POINT_NUMBER_SPACING_PATTERN = re.compile(r"(?<=\.) (?=\d)")
+DECIMAL_TOKEN_PATTERN = compile_scan(r"\d+[.,]\d+\Z")
+POINT_NUMBER_SPACING_PATTERN = compile_scan(r"(?<=\.) (?=\d)")
 NUMERAL_CONTEXT_BARRIERS = {"равно", "="}
 #: Sentence-final punctuation ends the region a numeral may look back over.
 #: Nothing before it can govern the numeral's case, so «Мы завершили деплой.
@@ -165,13 +165,13 @@ MAGNITUDE_SCALES = {
     "миллиард": 10**9,
     "триллион": 10**12,
 }
-POINT_WORD_PATTERN = re.compile(r"(точка [а-яё]+)\. (?=[а-яё])", flags=re.IGNORECASE)
-REPEATED_PUNCTUATION_PATTERN = re.compile(r"([,!?;:])\1+")
-DOUBLE_DOT_PATTERN = re.compile(r"(?<!\.)\.\.(?!\.)")
-COMMA_DOT_PATTERN = re.compile(r",\.")
-OPEN_BRACKET_SPACING_PATTERN = re.compile(r"([\(\[\{])\s+")
-CLOSE_BRACKET_SPACING_PATTERN = re.compile(r"\s+([\)\]\}])")
-WORD_RANGE_HYPHEN_PATTERN = re.compile(r"(?<=[A-Za-zА-Яа-яЁё]) - (?=[A-Za-zА-Яа-яЁё])")
+POINT_WORD_PATTERN = compile_scan(r"(точка [а-яё]+)\. (?=[а-яё])", flags=re.IGNORECASE)
+REPEATED_PUNCTUATION_PATTERN = compile_scan(r"([,!?;:])\1+")
+DOUBLE_DOT_PATTERN = compile_scan(r"(?<!\.)\.\.(?!\.)")
+COMMA_DOT_PATTERN = compile_scan(r",\.")
+OPEN_BRACKET_SPACING_PATTERN = compile_scan(r"([\(\[\{])\s+")
+CLOSE_BRACKET_SPACING_PATTERN = compile_scan(r"\s+([\)\]\}])")
+WORD_RANGE_HYPHEN_PATTERN = compile_scan(r"(?<=[A-Za-zА-Яа-яЁё]) - (?=[A-Za-zА-Яа-яЁё])")
 
 
 @dataclass(frozen=True, slots=True)

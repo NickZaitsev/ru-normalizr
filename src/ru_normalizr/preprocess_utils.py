@@ -12,37 +12,37 @@ from .abbreviation_context import (
 )
 from .constants import CLEANUP_REPLACEMENTS, UNICODE_FRACTIONS
 from .ordinal_utils import render_ordinal
-from .text_scan import first_non_whitespace_index
+from .text_scan import compile_scan, first_non_whitespace_index
 
-ASCII_DASH_SPACE_PATTERN = re.compile(r" - ")
-DOT_COMMA_PATTERN = re.compile(r"\.,")
-LETTER_HYPHEN_PATTERN = re.compile(r"(?<=[A-Za-zА-Яа-яЁё])-(?=[A-Za-zА-Яа-яЁё])")
-SLASH_FIX_PATTERN = re.compile(r"(?<=[a-zA-Zа-яА-ЯёЁ+])/(?=[a-zA-Zа-яА-ЯёЁ+])")
-UNIT_SLASH_PATTERN = re.compile(
+ASCII_DASH_SPACE_PATTERN = compile_scan(r" - ")
+DOT_COMMA_PATTERN = compile_scan(r"\.,")
+LETTER_HYPHEN_PATTERN = compile_scan(r"(?<=[A-Za-zА-Яа-яЁё])-(?=[A-Za-zА-Яа-яЁё])")
+SLASH_FIX_PATTERN = compile_scan(r"(?<=[a-zA-Zа-яА-ЯёЁ+])/(?=[a-zA-Zа-яА-ЯёЁ+])")
+UNIT_SLASH_PATTERN = compile_scan(
     r"(?<![\w/])(?P<left>[A-Za-zА-Яа-яЁёµμ]+(?:\^?[23]|[²³])?)/"
     r"(?P<right>[A-Za-zА-Яа-яЁёµμ]+(?:\^?[23]|[²³])?)(?![\w/])"
 )
-NUMBER_CLEANUP_PATTERN = re.compile(
+NUMBER_CLEANUP_PATTERN = compile_scan(
     r"(?<!\d)(?:\d{1,3}(?:[ \u00A0\u2009\u202F]\d{3})+|\d+)(?:[,\.]\d+)?(?!\d)"
 )
-BRACKETED_NUMERIC_PATTERN = re.compile(r"([\[<({«])\s*([^()\[\]{}<>«»]+?)\s*([\]>)}»])")
-SPACE_BEFORE_PUNCT_PATTERN = re.compile(r"[ \t]+([,.;:!?])")
-MULTI_SPACE_PATTERN = re.compile(r"[ \t]{2,}")
-SPACE_BEFORE_CLOSE_BRACKET_PATTERN = re.compile(r"[ \t]+([\)\]\}])")
-SPACE_AFTER_OPEN_BRACKET_PATTERN = re.compile(r"([\(\[\{])[ \t]+")
-TRAILING_SPACE_BEFORE_NEWLINE_PATTERN = re.compile(r"[ \t]+\n")
-LEADING_SPACE_AFTER_NEWLINE_PATTERN = re.compile(r"\n[ \t]+")
-EXCESSIVE_LINEBREAKS_PATTERN = re.compile(r"\n{2,}")
-DECORATIVE_SEPARATOR_PATTERN = re.compile(
+BRACKETED_NUMERIC_PATTERN = compile_scan(r"([\[<({«])\s*([^()\[\]{}<>«»]+?)\s*([\]>)}»])")
+SPACE_BEFORE_PUNCT_PATTERN = compile_scan(r"[ \t]+([,.;:!?])")
+MULTI_SPACE_PATTERN = compile_scan(r"[ \t]{2,}")
+SPACE_BEFORE_CLOSE_BRACKET_PATTERN = compile_scan(r"[ \t]+([\)\]\}])")
+SPACE_AFTER_OPEN_BRACKET_PATTERN = compile_scan(r"([\(\[\{])[ \t]+")
+TRAILING_SPACE_BEFORE_NEWLINE_PATTERN = compile_scan(r"[ \t]+\n")
+LEADING_SPACE_AFTER_NEWLINE_PATTERN = compile_scan(r"\n[ \t]+")
+EXCESSIVE_LINEBREAKS_PATTERN = compile_scan(r"\n{2,}")
+DECORATIVE_SEPARATOR_PATTERN = compile_scan(
     r"(?:(?<=^)|(?<=\n))[ \t]*(?:[*=_~+#\-\xad\u2010-\u2015][ \t]*){3,}(?:(?=$)|(?=\n))"
 )
-LEGACY_PARAGRAPH_BREAK_DOT_PATTERN = re.compile(
+LEGACY_PARAGRAPH_BREAK_DOT_PATTERN = compile_scan(
     r"(?P<prev>[^\n.!?…,:;–\-\"'])(?P<break>\n{2,})(?=(?:[\"«„“]\s*)?[А-ЯЁA-Z0-9])"
 )
-LEGACY_LINEBREAK_DOT_PATTERN = re.compile(
+LEGACY_LINEBREAK_DOT_PATTERN = compile_scan(
     r"(?P<prev>[^\n.!?…,:;–\-\"'])(?P<break>\n)(?=(?:[\"«„“]\s*)?[А-ЯЁA-Z0-9])"
 )
-INLINE_LINEBREAK_SPACE_PATTERN = re.compile(
+INLINE_LINEBREAK_SPACE_PATTERN = compile_scan(
     r"(?<=[^\n])\n(?!(?:[\"«„“]\s*)?[А-ЯЁA-Z0-9])(?=[^\n])"
 )
 LETTER_HYPHEN_PLACEHOLDER = "\ue000"
@@ -51,7 +51,7 @@ UNIT_SLASH_PLACEHOLDER = "\ue003"
 BINARY_PLUS_PLACEHOLDER = "\ue004"
 BINARY_MINUS_PLACEHOLDER = "\ue005"
 BINARY_POWER_PLACEHOLDER = "\ue006"
-BINARY_MATH_OPERATOR_PATTERN = re.compile(r"(?<=\d)[+−^](?=\d)")
+BINARY_MATH_OPERATOR_PATTERN = compile_scan(r"(?<=\d)[+−^](?=\d)")
 BINARY_MATH_OPERATOR_PLACEHOLDERS = {
     "+": BINARY_PLUS_PLACEHOLDER,
     "−": BINARY_MINUS_PLACEHOLDER,
@@ -93,108 +93,108 @@ def restore_binary_math_operators(text: str) -> str:
     ):
         return text
     return text.translate(BINARY_MATH_OPERATOR_TRANSLATION)
-YEARS_AGO_ABBREVIATION_PATTERN = re.compile(
+YEARS_AGO_ABBREVIATION_PATTERN = compile_scan(
     r"(?P<quantity>(?<!\w)(?:\d+(?:[.,]\d+)?|тыс(?:\.|яч[а-яё]*)?|млн\.?|"
     r"миллион[а-яё]*|млрд\.?|миллиард[а-яё]*|несколько|много)\s+)"
     r"л\.?\s*н\.(?P<tail>\s*)",
     re.UNICODE,
 )
-UNARY_MINUS_NUMBER_PATTERN = re.compile(
+UNARY_MINUS_NUMBER_PATTERN = compile_scan(
     r"(?P<prefix>^|[(\[{«]|(?<!\d)\s)(?P<sign>[−-])(?P<space>\s*)(?P<number>\d+(?:[.,]\d+)?)"
 )
-UNARY_PLUS_NUMBER_PATTERN = re.compile(
+UNARY_PLUS_NUMBER_PATTERN = compile_scan(
     r"(?P<prefix>^|[(\[{«=,:;]|(?<![\d\s])\s)\+(?P<number>\d+(?:[.,]\d+)?)"
 )
 THOUSANDS_SEPARATORS = " \u00a0\u2009\u202f"
-SIGNED_COMMA_NUMBER_PATTERN = re.compile(
+SIGNED_COMMA_NUMBER_PATTERN = compile_scan(
     r"^[−-]?(?:\d{1,3}(?:[" + THOUSANDS_SEPARATORS + r"]\d{3})+|\d+),\d+$"
 )
-SIGNED_INTEGER_WITH_UNIT_PATTERN = re.compile(
+SIGNED_INTEGER_WITH_UNIT_PATTERN = compile_scan(
     r"^[−-]?(?:\d{1,3}(?:[" + THOUSANDS_SEPARATORS + r"]\d{3})+|\d+)(?:,\d+)?\s*"
     r"(?:[%‰°]|[₽$€£¥]|[A-Za-zА-Яа-яЁё]+(?:\s+[A-Za-zА-Яа-яЁё.]+)?)$"
 )
-INTEGER_LIST_PATTERN = re.compile(r"^\d+(?:\s*,\s*\d+)+$")
-INTEGER_RANGE_PATTERN = re.compile(r"^\d+\s*[–—-]\s*\d+$")
-SPACE_INSIDE_QUOTES_PATTERN = re.compile(
+INTEGER_LIST_PATTERN = compile_scan(r"^\d+(?:\s*,\s*\d+)+$")
+INTEGER_RANGE_PATTERN = compile_scan(r"^\d+\s*[–—-]\s*\d+$")
+SPACE_INSIDE_QUOTES_PATTERN = compile_scan(
     r'(^|[\s([{\-–—,;:])"\s+([^\n"]+?)\s+"(?=$|[\s)\]}\-–—,.;:!?])'
 )
-SPACE_AFTER_OPEN_QUOTE_PATTERN = re.compile(
+SPACE_AFTER_OPEN_QUOTE_PATTERN = compile_scan(
     r'(^|[\s([{\-–—,;:])"([ \t]+)(?=\S)'
 )
-SPACE_BEFORE_CLOSE_QUOTE_PATTERN = re.compile(
+SPACE_BEFORE_CLOSE_QUOTE_PATTERN = compile_scan(
     r'(?<=\S)([ \t]+)"(?=$|[\s)\]}\-–—,.;:!?])'
 )
-OPEN_SINGLE_QUOTE_PATTERN = re.compile(
+OPEN_SINGLE_QUOTE_PATTERN = compile_scan(
     r"(?P<prefix>^|[\s([{\-–—,;:])(?P<quote>[‘‚‛‹])(?=\S)"
 )
-CLOSE_SINGLE_QUOTE_PATTERN = re.compile(
+CLOSE_SINGLE_QUOTE_PATTERN = compile_scan(
     r"(?<=\S)(?P<quote>[’›])(?=$|[\s)\]}\-–—,.;:!?])"
 )
-ELLIPSIS_SPACE_BEFORE_PATTERN = re.compile(r"[ \t]+(?=…)")
-ELLIPSIS_SPACE_AFTER_PATTERN = re.compile(r"(?<=…)(?=[^\s.,;:!?…)\]}\"])\S")
+ELLIPSIS_SPACE_BEFORE_PATTERN = compile_scan(r"[ \t]+(?=…)")
+ELLIPSIS_SPACE_AFTER_PATTERN = compile_scan(r"(?<=…)(?=[^\s.,;:!?…)\]}\"])\S")
 # A run such as "С.Ш.А." is a dotted acronym, not three sentence ends. The
 # fixed-width negative lookbehind keeps the spacing pass linear.
-SENTENCE_SPACE_AFTER_PATTERN = re.compile(
+SENTENCE_SPACE_AFTER_PATTERN = compile_scan(
     r'(?<=[.!?…])(?<![A-ZА-ЯЁ]\.)'
     r'(?=["(«„“]?[A-ZА-ЯЁ])'
 )
-CYRILLIC_COMBINING_STRESS_PATTERN = re.compile(
+CYRILLIC_COMBINING_STRESS_PATTERN = compile_scan(
     r"([АЕЁИОУЫЭЮЯаеёиоуыэюя])([\u0300\u0301])"
 )
-ZERO_WIDTH_FORMATTING_PATTERN = re.compile(r"[\u200B\u200C\u200D\u2060\uFEFF]")
-LINEBREAK_RUN_PATTERN = re.compile(r"\n(?:[ \t]*\n)*[ \t]*")
-LEGACY_LINE_START_PATTERN = re.compile(r'(?:["«„“]\s*)?[А-ЯЁA-Z0-9]')
+ZERO_WIDTH_FORMATTING_PATTERN = compile_scan(r"[\u200B\u200C\u200D\u2060\uFEFF]")
+LINEBREAK_RUN_PATTERN = compile_scan(r"\n(?:[ \t]*\n)*[ \t]*")
+LEGACY_LINE_START_PATTERN = compile_scan(r'(?:["«„“]\s*)?[А-ЯЁA-Z0-9]')
 QUOTE_PAIR_REPLACEMENTS = (("``", '"'), ("''", '"'), ("‘‘", '"'), ("’’", '"'), ("´´", '"'))
-QUOTE_SHAPE_PATTERN = re.compile(
+QUOTE_SHAPE_PATTERN = compile_scan(
     r"``|''|‘‘|’’|´´|[«»“”„‟〝〞＂]|"
     r"(?<![A-Za-zА-Яа-яЁё])[‘‚‛‹]|[’›](?![A-Za-zА-Яа-яЁё])"
 )
-QUOTE_VARIANT_PATTERN = re.compile(r"[«»“”„‟〝〞＂]")
+QUOTE_VARIANT_PATTERN = compile_scan(r"[«»“”„‟〝〞＂]")
 QUOTE_CANDIDATES = frozenset('"\'`´«»‘’‚‛‹›“”„‟〝〞＂')
-PAGE_ABBREVIATION_PATTERN = re.compile(r"\b[сp]\.\s*(?=\d)", re.IGNORECASE)
-PAGE_FULL_ABBREVIATION_PATTERN = re.compile(r"\bстр\.\s*(?=\d)", re.IGNORECASE)
-PAGE_REFERENCE_PATTERN = re.compile(
+PAGE_ABBREVIATION_PATTERN = compile_scan(r"\b[сp]\.\s*(?=\d)", re.IGNORECASE)
+PAGE_FULL_ABBREVIATION_PATTERN = compile_scan(r"\bстр\.\s*(?=\d)", re.IGNORECASE)
+PAGE_REFERENCE_PATTERN = compile_scan(
     r"\b(?:стр\.|с\.)\s*(?:(?P<left>\d+)\s*[–—-]\s*(?P<right>\d+)|(?P<number>\d+))",
     re.IGNORECASE,
 )
-ARTICLE_ABBREVIATION_PATTERN = re.compile(r"\bст\.\s*(?=\d)", re.IGNORECASE)
-FIGURE_ABBREVIATION_PATTERN = re.compile(r"\bрис\.\s*(?=\d)", re.IGNORECASE)
-TABLE_ABBREVIATION_PATTERN = re.compile(r"\bтабл\.\s*(?=\d)", re.IGNORECASE)
-REFERENCE_DIRECTIVE_PATTERN = re.compile(
+ARTICLE_ABBREVIATION_PATTERN = compile_scan(r"\bст\.\s*(?=\d)", re.IGNORECASE)
+FIGURE_ABBREVIATION_PATTERN = compile_scan(r"\bрис\.\s*(?=\d)", re.IGNORECASE)
+TABLE_ABBREVIATION_PATTERN = compile_scan(r"\bтабл\.\s*(?=\d)", re.IGNORECASE)
+REFERENCE_DIRECTIVE_PATTERN = compile_scan(
     r"\bсм\.(?P<body>\s*(?:рис\.|табл\.|стр\.)\s*\d+"
     r"(?:\s*(?:,|и)\s*(?:рис\.|табл\.|стр\.)\s*\d+)*)",
     re.IGNORECASE,
 )
-APPROXIMATE_ABBREVIATION_PATTERN = re.compile(r"\bок\.\s*(?=\d)", re.IGNORECASE)
+APPROXIMATE_ABBREVIATION_PATTERN = compile_scan(r"\bок\.\s*(?=\d)", re.IGNORECASE)
 BIBLIOGRAPHIC_NUMBER_ABBREVIATIONS = (
-    (re.compile(r"(?<!\w)Т\.\s*(?=\d)"), "том "),
-    (re.compile(r"(?<!\w)Vol\.\s*(?=\d)", re.IGNORECASE), "том "),
-    (re.compile(r"(?<!\w)No\.\s*(?=\d)", re.IGNORECASE), "номер "),
+    (compile_scan(r"(?<!\w)Т\.\s*(?=\d)"), "том "),
+    (compile_scan(r"(?<!\w)Vol\.\s*(?=\d)", re.IGNORECASE), "том "),
+    (compile_scan(r"(?<!\w)No\.\s*(?=\d)", re.IGNORECASE), "номер "),
 )
-LEGAL_ARTICLE_REFERENCE_PATTERN = re.compile(
+LEGAL_ARTICLE_REFERENCE_PATTERN = compile_scan(
     r"\b(?:ст\.|статья)\s*(?P<number>\d+)\s+(?P<code>УК|АК)\s+РФ\b",
     re.IGNORECASE,
 )
-LEGAL_COMPLEX_REFERENCE_PATTERN = re.compile(
+LEGAL_COMPLEX_REFERENCE_PATTERN = compile_scan(
     r"(?<!\w)п\.\s*(?P<point>\d+)\s+ст\.\s*(?P<article>\d+)\s+"
     r"ФЗ\s+№\s*(?P<code>\d+)(?!\w)",
     re.IGNORECASE,
 )
-ADMINISTRATIVE_LAW_REFERENCE_PATTERN = re.compile(
+ADMINISTRATIVE_LAW_REFERENCE_PATTERN = compile_scan(
     r"(?<!\w)(?:(?P<prep>в|во|о|об|согласно)\s+)?ч\.\s*(?P<part>\d+)\s+ст\.\s*"
     r"(?P<article>\d+(?:\.\d+)?)\s+КоАП\s+РФ(?!\w)",
     re.IGNORECASE,
 )
-SECTION_REFERENCE_PATTERN = re.compile(
+SECTION_REFERENCE_PATTERN = compile_scan(
     r"(?<!\w)§\s*(?P<first>\d+(?:\.\d+)+)"
     r"(?:\s+и\s+§\s*(?P<second>\d+(?:\.\d+)+))?"
 )
-AGE_RANGE_PATTERN = re.compile(
+AGE_RANGE_PATTERN = compile_scan(
     r"(?<!\w)(?P<left>\d+)\s*[—–-]\s*(?P<right>\d+)\s+"
     r"(?P<unit>лет|года|год)(?!\w)",
     re.IGNORECASE,
 )
-ISBN_PATTERN = re.compile(
+ISBN_PATTERN = compile_scan(
     r"(?<!\w)(?P<prefix>ISBN)\s+(?P<groups>\d+(?:[-–—]\d+){3,4})(?!\w)",
     re.IGNORECASE,
 )
@@ -202,7 +202,7 @@ LEGAL_CODE_GENITIVE_EXPANSIONS = {
     "ук": "уголовного кодекса российской федерации",
     "ак": "арбитражного кодекса российской федерации",
 }
-ERA_ABBREVIATION_PATTERN = re.compile(
+ERA_ABBREVIATION_PATTERN = compile_scan(
     r"(?<!\w)(?P<abbr>до\s+н\.?\s*э\.?|н\.?\s*э\.?)(?P<tail>\s*)",
     re.IGNORECASE,
 )
@@ -273,13 +273,13 @@ _LATIN_TO_CYRILLIC_HOMOGLYPHS = str.maketrans(
     }
 )
 _HOMOGLYPH_LATIN_LETTERS = frozenset("ABCEHKMOPTXYacepoxy")
-_HOMOGLYPH_LATIN_PATTERN = re.compile(f"[{''.join(sorted(_HOMOGLYPH_LATIN_LETTERS))}]")
+_HOMOGLYPH_LATIN_PATTERN = compile_scan(f"[{''.join(sorted(_HOMOGLYPH_LATIN_LETTERS))}]")
 #: A word that mixes both scripts. Both lookaheads are required so the C-level
 #: scan rejects ordinary words without entering the Python callback: a full pass
 #: over every word of a book-sized text is otherwise the most expensive step of
 #: the preprocessing stage.
 _WORD_CHARS = "A-Za-zА-Яа-яЁё+"
-MIXED_SCRIPT_WORD_PATTERN = re.compile(
+MIXED_SCRIPT_WORD_PATTERN = compile_scan(
     rf"(?<![{_WORD_CHARS}])"
     rf"(?=[{_WORD_CHARS}]*[ABCEHKMOPTXYacepoxy])"
     rf"(?=[{_WORD_CHARS}]*[А-Яа-яЁё])"

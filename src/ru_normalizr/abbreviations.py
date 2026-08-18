@@ -32,20 +32,20 @@ from .constants import (
 from .numerals._constants import VERB_CASE
 from .numerals._helpers import safe_inflect
 from .options import InitialsPauseMode, LetterVowelMode, NormalizeOptions
-from .text_scan import first_non_whitespace_index
+from .text_scan import compile_scan, first_non_whitespace_index
 
-_ETC_ABBREVIATION_PATTERN = re.compile(
+_ETC_ABBREVIATION_PATTERN = compile_scan(
     r"(?<!\w)(?P<abbr>т\.?\s*[дп]\.)(?P<tail>\s*)(?!\w)", re.IGNORECASE
 )
 _ADJECTIVE_ABBREVIATION_WORD = (
     r"(?!и\b|или\b|либо\b|да\b|но\b|а\b)[А-ЯЁа-яё-]+"
 )
-_ADJECTIVE_ABBREVIATION_PATTERN = re.compile(
+_ADJECTIVE_ABBREVIATION_PATTERN = compile_scan(
     rf"(?<!\w)(?P<abbr>{'|'.join(sorted((re.escape(key) for key in ADJECTIVE_ABBREVIATION_EXPANSIONS), key=len, reverse=True))})"
     rf"(?P<space>\s+)(?P<phrase>{_ADJECTIVE_ABBREVIATION_WORD}(?:\s+{_ADJECTIVE_ABBREVIATION_WORD}){{0,5}})",
     re.IGNORECASE,
 )
-_LEFT_CONTEXT_TOKEN_PATTERN = re.compile(r"[А-ЯЁа-яё-]+|[.!?]")
+_LEFT_CONTEXT_TOKEN_PATTERN = compile_scan(r"[А-ЯЁа-яё-]+|[.!?]")
 _UNAMBIGUOUS_PREPOSITION_CASES = {
     "без": "gent",
     "для": "gent",
@@ -80,7 +80,7 @@ _CASE_CONTEXT_BARRIER_POS = frozenset(
         "PRTS",
     }
 )
-_WORD_AMPERSAND_PATTERN = re.compile(
+_WORD_AMPERSAND_PATTERN = compile_scan(
     r"(?P<left>[A-Za-zА-Яа-яЁё]+(?:[-'][A-Za-zА-Яа-яЁё0-9]+)*)\s*&\s*(?P<right>[A-Za-zА-Яа-яЁё]+(?:[-'][A-Za-zА-Яа-яЁё0-9]+)*)"
 )
 _SINGLE_TOKEN_EN_LETTER_NAMES = frozenset(
@@ -104,12 +104,12 @@ _LANGUAGE_ORIGIN_ABBREVIATIONS = {
 }
 _SENTENCE_OPENING_CHARS = " \t\r\"'«„“([{"
 _SENTENCE_END_CHARS = ".!?…"
-_LANGUAGE_ORIGIN_PATTERN = re.compile(
+_LANGUAGE_ORIGIN_PATTERN = compile_scan(
     rf"(?<!\w)(?P<prep>от|из|с|со)\s+(?P<abbr>{'|'.join(sorted((re.escape(key) for key in _LANGUAGE_ORIGIN_ABBREVIATIONS), key=len, reverse=True))})"
     r"(?P<space>\s+)(?P<word>[^\s.,;:!?()\"\[\]{}«»]+)",
     re.IGNORECASE,
 )
-_FOLLOWING_NAME_TOKEN_PATTERN = re.compile(
+_FOLLOWING_NAME_TOKEN_PATTERN = compile_scan(
     rf"\s+(?P<token>{RUSSIAN_NAME_TOKEN})(?![A-Za-zА-Яа-яЁё])"
 )
 _CARDINAL_ONE_WORDS = frozenset({"один", "одна", "одно", "одну"})

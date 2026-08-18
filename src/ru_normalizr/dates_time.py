@@ -7,6 +7,7 @@ import num2words
 
 from .abbreviation_context import should_keep_terminal_abbreviation_dot
 from .options import NormalizeOptions
+from .text_scan import compile_scan
 from .years import year_to_ordinal_words
 
 logger = logging.getLogger(__name__)
@@ -45,7 +46,7 @@ TEXT_DATE_RANGE_CASES = {
     "до": "genitive",
     "от": "genitive",
 }
-TEXT_DATE_FROM_TO_PATTERN = re.compile(
+TEXT_DATE_FROM_TO_PATTERN = compile_scan(
     r"\b(?P<start_prep>с|со)\s+(?P<day1>\d{1,2})\s+"
     r"(?P<end_prep>по|до)\s+(?P<day2>\d{1,2})\s+(?P<month>"
     + MONTH_NAME_FRAGMENT
@@ -53,21 +54,21 @@ TEXT_DATE_FROM_TO_PATTERN = re.compile(
     + YEAR_TAIL_FRAGMENT,
     re.IGNORECASE,
 )
-TEXT_DATE_RANGE_PATTERN = re.compile(
+TEXT_DATE_RANGE_PATTERN = compile_scan(
     r"\b(?:(?P<prep>за|на|в|во|по|с|со|до|от)\s+)?(?P<day1>\d{1,2})\s*[–—-]\s*(?P<day2>\d{1,2})\s+(?P<month>"
     + MONTH_NAME_FRAGMENT
     + r")"
     + YEAR_TAIL_FRAGMENT,
     re.IGNORECASE,
 )
-TEXT_DATE_LIST_PATTERN = re.compile(
+TEXT_DATE_LIST_PATTERN = compile_scan(
     r"\b(?P<days>\d{1,2}(?:\s*(?:,|и)\s*\d{1,2})+)\s+(?P<month>"
     + MONTH_NAME_FRAGMENT
     + r")"
     + YEAR_TAIL_FRAGMENT,
     re.IGNORECASE,
 )
-TEXT_DATE_PATTERN = re.compile(
+TEXT_DATE_PATTERN = compile_scan(
     r"\b(?:(?P<prep>перед)\s+)?(?P<day>\d{1,2})\s+(?P<month>"
     + MONTH_NAME_FRAGMENT
     + r")"
@@ -105,44 +106,44 @@ MONTH_ABBREVIATIONS = {
     "нояб": 11,
     "дек": 12,
 }
-ABBREVIATED_TEXT_DATE_PATTERN = re.compile(
+ABBREVIATED_TEXT_DATE_PATTERN = compile_scan(
     r"(?<!\w)(?P<day>0?[1-9]|[12]\d|3[01])\s+"
     r"(?P<month>янв\.?|февр?\.?|мар\.?|апр\.?|май\.?|июн\.?|июл\.?|"
     r"авг\.?|сент?\.?|окт\.?|нояб?\.?|дек\.?)\s+"
     r"(?P<year>\d{4})(?:\s+г\.?)?(?![-–—]?[A-Za-zА-Яа-яЁё])",
     re.IGNORECASE,
 )
-DAY_MONTH_DATE_PATTERN = re.compile(
+DAY_MONTH_DATE_PATTERN = compile_scan(
     r"(?<![\w.])(?P<day>0?[1-9]|[12]\d|3[01])\."
     r"(?P<month>0?[1-9]|1[0-2])(?!\d)(?!\.\d)"
 )
-DAY_MONTH_DATE_CONTEXT_PATTERN = re.compile(
+DAY_MONTH_DATE_CONTEXT_PATTERN = compile_scan(
     r"\b(?:дат(?:а|у|ой|е)|срок\w*|при[её]м\w*|встреч\w*|мероприяти\w*|"
     r"заявк\w*|законч\w*|начал\w*|назнач\w*|родил\w*|праздник\w*|дн[её]м)\b",
     re.IGNORECASE,
 )
-NUMERIC_DATE_PATTERN = re.compile(
+NUMERIC_DATE_PATTERN = compile_scan(
     r"\b(?P<day>0?[1-9]|[12]\d|3[01])\.(?P<month>0?[1-9]|1[0-2])\.(?P<year>\d{2,4})(?!\w)"
     + YEAR_ERA_TAIL_FRAGMENT,
     re.IGNORECASE,
 )
-ISO_DATE_PATTERN = re.compile(
+ISO_DATE_PATTERN = compile_scan(
     r"(?<![\w.])(?P<year>\d{4})[-–—](?P<month>0?[1-9]|1[0-2])[-–—]"
     r"(?P<day>0?[1-9]|[12]\d|3[01])(?!\d)"
     r"(?![-–—]?[A-Za-zА-Яа-яЁё])"
 )
-TIME_PATTERN = re.compile(
+TIME_PATTERN = compile_scan(
     r"\b(?P<hour>[01]?\d|2[0-3]):(?P<minute>[0-5]\d)(?::(?P<second>[0-5]\d))?\b"
 )
-DOTTED_TIME_PATTERN = re.compile(
+DOTTED_TIME_PATTERN = compile_scan(
     r"\b(?P<hour>[01]?\d|2[0-3])\.(?P<minute>[0-5]\d)\b",
     re.IGNORECASE,
 )
-DOTTED_TIME_LEFT_CONTEXT_PATTERN = re.compile(
+DOTTED_TIME_LEFT_CONTEXT_PATTERN = compile_scan(
     r"(?:^|[\s(\"«])(?:в|во|к|около)\s*$",
     re.IGNORECASE,
 )
-DOTTED_TIME_RIGHT_CONTEXT_PATTERN = re.compile(
+DOTTED_TIME_RIGHT_CONTEXT_PATTERN = compile_scan(
     r"^\s*(?:утр(?:ом|а)?|вечер(?:ом|а)?|ноч(?:ью|и)?|дн(?:ём|ем)?|час(?:ов|а)?\b)",
     re.IGNORECASE,
 )
@@ -190,7 +191,7 @@ def _era_tail_dot(source_text: str, match: re.Match[str]) -> str:
 
 # «7092 (1582) года»: one date written in two calendars. The year word stands
 # after the bracket and serves both numbers, so a date must not add its own.
-_DUAL_DATING_TAIL_PATTERN = re.compile(
+_DUAL_DATING_TAIL_PATTERN = compile_scan(
     r"\s*[\(\[]\d{3,4}[\)\]]\s+(?:г\+?о\+?д(?:\+?[а-яё])*(?![а-яё])|г\.?(?!\w))",
     re.IGNORECASE,
 )

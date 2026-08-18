@@ -69,30 +69,31 @@ from .preprocess_utils import (
     restore_letter_hyphens,
 )
 from .roman_numerals import normalize_roman
+from .text_scan import clear_fold_cache, compile_scan
 from .urls import ProtectedUrls, normalize_urls, protect_urls
 from .years import normalize_numeric_ranges, normalize_years
 
-PARTICLE_PATTERN = re.compile(
+PARTICLE_PATTERN = compile_scan(
     r"(?<=[а-яА-ЯёЁ])\s*[–—―]\s*(?=(?:то|либо|нибудь|ка|таки|де|с)\b)",
     re.IGNORECASE,
 )
-DECORATIVE_MARKER_PATTERN = re.compile(r"(?:[*=_~+#\-\xad\u2010-\u2015]\s*){5,}")
-ASTERISK_SEPARATOR_PATTERN = re.compile(r"(?:\*\s*){3,}")
-CURRENCY_AMOUNT_PATTERN = re.compile(r"([$€₽])\s?(\d+(?:[.,]\d+)?)")
-DEGREE_SPACING_PATTERN = re.compile(r"(\d)°")
-WINDOWS_PATH_PATTERN = re.compile(
+DECORATIVE_MARKER_PATTERN = compile_scan(r"(?:[*=_~+#\-\xad\u2010-\u2015]\s*){5,}")
+ASTERISK_SEPARATOR_PATTERN = compile_scan(r"(?:\*\s*){3,}")
+CURRENCY_AMOUNT_PATTERN = compile_scan(r"([$€₽])\s?(\d+(?:[.,]\d+)?)")
+DEGREE_SPACING_PATTERN = compile_scan(r"(\d)°")
+WINDOWS_PATH_PATTERN = compile_scan(
     r"(?<![\w@])(?P<path>[A-Za-z]:\\[^\s<>\"']+)"
 )
 WINDOWS_PATH_PLACEHOLDER_RANGE = (0xF1000, 0xF1FFD)
-LEADING_LETTER_DIGIT_PATTERN = re.compile(
+LEADING_LETTER_DIGIT_PATTERN = compile_scan(
     r"(?<!/)(?P<letters>[а-яА-ЯёЁa-zA-Z]+)(?P<number>\d+)"
 )
-NUMBER_SIGN_PATTERN = re.compile(r"(?<!\w)№\s*(?=\d)")
-NUMBER_SIGN_WITH_PREPOSITION_PATTERN = re.compile(
+NUMBER_SIGN_PATTERN = compile_scan(r"(?<!\w)№\s*(?=\d)")
+NUMBER_SIGN_WITH_PREPOSITION_PATTERN = compile_scan(
     r"(?P<prep>под|с|со|к|ко|по|у|из|от|до)\s+№\s*(?=\d)",
     re.IGNORECASE,
 )
-PHONE_NUMBER_PATTERN = re.compile(
+PHONE_NUMBER_PATTERN = compile_scan(
     r"(?<!\w)(?P<country>\+?\d{1,3})\s*\(\s*(?P<area>\d{3})\s*\)\s*"
     r"(?P<first>\d{3})\s*-\s*(?P<second>\d{2})\s*-\s*(?P<third>\d{2})(?!\w)"
 )
@@ -100,19 +101,19 @@ PHONE_NUMBER_PATTERN = re.compile(
 # ("дом 7-Б"). A single letter separated by a bare space is the next word, not
 # a suffix — usually a preposition or conjunction ("строение 2 в цехе"), so the
 # separator may never be whitespace alone.
-IDENTIFIER_LETTER_SUFFIX_PATTERN = re.compile(
+IDENTIFIER_LETTER_SUFFIX_PATTERN = compile_scan(
     r"(?P<prefix>\b(?:номер|дом|корпус|квартира|строение|владение|"
     r"помещение|офис|этаж|подъезд|комната|палата|литера|место|выход)\s+)"
     r"(?P<number>\d+)(?:\s*[-–—]\s*)?(?P<letter>[A-Za-zА-Яа-яЁё])(?!\w)",
     re.IGNORECASE,
 )
-VEHICLE_PLATE_PATTERN = re.compile(
+VEHICLE_PLATE_PATTERN = compile_scan(
     r"(?P<prefix>\b(?:номер(?:ом|а|у|е)?|госномер|государственный\s+номер)\s+)"
     r"(?P<leading>[A-Za-zА-Яа-яЁё])\s*(?P<number>\d{3})\s*"
     r"(?P<series>[A-Za-zА-Яа-яЁё]{2})\s*(?P<region>\d{2,3})(?!\w)",
     re.IGNORECASE,
 )
-GLUED_NUMBER_WORD_PATTERN = re.compile(r"(\d+)([а-яА-ЯёЁa-zA-Z+]{1,})")
+GLUED_NUMBER_WORD_PATTERN = compile_scan(r"(\d+)([а-яА-ЯёЁa-zA-Z+]{1,})")
 
 GLUED_PREPOSITIONS = {
     "до",
@@ -157,11 +158,11 @@ _GLUED_SUFFIX_ALTERNATION = "|".join(
     re.escape(suffix)
     for suffix in sorted(NUMERIC_SUFFIXES, key=lambda value: (-len(value), value))
 )
-EMBEDDED_NUMERIC_SUFFIX_CODE_PATTERN = re.compile(
+EMBEDDED_NUMERIC_SUFFIX_CODE_PATTERN = compile_scan(
     rf"(?<=[а-яА-ЯёЁa-zA-Z])\d+-?(?:{_GLUED_SUFFIX_ALTERNATION})(?!\w)",
     re.IGNORECASE | re.UNICODE,
 )
-STRUCTURED_NUMERIC_SUFFIX_PATTERN = re.compile(
+STRUCTURED_NUMERIC_SUFFIX_PATTERN = compile_scan(
     rf"(?:"
     rf"(?<!\w)[а-яА-ЯёЁa-zA-Z][а-яА-ЯёЁa-zA-Z\d_]*\d+"
     rf"-?(?:{_GLUED_SUFFIX_ALTERNATION})(?!\w)"
@@ -169,7 +170,7 @@ STRUCTURED_NUMERIC_SUFFIX_PATTERN = re.compile(
     rf")",
     re.IGNORECASE | re.UNICODE,
 )
-SUPERSCRIPT_DIGIT_PATTERN = re.compile(r"[⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉]")
+SUPERSCRIPT_DIGIT_PATTERN = compile_scan(r"[⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉]")
 SUPERSCRIPT_DIGIT_TRANSLATION = str.maketrans(
     "⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉", "01234567890123456789"
 )
@@ -264,6 +265,14 @@ class PipelineNormalizer:
         return handler(text)
 
     def normalize_text(self, text: str) -> str:
+        try:
+            return self._normalize_text(text)
+        finally:
+            # The case-insensitive guards cache one casefolded document; drop it
+            # so a finished run stops holding the input alive.
+            clear_fold_cache()
+
+    def _normalize_text(self, text: str) -> str:
         protected_urls = ProtectedUrls(text)
         if not self.options.enable_url_normalization:
             protected_urls = protect_urls(text)

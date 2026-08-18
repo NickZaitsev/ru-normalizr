@@ -7,6 +7,7 @@ import num2words
 
 from .._morph import canonicalize_case, first_parse_required, select_parse
 from ..text_context import simple_tokenize
+from ..text_scan import compile_scan
 from ._constants import (
     FRACTION_PATTERN,
     UNIT_TOKEN_FRAGMENT,
@@ -18,20 +19,20 @@ from .unit_rendering import render_unit_expression
 
 logger = logging.getLogger(__name__)
 
-GENITIVE_FRACTION_CONTEXT_PATTERN = re.compile(r"\b(с|со|от|до|из|без|у)\s+$")
-DATIVE_FRACTION_CONTEXT_PATTERN = re.compile(r"\b(к|по)\s+$")
-ACCUSATIVE_FRACTION_CONTEXT_PATTERN = re.compile(r"\b(в|на|через)\s+$")
-PREPOSITIONAL_FRACTION_CONTEXT_PATTERN = re.compile(r"\b(о|об|при)\s+$")
-FRACTION_UNIT_PATTERN = re.compile(
+GENITIVE_FRACTION_CONTEXT_PATTERN = compile_scan(r"\b(с|со|от|до|из|без|у)\s+$")
+DATIVE_FRACTION_CONTEXT_PATTERN = compile_scan(r"\b(к|по)\s+$")
+ACCUSATIVE_FRACTION_CONTEXT_PATTERN = compile_scan(r"\b(в|на|через)\s+$")
+PREPOSITIONAL_FRACTION_CONTEXT_PATTERN = compile_scan(r"\b(о|об|при)\s+$")
+FRACTION_UNIT_PATTERN = compile_scan(
     rf"(?<![\d,])(?P<num>\d+)/(?P<denom>\d+)(?P<space>\s+)"
     rf"(?P<unit>{UNIT_TOKEN_FRAGMENT})(?!\w)"
 )
-FRACTION_COMPOUND_UNIT_PATTERN = re.compile(
+FRACTION_COMPOUND_UNIT_PATTERN = compile_scan(
     r"(?<![\d,])(?P<num>\d+)/(?P<denom>\d+)(?P<space>\s+)"
     r"(?P<unit>ч\.\s*л\.)(?!\w)",
     re.IGNORECASE,
 )
-PRESSURE_RATIO_PATTERN = re.compile(
+PRESSURE_RATIO_PATTERN = compile_scan(
     r"(?<!\w)(?:(?P<prep>с|со|до)\s+)?"
     r"(?P<left>\d{2,3})\s*/\s*(?P<right>\d{2,3})",
     re.IGNORECASE,

@@ -4,33 +4,35 @@ import logging
 import re
 from dataclasses import dataclass
 
+from .text_scan import compile_scan
+
 logger = logging.getLogger(__name__)
 
-URL_PATTERN = re.compile(
+URL_PATTERN = compile_scan(
     r"(?P<url>(?:(?<![\w@])https?://|(?<![\w@.-])www\.(?=[^\W_]))[^\s<>\"]+)",
     re.IGNORECASE,
 )
-EMAIL_PATTERN = re.compile(
+EMAIL_PATTERN = compile_scan(
     r"(?<![\w@])(?P<email>[A-Za-z0-9][A-Za-z0-9._%+\-]*@"
     r"(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,})(?!\w)",
     re.IGNORECASE,
 )
-BARE_DOMAIN_PATTERN = re.compile(
+BARE_DOMAIN_PATTERN = compile_scan(
     r"(?<![\w@.-])(?P<domain>(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}"
     r"(?:/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]*)?)(?!\w)",
     re.IGNORECASE,
 )
-SOCIAL_HANDLE_PATTERN = re.compile(
+SOCIAL_HANDLE_PATTERN = compile_scan(
     r"(?<![\w@])@(?P<handle>[A-Za-z][A-Za-z0-9_]*)(?!\w)",
     re.IGNORECASE,
 )
-HASHTAG_PATTERN = re.compile(
+HASHTAG_PATTERN = compile_scan(
     r"(?<!\w)#(?P<tag>[A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё0-9_]*)(?!\w)",
     re.IGNORECASE,
 )
-ALNUM_CHUNK_PATTERN = re.compile(r"[A-Za-z0-9]+|[^A-Za-z0-9]")
-MIXED_CHUNK_PATTERN = re.compile(r"\d+|[A-Za-z]+")
-TAG_CHUNK_PATTERN = re.compile(r"[A-Za-zА-Яа-яЁё]+|\d+|_")
+ALNUM_CHUNK_PATTERN = compile_scan(r"[A-Za-z0-9]+|[^A-Za-z0-9]")
+MIXED_CHUNK_PATTERN = compile_scan(r"\d+|[A-Za-z]+")
+TAG_CHUNK_PATTERN = compile_scan(r"[A-Za-zА-Яа-яЁё]+|\d+|_")
 
 URL_SEPARATOR_WORDS: dict[str, str] = {
     ":": "двоеточие",
