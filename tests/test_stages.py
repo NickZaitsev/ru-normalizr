@@ -921,3 +921,19 @@ class RuNormalizrStageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+def test_cleanup_replacements_apply_longest_forms_first() -> None:
+    """Порядок в CLEANUP_REPLACEMENTS — часть правила, а не оформление.
+
+    Двойной минус «−−» должен стать «--», а не тире: односимвольная замена
+    минуса, применённая раньше двухсимвольной, дала бы «—» и молча изменила бы
+    чтение. Замена цикла `str.replace` на `str.translate` теряет этот порядок,
+    поэтому здесь он закреплён.
+    """
+    from ru_normalizr.preprocess_utils import CLEANUP_REPLACEMENTS, apply_cleanup_replacements
+
+    assert apply_cleanup_replacements("−−") == "--"
+    lengths = [len(old) for old, _ in CLEANUP_REPLACEMENTS]
+    assert lengths == sorted(lengths, reverse=True), (
+        "многосимвольные ключи должны стоять раньше односимвольных"
+    )
+

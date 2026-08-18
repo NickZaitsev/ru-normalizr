@@ -647,6 +647,14 @@ def expand_years_ago_abbreviation(text: str) -> str:
     return YEARS_AGO_ABBREVIATION_PATTERN.sub(repl, text)
 
 
+#: Обе функции ниже — цепочки `str.replace`, и это осознанно. Замена на
+#: `str.translate` с таблицей выглядит как «один проход вместо шестнадцати», но
+#: `translate` делает поиск в словаре на каждый символ строки, тогда как
+#: `str.replace` с односимвольной иглой сводится к memchr и на промахе возвращает
+#: исходный объект. Замер на 250 000 знаков (все семь корпусов, 2026-08-18):
+#: чистка 1,4–2,1 мс циклом против 2,1–18,4 мс через `translate`, дроби
+#: 1,0–1,7 мс против 1,4–17,5 мс. Подробности —
+#: docs/SPEED_OBSERVATIONS.md, раздел «str.translate против цепочки replace».
 def normalize_unicode_fractions(text: str) -> str:
     for char, replacement in UNICODE_FRACTIONS.items():
         text = text.replace(char, replacement)
@@ -654,6 +662,8 @@ def normalize_unicode_fractions(text: str) -> str:
 
 
 def apply_cleanup_replacements(text: str) -> str:
+    # Порядок важен: в `CLEANUP_REPLACEMENTS` многосимвольные ключи стоят раньше
+    # односимвольных, иначе «−−» дало бы «—» вместо «--».
     for old, new in CLEANUP_REPLACEMENTS:
         text = text.replace(old, new)
     return text
@@ -758,6 +768,49 @@ def remove_numeric_footnotes(
     return normalize_linebreaks(text).strip()
 
 
+#: Знаки, после которых точка в «1.500» — разделитель разрядов: валюта и доли.
+_THOUSANDS_UNIT_SYMBOLS = frozenset("₽$€£¥%‰")
+
+#: Слова величины. Это не единицы измерения, в реестре единиц их нет, поэтому
+#: они перечислены здесь.
+_THOUSANDS_MAGNITUDE_WORDS = frozenset({"руб", "долл", "евро", "тыс", "млн", "млрд"})
+
+#: Односимвольные обозначения, совпадающие со служебными словами, исключены из
+#: проверки: «с» — секунда, но «версия 1.500 с изменениями» не «1500 секунд».
+#: Цена — «1.500 В» не будет склеено, и это дешевле ложного склеивания в прозе.
+_FUNCTION_WORD_HOMOGRAPHS = frozenset({"с", "в", "а", "у", "к", "о", "и", "я"})
+
+#: Кандидат на разделитель разрядов вместе со следующим за ним токеном. Сам
+#: токен проверяется по реестру единиц в колбэке, а не перечисляется в
+#: алтернации: иначе новая единица в реестре молча не попадала бы сюда, а
+#: алтернация из 479 алиасов стояла бы в lookahead'е.
+THOUSANDS_BEFORE_UNIT_PATTERN = compile_scan(
+    r"(?<!\d)(?P<number>\d{1,3}\.\d{3})(?=\s*(?P<unit>[₽$€£¥%‰]|\w+))"
+)
+
+
+def _is_thousands_unit(token: str) -> bool:
+    if not token:
+        return False
+    if token in _THOUSANDS_UNIT_SYMBOLS:
+        return True
+    folded = token.casefold()
+    if folded in _THOUSANDS_MAGNITUDE_WORDS:
+        return True
+    if folded in _FUNCTION_WORD_HOMOGRAPHS:
+        return False
+    # Ленивый импорт разрывает цикл preprocess -> numerals -> preprocess.
+    from .numerals._constants import UNIT_REGISTRY
+
+    return UNIT_REGISTRY.resolve(token) is not None
+
+
+def _join_thousands_before_unit(match: re.Match[str]) -> str:
+    if not _is_thousands_unit(match.group("unit")):
+        return match.group(0)
+    return match.group("number").replace(".", "")
+
+
 def clean_numbers(text: str) -> str:
     def repl_spaces(match: re.Match[str]) -> str:
         return (
@@ -777,11 +830,4 @@ def clean_numbers(text: str) -> str:
     text = re.sub(
         r"(?<!\d)(\d{1,3}\.\d{3})(?=,\d+)", lambda m: m.group(1).replace(".", ""), text
     )
-    unit_lookahead = (
-        r"(?=\s*(?:[₽$€£¥%‰]|\b(?:руб|долл|евро|тыс|млн|млрд|г|кг|т|м|км|шт)\b))"
-    )
-    return re.sub(
-        r"(?<!\d)(\d{1,3}\.\d{3})" + unit_lookahead,
-        lambda m: m.group(1).replace(".", ""),
-        text,
-    )
+    return THOUSANDS_BEFORE_UNIT_PATTERN.sub(_join_thousands_before_unit, text)
