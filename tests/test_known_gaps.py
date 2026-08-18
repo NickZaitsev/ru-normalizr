@@ -697,6 +697,207 @@ E2E_KNOWN_GAP_CASES = (
             reason="an apostrophe inside a latin word is split off with spaces",
         ),
     ),
+    # --- Найдено сплошным чтением книги 02 («История русской армии и флота») ---
+    # Диапазон при мере длины уходит в родительный падеж вместо именительного.
+    pytest.param(
+        "От них до реки 130—140 верст по прямой дороге.",
+        "От них до реки сто тридцать — сто сорок вёрст по прямой дороге.",
+        id="measure_range_read_in_the_genitive",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a range of a length measure is rendered in the genitive",
+        ),
+    ),
+    # Число после предлога «в» в значении меры остаётся в именительном падеже.
+    pytest.param(
+        "Ягайло, простояв верстах в 40, повернул назад к своим границам.",
+        "Ягайло, простояв верстах в сорока, повернул назад к своим границам.",
+        id="number_after_preposition_v_in_the_locative",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a number after the preposition в stays in the nominative",
+        ),
+    ),
+    # Точка как разделитель разрядов принимается за десятичную, а «кв.» —
+    # за киловольты.
+    pytest.param(
+        "При Иоанне III Москва имела площадь около 15.000 кв. миль.",
+        "При Иоанне третьем Москва имела площадь около пятнадцати тысяч квадратных миль.",
+        id="dot_as_a_thousands_separator_before_a_square_unit",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a dot thousands separator is read as a decimal point and кв. as kilovolts",
+        ),
+    ),
+    # «т.» в значении «тысяч» читается как «тонн».
+    pytest.param(
+        "Дворяне выставляли от 80 до 100 т. чел. и носили название поместной рати.",
+        "Дворяне выставляли от восьмидесяти до ста тысяч человек и носили название поместной рати.",
+        id="t_abbreviation_read_as_tonnes",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="т. meaning thousands is read as tonnes",
+        ),
+    ),
+    # Сокращение «чел.» раскрывается как «людей» вместо счётной формы «человек».
+    pytest.param(
+        "Выставлялись две рати, каждая около 10 000 чел., у Новосела и Мценска.",
+        "Выставлялись две рати, каждая около десяти тысяч человек, у Новосела и Мценска.",
+        id="chel_abbreviation_expanded_as_lyudey",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="чел. is expanded as людей instead of the counted form человек",
+        ),
+    ),
+    # Число после прилагательного в творительном падеже остаётся именительным.
+    pytest.param(
+        "Отряд начальствовал отборными 1000 чел., от которых высылались разъезды.",
+        "Отряд начальствовал отборными тысячей человек, от которых высылались разъезды.",
+        id="number_after_an_instrumental_adjective",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a number after an instrumental adjective stays nominative",
+        ),
+    ),
+    # «в.» в значении «вёрст» читается как «веков».
+    pytest.param(
+        "Отряд стоял у Арского острога (в 75 в. от Казани) до конца осады.",
+        "Отряд стоял у Арского острога (в семидесяти пяти верстах от Казани) до конца осады.",
+        id="versta_abbreviation_read_as_century",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="в. meaning versts is read as centuries",
+        ),
+    ),
+    # Номер пункта перечисления «1)» читается количественным «один».
+    pytest.param(
+        "Служили сначала иноземцы, а потом: 1) «гулящие некрепостные люди», "
+        "2) дворяне и дети боярские.",
+        'Служили сначала иноземцы, а потом: первое) "гулящие некрепостные люди", '
+        "второе) дворяне и дети боярские.",
+        id="numbered_list_marker_read_as_cardinal",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="an enumeration marker 1) is read as the cardinal один",
+        ),
+    ),
+    # Слово в начале следующего предложения пропадает из вывода после числа
+    # со счётной формой.
+    pytest.param(
+        "Всего было принято 32 000 человек. Люди поступили на укомплектование "
+        "двадцати семи пехотных полков.",
+        "Всего было принято тридцать две тысячи человек. Люди поступили "
+        "на укомплектование двадцати семи пехотных полков.",
+        id="word_dropped_after_a_sentence_boundary",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the first word of the next sentence is dropped after a counted form",
+        ),
+    ),
+    # Дробное число перед «тысяч» ломает согласование: «тысячи» вместо «тысяч».
+    pytest.param(
+        "Заготовлено около 12 тысяч бомб и 11,5 тысяч ручных гранат.",
+        "Заготовлено около двенадцати тысяч бомб и одиннадцати с половиной тысяч ручных гранат.",
+        id="decimal_number_before_thousands",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a decimal before тысяч breaks the agreement of the counted noun",
+        ),
+    ),
+    # «15-тыс. отряд» не сворачивается в прилагательное «пятнадцатитысячный».
+    pytest.param(
+        "В Финляндии стоял 15-тыс. отряд Либекера, и кроме того ожидались подкрепления.",
+        "В Финляндии стоял пятнадцатитысячный отряд Либекера, и кроме того ожидались подкрепления.",
+        id="hyphenated_thousands_in_an_attribute",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the 15-тыс. attribute is not folded into an adjective",
+        ),
+    ),
+    # Составное число в творительном падеже склоняется только по первой части.
+    pytest.param(
+        "Мы закончили дело 2700 пленными и полным разгромом неприятельского обоза.",
+        "Мы закончили дело двумя тысячами семьюстами пленными "
+        "и полным разгромом неприятельского обоза.",
+        id="instrumental_of_a_four_digit_number",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="only the first part of a compound number takes the instrumental",
+        ),
+    ),
+    # В старой датировке «1709 июня 24-го дня» год читается количественным.
+    pytest.param(
+        "Писано от воплощения бога-слова 1709 июня 24-го дня в лагере под Полтавой.",
+        "Писано от воплощения бога-слова тысяча семьсот девятого года июня "
+        "двадцать четвёртого дня в лагере под Полтавой.",
+        id="year_before_a_month_in_an_old_date",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the year of an old-style date before the month is read as a cardinal",
+        ),
+    ),
+    # Число после «в составе» остаётся в именительном падеже.
+    pytest.param(
+        "Низовый корпус был в составе 12 400 чел. и стоял отдельно.",
+        "Низовый корпус был в составе двенадцати тысяч четырёхсот человек и стоял отдельно.",
+        id="number_after_v_sostave",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a number after в составе stays in the nominative",
+        ),
+    ),
+    # Время суток с двоеточием читается как перечисление через запятую.
+    pytest.param(
+        "В 2:30 часа утра 1 августа главные силы выступили из лагеря.",
+        "В два часа тридцать минут утра первого августа главные силы выступили из лагеря.",
+        id="time_of_day_with_a_colon",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a colon-separated time of day is read as an enumeration",
+        ),
+    ),
+    # Дореформенное написание «т.-е.» с дефисом не раскрывается.
+    pytest.param(
+        "Надо беречь и свой фронт, т.-е. готовиться к бою на два фронта.",
+        "Надо беречь и свой фронт, то есть готовиться к бою на два фронта.",
+        id="abbreviation_t_e_written_with_a_hyphen",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the hyphenated spelling т.-е. is not expanded",
+        ),
+    ),
+    # «гг.» в значении «господам» читается как «годы».
+    pytest.param(
+        "Указания изданы в 1770 году под названием «Наставление всем гг. батарейным командирам».",
+        "Указания изданы в тысяча семьсот семидесятом году под названием "
+        '"Наставление всем господам батарейным командирам".',
+        id="gg_abbreviation_meaning_gospodam",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="гг. meaning господам is expanded as years",
+        ),
+    ),
+    # Диапазон перед сложным числительным с суффиксом теряет тире.
+    pytest.param(
+        "Бой шёл против 6—7-тысячного отряда лучшей пехоты и конницы неприятеля.",
+        "Бой шёл против шести-семитысячного отряда лучшей пехоты и конницы неприятеля.",
+        id="range_before_a_hyphenated_numeral_suffix",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a range before a hyphenated numeral suffix becomes a comma list",
+        ),
+    ),
+    # «ч.» в значении «человек» читается как «часов».
+    pytest.param(
+        "Румянцев с 115 орудиями (42 000 ч.) разбил наголову отряд турок.",
+        "Румянцев с ста пятнадцатью орудиями (сорок две тысячи человек) "
+        "разбил наголову отряд турок.",
+        id="ch_abbreviation_read_as_hours",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="ч. meaning человек is read as hours",
+        ),
+    ),
 )
 
 
