@@ -6,13 +6,19 @@ from ru_normalizr import NormalizeOptions, normalize
 
 E2E_KNOWN_GAP_CASES = (
     # Родительное приложение после счётной группы тоже не управляет ею.
+    #
+    # НЕ РЕШАЕТСЯ алгоритмически: «отправили 4 человека» и «вижу 2 человека»
+    # различаются только смыслом, а не формой — в обоих случаях счётная форма
+    # «человека» стоит при одушевлённом прямом объекте. Проект осознанно читает
+    # такую пару как «двух человек» (paucal_accusative_case, tests/test_cardinal_stage.py),
+    # поэтому «четыре человека» здесь недостижимо без обратной регрессии.
     pytest.param(
         "К ним отправили 4 человека детей боярских.",
         "К ним отправили четыре человека детей боярских.",
         id="count_group_before_genitive_apposition",
         marks=pytest.mark.xfail(
             strict=True,
-            reason="following genitive apposition leaks its case into the counted group",
+            reason="animate accusative convention renders the counted group in the genitive",
         ),
     ),
     # Диапазон лет с «годов» читается родительным единственного числа для
@@ -32,6 +38,20 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="year range before plural годов renders plural ordinals instead of genitive singular",
+        ),
+    ),
+    # Латинское «K» после числа — кельвины, но та же запись означает тысячи
+    # («300K подписчиков»), а кириллическое «К» после числа — ещё и литеру
+    # корпуса или комнатность. Однозначного признака в форме нет, поэтому
+    # запись оставлена названием литеры до появления контекстного правила
+    # (в реестре единиц строки «k»/«к» намеренно закомментированы).
+    pytest.param(
+        "Образец нагрели до 300 K и выдержали час.",
+        "Образец нагрели до трёхсот кельвинов и выдержали час.",
+        id="latin_kelvin_symbol_after_number",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="bare K after a number is ambiguous between kelvin and a thousands suffix",
         ),
     ),
     # Химическая формула требует отдельной грамматики элементов, индексов и
