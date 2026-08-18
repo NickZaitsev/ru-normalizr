@@ -310,3 +310,47 @@ DISTANCE_FROM_LANDMARK_CASES = (
 @pytest.mark.parametrize(("source", "expected"), DISTANCE_FROM_LANDMARK_CASES)
 def test_distance_from_landmark_edges(source: str, expected: str) -> None:
     assert normalize(source, NormalizeOptions.tts()) == expected
+
+
+DEGREE_SUFFIX_CASES = (
+    # Буква шкалы присоединяется к знаку градуса только как зарегистрированное
+    # обозначение.
+    pytest.param(
+        "Хребет лежит на 42° с. ш. и 74° в. д.",
+        "Хребет лежит на сорок два градуса северной широты и семьдесят четыре "
+        "градуса восточной долготы.",
+        id="hemisphere_marker_keeps_plain_degree",
+    ),
+    pytest.param(
+        "Точка 42° ю. ш. и 74° з. д. отмечена на карте.",
+        "Точка сорок два градуса южной широты и семьдесят четыре градуса "
+        "западной долготы отмечена на карте.",
+        id="southern_and_western_markers",
+    ),
+    pytest.param(
+        "Замер дал 30° с уклоном на север.",
+        "Замер дал тридцать градусов с уклоном на север.",
+        id="preposition_after_degree_is_not_a_scale",
+    ),
+    pytest.param(
+        "Угол 30° к горизонту выдержан точно.",
+        "Угол тридцать градусов к горизонту выдержан точно.",
+        id="dative_preposition_after_degree",
+    ),
+    # Зарегистрированные обозначения шкал по-прежнему читаются целиком.
+    pytest.param(
+        "Температура была 20 °C утром.",
+        "Температура была двадцать градусов Цельсия утром.",
+        id="celsius_symbol_still_merges",
+    ),
+    pytest.param(
+        "Духовку разогрели до 350 °F за час.",
+        "Духовку разогрели до трёхсот пятидесяти градусов Фаренгейта за час.",
+        id="fahrenheit_symbol_still_merges",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), DEGREE_SUFFIX_CASES)
+def test_degree_suffix_edges(source: str, expected: str) -> None:
+    assert normalize(source, NormalizeOptions.tts()) == expected

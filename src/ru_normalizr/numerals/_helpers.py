@@ -392,6 +392,33 @@ def _inflect_unit_lemma_cached(
     return f"{adj_form} {noun_form}"
 
 
+#: Hemisphere letters of a geographic coordinate marker and the axis letters
+#: that follow them: «с. ш.», «ю. ш.», «в. д.», «з. д.».
+_COORDINATE_HEMISPHERE_LETTERS = frozenset({"с", "ю", "в", "з"})
+_COORDINATE_AXIS_LETTERS = frozenset({"ш", "д"})
+
+
+def is_coordinate_marker(tokens: Sequence[str], index: int) -> bool:
+    """Whether a dotted two-letter coordinate marker starts at ``index``.
+
+    The hemisphere letters overlap the temperature scales («с» is both «°С» and
+    «северной широты»), so a degree sign followed by a bare «с» is Celsius while
+    «42° с. ш.» is a latitude. Only the full dotted pair tells them apart, and
+    without the check the latitude swallowed the degree sign and left «°» in the
+    output.
+    """
+    if index + 3 >= len(tokens):
+        return False
+    hemisphere = tokens[index].lower().strip(PUNCT_STRIP)
+    axis = tokens[index + 2].lower().strip(PUNCT_STRIP)
+    return (
+        hemisphere in _COORDINATE_HEMISPHERE_LETTERS
+        and tokens[index + 1] == "."
+        and axis in _COORDINATE_AXIS_LETTERS
+        and tokens[index + 3] == "."
+    )
+
+
 def is_case_reliable_noun(parsed_word: Any) -> bool:
     return "NOUN" in parsed_word.tag and "Fixd" not in parsed_word.tag
 

@@ -27,18 +27,6 @@ E2E_KNOWN_GAP_CASES = (
             reason="year range before plural годов renders plural ordinals instead of genitive singular",
         ),
     ),
-    # Знак градуса перед «с. ш.» остаётся в тексте: сокращение широты
-    # перекрывает разбор единицы, хотя «в. д.» разбирается верно.
-    pytest.param(
-        "Хребет лежит на 42° с. ш. и 74° в. д.",
-        "Хребет лежит на сорок два градуса северной широты и семьдесят четыре "
-        "градуса восточной долготы.",
-        id="degree_sign_before_latitude_abbreviation",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="latitude abbreviation blocks the degree unit and leaves ° in the output",
-        ),
-    ),
     # Сокращение «Ц.» в конце предложения должно раскрываться в «Цельсия»
     # и сохранять точку как границу предложения.
     pytest.param(

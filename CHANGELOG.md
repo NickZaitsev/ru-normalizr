@@ -33,6 +33,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Read the `IPsec` protocol name as `ай пи сек` in every spelling (`IPSEC`, `IPSec`, `IPsec`, `ipsec`) instead of `ай пи эс ии си` for the all-caps form and `ипсэк` for the rest. This needs an entry in two places by design: the abbreviation stage intercepts all-caps tokens and only consults `KNOWN_ABBREVIATIONS`, while mixed-case and lowercase spellings never match that pattern and are resolved by the latinization dictionary instead
 
 ### Changed
+- Присоединять букву температурной шкалы к знаку градуса только если пара
+  зарегистрирована в реестре единиц: `42° с. ш.` → «сорок два градуса северной
+  широты», `30° с уклоном` → «тридцать градусов с уклоном», `30° к горизонту` →
+  «тридцать градусов к горизонту». Раньше любая из букв `c k f с к ф` съедала
+  знак градуса, и неразрешимое обозначение (`°с`, `°к`) оставляло в тексте
+  непрочитанный символ `°`
 - Не давать соседнему существительному или прилагательному склонять счётную
   группу: `в городе 12 лет` → «в городе двенадцать лет», `На глубине 200 м` →
   «на глубине двести метров», `в Киеве 3177 человек` → «в Киеве три тысячи сто

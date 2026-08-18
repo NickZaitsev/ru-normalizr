@@ -31,6 +31,7 @@ from ._helpers import (
     inflect_numeral_string,
     inflect_unit_lemma,
     is_case_reliable_noun,
+    is_coordinate_marker,
     noun_number_form,
     parse_integer_token,
     paucal_accusative_case,
@@ -277,9 +278,19 @@ def normalize_cardinal_numerals(text: str) -> str:
             unit_token_span = 1
             unit_raw = noun_token
             if next_token_lower == "°" and i + 2 < len(tokens):
-                degree_suffix = tokens[i + 2].lower().strip(PUNCT_STRIP)
-                if degree_suffix in {"c", "k", "f", "с", "к", "ф"}:
-                    next_token_lower = f"°{degree_suffix}"
+                # A temperature scale letter joins the degree sign only when the
+                # pair is a registered symbol: «°C», «°К». Anything else after a
+                # degree sign is a separate word — a preposition («30° с
+                # уклоном»), a hemisphere marker («42° с. ш.») or a wrong-case
+                # spelling — and merging it left a bare «°» in the output.
+                degree_suffix = tokens[i + 2].strip(PUNCT_STRIP)
+                merged = f"°{degree_suffix}"
+                if (
+                    degree_suffix
+                    and resolve_unit_info(merged) is not None
+                    and not is_coordinate_marker(tokens, i + 2)
+                ):
+                    next_token_lower = merged.lower()
                     noun_token = f"{noun_token}{tokens[i + 2]}"
                     unit_raw = noun_token
                     unit_token_span = 2
