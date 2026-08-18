@@ -898,6 +898,155 @@ E2E_KNOWN_GAP_CASES = (
             reason="ч. meaning человек is read as hours",
         ),
     ),
+    # --- Найдено сплошным чтением книги 02b (та же книга, дореформенная орфография) ---
+    # Запятая как разделитель разрядов принимается за десятичную.
+    pytest.param(
+        "Выставлялись две рати, каждая около 10,000 чел., у Новосела и Мценска.",
+        "Выставлялись две рати, каждая около десяти тысяч человек, у Новосела и Мценска.",
+        id="comma_as_a_thousands_separator",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a comma thousands separator is read as a decimal point",
+        ),
+    ),
+    # Дробь, набранная одним знаком и приклеенная к целому («2½»), читается как
+    # отдельное двузначное число.
+    pytest.param(
+        "В неравной борьбе и только ценою 2½ столетий рабства они уцелели.",
+        "В неравной борьбе и только ценою двух с половиной столетий рабства они уцелели.",
+        id="vulgar_fraction_glued_to_an_integer",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a vulgar fraction glued to an integer is read as a two-digit number",
+        ),
+    ),
+    # Дробь-знак в составе прилагательного («½-пудовой») не сворачивается
+    # в «полупудовой».
+    pytest.param(
+        "Единорогъ былъ трехъ видовъ: 2-пудовой, пудовой и ½-пудовой.",
+        "Единорогъ былъ трехъ видовъ: двухпудовой, пудовой и полупудовой.",
+        id="vulgar_fraction_in_an_attribute",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a vulgar fraction in an attribute is not folded into полу-",
+        ),
+    ),
+    # Дореформенное наращение падежа («3-хъ», «70-мъ») отрывается от числа
+    # и превращается в тире.
+    pytest.param(
+        "Охватывающее Москву с 3-хъ сторонъ положеніе могло быть всегда опаснымъ.",
+        "Охватывающее Москву с трёхъ сторонъ положеніе могло быть всегда опаснымъ.",
+        id="pre_reform_numeral_ending_after_a_hyphen",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a pre-reform case ending after a numeral becomes a dash",
+        ),
+    ),
+    # Дореформенный суффикс прилагательного после числа не сворачивается:
+    # «12-фунтоваго» → «двенадцати фунтоваго».
+    pytest.param(
+        "Вооруженіе драгунъ состояло изъ фузей 12-фунтоваго вѣса безъ штыка.",
+        "Вооруженіе драгунъ состояло изъ фузей двѣнадцатифунтоваго вѣса безъ штыка.",
+        id="pre_reform_adjective_suffix_after_a_number",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a pre-reform adjective suffix after a number is not folded",
+        ),
+    ),
+    # То же для «-тысячнымъ»: число остаётся отдельным словом в именительном.
+    pytest.param(
+        "Репнину съ 20-тысячнымъ отрядомъ приказано двинуться въ Курляндію.",
+        "Репнину съ двадцатитысячнымъ отрядомъ приказано двинуться въ Курляндію.",
+        id="pre_reform_thousand_attribute",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a pre-reform -тысячнымъ attribute is not folded into an adjective",
+        ),
+    ),
+    # Наращение «-ти» удваивается: «60-тиверстная» → «шестидесятитиверстная».
+    pytest.param(
+        "Только 60-тиверстная полоса отдѣляетъ теперь армію Петра отъ моря.",
+        "Только шестидесятиверстная полоса отдѣляетъ теперь армію Петра отъ моря.",
+        id="pre_reform_ti_infix_duplicated",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the -ти infix is duplicated when folding a numeral attribute",
+        ),
+    ),
+    # Творительный падеж предыдущего слова перетекает на следующее число
+    # в перечислении.
+    pytest.param(
+        "Шведы теряютъ до трехъ тысячъ убитыми, 8 знаменъ, 4 орудія и весь обозъ.",
+        "Шведы теряютъ до трехъ тысячъ убитыми, восемь знаменъ, четыре орудія и весь обозъ.",
+        id="instrumental_leaks_to_the_next_count",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the instrumental of a previous word leaks to the next count",
+        ),
+    ),
+    # Век перед сокращением «стол.» не раскрывается и остаётся количественным.
+    pytest.param(
+        "Стрѣльцовъ къ концу XVI стол. было около двѣнадцати тысячъ человѣкъ.",
+        "Стрѣльцовъ къ концу шестнадцатаго столѣтія было около двѣнадцати тысячъ человѣкъ.",
+        id="century_before_stol_abbreviation",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a century before стол. stays a cardinal and the abbreviation is kept",
+        ),
+    ),
+    # Согласование числа с дореформенным прилагательным портит само слово:
+    # «2 прочныя» → «двух прочныев».
+    pytest.param(
+        "Эта работа подготовила 2 прочныя ступени къ новому подвигу нашей рати.",
+        "Эта работа подготовила двѣ прочныя ступени къ новому подвигу нашей рати.",
+        id="adjective_corrupted_by_agreement",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="agreement with a pre-reform adjective corrupts the adjective itself",
+        ),
+    ),
+    # Число с наращением «-го» без месяца читается количественным.
+    pytest.param(
+        "На совѣтѣ 21-го рѣшено обложеніе города со всѣхъ сторонъ.",
+        "На совѣтѣ двадцать первого рѣшено обложеніе города со всѣхъ сторонъ.",
+        id="day_ordinal_without_a_month",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a day ordinal without a month is read as a cardinal",
+        ),
+    ),
+    # Номер монарха перед точкой читается количественным: «Карлъ XII.» →
+    # «Карлъ двенадцать».
+    pytest.param(
+        "Чѣмъ не замедлилъ воспользоваться Карлъ XII. Третьяго іюля онъ обрушился на насъ.",
+        "Чѣмъ не замедлилъ воспользоваться Карлъ двѣнадцатый. Третьяго іюля онъ обрушился на насъ.",
+        id="regnal_roman_before_a_dot_read_as_cardinal",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a regnal roman numeral before a dot is read as a cardinal",
+        ),
+    ),
+    # Месяц после числа ставится в именительный падеж: «на 3 іюля» →
+    # «на трёх іюль».
+    pytest.param(
+        "Отрядъ, переправившись въ ночь на 3 іюля у Лебуса, направился къ Герицу.",
+        "Отрядъ, переправившись въ ночь на третье іюля у Лебуса, направился къ Герицу.",
+        id="month_after_a_day_put_in_the_nominative",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the month after a day number is put into the nominative",
+        ),
+    ),
+    # «л.» в значении «лет» читается как «литров».
+    pytest.param(
+        "Только 24 л. Суворовъ, пройдя всѣ нижнія званія, получилъ первый чинъ.",
+        "Только двадцати четырёхъ лѣтъ Суворовъ, пройдя всѣ нижнія званія, получилъ первый чинъ.",
+        id="l_abbreviation_read_as_litres",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="л. meaning years is read as litres",
+        ),
+    ),
 )
 
 
