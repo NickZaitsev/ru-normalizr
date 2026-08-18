@@ -173,7 +173,7 @@ def _canonicalize_year_word(word: str) -> str:
     return word.replace("+", "")
 
 
-@functools.lru_cache(maxsize=1024)
+@functools.lru_cache(maxsize=4096)
 def year_to_ordinal_words(year: int, case: str = "nomn", plural: bool = False) -> str:
     case = resolve_primary_case(case)
     normalized_case = "nomn" if case == "accs" and not plural else case

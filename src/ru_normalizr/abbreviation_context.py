@@ -116,7 +116,7 @@ def _has_dictionary_continuation(token: str) -> bool:
     return next(iter(get_morph().dictionary.words.iterkeys(token)), None) is not None
 
 
-@functools.lru_cache(maxsize=4096)
+@functools.lru_cache(maxsize=16384)
 def is_abbreviation_fragment(token: str) -> bool:
     """Check whether a short lowercase token before a dot is an abbreviation.
 

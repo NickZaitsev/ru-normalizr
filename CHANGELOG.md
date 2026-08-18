@@ -42,6 +42,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Read the `IPsec` protocol name as `ай пи сек` in every spelling (`IPSEC`, `IPSec`, `IPsec`, `ipsec`) instead of `ай пи эс ии си` for the all-caps form and `ипсэк` for the rest. This needs an entry in two places by design: the abbreviation stage intercepts all-caps tokens and only consults `KNOWN_ABBREVIATIONS`, while mixed-case and lowercase spellings never match that pattern and are resolved by the latinization dictionary instead
 
 ### Changed
+- Поднять лимиты двух LRU-кешей, которые упирались в потолок на длинных книгах:
+  `is_abbreviation_fragment` с 4096 до 16384 записей и `year_to_ordinal_words`
+  с 1024 до 4096. На корпусе 8 млн символов доля попаданий выросла с 52,2% до
+  56,1% и с 56,4% до 56,6%, peak RSS вырос на 0,9 МиБ (+0,26%), результат
+  нормализации не изменился. Изменение защищает от нелинейного роста времени на
+  текстах 20 млн+ символов, см.
+  [размеры LRU-кешей](docs/agents/cache-sizing.md)
 - Читать двойную датировку `7092 (1582) года` как одну дату: первое число
   становится порядковым в падеже, которым управляет слово после скобки,
   эквивалент в скобке остаётся количественным, а слово «года» больше не
