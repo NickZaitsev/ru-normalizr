@@ -842,6 +842,10 @@ CASE_SENSITIVE_UNITS_DATA = _upgrade_units({
     "т": ("тонна", "femn", "measure"),
     "°С": ("градус", "masc", "measure", "Цельсия"),
     "°К": ("градус", "masc", "measure", "Кельвина"),
+    # Traditional Russian spelling of the temperature scales, still common in
+    # older prose: «12,5° Ц.», «60° Ф.».
+    "°Ц": ("градус", "masc", "measure", "Цельсия"),
+    "°Ф": ("градус", "masc", "measure", "Фаренгейта"),
     "мкА": ("микроампер", "masc", "measure"),
     "мА": ("миллиампер", "masc", "measure"),
     "кА": ("килоампер", "masc", "measure"),

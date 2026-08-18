@@ -27,18 +27,6 @@ E2E_KNOWN_GAP_CASES = (
             reason="year range before plural годов renders plural ordinals instead of genitive singular",
         ),
     ),
-    # Сокращение «Ц.» в конце предложения должно раскрываться в «Цельсия»
-    # и сохранять точку как границу предложения.
-    pytest.param(
-        "Температура была +12,5° Ц. Здесь мы остановились.",
-        "Температура была плюс двенадцать целых пять десятых градуса Цельсия. "
-        "Здесь мы остановились.",
-        id="celsius_abbreviation_at_sentence_end",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="Ц. is spelled as a letter name and swallows the sentence boundary",
-        ),
-    ),
     # Римская цифра при сокращении тома — порядковое числительное, как и в
     # «том II»; после точки сокращения регистр тоже не меняется.
     pytest.param(

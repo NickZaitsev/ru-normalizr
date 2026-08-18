@@ -354,3 +354,28 @@ DEGREE_SUFFIX_CASES = (
 @pytest.mark.parametrize(("source", "expected"), DEGREE_SUFFIX_CASES)
 def test_degree_suffix_edges(source: str, expected: str) -> None:
     assert normalize(source, NormalizeOptions.tts()) == expected
+
+
+TRADITIONAL_TEMPERATURE_SCALE_CASES = (
+    pytest.param(
+        "Температура была +12,5° Ц. Здесь мы остановились.",
+        "Температура была плюс двенадцать целых пять десятых градуса Цельсия. "
+        "Здесь мы остановились.",
+        id="celsius_abbreviation_at_sentence_end",
+    ),
+    pytest.param(
+        "Температура была 20° Ц. и держалась весь день.",
+        "Температура была двадцать градусов Цельсия и держалась весь день.",
+        id="celsius_abbreviation_inside_sentence",
+    ),
+    pytest.param(
+        "Жара достигла 100° Ф. в тени.",
+        "Жара достигла ста градусов Фаренгейта в тени.",
+        id="fahrenheit_traditional_abbreviation",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), TRADITIONAL_TEMPERATURE_SCALE_CASES)
+def test_traditional_temperature_scale_edges(source: str, expected: str) -> None:
+    assert normalize(source, NormalizeOptions.tts()) == expected
