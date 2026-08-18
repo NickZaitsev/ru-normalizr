@@ -36,6 +36,7 @@ from .numerals._hyphen import (
 from .numerals.numeric_suffixes import NUMERIC_SUFFIXES
 from .options import NormalizeOptions
 from .preprocess_utils import (
+    MISSING_SPACE_BEFORE_PAREN_PATTERN,
     SLASH_FIX_PATTERN,
     UNIT_SLASH_PLACEHOLDER,
     apply_cleanup_replacements,
@@ -346,6 +347,13 @@ class PipelineNormalizer:
         if leading_text.startswith("+"):
             text = " " + leading_text
 
+        # Decorative separator lines go first: normalize_linebreaks closes a
+        # paragraph with a dot, and a still-present «* * *» line would receive
+        # that dot itself and survive the line-anchored removal below.
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
+        text = remove_decorative_separators(text)
+        text = DECORATIVE_MARKER_PATTERN.sub(" ", text)
+        text = ASTERISK_SEPARATOR_PATTERN.sub(" ", text)
         text = normalize_linebreaks(text)
         text = remove_zero_width_formatting(text)
         text = normalize_cyrillic_combining_stress_marks(text)
@@ -359,15 +367,16 @@ class PipelineNormalizer:
         text = self.run_address(text)
         text = protect_letter_hyphens(text)
         text = text.replace("◦", " ")
-        text = remove_decorative_separators(text)
-        text = DECORATIVE_MARKER_PATTERN.sub(" ", text)
-        text = ASTERISK_SEPARATOR_PATTERN.sub(" ", text)
         text = text.replace("[", "(").replace("]", ")")
         text = protect_unit_slashes(text)
         text = SLASH_FIX_PATTERN.sub(" ", text)
         text = text.replace(UNIT_SLASH_PLACEHOLDER, "/")
         text = normalize_ascii_quote_pairs(text)
         text = normalize_punctuation_spacing(text)
+        # Source-level typo: Russian prose never glues «(» to the preceding
+        # word. Preprocess only — later stages rewrite footnote digits into
+        # words, and those historical glued forms must stay glued.
+        text = MISSING_SPACE_BEFORE_PAREN_PATTERN.sub(" (", text)
         if self.options.enable_years_ago_expansion:
             text = expand_years_ago_abbreviation(text)
         text = normalize_page_references(text)

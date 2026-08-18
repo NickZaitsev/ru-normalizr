@@ -612,3 +612,99 @@ PARTICLE_DASH_CASES = (
 @pytest.mark.parametrize(("source", "expected"), PARTICLE_DASH_CASES)
 def test_particle_dash_edges(source: str, expected: str) -> None:
     assert normalize(source, NormalizeOptions.tts()) == expected
+
+
+SPLICE_PUNCTUATION_CASES = (
+    # Числовая стадия больше не пересобирает текст токенизатором, поэтому
+    # пунктуация нетронутых участков доходит до выхода без искажений.
+    pytest.param(
+        "В отряде служил ген.-майор Дружинин и два адъютанта.",
+        "В отряде служил ген.-майор Дружинин и два адъютанта.",
+        id="hyphen_after_abbreviation_dot_survives",
+    ),
+    pytest.param(
+        "Работа интересна в оро- и гидрографическом отношениях для всей страны.",
+        "Работа интересна в оро- и гидрографическом отношениях для всей страны.",
+        id="dangling_hyphen_in_coordinated_compound_survives",
+    ),
+    pytest.param(
+        "А град Сибирь оставиша пуст» (Строгановская летопись 1821 года).",
+        'А град Сибирь оставиша пуст" (Строгановская летопись '
+        "тысяча восемьсот двадцать первого года).",
+        id="space_after_closing_quote_before_bracket_survives",
+    ),
+    pytest.param(
+        "В Петербург под именем д’Эона приехал французский посланник короля.",
+        "В Петербург под именем д’Эона приехал французский посланник короля.",
+        id="apostrophe_inside_cyrillic_name_survives",
+    ),
+    # Дефис между переписанными числами остаётся диапазонным тире,
+    # а не склеивает слова.
+    pytest.param(
+        "Он допустил 2-3 ошибки в диктанте и получил четвёрку.",
+        "Он допустил две — три ошибки в диктанте и получил четвёрку.",
+        id="range_hyphen_between_rewritten_numbers",
+    ),
+    # Дефис внутри нетронутого слова рядом с числом не считается диапазоном.
+    pytest.param(
+        "Из-за 5 опозданий его лишили премии в конце месяца.",
+        "Из-за пяти опозданий его лишили премии в конце месяца.",
+        id="hyphen_inside_untouched_word_near_number",
+    ),
+    # Звёздочка-сноска не приклеивается к переписанному числительному.
+    pytest.param(
+        "Подробности изложены в примечании 5* в конце главы.",
+        "Подробности изложены в примечании пяти * в конце главы.",
+        id="footnote_asterisk_after_rewritten_number",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), SPLICE_PUNCTUATION_CASES)
+def test_splice_punctuation_edges(source: str, expected: str) -> None:
+    assert normalize(source, NormalizeOptions.tts()) == expected
+
+
+PUNCTUATION_TYPO_CASES = (
+    # Двойная точка — опечатка конца предложения, многоточие — нет.
+    pytest.param(
+        "Он пришёл на третье число.. Потом всё изменилось.",
+        "Он пришёл на третье число. Потом всё изменилось.",
+        id="double_dot_collapses",
+    ),
+    pytest.param(
+        "Он долго думал... Потом всё изменилось.",
+        "Он долго думал... Потом всё изменилось.",
+        id="ellipsis_survives",
+    ),
+    # «. .» с пробелом — та же опечатка, пробел сохраняется.
+    pytest.param(
+        "Он пришёл в среду. . Потом всё изменилось.",
+        "Он пришёл в среду. Потом всё изменилось.",
+        id="spaced_double_dot_collapses",
+    ),
+    # Скобка, приклеенная к слову, отбивается пробелом.
+    pytest.param(
+        "Натуфийская культура(12500-9500 до н.э.).",
+        "Натуфийская культура (двенадцать тысяч пятисотый — девять тысяч "
+        "пятисотый год до нашей эры).",
+        id="glued_bracket_gets_space",
+    ),
+    # Приклеенная сноска-число остаётся приклеенной для стадии сносок.
+    pytest.param(
+        "Автор инструмента(12), см. главу третью.",
+        "Автор инструмента, смотри главу третью.",
+        id="glued_numeric_footnote_stays_glued",
+    ),
+    # Декоративный разделитель исчезает, а предыдущий абзац закрывается точкой.
+    pytest.param(
+        "Первая глава закончилась\n\n* * *\n\nВторая глава началась с грозы.",
+        "Первая глава закончилась.\n\nВторая глава началась с грозы.",
+        id="decorative_separator_removed_before_dot_insertion",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), PUNCTUATION_TYPO_CASES)
+def test_punctuation_typo_edges(source: str, expected: str) -> None:
+    assert normalize(source, NormalizeOptions.tts()) == expected

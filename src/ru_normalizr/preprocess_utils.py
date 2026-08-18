@@ -27,6 +27,14 @@ NUMBER_CLEANUP_PATTERN = compile_scan(
 )
 BRACKETED_NUMERIC_PATTERN = compile_scan(r"([\[<({«])\s*([^()\[\]{}<>«»]+?)\s*([\]>)}»])")
 SPACE_BEFORE_PUNCT_PATTERN = compile_scan(r"[ \t]+([,.;:!?])")
+DOUBLE_DOT_TYPO_PATTERN = compile_scan(r"(?<!\.)\.\.(?!\.)")
+DOT_SPACE_DOT_TYPO_PATTERN = compile_scan(r"(?<!\.)\.[ \t]+\.(?!\.)")
+COMMA_DOT_TYPO_PATTERN = compile_scan(r",\.")
+# A glued bracket with a bare number inside is a footnote reference and keeps
+# its shape for the footnote-removal stage; anything else is a typo.
+MISSING_SPACE_BEFORE_PAREN_PATTERN = compile_scan(
+    r"(?<=[А-Яа-яЁё])\((?!\d+(?:[-–—]\d+)?\))"
+)
 MULTI_SPACE_PATTERN = compile_scan(r"[ \t]{2,}")
 SPACE_BEFORE_CLOSE_BRACKET_PATTERN = compile_scan(r"[ \t]+([\)\]\}])")
 SPACE_AFTER_OPEN_BRACKET_PATTERN = compile_scan(r"([\(\[\{])[ \t]+")
@@ -226,7 +234,19 @@ def normalize_ascii_quote_pairs(text: str) -> str:
 def normalize_punctuation_spacing(text: str) -> str:
     text = ELLIPSIS_SPACE_BEFORE_PATTERN.sub("", text)
     text = ELLIPSIS_SPACE_AFTER_PATTERN.sub(lambda m: f" {m.group(0)}", text)
-    return SENTENCE_SPACE_AFTER_PATTERN.sub(" ", text)
+    text = SENTENCE_SPACE_AFTER_PATTERN.sub(" ", text)
+    # Replacements spliced into the text may leave a doubled space behind a
+    # removed symbol or a padded operator, and a stray space in front of a
+    # closing punctuation mark; TTS output never needs either.
+    # A doubled dot is a typo for a sentence end (an ellipsis keeps its three
+    # dots), and «,.» keeps only the stronger sentence mark. The spaced
+    # variant «. .» collapses first, before the space-stripping below would
+    # glue it into «..» and lose the sentence boundary.
+    text = DOT_SPACE_DOT_TYPO_PATTERN.sub(". ", text)
+    text = SPACE_BEFORE_PUNCT_PATTERN.sub(r"\1", text)
+    text = DOUBLE_DOT_TYPO_PATTERN.sub(".", text)
+    text = COMMA_DOT_TYPO_PATTERN.sub(".", text)
+    return MULTI_SPACE_PATTERN.sub(" ", text)
 
 
 def cleanup_malformed_punctuation(text: str) -> str:

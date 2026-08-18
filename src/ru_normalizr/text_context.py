@@ -15,5 +15,16 @@ def simple_tokenize(text: str) -> list[str]:
     return TOKEN_PATTERN.findall(text)
 
 
+def tokenize_with_spans(text: str) -> tuple[list[str], list[tuple[int, int]]]:
+    """Tokens plus their source spans, so a rewrite can splice replacements
+    back into the original text and keep every untouched character intact."""
+    tokens: list[str] = []
+    spans: list[tuple[int, int]] = []
+    for match in TOKEN_PATTERN.finditer(text):
+        tokens.append(match.group(0))
+        spans.append((match.start(), match.end()))
+    return tokens, spans
+
+
 def normalize_context_token(token: str) -> str:
     return token.lower().strip(PUNCT_STRIP)

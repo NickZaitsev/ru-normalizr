@@ -7,7 +7,12 @@ import num2words
 
 from .._morph import first_parse_required, parse_word, select_parse
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
-from ..text_context import PUNCT_STRIP, normalize_context_token, simple_tokenize
+from ..text_context import (
+    PUNCT_STRIP,
+    normalize_context_token,
+    simple_tokenize,
+    tokenize_with_spans,
+)
 from ..text_scan import compile_scan, first_non_whitespace_index
 from ._constants import (
     CURRENCY_SYMBOLS,
@@ -24,7 +29,6 @@ from ._constants import (
 from ._helpers import (
     _build_numeral_token_context,
     build_number_token,
-    detokenize,
     get_numeral_case,
     get_target_tags_for_number,
     inanimate_cardinal_case,
@@ -116,10 +120,73 @@ def _resolve_range_unit_info(unit_raw: str):
     return None
 
 
+def _splice_segments(
+    text: str,
+    spans: list[tuple[int, int]],
+    segments: list[tuple[int, int, str | None]],
+) -> str:
+    """Rebuild the text from token segments, keeping untouched spans verbatim.
+
+    Only the tokens a rule actually rewrote are replaced; the characters
+    between tokens — hyphens, brackets, quotes, line breaks — never pass
+    through a tokenizer round-trip, so «ген.-майор», «м(оей)» or «!..» in an
+    untouched part of the sentence survive unchanged. A space is inserted at a
+    splice boundary only when the replacement would otherwise glue to an
+    adjacent word character.
+    """
+    def needs_space(left: str, right: str) -> bool:
+        # A dash reads as a standalone word and a bare asterisk is a footnote
+        # marker; neither may glue onto a rewritten numeral.
+        return (left.isalnum() or left in "—*") and (
+            right.isalnum() or right in "—*"
+        )
+
+    out: list[str] = []
+    cursor = 0
+    for index, (first, last, replacement) in enumerate(segments):
+        if (
+            replacement is None
+            and text[spans[first][0] : spans[last - 1][1]] in {"-", "–", "—"}
+            and index > 0
+            and segments[index - 1][2] is not None
+            and index + 1 < len(segments)
+            and segments[index + 1][2] is not None
+        ):
+            # A range dash between two rewritten numbers: «2-3 ошибки» becomes
+            # «две — три ошибки», never the glued «две-три».
+            replacement = "—"
+        start = spans[first][0]
+        end = spans[last - 1][1]
+        gap = text[cursor:start]
+        out.append(gap)
+        if replacement is None:
+            out.append(text[start:end])
+        else:
+            if replacement and not gap and out:
+                previous_chunk = next(
+                    (chunk for chunk in reversed(out) if chunk), ""
+                )
+                if previous_chunk and needs_space(previous_chunk[-1], replacement[0]):
+                    out.append(" ")
+            out.append(replacement)
+            if (
+                replacement
+                and end < len(text)
+                and needs_space(replacement[-1], text[end])
+            ):
+                out.append(" ")
+        cursor = end
+    out.append(text[cursor:])
+    return "".join(out)
+
+
 def normalize_cardinal_numerals(text: str) -> str:
-    tokens = simple_tokenize(text)
+    tokens, spans = tokenize_with_spans(text)
     token_context = _build_numeral_token_context(tokens)
-    result_tokens: list[str] = []
+    #: (first_token, last_token_exclusive, replacement | None). ``None`` keeps
+    #: the source characters of the span verbatim; a replacement is spliced in
+    #: their place, so text between tokens is never rebuilt from scratch.
+    segments: list[tuple[int, int, str | None]] = []
 
     def is_word_token(token: str) -> bool:
         return bool(re.fullmatch(r"[^\W\d_]+", token, re.UNICODE))
@@ -208,12 +275,12 @@ def normalize_cardinal_numerals(text: str) -> str:
                 or stripped_candidate.startswith(NEGATIVE_NUMBER_PLACEHOLDER)
             )
         if not is_numeric_candidate:
-            result_tokens.append(token)
+            segments.append((i, i + 1, None))
             i += 1
             continue
         parsed_num = parse_integer_token(token)
         if parsed_num is None:
-            result_tokens.append(token)
+            segments.append((i, i + 1, None))
             i += 1
             continue
 
@@ -267,7 +334,8 @@ def normalize_cardinal_numerals(text: str) -> str:
                     ),
                     is_negative,
                 )
-                result_tokens.extend([num_words, adj_token, noun_token])
+                segments.append((i, i + 1, num_words))
+                segments.append((i + 1, i + 3, None))
                 i += 3
                 continue
 
@@ -356,14 +424,16 @@ def normalize_cardinal_numerals(text: str) -> str:
                             ),
                             is_negative,
                         )
-                        result_tokens.extend(
-                            [
-                                num_words,
-                                multiplier_token,
-                                inflect_unit_lemma(unit_info, {"gent", "plur"}),
-                            ]
+                        consumed = 4 if is_redundant_unit_token(i + 3, lemma) else 3
+                        segments.append(
+                            (
+                                i,
+                                i + consumed,
+                                f"{num_words} {multiplier_token} "
+                                f"{inflect_unit_lemma(unit_info, {'gent', 'plur'})}",
+                            )
                         )
-                        i += 4 if is_redundant_unit_token(i + 3, lemma) else 3
+                        i += consumed
                         continue
 
                 target_num_case = inanimate_cardinal_case(val, case)
@@ -412,7 +482,6 @@ def normalize_cardinal_numerals(text: str) -> str:
                     i + 1 + unit_token_span,
                 ):
                     full_unit += "."
-                result_tokens.extend([num_words, full_unit])
                 step = 1 + unit_token_span
                 if (
                     unit_token_span == 1
@@ -431,9 +500,16 @@ def normalize_cardinal_numerals(text: str) -> str:
                         nn_inflected = render_unit_expression(
                             nn_unit_info, {"gent", "plur"}
                         )
-                        result_tokens.append(nn_inflected)
+                        segments.append(
+                            (
+                                i,
+                                i + step + 1,
+                                f"{num_words} {full_unit} {nn_inflected}",
+                            )
+                        )
                         i += step + 1
                         continue
+                segments.append((i, i + step, f"{num_words} {full_unit}"))
                 i += step
                 continue
 
@@ -471,13 +547,20 @@ def normalize_cardinal_numerals(text: str) -> str:
                         count=1,
                         flags=re.IGNORECASE,
                     )
-                result_tokens.extend([num_words, counted_noun])
+                segments.append((i, i + 1, num_words))
+                segments.append(
+                    (
+                        i + 1,
+                        i + 2,
+                        None if counted_noun == noun_token else counted_noun,
+                    )
+                )
                 i += 2
                 continue
 
-        result_tokens.append(num_words)
+        segments.append((i, i + 1, num_words))
         i += 1
-    return detokenize(result_tokens)
+    return _splice_segments(text, spans, segments)
 
 
 def normalize_numeric_unit_ranges(text: str) -> str:

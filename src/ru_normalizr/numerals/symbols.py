@@ -174,9 +174,17 @@ def _normalize_contextual_equals(text: str) -> str:
         idx = match.start()
         if not _should_read_equals_as_ravno(text, idx):
             continue
-        parts.append(text[last_index:idx])
+        # The padded replacement swallows the surrounding spaces so that
+        # "3 = 5" and "3=5" both come out with single spaces around «равно».
+        left_end = idx
+        while left_end > last_index and text[left_end - 1] in " \t":
+            left_end -= 1
+        right_start = idx + 1
+        while right_start < len(text) and text[right_start] in " \t":
+            right_start += 1
+        parts.append(text[last_index:left_end])
         parts.append(" равно ")
-        last_index = idx + 1
+        last_index = right_start
 
     if last_index == 0:
         return text

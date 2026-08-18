@@ -219,17 +219,6 @@ E2E_KNOWN_GAP_CASES = (
             reason="an unknown abbreviation with a dot capitalizes the next word",
         ),
     ),
-    # Дефис после точки сокращения в составном слове («ген.-майор»,
-    # «С.-Петербург») превращается в тире с пробелами.
-    pytest.param(
-        "В отряде служил ген.-майор Дружинин и два адъютанта.",
-        "В отряде служил ген.-майор Дружинин и два адъютанта.",
-        id="hyphen_after_abbreviation_dot_becomes_dash",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a hyphen after an abbreviation dot becomes a spaced dash",
-        ),
-    ),
     # Порядковый номер монарха согласуется с омонимичным женским разбором имени
     # («Карла» → «карла»), поэтому выходит «двенадцатая».
     pytest.param(
@@ -384,17 +373,6 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a century range before вв. stays nominative singular",
-        ),
-    ),
-    # Висячий дефис первой части сложного слова («в оро- и гидрографическом»)
-    # превращается в тире, разрывая слово.
-    pytest.param(
-        "Работа интересна в оро- и гидрографическом отношениях для всей страны.",
-        "Работа интересна в оро- и гидрографическом отношениях для всей страны.",
-        id="dangling_hyphen_in_coordinated_compound",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a dangling hyphen of a coordinated compound becomes a dash",
         ),
     ),
     # Угловые минуты после градусов не читаются: апостроф остаётся отдельным
@@ -651,18 +629,6 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a parenthesis inside a word is separated by spaces",
-        ),
-    ),
-    # Закрывающая кавычка перед открывающей скобкой съедает пробел:
-    # «пуст» (Строгановская» → «пуст "(Строгановская».
-    pytest.param(
-        "А град Сибирь оставиша пуст» (Строгановская летопись 1821 года).",
-        'А град Сибирь оставиша пуст" (Строгановская летопись '
-        "тысяча восемьсот двадцать первого года).",
-        id="space_lost_after_a_closing_quote",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the space after a closing quote before a parenthesis is dropped",
         ),
     ),
     # Апостроф внутри латинского слова отбивается пробелами с обеих сторон.
@@ -1056,16 +1022,6 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a number before an accusative noun stays cardinal instead of ordinal",
-        ),
-    ),
-    # Апостроф внутри кириллического имени отбивается пробелами с обеих сторон.
-    pytest.param(
-        "В Петербург под именем д’Эона приехал французский посланник короля.",
-        "В Петербург под именем д’Эона приехал французский посланник короля.",
-        id="apostrophe_inside_a_cyrillic_name",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="an apostrophe inside a cyrillic name is padded with spaces",
         ),
     ),
     # Местоимение «те» перед точкой принимается за сокращение «т. е.»,
