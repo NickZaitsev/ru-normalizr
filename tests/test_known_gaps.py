@@ -1305,6 +1305,114 @@ E2E_KNOWN_GAP_CASES = (
             reason="an internal private-use sentinel character leaks into the output",
         ),
     ),
+    # --- Найдено сплошным чтением книги 01 («История России с древнейших времён») ---
+    # Порядковое с приставкой «во-» читается количественным: «во-1» → «во-один».
+    pytest.param(
+        "Вред происходит, во-1, от выбывания народа за границу, а во-2, от неурожаев.",
+        "Вред происходит, во-первых, от выбывания народа за границу, а во-вторых, от неурожаев.",
+        id="prefixed_ordinal_after_vo",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the vo- prefixed ordinal is expanded as a cardinal",
+        ),
+    ),
+    # Предлог «с» после дроби принимается за сокращение секунды.
+    pytest.param(
+        "Если считать по этому расчёту, то придётся на рубль положить по 10 коп. 1/8 с дробями.",
+        "Если считать по этому расчёту, то придётся на рубль положить "
+        "по десять копеек одна восьмая с дробями.",
+        id="preposition_s_read_as_seconds_after_a_fraction",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the preposition s after a fraction is read as the seconds symbol",
+        ),
+    ),
+    # Косая черта в архивном шифре при «№» читается как дробь.
+    pytest.param(
+        "Следственные дела хранятся в Архиве министерства юстиции под № 72/288.",
+        "Следственные дела хранятся в Архиве министерства юстиции "
+        "под номером семьдесят два дробь двести восемьдесят восемь.",
+        id="archive_reference_slash_read_as_a_fraction",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the slash in an archive reference number is read as a fraction",
+        ),
+    ),
+    # В двойной датировке через косую черту первое число остаётся количественным.
+    pytest.param(
+        "Он писал туда своему резиденту Псарскому 7/18 июля и требовал немедленного ответа.",
+        "Он писал туда своему резиденту Псарскому седьмого / восемнадцатого июля "
+        "и требовал немедленного ответа.",
+        id="slash_double_date_first_day_stays_cardinal",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the first day of a slash double date is not made ordinal",
+        ),
+    ),
+    # Порядковое окончание последнего числа не распространяется на перечисление.
+    pytest.param(
+        "Синод сослался на 494, 495 и 496-й статьи большого наказа и отложил решение.",
+        "Синод сослался на четыреста девяносто четвёртую, четыреста девяносто пятую "
+        "и четыреста девяносто шестую статьи большого наказа и отложил решение.",
+        id="ordinal_suffix_not_spread_over_an_enumeration",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="only the last number of the enumeration becomes an ordinal",
+        ),
+    ),
+    # Падеж от предлога «до» получает только первое число перечисления.
+    pytest.param(
+        "Соль продается неравными ценами от 3 копеек до 20, 30 и 40 копеек за пуд.",
+        "Соль продается неравными ценами от трёх копеек до двадцати, тридцати "
+        "и сорока копеек за пуд.",
+        id="case_not_spread_over_an_enumerated_range",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="only the first number after the preposition takes its case",
+        ),
+    ),
+    # Год перед двоеточием читается количественным вместо родительного.
+    pytest.param(
+        "Императрица писала Румянцеву в марте 1771: «На Бога надейся, а сам не плошай».",
+        "Императрица писала Румянцеву в марте тысяча семьсот семьдесят первого: "
+        '"На Бога надейся, а сам не плошай".',
+        id="year_before_a_colon_read_as_cardinal",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a year followed by a colon is read as a cardinal",
+        ),
+    ),
+    # Число в винительном падеже при инфинитиве уходит в предложный.
+    pytest.param(
+        "Он думает сим способом 100000 рублей достать, а после уехать за границу.",
+        "Он думает сим способом сто тысяч рублей достать, а после уехать за границу.",
+        id="accusative_object_read_in_the_prepositional",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the accusative object of the infinitive is read in the prepositional",
+        ),
+    ),
+    # Номер часа после предлога «в» остаётся количественным.
+    pytest.param(
+        "Пополуночи в 9 часу неприятель показался на левом фланге.",
+        "Пополуночи в девятом часу неприятель показался на левом фланге.",
+        id="hour_after_v_stays_cardinal",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the hour number after v is not made ordinal",
+        ),
+    ),
+    # Счёт в позиции подлежащего уходит в косвенный падеж.
+    pytest.param(
+        "В Козлове 103 церкви, 7596 дворов и более двадцати пяти тысяч жителей.",
+        "В Козлове сто три церкви, семь тысяч пятьсот девяносто шесть дворов "
+        "и более двадцати пяти тысяч жителей.",
+        id="subject_count_read_in_an_oblique_case",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a count in subject position is put into an oblique case",
+        ),
+    ),
 )
 
 
