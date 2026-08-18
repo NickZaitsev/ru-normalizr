@@ -128,17 +128,19 @@ def test_short_passive_participle_keeps_a_following_subject_nominative() -> None
     [
         (
             "Работаем на частоте 3,2 ГГц.",
-            "Работаем на частоте трёх целых двух десятых гигагерца.",
+            "Работаем на частоте три целых две десятых гигагерца.",
         ),
         (
             "Измерение при напряжении 1,15 В.",
-            "Измерение при напряжении одной целой пятнадцати сотых вольта.",
+            "Измерение при напряжении одна целая пятнадцать сотых вольта.",
         ),
     ],
 )
-def test_oblique_noun_before_a_number_beats_an_ambiguous_preposition(
+def test_parameter_noun_before_a_number_keeps_the_measurement_nominative(
     source: str, expected: str
 ) -> None:
+    # The preposition marks the parameter, not its value: «частота» is what is
+    # locative here, while «3,2 ГГц» names that parameter and stays nominative.
     assert normalize(source) == expected
 
 

@@ -62,6 +62,9 @@ _TIME_CONTEXT_LEMMAS = frozenset(
 logger = logging.getLogger(__name__)
 
 SENTENCE_PUNCTUATION_PATTERN = re.compile(r"\s+([.,!?;:])")
+#: A decimal literal, matched at the end of a token so a sign or a protection
+#: placeholder in front of the digits does not hide it.
+DECIMAL_TOKEN_PATTERN = re.compile(r"\d+[.,]\d+\Z")
 POINT_NUMBER_SPACING_PATTERN = re.compile(r"(?<=\.) (?=\d)")
 NUMERAL_CONTEXT_BARRIERS = {"равно", "="}
 #: Sentence-final punctuation ends the region a numeral may look back over.
@@ -77,6 +80,50 @@ GENITIVE_QUANTITY_GOVERNORS = {
     "стоимость",
     "цена",
 }
+#: Parameter nouns whose following measurement is an apposition naming the
+#: value: «при температуре 660 °C» is «температура = 660 °C». The parameter, not
+#: the measurement, is what the preposition governs, so the measurement stays
+#: nominative regardless of the case the parameter itself carries. A genitive
+#: reading requires an explicit «в» in the source: «при температуре в 660
+#: градусов».
+MEASURE_PARAMETER_HEADS = frozenset(
+    {
+        "вес",
+        "влажность",
+        "высота",
+        "глубина",
+        "давление",
+        "дальность",
+        "диаметр",
+        "длина",
+        "доза",
+        "ёмкость",
+        "концентрация",
+        "масса",
+        "мощность",
+        "напряжение",
+        "плотность",
+        "площадь",
+        "радиус",
+        "скорость",
+        "температура",
+        "толщина",
+        "частота",
+        "ширина",
+    }
+)
+#: Quantity nouns that govern a genitive of their own inside the «в …» frame:
+#: «в возрасте двадцати пяти лет», «в количестве пяти штук». Unlike the
+#: parameter nouns above these are relational — «возраст чего», «размер чего» —
+#: so the quantity is their complement, not an apposition.
+LOCATIVE_GENITIVE_QUANTITY_HEADS = frozenset(
+    {
+        "возраст",
+        "количество",
+        "размер",
+        "сумма",
+    }
+)
 #: Nouns whose immediately following bare number labels them instead of
 #: counting them. The label never inherits the noun's case: "ключи от квартиры
 #: тридцать пять", not "от квартиры тридцати пяти". Postal elements are here
@@ -716,17 +763,37 @@ def _is_counting_group(tokens: Sequence[str], idx: int, visible_length: int) -> 
     if idx + 1 >= visible_length:
         return False
     parsed_num = parse_integer_token(tokens[idx])
-    if parsed_num is None:
+    if parsed_num is not None:
+        # The form a nominative numeral demands of the counted word.
+        required = canonicalize_grammemes(
+            get_target_tags_for_number(int(parsed_num[1]), "nomn")
+        )
+    elif DECIMAL_TOKEN_PATTERN.search(tokens[idx]):
+        # A decimal quantity always demands the genitive singular of its unit
+        # («три целых две десятых гигагерца»), whatever the case of the numeral.
+        required = canonicalize_grammemes(frozenset({"gent", "sing"}))
+    else:
         return False
-    value = int(parsed_num[1])
-    counted = tokens[idx + 1].lower().strip(PUNCT_STRIP)
+    counted_index = idx + 1
+    if (
+        tokens[counted_index] in {",", "."}
+        and counted_index + 2 < visible_length
+        and tokens[counted_index + 1].isdigit()
+    ):
+        # A decimal tail is part of the number, not the counted word: «на
+        # частоте 3,2 ГГц» counts gigahertz exactly like «на частоте 50 Гц».
+        counted_index += 2
+    counted_raw = tokens[counted_index].strip(PUNCT_STRIP)
+    counted = counted_raw.lower()
     if not counted:
         return False
-    if is_unit_token(counted):
+    # The unit lookup keeps the source case: «В» is a volt while «в» is a
+    # preposition, so lowercasing first would lose the unit and let the
+    # preposition govern the measurement.
+    if is_unit_token(counted_raw) or is_unit_token(counted):
         # A unit symbol is not inflected, so it cannot report government either;
         # its bare presence means the numeral counts something.
         return True
-    required = canonicalize_grammemes(get_target_tags_for_number(value, "nomn"))
     return any(
         is_case_reliable_noun(parse)
         and required.issubset(canonicalize_grammemes(parse.tag.grammemes))
@@ -896,6 +963,30 @@ def get_numeral_case(
                 and left_noun.tag.case in {"nomn", "gent"}
             ):
                 return "gent"
+            # A relational quantity noun inside the «в …» frame takes a genitive
+            # complement: «в возрасте двадцати пяти лет». The preposition marks
+            # the noun, not the quantity, so its own locative never reaches the
+            # number.
+            if (
+                is_case_reliable_noun(left_noun)
+                and left_noun.normal_form in LOCATIVE_GENITIVE_QUANTITY_HEADS
+                and (left_noun.tag.case == "loct" or "loc2" in left_noun.tag)
+                and idx > 1
+                and normalize_context_token(tokens[idx - 2]) in {"в", "во"}
+            ):
+                return "gent"
+            # A parameter noun is named by the measurement that follows it, so
+            # the measurement is an apposition in the nominative: «при
+            # температуре шестьсот шестьдесят градусов Цельсия», «со скоростью
+            # шестьдесят километров в час». Requiring a counting group keeps
+            # this to real measurements: a unit or a counted word in the form
+            # the nominative numeral demands has to follow.
+            if (
+                is_case_reliable_noun(left_noun)
+                and left_noun.normal_form in MEASURE_PARAMETER_HEADS
+                and _is_counting_group(tokens, idx, visible_length)
+            ):
+                return "nomn"
             # An oblique noun immediately before a decimal or a bare number is
             # a stronger local signal than an ambiguous preposition farther to
             # the left: "на частоте 3,2" and "при напряжении 1,15" are

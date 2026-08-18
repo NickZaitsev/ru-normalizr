@@ -188,6 +188,27 @@ def _era_tail_dot(source_text: str, match: re.Match[str]) -> str:
     return "."
 
 
+# «7092 (1582) года»: one date written in two calendars. The year word stands
+# after the bracket and serves both numbers, so a date must not add its own.
+_DUAL_DATING_TAIL_PATTERN = re.compile(
+    r"\s*[\(\[]\d{3,4}[\)\]]\s+(?:г\+?о\+?д(?:\+?[а-яё])*(?![а-яё])|г\.?(?!\w))",
+    re.IGNORECASE,
+)
+
+
+def _date_year_tail(source_text: str, match: re.Match[str], year: str) -> str:
+    """Render the «… года» tail of a date.
+
+    A dual dating is left to the years stage: it owns both numbers and the
+    single year word that stands after the bracket, and it is the stage that
+    knows how to inflect an abbreviated «г.» there. Only the day and the month
+    are rendered here, and the year digits are handed over untouched.
+    """
+    if _DUAL_DATING_TAIL_PATTERN.match(source_text, match.end()):
+        return f" {year}"
+    return f" {year_to_ordinal_words(int(year), case='gent')} года"
+
+
 def normalize_text_dates(text: str) -> str:
     def from_to_repl(match: re.Match[str]) -> str:
         day1_word = _day_to_ordinal(int(match.group("day1")), case="genitive")
@@ -200,9 +221,7 @@ def normalize_text_dates(text: str) -> str:
             f"{day2_word} {match.group('month').lower()}"
         )
         if match.group("year"):
-            result += (
-                f" {year_to_ordinal_words(int(match.group('year')), case='gent')} года"
-            )
+            result += _date_year_tail(text, match, match.group("year"))
         return result + _era_tail_dot(text, match)
 
     def range_repl(match: re.Match[str]) -> str:
@@ -219,9 +238,7 @@ def normalize_text_dates(text: str) -> str:
         if prep:
             result = f"{prep} {result}"
         if match.group("year"):
-            result += (
-                f" {year_to_ordinal_words(int(match.group('year')), case='gent')} года"
-            )
+            result += _date_year_tail(text, match, match.group("year"))
         return result + _era_tail_dot(text, match)
 
     def list_repl(match: re.Match[str]) -> str:
@@ -241,9 +258,7 @@ def normalize_text_dates(text: str) -> str:
             rendered_parts.append(day_word)
         result = f"{''.join(rendered_parts)} {month}"
         if match.group("year"):
-            result += (
-                f" {year_to_ordinal_words(int(match.group('year')), case='gent')} года"
-            )
+            result += _date_year_tail(text, match, match.group("year"))
         return result + _era_tail_dot(text, match)
 
     def repl(match: re.Match[str]) -> str:
@@ -255,9 +270,7 @@ def normalize_text_dates(text: str) -> str:
             return match.group(0)
         result = f"{prep} {day_word} {month}" if prep else f"{day_word} {month}"
         if match.group("year"):
-            result += (
-                f" {year_to_ordinal_words(int(match.group('year')), case='gent')} года"
-            )
+            result += _date_year_tail(text, match, match.group("year"))
         return result + _era_tail_dot(text, match)
 
     text = TEXT_DATE_FROM_TO_PATTERN.sub(from_to_repl, text)

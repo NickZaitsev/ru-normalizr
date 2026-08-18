@@ -160,6 +160,15 @@ def _resolve_explicit_year_word_case(prep: str | None, word: str) -> str:
     return YEAR_WORD_TO_CASE.get(word_lower, "nomn")
 
 
+def _follows_month_name(text: str, start: int) -> bool:
+    """Check whether a genitive month name stands right before ``start``."""
+    from .dates_time import MONTHS_GENT
+
+    tail = text[max(0, start - 12) : start]
+    match = re.search(r"([а-яё]+)\s+$", tail, re.IGNORECASE)
+    return match is not None and match.group(1).lower() in MONTHS_GENT
+
+
 def _canonicalize_year_word(word: str) -> str:
     return word.replace("+", "")
 
@@ -243,6 +252,12 @@ def _year_patterns() -> tuple[re.Pattern[str], ...]:
             flags,
         ),
         re.compile(
+            rf"{entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year1>\d{{3,4}})\s*"
+            rf"(?P<open>[\(\[])(?P<year2>\d{{3,4}})(?P<close>[\)\]])\s+"
+            rf"(?P<word>{YEAR_WORD_PATTERN}\b|г\.?(?!\w))",
+            flags,
+        ),
+        re.compile(
             r"(?P<open>[\(\[])(?P<year>1\d{3}|20\d{2})(?P<close>[\)\]])",
             flags,
         ),
@@ -287,6 +302,7 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
         pattern_range,
         pattern_multiple_years,
         pattern_suffix,
+        pattern_dual_dating,
         pattern_parenthesized_year,
         pattern_era_year,
         pattern_era_range_shared,
@@ -533,6 +549,37 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
             result += "."
         return result
 
+    def replace_dual_dating(m: re.Match[str]) -> str:
+        """Render «7092 (1582) года» — one date given in two calendars.
+
+        The year word stands after the bracket and governs the *first* year, so
+        the leading number is an ordinal in that case while the bracketed
+        equivalent stays a bare cardinal. Rendering both numbers here also keeps
+        the date stage from appending a second «года» to the leading year.
+        """
+        year1 = int(m.group("year1"))
+        year2 = int(m.group("year2"))
+        if not is_plausible_year(year2):
+            return m.group(0)
+        prep = m.group("prep")
+        case = _resolve_explicit_year_word_case(prep, m.group("word"))
+        if prep is None and _follows_month_name(text, m.start()):
+            # A month name before the year makes the whole date genitive, which
+            # an abbreviated «г.» after the bracket cannot show by itself.
+            case = "gent"
+        try:
+            bracketed = num2words.num2words(year2, lang="ru")
+        except Exception as exc:
+            logger.debug("num2words failed for year %r: %s", year2, exc)
+            bracketed = str(year2)
+        word = _canonicalize_year_word(m.group("word"))
+        if word.startswith("г."):
+            word = YEAR_WORD_FORMS[("год", resolve_primary_case(case))]
+        return (
+            f"{prep + ' ' if prep else ''}{year_to_ordinal_words(year1, case)} "
+            f"{m.group('open')}{bracketed}{m.group('close')} {word}"
+        )
+
     def replace_parenthesized_year(m: re.Match[str]) -> str:
         year = int(m.group("year"))
         if not is_plausible_year(year):
@@ -705,6 +752,7 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
     text = pattern_s_po.sub(replace_s_po, text)
     text = pattern_range.sub(replace_range, text)
     text = pattern_multiple_years.sub(replace_multiple_years, text)
+    text = pattern_dual_dating.sub(replace_dual_dating, text)
     text = pattern_parenthesized_year.sub(replace_parenthesized_year, text)
     text = pattern_era_range_shared.sub(replace_era_range_shared, text)
     text = pattern_era_year.sub(replace_era_year, text)
