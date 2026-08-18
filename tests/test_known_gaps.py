@@ -530,6 +530,173 @@ E2E_KNOWN_GAP_CASES = (
             reason="the second number of a coordinated pair stays a cardinal",
         ),
     ),
+    # --- Найдено сплошным чтением книги 05 (Небольсин) ---
+    # «См.» с заглавной буквы после числа принимается за единицу «см»:
+    # «13 См.: с. 22» читается «тринадцать сантиметров».
+    pytest.param(
+        "В примечании 13 См.: с. 22 указана ссылка на грамоту.",
+        "В примечании тринадцать смотри: страница двадцать два указана ссылка на грамоту.",
+        id="see_abbreviation_after_a_number_read_as_centimetres",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="capitalized См. after a number is read as the centimetre unit",
+        ),
+    ),
+    # Заглавная буква в начале строки после числа принимается за единицу:
+    # «20 А. Тюменка» читается «двадцать ампер».
+    pytest.param(
+        "20 А. Тюменка-речка течёт сто тридцать вёрст до устья.",
+        "Двадцать. А. Тюменка-речка течёт сто тридцать вёрст до устья.",
+        id="capital_letter_after_a_number_read_as_ampere",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a capital letter after a number is read as a unit symbol",
+        ),
+    ),
+    # Диапазон страниц в конце ссылки теряет тире и читается перечислением.
+    pytest.param(
+        "Ссылка дана так: Карамзин. Т. IX. С. 381—382.",
+        "Ссылка дана так: Карамзин. Том девятый. Страницы триста восемьдесят один — "
+        "триста восемьдесят два.",
+        id="page_range_at_the_end_of_a_reference",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a page range closing a reference is read as an enumeration",
+        ),
+    ),
+    # Римские номера страниц после «с.» читаются в родительном падеже и теряют
+    # диапазон.
+    pytest.param(
+        "Край Югорский описан подробно (с. CVIII—CXIII) в предисловии издателя.",
+        "Край Югорский описан подробно (страницы сто восемь — сто тринадцать) "
+        "в предисловии издателя.",
+        id="roman_page_range_after_page_abbreviation",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a roman page range after с. is left in the genitive without a range",
+        ),
+    ),
+    # Номер страницы в скобках читается в родительном падеже вместо
+    # именительного.
+    pytest.param(
+        "Миллер, осматривавший это место, говорит (с. 179): что касается до перекопи.",
+        "Миллер, осматривавший это место, говорит (страница сто семьдесят девять): "
+        "что касается до перекопи.",
+        id="page_number_in_parentheses_read_in_genitive",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a parenthesized page number is rendered in the genitive",
+        ),
+    ),
+    # Одиночная римская цифра с точкой после сокращения тома читается названием
+    # латинской буквы: «Т. I.» → «Т. ай.».
+    pytest.param(
+        "Ссылка выглядит так: Шафарик. Т. I. С. 315.",
+        "Ссылка выглядит так: Шафарик. Том первый. Страница триста пятнадцать.",
+        id="roman_one_with_a_dot_after_a_volume_abbreviation",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="roman I followed by a dot after Т. is read as a latin letter name",
+        ),
+    ),
+    # Существительное перед римским диапазоном переставляется за него:
+    # «глав XXXVII—XL» → «тридцать седьмую — сороковую глав».
+    pytest.param(
+        "Эти сведения составляют содержание маленьких глав XXXVII—XL летописи.",
+        "Эти сведения составляют содержание маленьких глав тридцать седьмой — сороковой летописи.",
+        id="noun_moved_after_a_roman_chapter_range",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the noun before a roman range is moved after it",
+        ),
+    ),
+    # Порядковое числительное после «Изд.» читается количественным во
+    # множественном числе: «Изд. 2-е.» → «Изд. Две.».
+    pytest.param(
+        "Второе издание вышло позже: Изд. 2-е. Москва, тысяча восемьсот сорок девятый год.",
+        "Второе издание вышло позже: издание второе. Москва, тысяча восемьсот сорок девятый год.",
+        id="edition_ordinal_after_izd_abbreviation",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the ordinal after Изд. is read as a plural cardinal",
+        ),
+    ),
+    # Год после «лета» в старой датировке читается количественным вместо
+    # порядкового.
+    pytest.param(
+        "Грамота писана лета 7078 марта в двадцатый день на Москве.",
+        "Грамота писана лета семь тысяч семьдесят восьмого марта в двадцатый день на Москве.",
+        id="year_after_leta_read_as_cardinal",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the year after лета is read as a cardinal instead of an ordinal",
+        ),
+    ),
+    # В двойной датировке год в скобках читается количественным, хотя это тот же
+    # год, что и перед скобками.
+    pytest.param(
+        "Летом 7096 (1588) года воеводы поставили город на Оби.",
+        "Летом семь тысяч девяносто шестого (тысяча пятьсот восемьдесят восьмого) года "
+        "воеводы поставили город на Оби.",
+        id="parenthesized_year_of_a_double_date",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the parenthesized year of a double date is read as a cardinal",
+        ),
+    ),
+    # Приклеенный к слову номер сноски читается вслух как число.
+    pytest.param(
+        "Так пинежане8 и мезенцы ходили на промысел за Камень каждое лето.",
+        "Так пинежане и мезенцы ходили на промысел за Камень каждое лето.",
+        id="footnote_digit_glued_to_a_word",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a footnote number glued to a word is read aloud",
+        ),
+    ),
+    # Тире перед частицей «то» превращается в дефис и приклеивается к
+    # предыдущему слову.
+    pytest.param(
+        "И неправды, что над тобой сталось — то сам ведаешь и помнишь.",
+        "И неправды, что над тобой сталось — то сам ведаешь и помнишь.",
+        id="dash_before_the_particle_to",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a dash before the particle то becomes a hyphen glued to the word",
+        ),
+    ),
+    # Скобка внутри слова отделяется пробелом и разрывает слово.
+    pytest.param(
+        "А ты по той м(оей) граммате ничего не учинил и посольского дьяка не слушал.",
+        "А ты по той м(оей) граммате ничего не учинил и посольского дьяка не слушал.",
+        id="parentheses_inside_a_word",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a parenthesis inside a word is separated by spaces",
+        ),
+    ),
+    # Закрывающая кавычка перед открывающей скобкой съедает пробел:
+    # «пуст» (Строгановская» → «пуст "(Строгановская».
+    pytest.param(
+        "А град Сибирь оставиша пуст» (Строгановская летопись 1821 года).",
+        'А град Сибирь оставиша пуст" (Строгановская летопись '
+        "тысяча восемьсот двадцать первого года).",
+        id="space_lost_after_a_closing_quote",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the space after a closing quote before a parenthesis is dropped",
+        ),
+    ),
+    # Апостроф внутри латинского слова отбивается пробелами с обеих сторон.
+    pytest.param(
+        "В книге стоит фраза est fait de millet et d’orge monde на полях.",
+        "В книге стоит фраза эст фейт дэ милэт эт дорж манд на полях.",
+        id="apostrophe_inside_a_latin_word",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="an apostrophe inside a latin word is split off with spaces",
+        ),
+    ),
 )
 
 
