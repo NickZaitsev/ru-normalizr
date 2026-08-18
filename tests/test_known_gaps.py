@@ -577,17 +577,6 @@ E2E_KNOWN_GAP_CASES = (
             reason="the noun before a roman range is moved after it",
         ),
     ),
-    # Порядковое числительное после «Изд.» читается количественным во
-    # множественном числе: «Изд. 2-е.» → «Изд. Две.».
-    pytest.param(
-        "Второе издание вышло позже: Изд. 2-е. Москва, тысяча восемьсот сорок девятый год.",
-        "Второе издание вышло позже: издание второе. Москва, тысяча восемьсот сорок девятый год.",
-        id="edition_ordinal_after_izd_abbreviation",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the ordinal after Изд. is read as a plural cardinal",
-        ),
-    ),
     # Год после «лета» в старой датировке читается количественным вместо
     # порядкового.
     pytest.param(
@@ -748,16 +737,6 @@ E2E_KNOWN_GAP_CASES = (
             reason="a decimal before тысяч breaks the agreement of the counted noun",
         ),
     ),
-    # «15-тыс. отряд» не сворачивается в прилагательное «пятнадцатитысячный».
-    pytest.param(
-        "В Финляндии стоял 15-тыс. отряд Либекера, и кроме того ожидались подкрепления.",
-        "В Финляндии стоял пятнадцатитысячный отряд Либекера, и кроме того ожидались подкрепления.",
-        id="hyphenated_thousands_in_an_attribute",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the 15-тыс. attribute is not folded into an adjective",
-        ),
-    ),
     # Составное число в творительном падеже склоняется только по первой части.
     pytest.param(
         "Мы закончили дело 2700 пленными и полным разгромом неприятельского обоза.",
@@ -821,16 +800,6 @@ E2E_KNOWN_GAP_CASES = (
             reason="гг. meaning господам is expanded as years",
         ),
     ),
-    # Диапазон перед сложным числительным с суффиксом теряет тире.
-    pytest.param(
-        "Бой шёл против 6—7-тысячного отряда лучшей пехоты и конницы неприятеля.",
-        "Бой шёл против шести-семитысячного отряда лучшей пехоты и конницы неприятеля.",
-        id="range_before_a_hyphenated_numeral_suffix",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a range before a hyphenated numeral suffix becomes a comma list",
-        ),
-    ),
     # «ч.» в значении «человек» читается как «часов».
     pytest.param(
         "Румянцев с 115 орудиями (42 000 ч.) разбил наголову отряд турок.",
@@ -873,48 +842,6 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a vulgar fraction in an attribute is not folded into полу-",
-        ),
-    ),
-    # Дореформенное наращение падежа («3-хъ», «70-мъ») отрывается от числа
-    # и превращается в тире.
-    pytest.param(
-        "Охватывающее Москву с 3-хъ сторонъ положеніе могло быть всегда опаснымъ.",
-        "Охватывающее Москву с трёхъ сторонъ положеніе могло быть всегда опаснымъ.",
-        id="pre_reform_numeral_ending_after_a_hyphen",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a pre-reform case ending after a numeral becomes a dash",
-        ),
-    ),
-    # Дореформенный суффикс прилагательного после числа не сворачивается:
-    # «12-фунтоваго» → «двенадцати фунтоваго».
-    pytest.param(
-        "Вооруженіе драгунъ состояло изъ фузей 12-фунтоваго вѣса безъ штыка.",
-        "Вооруженіе драгунъ состояло изъ фузей двѣнадцатифунтоваго вѣса безъ штыка.",
-        id="pre_reform_adjective_suffix_after_a_number",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a pre-reform adjective suffix after a number is not folded",
-        ),
-    ),
-    # То же для «-тысячнымъ»: число остаётся отдельным словом в именительном.
-    pytest.param(
-        "Репнину съ 20-тысячнымъ отрядомъ приказано двинуться въ Курляндію.",
-        "Репнину съ двадцатитысячнымъ отрядомъ приказано двинуться въ Курляндію.",
-        id="pre_reform_thousand_attribute",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a pre-reform -тысячнымъ attribute is not folded into an adjective",
-        ),
-    ),
-    # Наращение «-ти» удваивается: «60-тиверстная» → «шестидесятитиверстная».
-    pytest.param(
-        "Только 60-тиверстная полоса отдѣляетъ теперь армію Петра отъ моря.",
-        "Только шестидесятиверстная полоса отдѣляетъ теперь армію Петра отъ моря.",
-        id="pre_reform_ti_infix_duplicated",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the -ти infix is duplicated when folding a numeral attribute",
         ),
     ),
     # Творительный падеж предыдущего слова перетекает на следующее число
@@ -1035,17 +962,6 @@ E2E_KNOWN_GAP_CASES = (
             reason="the pronoun те before a dot is taken for the abbreviation т. е.",
         ),
     ),
-    # Наращение «-го» у числа перед месяцем даёт родительный падеж вместо
-    # порядкового: «1-го октября» → «одного октября».
-    pytest.param(
-        "Указ был подписан 1-го октября и разослан по всем губерниям.",
-        "Указ был подписан первого октября и разослан по всем губерниям.",
-        id="day_ordinal_with_go_read_as_a_genitive_cardinal",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a day with the -го ending before a month is read as a genitive cardinal",
-        ),
-    ),
     # «к.» в значении «копеек» после числа не раскрывается.
     pytest.param(
         "Хлеб продавался по 1 р. 92 к. за четверть, и цена эта считалась высокой.",
@@ -1055,26 +971,6 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="к. meaning kopecks after a number is not expanded",
-        ),
-    ),
-    # Наращение «-ти-» перед «летняя» не сворачивается: остаётся дефис.
-    pytest.param(
-        "На выданье была 17-ти-летняя дочь стольника, воспитанная в старых обычаях.",
-        "На выданье была семнадцатилетняя дочь стольника, воспитанная в старых обычаях.",
-        id="ti_infix_before_letniy_keeps_the_hyphen",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the -ти- infix before летняя keeps the hyphen instead of folding",
-        ),
-    ),
-    # Наращение «-ми» удваивается: «8-мивершковое» → «восьмимивершковое».
-    pytest.param(
-        "Взято было 8-мивершковое бревно, годное для постройки крепостной стены.",
-        "Взято было восьмивершковое бревно, годное для постройки крепостной стены.",
-        id="mi_infix_duplicated_in_an_attribute",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the -ми infix is duplicated when folding a numeral attribute",
         ),
     ),
     # «н.с.» («нового стиля») после даты читается как «ньютонов с.».
@@ -1097,14 +993,15 @@ E2E_KNOWN_GAP_CASES = (
             reason="a count after у меня is put into the genitive",
         ),
     ),
-    # Наращение «-ным» у числа-определения отрывается и превращается в тире.
+    # Время «в 2 часа ночи» получает предложный падеж вместо винительного:
+    # «в 2 часа» → «в двух часа».
     pytest.param(
-        "Он подошёл к городу с 40000-ным войском и обложил его со всех сторон.",
-        "Он подошёл к городу с сорокатысячным войском и обложил его со всех сторон.",
-        id="thousands_attribute_with_a_hyphenated_suffix",
+        "Он пришёл в 2 часа ночи и сразу лёг спать до самого утра.",
+        "Он пришёл в два часа ночи и сразу лёг спать до самого утра.",
+        id="hour_after_v_gets_locative_case",
         marks=pytest.mark.xfail(
             strict=True,
-            reason="the -ным suffix of a numeral attribute becomes a dash",
+            reason="в + N часа is read as a locative instead of accusative",
         ),
     ),
     # Разделительное «по» с числом даёт винительный вместо родительного:
@@ -1240,16 +1137,6 @@ E2E_KNOWN_GAP_CASES = (
         ),
     ),
     # --- Найдено сплошным чтением книги 01 («История России с древнейших времён») ---
-    # Порядковое с приставкой «во-» читается количественным: «во-1» → «во-один».
-    pytest.param(
-        "Вред происходит, во-1, от выбывания народа за границу, а во-2, от неурожаев.",
-        "Вред происходит, во-первых, от выбывания народа за границу, а во-вторых, от неурожаев.",
-        id="prefixed_ordinal_after_vo",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the vo- prefixed ordinal is expanded as a cardinal",
-        ),
-    ),
     # Предлог «с» после дроби принимается за сокращение секунды.
     pytest.param(
         "Если считать по этому расчёту, то придётся на рубль положить по 10 коп. 1/8 с дробями.",

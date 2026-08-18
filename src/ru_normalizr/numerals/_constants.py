@@ -1010,7 +1010,12 @@ NUMERIC_UNIT_RANGE_PATTERN = compile_scan(
     rf"(?<!\d)(?P<left>\d+)\s*[—–-]\s*(?P<right>\d+)\s*(?P<unit>{UNIT_TOKEN_FRAGMENT}(?:\s+[^\W\d_]+){{0,2}})(?!\w)"
 )
 FRACTION_PATTERN = compile_scan(r"(?<![\d,])(\d+)/(\d+)(?![\d,])")
-HYPHENATED_WORD_PATTERN = compile_scan(r"(?<![\w\d])(\d+)-([а-яА-ЯёЁ]{1,})")
+# The optional infix is a duplicated case ending of the numeral written out
+# before the word it modifies: «17-ти-летняя» is «семнадцатилетняя».
+HYPHENATED_WORD_PATTERN = compile_scan(
+    r"(?<![\w\d])(?P<num>\d+)-(?:(?P<infix>тью|ти|ми|мя|ух|ех|ёх|х)-)?"
+    r"(?P<word>[а-яА-ЯёЁ]{1,})"
+)
 STANDALONE_CURRENCY_PATTERN = compile_scan(r"(?<!\S)([$€£¥₽₴₸₺₹¢])(?!\S)")
 DIGIT_PATTERN = compile_scan(r"\d+")
 

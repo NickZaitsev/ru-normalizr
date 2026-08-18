@@ -48,12 +48,16 @@ class GuardNecessityTests(unittest.TestCase):
     """Guard обязан совпадать всюду, где совпадает сам паттерн."""
 
     def _samples(self) -> list[str]:
-        samples = list(GUARD_SENSITIVE_TEXTS)
+        # Книжный корпус здесь — не приятное дополнение, а собственно покрытие:
+        # на 11 короткими строках тест зелёный почти при любом guard'е. Если
+        # корпуса нет, честнее пропустить тест, чем молча ослабить его.
         path = Path("benchmarks/corpus/03_karamzin_history_of_russian_state.txt")
-        if path.exists():
-            book = path.read_text(encoding="utf-8")[:200000]
-            step = 4000
-            samples.extend(book[i : i + step] for i in range(0, len(book), step))
+        if not path.exists():
+            self.skipTest(f"нет корпуса для проверки guard'ов: {path}")
+        book = path.read_text(encoding="utf-8")[:200000]
+        step = 4000
+        samples = list(GUARD_SENSITIVE_TEXTS)
+        samples.extend(book[i : i + step] for i in range(0, len(book), step))
         return samples
 
     def test_every_guard_matches_wherever_its_pattern_matches(self):

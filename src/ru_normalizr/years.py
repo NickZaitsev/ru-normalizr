@@ -100,8 +100,10 @@ PREPOSITIONS_TO_CASE = {
     "между": "ablt",
     "около": "gent",
 }
+# The hyphen lookahead leaves «6—7-тысячного» to the compound adjective rule
+# of the numerals stage: it is one attribute, not an enumeration.
 NUMERIC_RANGE_PATTERN = compile_scan(
-    r"(\d+)\s*[—–]\s*(\d+)(?!\d)(?!\s*[а-яА-ЯёЁa-zA-Z%°$€₽Ω])"
+    r"(\d+)\s*[—–]\s*(\d+)(?!\d)(?!\s*[а-яА-ЯёЁa-zA-Z%°$€₽Ω])(?!-[а-яА-ЯёЁ])"
 )
 YEAR_PREPOSITION_REGEX = r"в|во|о|об|к|ко|с|со|до|от|за|на|по|между|около"
 YEAR_IMPLICIT_PREP_REGEX = r"в|во|о|об|к|ко|на|за|под"

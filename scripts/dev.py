@@ -85,6 +85,13 @@ def package_version() -> str:
     return match.group(1)
 
 
+def changelog_has_version(version: str) -> bool:
+    """Whether CHANGELOG.md documents ``version`` with a release heading."""
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    pattern = rf"^## \[{re.escape(version)}\]"
+    return re.search(pattern, changelog, re.MULTILINE) is not None
+
+
 def check_versions() -> int:
     pyproject_version = project_version()
     init_version = package_version()
@@ -93,6 +100,14 @@ def check_versions() -> int:
             "Version mismatch:\n"
             f"  pyproject.toml: {pyproject_version}\n"
             f"  __init__.py:    {init_version}\n"
+        )
+        return 1
+    # VERSIONING.md требует держать в синхроне все три файла, а не только два:
+    # без этой проверки релизный тег мог уехать с пустым changelog.
+    if not changelog_has_version(pyproject_version):
+        sys.stderr.write(
+            f"CHANGELOG.md has no section for version {pyproject_version}:\n"
+            f'  expected a heading "## [{pyproject_version}] - YYYY-MM-DD"\n'
         )
         return 1
     print(f"Version OK: {pyproject_version}")

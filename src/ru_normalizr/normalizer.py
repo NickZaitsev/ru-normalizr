@@ -34,6 +34,11 @@ from .numerals._hyphen import (
     normalize_spaced_numeric_hyphen_words,
 )
 from .numerals.numeric_suffixes import NUMERIC_SUFFIXES
+from .numerals.ordinals import (
+    normalize_edition_ordinals,
+    normalize_prefixed_ordinal_adverbs,
+    normalize_thousands_abbreviated_attributes,
+)
 from .options import NormalizeOptions
 from .preprocess_utils import (
     MISSING_SPACE_BEFORE_PAREN_PATTERN,
@@ -453,6 +458,11 @@ class PipelineNormalizer:
         text = STRUCTURED_NUMERIC_SUFFIX_PATTERN.sub(protect_structured_token, text)
         text = normalize_math_symbols(text)
         text = normalize_spaced_numeric_hyphen_words(text)
+        # Before the unit rule unglues «15-тыс.» into «15 тыс.» and before the
+        # suffix rule reads «2-е» after «Изд.» as a cardinal.
+        text = normalize_thousands_abbreviated_attributes(text)
+        text = normalize_edition_ordinals(text)
+        text = normalize_prefixed_ordinal_adverbs(text)
         text = normalize_numeric_unit_hyphen_links(text)
         text = normalize_compound_numeric_adjectives(text)
         text = normalize_versions(text)

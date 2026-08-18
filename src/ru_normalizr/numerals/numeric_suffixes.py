@@ -56,9 +56,13 @@ NUMERIC_SUFFIXES = ORDINAL_SUFFIXES | CARDINAL_SUFFIXES
 _SUFFIX_ALTERNATION = "|".join(
     re.escape(value) for value in sorted(NUMERIC_SUFFIXES, key=lambda item: (-len(item), item))
 )
+# The trailing hard sign covers pre-reform spellings («3-хъ», «5-ти» stays
+# as is): the ending resolves without it and the sign is re-attached after a
+# consonant. The hyphen lookahead leaves «17-ти-летняя» to the compound
+# adjective rule, which folds the numeral into the word.
 NUMERIC_SUFFIX_PATTERN = compile_scan(
     rf"(?<![\w,-])(?<!\d[.,])(?P<sign>{re.escape(NEGATIVE_NUMBER_PLACEHOLDER)}|-)?"
-    rf"(?P<number>\d+)-(?P<suffix>{_SUFFIX_ALTERNATION})(?!\w)",
+    rf"(?P<number>\d+)-(?P<suffix>{_SUFFIX_ALTERNATION})(?P<hard>ъ)?(?!\w)(?!-[а-яё])",
     re.IGNORECASE | re.UNICODE,
 )
 
@@ -309,6 +313,34 @@ def _agreement_score(
     return best_score
 
 
+_MONTH_LEMMAS = frozenset(
+    {
+        "январь",
+        "февраль",
+        "март",
+        "апрель",
+        "май",
+        "июнь",
+        "июль",
+        "август",
+        "сентябрь",
+        "октябрь",
+        "ноябрь",
+        "декабрь",
+    }
+)
+
+
+def _month_follows(tokens_right: list[str]) -> bool:
+    for token in tokens_right[:2]:
+        clean = token.strip(PUNCT_STRIP)
+        if not clean:
+            continue
+        parsed = select_parse(parse_word(clean), pos={"NOUN"})
+        return parsed is not None and parsed.normal_form in _MONTH_LEMMAS
+    return False
+
+
 _COORDINATORS = frozenset({"и", "или", "ни"})
 _SUFFIXED_NUMBER_TOKEN = compile_scan(r"\A(?P<number>\d+)-?(?P<suffix>[а-яё]{1,3})\Z", re.IGNORECASE)
 
@@ -463,7 +495,14 @@ def resolve_numeric_suffix(
         )
         if forced_kind is not None:
             best = [candidate for candidate in best if candidate.kind == forced_kind]
-    if any(candidate.kind == "cardinal" for candidate in best):
+    if (
+        any(candidate.kind == "ordinal" for candidate in best)
+        and _month_follows(tokens_right)
+    ):
+        # A suffixed day before a month name is an ordinal: «1-го октября» is
+        # «первого октября», never the genitive cardinal «одного октября».
+        best = [candidate for candidate in best if candidate.kind == "ordinal"]
+    elif any(candidate.kind == "cardinal" for candidate in best):
         best = [candidate for candidate in best if candidate.kind == "cardinal"]
     best_agreement = max(_agreement_score(candidate, noun_features) for candidate in best)
     best = [
@@ -493,6 +532,9 @@ def normalize_numeric_suffixes(
             tokens_left=simple_tokenize(context_left),
             tokens_right=simple_tokenize(context_right),
         )
+        if match.group("hard") and reading and reading[-1] not in "аеёиоуыэюяьъ":
+            # Pre-reform orthography closes a consonant-final word with «ъ».
+            reading += "ъ"
         if match.group("sign"):
             reading = f"минус {reading}"
         if (

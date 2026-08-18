@@ -10,6 +10,8 @@ import zipfile
 from pathlib import Path
 from typing import NamedTuple
 
+import pytest
+
 from ru_normalizr import NormalizeOptions, Normalizer, normalize, preprocess_text
 from ru_normalizr import latinization as _latinization
 
@@ -40,6 +42,28 @@ class _WheelBuild(NamedTuple):
     wheel_count: int
     output: str
     skip_reason: str | None
+
+
+# `python -m build` поднимает изолированное окружение и тянет setuptools из
+# индекса, поэтому без сети собрать wheel нельзя. Пропуск разрешён ТОЛЬКО на
+# сетевых сбоях: прежнее условие ловило подстроку "Failed to build", которой
+# оканчивается любая неудачная сборка, так что настоящая регрессия упаковки
+# превращалась в зелёный skip.
+_NETWORK_FAILURE_MARKERS = (
+    "Cannot connect to proxy",
+    "ProxyError",
+    "Connection refused",
+    "Connection reset",
+    "Failed to establish a new connection",
+    "Temporary failure in name resolution",
+    "Name or service not known",
+    "Network is unreachable",
+    "ConnectTimeoutError",
+    "ReadTimeoutError",
+    "Read timed out",
+    "Could not find a version that satisfies the requirement setuptools",
+    "No matching distribution found for setuptools",
+)
 
 
 @functools.lru_cache(maxsize=1)
@@ -76,16 +100,12 @@ def _build_wheel_once() -> _WheelBuild:
             )
         except subprocess.CalledProcessError as exc:
             output = (exc.stdout or "") + (exc.stderr or "")
-            if (
-                "Could not find a version that satisfies the requirement setuptools" in output
-                or "Cannot connect to proxy" in output
-                or "Failed to build" in output
-            ):
+            if any(marker in output for marker in _NETWORK_FAILURE_MARKERS):
                 return _WheelBuild(
                     frozenset(),
                     0,
                     output,
-                    "wheel build needs external build dependencies unavailable in this environment",
+                    "wheel build needs network access unavailable in this environment",
                 )
             raise
 
@@ -96,6 +116,40 @@ def _build_wheel_once() -> _WheelBuild:
                 names = frozenset(wheel_file.namelist())
         output = (completed.stdout or "") + (completed.stderr or "")
         return _WheelBuild(names, len(wheel_paths), output, None)
+
+
+def _is_skippable_build_failure(output: str) -> bool:
+    """Та же проверка, что и в ``_build_wheel_once``, но без сборки."""
+    return any(marker in output for marker in _NETWORK_FAILURE_MARKERS)
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        "ERROR: Failed to build ru_normalizr",
+        "error: Multiple top-level packages discovered in a flat-layout",
+        "ModuleNotFoundError: No module named 'ru_normalizr.numerals'",
+        "SyntaxError: invalid syntax",
+        "error: package directory 'ru_normalizr' does not exist",
+    ],
+)
+def test_genuine_build_failure_is_not_treated_as_skippable(output: str) -> None:
+    """Регрессия упаковки обязана падать, а не превращаться в зелёный skip."""
+    assert not _is_skippable_build_failure(output)
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        "urllib3.exceptions.ProxyError: Cannot connect to proxy",
+        "ConnectionRefusedError: [Errno 111] Connection refused",
+        "socket.gaierror: [Errno -3] Temporary failure in name resolution",
+        "requests.exceptions.ReadTimeout: HTTPSConnectionPool: Read timed out",
+        "ERROR: Could not find a version that satisfies the requirement setuptools>=68",
+    ],
+)
+def test_network_failure_is_skippable(output: str) -> None:
+    assert _is_skippable_build_failure(output)
 
 
 class RuNormalizrApiTests(unittest.TestCase):
@@ -1256,6 +1310,7 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertTrue((package_dir / "numerals" / "__init__.py").exists())
         self.assertFalse((package_dir / "dictionaries" / "your_dictionary.dic").exists())
 
+    @pytest.mark.packaging
     def test_package_builds_as_wheel_from_package_directory(self):
         build = _build_wheel_once()
         if build.skip_reason:
@@ -1278,6 +1333,7 @@ class RuNormalizrApiTests(unittest.TestCase):
         self.assertFalse(any(name.startswith("dist/") for name in wheel_names))
         self.assertFalse(any(name.startswith(".pytest_cache/") for name in wheel_names))
 
+    @pytest.mark.packaging
     def test_wheel_includes_every_tracked_dic_file(self):
         repo_root = _find_source_root()
         if repo_root is None:
