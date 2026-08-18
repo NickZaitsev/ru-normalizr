@@ -417,3 +417,92 @@ SCRIPT_HOMOGLYPH_CASES = (
 @pytest.mark.parametrize(("source", "expected"), SCRIPT_HOMOGLYPH_CASES)
 def test_script_homoglyph_edges(source: str, expected: str) -> None:
     assert normalize(source, NormalizeOptions.tts()) == expected
+
+
+# Сокращённые библиографические маркеры: озвучивается только римская цифра,
+# само сокращение остаётся сокращением.
+ABBREVIATED_HEADING_MARKER_CASES = (
+    pytest.param(
+        "В т. II есть ответ.",
+        "В т. втором есть ответ.",
+        id="locative_after_preposition",
+    ),
+    # Род порядкового берётся у слова, которое стоит за сокращением.
+    pytest.param(
+        "Смотри кн. III и далее.",
+        "Смотри кн. третью и далее.",
+        id="feminine_marker_book",
+    ),
+    pytest.param(
+        "Ссылка на ч. IV дана ниже.",
+        "Ссылка на ч. четвёртую дана ниже.",
+        id="feminine_marker_part",
+    ),
+    pytest.param(
+        "В разд. V приведены нормы.",
+        "В разд. пятом приведены нормы.",
+        id="masculine_marker_section",
+    ),
+    # Сокращение не из списка маркеров не даёт порядкового.
+    pytest.param(
+        "Отчёт по гр. II сдан.",
+        "Отчёт по гр. два сдан.",
+        id="unknown_marker_keeps_cardinal",
+    ),
+    # Без точки это не сокращение, а обычный токен.
+    pytest.param(
+        "Маршрут т IV не существует.",
+        "Маршрут т четыре не существует.",
+        id="marker_without_dot_ignored",
+    ),
+    # Строчные буквы — не римская цифра, а слово.
+    pytest.param(
+        "Часть ii готова.",
+        "Часть ии готова.",
+        id="lowercase_roman_ignored",
+    ),
+    # Однобуквенный маркер плюс однобуквенная цифра с точкой — это инициалы.
+    pytest.param(
+        "Инженер Т. X. Петров подписал акт.",
+        "Инженер тэ. экс. Петров подписал акт.",
+        id="initials_shape_not_a_heading",
+    ),
+    # Многобуквенный маркер инициалами быть не может, поэтому точка не мешает.
+    pytest.param(
+        "Смотри кн. V. Там есть ответ.",
+        "Смотри кн. пятую. Там есть ответ.",
+        id="multiletter_marker_before_sentence_end",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), ABBREVIATED_HEADING_MARKER_CASES)
+def test_abbreviated_heading_marker_edges(source: str, expected: str) -> None:
+    assert normalize(source, NormalizeOptions.tts()) == expected
+
+
+# Точка после одиночной заглавной буквы — сокращение или инициал, а не конец
+# предложения.
+UPPERCASE_INITIAL_DOT_CASES = (
+    pytest.param(
+        "Дом стоял в д. 5 рядом с рынком.",
+        "Дом стоял в д. пять рядом с рынком.",
+        id="uppercase_letter_dot_keeps_lowercase_tail",
+    ),
+    pytest.param(
+        "Письмо подписал Ю. Гагарин лично.",
+        "Письмо подписал юю Гагарин лично.",
+        id="single_initial_before_surname",
+    ),
+    # Настоящий конец предложения не страдает: следующее слово уже с заглавной.
+    pytest.param(
+        "Оценку поставили А. Ученик обиделся.",
+        "Оценку поставили аа Ученик обиделся.",
+        id="real_sentence_end_after_single_letter",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), UPPERCASE_INITIAL_DOT_CASES)
+def test_uppercase_initial_dot_edges(source: str, expected: str) -> None:
+    assert normalize(source, NormalizeOptions.tts()) == expected

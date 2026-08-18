@@ -42,6 +42,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Read the `IPsec` protocol name as `ай пи сек` in every spelling (`IPSEC`, `IPSec`, `IPsec`, `ipsec`) instead of `ай пи эс ии си` for the all-caps form and `ипсэк` for the rest. This needs an entry in two places by design: the abbreviation stage intercepts all-caps tokens and only consults `KNOWN_ABBREVIATIONS`, while mixed-case and lowercase spellings never match that pattern and are resolved by the latinization dictionary instead
 
 ### Changed
+- Читать римскую цифру после сокращённого библиографического маркера как
+  порядковое числительное: `Т. II` → «Т. второй», `кн. III` → «кн. третью»,
+  `в разд. V` → «в разд. пятом». Само сокращение остаётся сокращением, род и
+  падеж берутся у слова, которое оно заменяет; шаблон инициалов (`Т. X. Петров`)
+  под правило не попадает
+- Не считать точку после одиночной заглавной буквы концом предложения: `Т. II`
+  и `Ю. Гагарин` больше не начинают новое предложение с заглавной
 - Присоединять букву температурной шкалы к знаку градуса только если пара
   зарегистрирована в реестре единиц: `42° с. ш.` → «сорок два градуса северной
   широты», `30° с уклоном` → «тридцать градусов с уклоном», `30° к горизонту` →

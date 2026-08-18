@@ -116,10 +116,11 @@ def _has_dictionary_continuation(token: str) -> bool:
 def is_abbreviation_fragment(token: str) -> bool:
     """Check whether a short lowercase token before a dot is an abbreviation.
 
-    A dotted single letter is an abbreviation or an initial by orthography; the
-    one-letter words that could stand before a real sentence end are all
-    prepositions and conjunctions, which cannot end a sentence at all. «я» is
-    the exception and keeps its boundary.
+    A dotted single letter is an abbreviation or an initial by orthography,
+    whatever its case: «Т. II», «Ю. Гагарин», «д. 5». The one-letter words that
+    could stand before a real sentence end are all prepositions and
+    conjunctions, which cannot end a sentence at all. «я» is the exception and
+    keeps its boundary.
 
     Longer fragments need two disjoint signals, because pymorphy knows some
     abbreviations and guesses at the rest:
@@ -135,10 +136,10 @@ def is_abbreviation_fragment(token: str) -> bool:
     end a sentence («сто», «раз», «дом») fails both signals as well.
     """
 
+    if len(token) == 1:
+        return token.lower() != "я"
     if not token.islower():
         return False
-    if len(token) == 1:
-        return token != "я"
     parses = parse_word(token)
     if not parses:
         return False

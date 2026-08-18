@@ -77,6 +77,16 @@ _ROMAN_CONTEXT_LEMMAS = frozenset(
 _ROMAN_HEADING_LEMMAS = frozenset(
     {"глава", "раздел", "часть", "том", "книга", "квартал"}
 )
+# Bibliographic heading markers that keep their abbreviated spelling in speech:
+# only the roman numeral after them becomes an ordinal, and it agrees with the
+# gender of the word the abbreviation stands for.
+_ROMAN_HEADING_ABBREVIATION_LEMMAS = {
+    "т": "том",
+    "кн": "книга",
+    "гл": "глава",
+    "разд": "раздел",
+    "ч": "часть",
+}
 _ROMAN_ABBREVIATION_TO_CONTEXT = {
     "в": ("век", "sing"),
     "вв": ("век", "plur"),
@@ -217,16 +227,9 @@ def _resolve_contextual_ordinal_case(
     return _infer_roman_context_case(text, match, noun_word)
 
 
-def _infer_abbreviated_century_case(
-    text: str,
-    match: re.Match[str],
-) -> str:
-    case = _infer_roman_context_case(text, match, "век")
-    if case != "accs":
-        return case
-    left_context = text[max(0, match.start() - 40) : match.start()]
-    left_tokens = simple_tokenize(left_context)
-    left_word = next(
+def _preceding_word(text: str, match: re.Match[str]) -> str:
+    left_tokens = simple_tokenize(text[max(0, match.start() - 40) : match.start()])
+    return next(
         (
             normalize_context_token(token)
             for token in reversed(left_tokens)
@@ -234,31 +237,49 @@ def _infer_abbreviated_century_case(
         ),
         "",
     )
-    if left_word in {"в", "во", "на", "о", "об", "обо", "при"}:
+
+
+def _infer_abbreviated_context_case(
+    text: str,
+    match: re.Match[str],
+    lemma: str,
+    locative_prepositions: frozenset[str],
+) -> str:
+    """Infer the case of an ordinal that stands next to an abbreviated head noun.
+
+    The head noun keeps its abbreviated spelling, so its own form gives no case
+    signal and the ordinal has to be decided from the surrounding words. The
+    accusative reading is the ambiguous one: after a locative preposition the
+    same slot is locative, and only the preposition tells them apart.
+    """
+    case = _infer_roman_context_case(text, match, lemma)
+    if case != "accs":
+        return case
+    if _preceding_word(text, match) in locative_prepositions:
         return "loct"
     return case
+
+
+_CENTURY_LOCATIVE_PREPOSITIONS = frozenset({"в", "во", "на", "о", "об", "обо", "при"})
+_HEAD_LOCATIVE_PREPOSITIONS = frozenset({"в", "во", "о", "об", "обо", "при"})
+
+
+def _infer_abbreviated_century_case(
+    text: str,
+    match: re.Match[str],
+) -> str:
+    return _infer_abbreviated_context_case(
+        text, match, "век", _CENTURY_LOCATIVE_PREPOSITIONS
+    )
 
 
 def _infer_abbreviated_quarter_case(
     text: str,
     match: re.Match[str],
 ) -> str:
-    case = _infer_roman_context_case(text, match, "квартал")
-    if case != "accs":
-        return case
-    left_context = text[max(0, match.start() - 40) : match.start()]
-    left_tokens = simple_tokenize(left_context)
-    left_word = next(
-        (
-            normalize_context_token(token)
-            for token in reversed(left_tokens)
-            if any(char.isalpha() for char in token)
-        ),
-        "",
+    return _infer_abbreviated_context_case(
+        text, match, "квартал", _HEAD_LOCATIVE_PREPOSITIONS
     )
-    if left_word in {"в", "во", "о", "об", "обо", "при"}:
-        return "loct"
-    return case
 
 
 def _render_shared_ordinal_in_context(
@@ -639,6 +660,38 @@ def convert_suffixed_roman_regnal_names(text: str) -> str:
     return pattern.sub(repl, text)
 
 
+def _render_abbreviated_heading(text: str, match: re.Match[str]) -> str:
+    """Render «т. II» and friends as an ordinal without expanding the marker."""
+    word = match.group("word")
+    if not word.endswith("."):
+        return match.group(0)
+    lemma = _ROMAN_HEADING_ABBREVIATION_LEMMAS.get(normalize_context_token(word[:-1]))
+    if lemma is None:
+        return match.group(0)
+    # «Т. И. Петров» has the same shape as «т. I»: a one-letter marker, a
+    # one-letter roman numeral and a dot. Initials are by far the commoner
+    # reading of that shape, so the numeral stays a letter there. A marker of
+    # two letters or more («кн. V.») cannot be an initial at all.
+    if (
+        len(word) == 2
+        and len(match.group("roman")) == 1
+        and text[match.end() : match.end() + 1] == "."
+    ):
+        return match.group(0)
+    noun_parse = choose_noun_parse(lemma)
+    if noun_parse is None:
+        return match.group(0)
+    try:
+        number = roman.fromRoman(match.group("roman").upper())
+    except roman.InvalidRomanNumeralError:
+        return match.group(0)
+    case = _infer_abbreviated_context_case(
+        text, match, lemma, _HEAD_LOCATIVE_PREPOSITIONS
+    )
+    ordinal = _render_ordinal_for_context_noun(number, noun_parse, case=case)
+    return f"{word} {ordinal}"
+
+
 def convert_heading_roman_numerals(text: str) -> str:
     pattern = re.compile(
         rf"\b(?P<word>{_ROMAN_CONTEXT_WORD_PATTERN})\s+(?P<roman>[IVXLCDM]+)\b",
@@ -653,7 +706,7 @@ def convert_heading_roman_numerals(text: str) -> str:
             allow_abbreviations=False,
         )
         if resolved is None or resolved[0] not in _ROMAN_HEADING_LEMMAS:
-            return match.group(0)
+            return _render_abbreviated_heading(text, match)
         try:
             ordinal = render_ordinal_from_noun_word(
                 roman.fromRoman(match.group("roman").upper()),

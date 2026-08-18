@@ -17,6 +17,13 @@ E2E_KNOWN_GAP_CASES = (
     ),
     # Диапазон лет с «годов» читается родительным единственного числа для
     # каждой границы, а не множественным числом порядкового.
+    #
+    # НЕ ИСПРАВЛЯЕТСЯ без регрессий: множественное число границ диапазона —
+    # осознанное соглашение проекта, закреплённое несколькими проходящими
+    # тестами (tests/test_year_stage.py::YearRangeTests, tests/test_coverage_edges.py
+    # про «из 1990-1995 годов», tests/test_era_year_abbrev_regressions.py про
+    # «44-45 гг. до н. э.»). Оба чтения нормативны, поэтому смена соглашения —
+    # решение пользователя, а не побочный эффект правки этого пробела.
     pytest.param(
         "Летопись сообщает о событиях 1475—1481 годов подробно.",
         "Летопись сообщает о событиях тысяча четыреста семьдесят пятого — "
@@ -25,17 +32,6 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="year range before plural годов renders plural ordinals instead of genitive singular",
-        ),
-    ),
-    # Римская цифра при сокращении тома — порядковое числительное, как и в
-    # «том II»; после точки сокращения регистр тоже не меняется.
-    pytest.param(
-        "Собрание грамот. Т. II, № 45 хранится в архиве.",
-        "Собрание грамот. Т. второй, номер сорок пять хранится в архиве.",
-        id="roman_volume_after_volume_abbreviation",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="roman numeral after an abbreviated volume marker renders as a cardinal",
         ),
     ),
     # Двойная датировка «7092 (1582) года»: слово «года» стоит в источнике
