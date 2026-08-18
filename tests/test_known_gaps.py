@@ -5,6 +5,37 @@ import pytest
 from ru_normalizr import NormalizeOptions, normalize
 
 E2E_KNOWN_GAP_CASES = (
+    # Локатив места или вместилища не управляет счётной группой: «в городе»,
+    # «в отряде», «на глубине» — обстоятельства, а число называет величину.
+    pytest.param(
+        "Мы живём в городе 12 лет.",
+        "Мы живём в городе двенадцать лет.",
+        id="duration_after_locative_place",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="locative place noun leaks its case into the duration",
+        ),
+    ),
+    pytest.param(
+        "В отряде 40 человек осталось.",
+        "В отряде сорок человек осталось.",
+        id="count_group_after_locative_collective",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="locative collective noun leaks its case into the counted group",
+        ),
+    ),
+    # Даже если числительное считать косвенным, единица измерения в счётной
+    # группе не может стоять в предложном падеже.
+    pytest.param(
+        "На глубине 200 м вода холодная.",
+        "На глубине двести метров вода холодная.",
+        id="unit_after_locative_measure_head",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="locative measure head puts both numeral and unit into the prepositional case",
+        ),
+    ),
     # Счётная группа «N человек» — приложение к перечислению, а не дополнение
     # предлога: далёкое «в Киеве» не должно ни склонять числительное, ни
     # менять лемму счётного слова.
