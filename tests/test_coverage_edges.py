@@ -36,7 +36,8 @@ from ru_normalizr.ordinal_utils import (
     normalize_ordinal_suffix_defaults,
     render_ordinal,
 )
-from ru_normalizr.urls import URL_PLACEHOLDER_RANGES, normalize_urls, protect_urls
+from ru_normalizr.placeholders import URLS
+from ru_normalizr.urls import normalize_urls, protect_urls
 from ru_normalizr.years import (
     _normalize_era_marker,
     normalize_numeric_ranges,
@@ -142,17 +143,21 @@ class UrlBranchTests(unittest.TestCase):
         protected = protect_urls(source)
 
         self.assertEqual(protected.text, source)
-        self.assertIsNone(protected.placeholder)
-        self.assertEqual(protected.urls, ())
+        self.assertIsNone(protected.allocator)
 
     def test_url_protection_avoids_private_use_collision(self):
-        occupied = chr(URL_PLACEHOLDER_RANGES[0][0])
+        """Символ из служебного диапазона во входе не должен стать заменителем.
+
+        Иначе восстановление подставит URL и на месте исходного символа.
+        """
+        occupied = chr(URLS.start)
         source = f"Маркер {occupied}, ссылки www.example.org/a и https://b.test/x."
 
         protected = protect_urls(source)
 
-        self.assertIsNotNone(protected.placeholder)
-        self.assertNotEqual(protected.placeholder, occupied)
+        self.assertIsNotNone(protected.allocator)
+        # Маркер остался ровно один — ни один URL не спрятан за него.
+        self.assertEqual(protected.text.count(occupied), 1)
         self.assertEqual(protected.restore(protected.text), source)
 
     def test_url_stage_expands_all_supported_separators_and_digits(self):

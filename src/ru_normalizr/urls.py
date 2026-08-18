@@ -4,6 +4,7 @@ import logging
 import re
 from dataclasses import dataclass
 
+from .placeholders import URLS, PlaceholderAllocator
 from .text_scan import compile_scan
 
 logger = logging.getLogger(__name__)
@@ -69,27 +70,25 @@ UNBALANCED_CLOSERS = {
     "]": "[",
     "}": "{",
 }
-URL_PLACEHOLDER_RANGES = (
-    (0xF0000, 0xFFFFD),
-    (0x100000, 0x10FFFD),
-)
 
 
 @dataclass(frozen=True, slots=True)
 class ProtectedUrls:
+    """Текст со спрятанными URL и средство вернуть их на место.
+
+    Раньше все URL прятались за ОДИН символ, а восстанавливались по порядку
+    списка: если стадия переставляла или удаляла фрагменты, второй URL
+    подставлялся на место первого. Теперь у каждого URL свой заменитель, и
+    восстановление не зависит ни от порядка, ни от числа выживших.
+    """
+
     text: str
-    placeholder: str | None = None
-    urls: tuple[str, ...] = ()
+    allocator: PlaceholderAllocator | None = None
 
     def restore(self, text: str) -> str:
-        if self.placeholder is None:
+        if self.allocator is None:
             return text
-        for url in self.urls:
-            if self.placeholder not in text:
-                logger.error("URL placeholder disappeared before restoration")
-                break
-            text = text.replace(self.placeholder, url, 1)
-        return text
+        return self.allocator.restore(text)
 
 
 def _split_trailing_punctuation(url: str) -> tuple[str, str]:
@@ -111,39 +110,26 @@ def _split_trailing_punctuation(url: str) -> tuple[str, str]:
     return url, "".join(reversed(suffix))
 
 
-def _choose_url_placeholder(text: str) -> str | None:
-    occupied = set(text)
-    for start, end in URL_PLACEHOLDER_RANGES:
-        for codepoint in range(start, end + 1):
-            candidate = chr(codepoint)
-            if candidate not in occupied:
-                return candidate
-    logger.error("Unable to protect URLs: every private-use placeholder is occupied")
-    return None
-
-
 def protect_urls(text: str) -> ProtectedUrls:
     if not URL_PATTERN.search(text):
         return ProtectedUrls(text)
 
-    placeholder = _choose_url_placeholder(text)
-    if placeholder is None:
-        return ProtectedUrls(text)
-
-    urls: list[str] = []
+    allocator = PlaceholderAllocator(URLS, text)
 
     def repl(match: re.Match[str]) -> str:
         raw_url = match.group("url")
         url, suffix = _split_trailing_punctuation(raw_url)
         if not url:
             return raw_url
-        urls.append(url)
+        placeholder = allocator.allocate(url)
+        if placeholder is None:
+            return raw_url
         return f"{placeholder}{suffix}"
 
     protected_text = URL_PATTERN.sub(repl, text)
-    if not urls:
+    if not len(allocator):
         return ProtectedUrls(text)
-    return ProtectedUrls(protected_text, placeholder, tuple(urls))
+    return ProtectedUrls(protected_text, allocator)
 
 
 def _read_digit_run(chunk: str) -> str:

@@ -12,6 +12,17 @@ from .abbreviation_context import (
 )
 from .constants import CLEANUP_REPLACEMENTS, UNICODE_FRACTIONS
 from .ordinal_utils import render_ordinal
+
+# Метки препроцессинга объявлены в реестре заменителей: там же лежат диапазоны
+# остальных клиентов, поэтому пересечение видно на глаз и проверяется тестом.
+from .placeholders import (
+    BINARY_MINUS_PLACEHOLDER,
+    BINARY_PLUS_PLACEHOLDER,
+    BINARY_POWER_PLACEHOLDER,
+    LETTER_HYPHEN_PLACEHOLDER,
+    NEGATIVE_NUMBER_PLACEHOLDER,
+    UNIT_SLASH_PLACEHOLDER,
+)
 from .text_scan import compile_scan, first_non_whitespace_index
 
 ASCII_DASH_SPACE_PATTERN = compile_scan(r" - ")
@@ -53,12 +64,6 @@ LEGACY_LINEBREAK_DOT_PATTERN = compile_scan(
 INLINE_LINEBREAK_SPACE_PATTERN = compile_scan(
     r"(?<=[^\n])\n(?!(?:[\"«„“]\s*)?[А-ЯЁA-Z0-9])(?=[^\n])"
 )
-LETTER_HYPHEN_PLACEHOLDER = "\ue000"
-NEGATIVE_NUMBER_PLACEHOLDER = "\ue001"
-UNIT_SLASH_PLACEHOLDER = "\ue003"
-BINARY_PLUS_PLACEHOLDER = "\ue004"
-BINARY_MINUS_PLACEHOLDER = "\ue005"
-BINARY_POWER_PLACEHOLDER = "\ue006"
 BINARY_MATH_OPERATOR_PATTERN = compile_scan(r"(?<=\d)[+−^](?=\d)")
 BINARY_MATH_OPERATOR_PLACEHOLDERS = {
     "+": BINARY_PLUS_PLACEHOLDER,
@@ -101,6 +106,13 @@ def restore_binary_math_operators(text: str) -> str:
     ):
         return text
     return text.translate(BINARY_MATH_OPERATOR_TRANSLATION)
+# Дореформенное раздельное «на прим.» — это «например»; но «на прим. 5» —
+# ссылка на примечание, а «на прим. пер./ред./авт.» — на редакторскую сноску.
+# Правило живёт в препроцессинге: на этом этапе цифры ещё не развёрнуты в
+# слова, поэтому граница «не перед цифрой» работает.
+NA_PRIM_ABBREVIATION_PATTERN = compile_scan(
+    r"(?<!\w)([Нн]а)\s+прим\.(?!\s*(?:\d|пер(?:ев)?\.|ред\.|авт\.|перевод|редактор|автор))(?!\w)"
+)
 YEARS_AGO_ABBREVIATION_PATTERN = compile_scan(
     r"(?P<quantity>(?<!\w)(?:\d+(?:[.,]\d+)?|тыс(?:\.|яч[а-яё]*)?|млн\.?|"
     r"миллион[а-яё]*|млрд\.?|миллиард[а-яё]*|несколько|много)\s+)"
@@ -593,6 +605,11 @@ def protect_letter_hyphens(text: str) -> str:
 
 def restore_letter_hyphens(text: str) -> str:
     return text.replace(LETTER_HYPHEN_PLACEHOLDER, "-")
+
+
+def expand_na_prim_abbreviation(text: str) -> str:
+    # «на» + «пример» склеиваются в «например» с сохранением заглавной буквы.
+    return NA_PRIM_ABBREVIATION_PATTERN.sub(lambda m: m.group(1) + "пример", text)
 
 
 def expand_years_ago_abbreviation(text: str) -> str:

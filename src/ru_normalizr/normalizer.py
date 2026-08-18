@@ -40,6 +40,12 @@ from .numerals.ordinals import (
     normalize_thousands_abbreviated_attributes,
 )
 from .options import NormalizeOptions
+from .placeholders import (
+    GLUED_CODES,
+    NUMERAL_TOKENS,
+    WINDOWS_PATHS,
+    PlaceholderAllocator,
+)
 from .preprocess_utils import (
     MISSING_SPACE_BEFORE_PAREN_PATTERN,
     SLASH_FIX_PATTERN,
@@ -94,7 +100,6 @@ DEGREE_SPACING_PATTERN = compile_scan(r"(\d)°")
 WINDOWS_PATH_PATTERN = compile_scan(
     r"(?<![\w@])(?P<path>[A-Za-z]:\\[^\s<>\"']+)"
 )
-WINDOWS_PATH_PLACEHOLDER_RANGE = (0xF1000, 0xF1FFD)
 LEADING_LETTER_DIGIT_PATTERN = compile_scan(
     r"(?<!/)(?P<letters>[а-яА-ЯёЁa-zA-Z]+)(?P<number>\d+)"
 )
@@ -188,18 +193,20 @@ SUPERSCRIPT_DIGIT_TRANSLATION = str.maketrans(
 
 @dataclass(frozen=True, slots=True)
 class ProtectedWindowsPaths:
+    """Текст со спрятанными путями Windows и средство вернуть их на место.
+
+    Раньше все пути прятались за ОДИН символ и восстанавливались по порядку
+    списка, поэтому стадия, переставившая фрагменты, подставляла путь не на
+    своё место. Теперь у каждого пути свой заменитель.
+    """
+
     text: str
-    placeholder: str | None = None
-    paths: tuple[str, ...] = ()
+    allocator: PlaceholderAllocator | None = None
 
     def restore(self, text: str) -> str:
-        if self.placeholder is None:
+        if self.allocator is None:
             return text
-        for path in self.paths:
-            if self.placeholder not in text:
-                break
-            text = text.replace(self.placeholder, path, 1)
-        return text
+        return self.allocator.restore(text)
 
 
 def _split_windows_path_trailing_punctuation(path: str) -> tuple[str, str]:
@@ -213,32 +220,21 @@ def _split_windows_path_trailing_punctuation(path: str) -> tuple[str, str]:
 def protect_windows_paths(text: str) -> ProtectedWindowsPaths:
     if not WINDOWS_PATH_PATTERN.search(text):
         return ProtectedWindowsPaths(text)
-    occupied = set(text)
-    placeholder = next(
-        (
-            chr(codepoint)
-            for codepoint in range(
-                WINDOWS_PATH_PLACEHOLDER_RANGE[0],
-                WINDOWS_PATH_PLACEHOLDER_RANGE[1] + 1,
-            )
-            if chr(codepoint) not in occupied
-        ),
-        None,
-    )
-    if placeholder is None:
-        return ProtectedWindowsPaths(text)
-
-    paths: list[str] = []
+    allocator = PlaceholderAllocator(WINDOWS_PATHS, text)
 
     def repl(match: re.Match[str]) -> str:
         path, suffix = _split_windows_path_trailing_punctuation(match.group("path"))
         if not path:
             return match.group(0)
-        paths.append(path)
+        placeholder = allocator.allocate(path)
+        if placeholder is None:
+            return match.group(0)
         return f"{placeholder}{suffix}"
 
     protected = WINDOWS_PATH_PATTERN.sub(repl, text)
-    return ProtectedWindowsPaths(protected, placeholder, tuple(paths)) if paths else ProtectedWindowsPaths(text)
+    if not len(allocator):
+        return ProtectedWindowsPaths(text)
+    return ProtectedWindowsPaths(protected, allocator)
 
 
 class PipelineNormalizer:
@@ -440,16 +436,11 @@ class PipelineNormalizer:
             return text
         if not _contains_numeral_candidates(text):
             return normalize_numerals(text, self.options)
-        protected_tokens: list[str] = []
-        token_placeholders: list[str] = []
+        tokens = PlaceholderAllocator(NUMERAL_TOKENS, text)
 
         def protect_structured_token(match: re.Match[str]) -> str:
-            if len(protected_tokens) >= 0x20000:
-                return match.group(0)
-            protected_tokens.append(match.group(0))
-            placeholder = chr(0xF0000 + len(protected_tokens) - 1)
-            token_placeholders.append(placeholder)
-            return placeholder
+            placeholder = tokens.allocate(match.group(0))
+            return match.group(0) if placeholder is None else placeholder
 
         text = STRUCTURED_NUMERIC_SUFFIX_PATTERN.sub(protect_structured_token, text)
         text = normalize_math_symbols(text)
@@ -470,9 +461,7 @@ class PipelineNormalizer:
         )
         text = normalize_hyphenated_words(text, include_numeric_suffixes=False)
         text = normalize_numerals(text, self.options)
-        for placeholder, token in zip(token_placeholders, protected_tokens, strict=True):
-            text = text.replace(placeholder, token)
-        return text
+        return tokens.restore(text)
 
     def run_abbreviations(self, text: str) -> str:
         return expand_abbreviations(text, self.options)
@@ -598,11 +587,11 @@ class PipelineNormalizer:
         return PHONE_NUMBER_PATTERN.sub(repl, text)
 
     def _fix_glued_numbers(self, text: str) -> str:
-        protected_codes: list[str] = []
+        codes = PlaceholderAllocator(GLUED_CODES, text)
 
         def protect_code(match: re.Match[str]) -> str:
-            protected_codes.append(match.group(0))
-            return f"\ue010{len(protected_codes) - 1:x}\ue011"
+            placeholder = codes.allocate(match.group(0))
+            return match.group(0) if placeholder is None else placeholder
 
         def fix_glued(match: re.Match[str]) -> str:
             num, word = match.group(1), match.group(2)
@@ -642,9 +631,7 @@ class PipelineNormalizer:
             previous = text
             text = GLUED_NUMBER_WORD_PATTERN.sub(fix_glued, text)
             iteration += 1
-        for index, code in enumerate(protected_codes):
-            text = text.replace(f"\ue010{index:x}\ue011", code)
-        return text
+        return codes.restore(text)
 
 
 def preprocess_text(text: str, options: NormalizeOptions | None = None) -> str:
