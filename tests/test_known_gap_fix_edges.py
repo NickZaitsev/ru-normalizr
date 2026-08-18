@@ -379,3 +379,41 @@ TRADITIONAL_TEMPERATURE_SCALE_CASES = (
 @pytest.mark.parametrize(("source", "expected"), TRADITIONAL_TEMPERATURE_SCALE_CASES)
 def test_traditional_temperature_scale_edges(source: str, expected: str) -> None:
     assert normalize(source, NormalizeOptions.tts()) == expected
+
+
+SCRIPT_HOMOGLYPH_CASES = (
+    pytest.param(
+        "Bсе рисунки исполнены графическим институтом.",
+        "Все рисунки исполнены графическим институтом.",
+        id="latin_b_starts_a_russian_word",
+    ),
+    pytest.param(
+        "Cлово написано с ошибкой набора.",
+        "Слово написано с ошибкой набора.",
+        id="latin_c_starts_a_russian_word",
+    ),
+    # Слово, где латинская буква без кириллического двойника, — настоящая
+    # латиница и остаётся на откуп латинизации.
+    pytest.param(
+        "Xerox выпустил 5 машин.",
+        "зиракс выпустил пять машин.",
+        id="pure_latin_word_untouched",
+    ),
+    pytest.param(
+        "Отдел PR-поддержки закрыт.",
+        "Отдел пи ар-поддержки закрыт.",
+        id="latin_prefix_with_hyphen_untouched",
+    ),
+    # Подстановка не выдумывает слов: если результат не словарный, слово
+    # остаётся как есть.
+    pytest.param(
+        "Значение xY получено расчётом.",
+        "Значение кси получено расчётом.",
+        id="non_dictionary_substitution_rejected",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), SCRIPT_HOMOGLYPH_CASES)
+def test_script_homoglyph_edges(source: str, expected: str) -> None:
+    assert normalize(source, NormalizeOptions.tts()) == expected

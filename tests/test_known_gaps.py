@@ -50,17 +50,6 @@ E2E_KNOWN_GAP_CASES = (
             reason="year stage inserts a second года before the bracketed equivalent",
         ),
     ),
-    # Латинская буква-омоглиф внутри кириллического слова — дефект набора,
-    # а не латинизируемый токен.
-    pytest.param(
-        "Bсе рисунки исполнены графическим институтом.",
-        "Все рисунки исполнены графическим институтом.",
-        id="latin_homoglyph_inside_cyrillic_word",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="latin homoglyph starting a Cyrillic word is latinized as a letter name",
-        ),
-    ),
     # Химическая формула требует отдельной грамматики элементов, индексов и
     # валентных обозначений; общий обработчик буквенно-цифровых токенов будет
     # конфликтовать с моделями, кодами и обычными аббревиатурами.

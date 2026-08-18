@@ -4,6 +4,7 @@ import re
 
 import num2words
 
+from ._morph import word_is_known
 from .abbreviation_context import (
     ends_with_plain_word,
     normalize_birth_year_abbreviations,
@@ -243,6 +244,73 @@ def cleanup_malformed_punctuation(text: str) -> str:
         return match.group(0)
 
     return DOT_COMMA_PATTERN.sub(repl, text)
+
+
+#: Latin letters drawn with the same glyph as a Cyrillic one. Only these can be
+#: a layout slip inside a Russian word; «l», «d» or «v» have no Cyrillic twin and
+#: mark a genuinely Latin token.
+_LATIN_TO_CYRILLIC_HOMOGLYPHS = str.maketrans(
+    {
+        "A": "А",
+        "B": "В",
+        "C": "С",
+        "E": "Е",
+        "H": "Н",
+        "K": "К",
+        "M": "М",
+        "O": "О",
+        "P": "Р",
+        "T": "Т",
+        "X": "Х",
+        "Y": "У",
+        "a": "а",
+        "c": "с",
+        "e": "е",
+        "o": "о",
+        "p": "р",
+        "x": "х",
+        "y": "у",
+    }
+)
+_HOMOGLYPH_LATIN_LETTERS = frozenset("ABCEHKMOPTXYacepoxy")
+_HOMOGLYPH_LATIN_PATTERN = re.compile(f"[{''.join(sorted(_HOMOGLYPH_LATIN_LETTERS))}]")
+#: A word that mixes both scripts. Both lookaheads are required so the C-level
+#: scan rejects ordinary words without entering the Python callback: a full pass
+#: over every word of a book-sized text is otherwise the most expensive step of
+#: the preprocessing stage.
+_WORD_CHARS = "A-Za-zА-Яа-яЁё+"
+MIXED_SCRIPT_WORD_PATTERN = re.compile(
+    rf"(?<![{_WORD_CHARS}])"
+    rf"(?=[{_WORD_CHARS}]*[ABCEHKMOPTXYacepoxy])"
+    rf"(?=[{_WORD_CHARS}]*[А-Яа-яЁё])"
+    rf"[{_WORD_CHARS}]{{2,}}"
+)
+
+
+def normalize_script_homoglyphs(text: str) -> str:
+    """Repair a Latin homoglyph typed inside a Russian word.
+
+    «Bсе» is «Все» with a Latin B — a typesetting defect, not a Latin token, and
+    reading it as a letter name gave «бисе». The repair only applies when every
+    Latin letter of the word has a Cyrillic twin and the substituted word is in
+    the dictionary, so a genuinely mixed identifier is left alone.
+    """
+    if _HOMOGLYPH_LATIN_PATTERN.search(text) is None:
+        return text
+
+    def repl(match: re.Match[str]) -> str:
+        word = match.group(0)
+        latin = [char for char in word if char.isascii() and char.isalpha()]
+        if not latin or any(char not in _HOMOGLYPH_LATIN_LETTERS for char in latin):
+            return word
+        if not any(not char.isascii() and char.isalpha() for char in word):
+            return word
+        candidate = word.translate(_LATIN_TO_CYRILLIC_HOMOGLYPHS)
+        if not word_is_known(candidate.replace("+", "")):
+            return word
+        return candidate
+
+    return MIXED_SCRIPT_WORD_PATTERN.sub(repl, text)
 
 
 def normalize_cyrillic_combining_stress_marks(text: str) -> str:

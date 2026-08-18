@@ -115,6 +115,12 @@ def select_parse(
     return best
 
 
+@functools.lru_cache(maxsize=16384)
+def word_is_known(word: str) -> bool:
+    """Whether the dictionary holds ``word`` itself, without guessing."""
+    return bool(get_morph().word_is_known(word.lower()))
+
+
 def first_parse(word: str) -> MorphParse | None:
     """Return the first pymorphy parse for ``word``, or ``None`` if there is none.
 

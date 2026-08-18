@@ -53,6 +53,7 @@ from .preprocess_utils import (
     normalize_numeric_abbreviations,
     normalize_page_references,
     normalize_punctuation_spacing,
+    normalize_script_homoglyphs,
     normalize_section_references,
     normalize_spaced_ascii_hyphens,
     normalize_unary_plus_numbers,
@@ -335,6 +336,7 @@ class PipelineNormalizer:
         text = normalize_linebreaks(text)
         text = remove_zero_width_formatting(text)
         text = normalize_cyrillic_combining_stress_marks(text)
+        text = normalize_script_homoglyphs(text)
         # An address chain is the specific case: «стр. 2» right after a house
         # number is a building, not a page, and «д.» must lose its dot before
         # the numerals stage reads it as a sentence end and capitalizes the
