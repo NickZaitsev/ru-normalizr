@@ -7,6 +7,7 @@ import num2words
 
 from .._log_once import warn_once
 from .._morph import first_parse_required, parse_word, select_parse
+from ..abbreviation_context import should_keep_terminal_abbreviation_dot
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_context import (
     PUNCT_STRIP,
@@ -121,6 +122,54 @@ def _resolve_range_unit_info(unit_raw: str):
     return None
 
 
+def _surface_in_paradigm(token: str, descriptor) -> bool:
+    """Check whether the token is one of the unit's fixed paradigm forms.
+
+    A non-empty paradigm alone is not enough: «человек» carries a single
+    counted-form override, and accepting every inflected form of the lemma
+    through it would hijack the ordinary counted noun «человека».
+    """
+    surface = token.lower().strip(".")
+    return any(
+        form == surface for _, _, form in descriptor.morphology.paradigm
+    )
+
+
+def _animate_counted_noun(tokens: list[str], index: int) -> bool:
+    """Check whether the token at ``index`` counts people («чел.», «человек»)."""
+    if index >= len(tokens):
+        return False
+    token = tokens[index]
+    info = resolve_unit_info(token)
+    if info is not None:
+        return info.lemma == "человек"
+    clean = token.lower().strip(PUNCT_STRIP)
+    if not clean:
+        return False
+    parsed = select_parse(clean, pos="NOUN")
+    return parsed is not None and "anim" in parsed.tag
+
+
+_ROUBLE_UNIT_LEMMAS = frozenset({"рубль", "гривна"})
+
+
+def _money_amount_precedes(tokens: list[str], index: int) -> bool:
+    """Check whether tokens before ``index`` end with «<число> р[уб].»."""
+    j = index - 1
+    while j >= 0 and tokens[j] == ".":
+        j -= 1
+    if j <= 0:
+        return False
+    word = tokens[j].strip(PUNCT_STRIP)
+    info = resolve_unit_info(word) or resolve_unit_info(f"{word}.")
+    if info is None or info.lemma not in _ROUBLE_UNIT_LEMMAS:
+        return False
+    j -= 1
+    while j >= 0 and tokens[j] == ".":
+        j -= 1
+    return j >= 0 and tokens[j].strip(PUNCT_STRIP).isdigit()
+
+
 def _splice_segments(
     text: str,
     spans: list[tuple[int, int]],
@@ -196,8 +245,33 @@ def normalize_cardinal_numerals(text: str) -> str:
         clean = token.lower().strip(PUNCT_STRIP)
         return bool(clean) and " " not in clean and clean in PREP_CASE
 
+    def could_be_prepositional_object(token: str) -> bool:
+        """Check whether a token can be governed by the homographic preposition.
+
+        «220 в сети» keeps the preposition reading because a noun follows, but
+        an adverb, a verb or a conjunction cannot be its object — «220 В
+        постоянно» is the volt symbol followed by an adverb.
+        """
+        clean = token.lower().strip(PUNCT_STRIP)
+        if not clean:
+            return False
+        if clean[0].isdigit():
+            return True
+        return (
+            select_parse(clean, pos={"NOUN", "ADJF", "PRTF", "NPRO", "NUMR"})
+            is not None
+        )
+
     def should_skip_unit_candidate(start_index: int, token_span: int, unit_raw: str) -> bool:
         chunk = tokens[start_index : start_index + token_span]
+        if unit_raw[:1].isupper() and unit_raw.lower() != unit_raw:
+            follow = start_index + token_span
+            if follow < len(tokens) and tokens[follow].strip() == ".":
+                follow += 1
+            if follow < len(tokens) and tokens[follow].strip() == ":":
+                # Заглавное сокращение перед двоеточием — отсылка («13 См.:
+                # с. 22»), а не повреждённый регистр символа единицы.
+                return True
         if (
             token_span == 1
             and unit_raw == unit_raw.strip(PUNCT_STRIP)
@@ -205,7 +279,7 @@ def normalize_cardinal_numerals(text: str) -> str:
             and start_index + token_span < len(tokens)
         ):
             next_token = tokens[start_index + token_span].strip(PUNCT_STRIP)
-            if next_token:
+            if next_token and could_be_prepositional_object(next_token):
                 return True
         return (
             token_span > 1
@@ -372,10 +446,42 @@ def normalize_cardinal_numerals(text: str) -> str:
                 if unit_info is None and unit_token_span == 1:
                     resolved_form = resolve_unit_form(unit_raw)
                     if resolved_form is not None and (
-                        resolved_form.morphology.paradigm
+                        _surface_in_paradigm(unit_raw, resolved_form)
                         or resolved_form.morphology.indeclinable
                     ):
                         unit_info = resolved_form
+                if (
+                    unit_info is not None
+                    and unit_info.lemma == "тонна"
+                    and unit_raw.strip(PUNCT_STRIP).rstrip(".").lower() == "т"
+                    and _animate_counted_noun(
+                        tokens, i + 1 + unit_token_span
+                    )
+                ):
+                    # Тонны измеряют массу неодушевлённого груза; «100 т. чел.»
+                    # — это «сто тысяч человек», а не тонны людей.
+                    unit_info = resolve_unit_info("тыс.")
+                if (
+                    unit_info is not None
+                    and unit_info.lemma == "век"
+                    and isinstance(val, int)
+                    and val > 21
+                ):
+                    # Веков больше двадцати одного не бывает: «в 75 в. от
+                    # Казани» — это вёрсты, дореволюционная мера расстояния.
+                    unit_info = resolve_unit_info("верста")
+                if (
+                    unit_info is None
+                    and unit_token_span == 1
+                    and unit_raw.strip(PUNCT_STRIP) == "к"
+                    and i + 2 < len(tokens)
+                    and tokens[i + 2] == "."
+                    and _money_amount_precedes(tokens, i)
+                ):
+                    # «1 р. 92 к.» — денежная цепочка: «к.» после суммы в
+                    # рублях означает копейки. Без рублей слева «к» остаётся
+                    # предлогом («шёл к 92 дому»).
+                    unit_info = resolve_unit_info("коп.")
             if unit_info:
                 if (
                     1000 <= val <= 2100
@@ -494,21 +600,27 @@ def normalize_cardinal_numerals(text: str) -> str:
                     step += 1
                 if is_redundant_unit_token(i + step, lemma):
                     step += 1
-                if lemma in _MULTIPLIER_LEMMAS and i + 2 < len(tokens):
-                    next_next_token = tokens[i + 2]
-                    nn_unit_info = resolve_unit_info(next_next_token)
-                    if nn_unit_info:
+                if lemma in _MULTIPLIER_LEMMAS and i + step < len(tokens):
+                    nn_match = match_unit_tokens(tokens, i + step)
+                    if nn_match is not None:
                         nn_inflected = render_unit_expression(
-                            nn_unit_info, {"gent", "plur"}
+                            nn_match.descriptor, {"gent", "plur"}
                         )
+                        nn_consumed = nn_match.consumed_tokens
+                        # Не съедать точку сокращения, закрывающую предложение.
+                        last_index = i + step + nn_consumed - 1
+                        if tokens[last_index] == "." and not should_consume_abbreviation_dot(
+                            tokens, last_index
+                        ):
+                            nn_consumed -= 1
                         segments.append(
                             (
                                 i,
-                                i + step + 1,
+                                i + step + nn_consumed,
                                 f"{num_words} {full_unit} {nn_inflected}",
                             )
                         )
-                        i += step + 1
+                        i += step + nn_consumed
                         continue
                 segments.append((i, i + step, f"{num_words} {full_unit}"))
                 i += step
@@ -610,7 +722,14 @@ def normalize_numeric_unit_ranges(text: str) -> str:
         )
         if u_suffix:
             unit_words += f" {u_suffix}"
-        return f"{numeral_for_range(left)} — {numeral_for_range(right)} {unit_words}"
+        result = f"{numeral_for_range(left)} — {numeral_for_range(right)} {unit_words}"
+        if match.group("udot") and should_keep_terminal_abbreviation_dot(
+            text, match.end()
+        ):
+            # Точка сокращения («40—50 тыс.») поглощается вместе с ним; точка,
+            # закрывающая предложение, остаётся.
+            result += "."
+        return result
 
     normalized = NUMERIC_UNIT_RANGE_PATTERN.sub(repl, text)
 

@@ -897,18 +897,30 @@ def get_numeral_case(
     ):
         return "nomn"
 
-    if (
-        idx > 0
-        and normalize_context_token(tokens[idx - 1]) == "в"
-        and idx + 2 < visible_length
-        and is_unit_token(tokens[idx + 1].lower().strip(PUNCT_STRIP))
-        and normalize_context_token(tokens[idx + 2]) in {"от", "до"}
-    ):
+    if idx > 0 and normalize_context_token(tokens[idx - 1]) == "в" and idx + 2 < visible_length:
         # A distance measured off a landmark is locative: «в 200 м от дома» →
         # «в двухстах метрах от дома». A unit symbol carries no case of its own,
         # so nothing else in the phrase reports the government and «в» would
         # otherwise fall back to its accusative reading.
-        return "loct"
+        unit_word = tokens[idx + 1].lower().strip(PUNCT_STRIP)
+        unit_end = idx + 2
+        is_unit = is_unit_token(unit_word)
+        if not is_unit and tokens[unit_end] == ".":
+            # Точка сокращения — отдельный токен: «в 75 в. от Казани».
+            is_unit = is_unit_token(f"{unit_word}.")
+            unit_end += 1
+        if (
+            is_unit
+            and unit_end < visible_length
+            and normalize_context_token(tokens[unit_end]) in {"от", "до"}
+        ):
+            # «до нашей эры» / «до Рождества Христова» — эра, а не ориентир,
+            # от которого отмеряют расстояние: «в 5 в. до н. э.».
+            era_follows = unit_end + 1 < visible_length and normalize_context_token(
+                tokens[unit_end + 1]
+            ) in {"нашей", "н", "нэ", "р", "рождества"}
+            if not era_follows:
+                return "loct"
 
     if idx > 1 and tokens[idx - 1] == "и":
         for back in range(idx - 2, max(-1, idx - 6), -1):

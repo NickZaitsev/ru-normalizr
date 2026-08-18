@@ -302,7 +302,23 @@ _UNIT_MORPHOLOGY = {
         expected_normal_form="микрограмм",
         forbidden_grammemes=frozenset({"Coun"}),
     ),
-    "человек": UnitMorphology(expected_normal_form="человек", animacy="anim"),
+    # Счётная форма: после числительных родительный множественного — «человек»,
+    # а не супплетивное «людей» («десять тысяч человек»).
+    "человек": UnitMorphology(
+        expected_normal_form="человек",
+        animacy="anim",
+        paradigm=(("gent", "plur", "человек"),),
+    ),
+    # Косвенные падежи множественного числа верста́ несут ударение на окончании
+    # («в двух верстах от города»); pymorphy отдаёт разговорное «вёрстах».
+    "верста": UnitMorphology(
+        expected_normal_form="верста",
+        paradigm=(
+            ("datv", "plur", "верстам"),
+            ("ablt", "plur", "верстами"),
+            ("loct", "plur", "верстах"),
+        ),
+    ),
     "шекель": UnitMorphology(
         expected_normal_form="шекель",
         paradigm=_paradigm(
@@ -793,6 +809,7 @@ UNITS_DATA = _upgrade_units({
     "mi": ("миля", "femn", "measure"),
     "аршин": ("аршин", "masc", "measure"),
     "арш": ("аршин", "masc", "measure"),
+    "верста": ("верста", "femn", "measure"),
     "mph": ("миля", "femn", "measure", "в час"),
     "обмин": ("оборот", "masc", "measure", "в минуту"),
     "уз": ("узел", "masc", "measure"),
@@ -1007,7 +1024,7 @@ UNIT_TOKEN_FRAGMENT = (
 )
 
 NUMERIC_UNIT_RANGE_PATTERN = compile_scan(
-    rf"(?<!\d)(?P<left>\d+)\s*[—–-]\s*(?P<right>\d+)\s*(?P<unit>{UNIT_TOKEN_FRAGMENT}(?:\s+[^\W\d_]+){{0,2}})(?!\w)"
+    rf"(?<!\d)(?P<left>\d+)\s*[—–-]\s*(?P<right>\d+)\s*(?P<unit>{UNIT_TOKEN_FRAGMENT}(?:\s+[^\W\d_]+){{0,2}})(?P<udot>\.(?!\.))?(?!\w)"
 )
 FRACTION_PATTERN = compile_scan(r"(?<![\d,])(\d+)/(\d+)(?![\d,])")
 # The optional infix is a duplicated case ending of the numeral written out

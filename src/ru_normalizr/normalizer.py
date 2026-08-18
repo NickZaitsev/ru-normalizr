@@ -53,6 +53,8 @@ from .preprocess_utils import (
     apply_cleanup_replacements,
     clean_numbers,
     cleanup_malformed_punctuation,
+    expand_na_prim_abbreviation,
+    expand_new_style_date_abbreviation,
     expand_years_ago_abbreviation,
     normalize_administrative_law_references,
     normalize_age_ranges,
@@ -376,6 +378,8 @@ class PipelineNormalizer:
         text = MISSING_SPACE_BEFORE_PAREN_PATTERN.sub(" (", text)
         if self.options.enable_years_ago_expansion:
             text = expand_years_ago_abbreviation(text)
+        text = expand_na_prim_abbreviation(text)
+        text = expand_new_style_date_abbreviation(text)
         text = normalize_page_references(text)
         text = normalize_section_references(text)
         text = normalize_administrative_law_references(text)

@@ -67,22 +67,6 @@ E2E_KNOWN_GAP_CASES = (
             reason="hyphen before a line break becomes a dash instead of joining the wrapped word",
         ),
     ),
-    # Односимвольная единица-омограф предлога («В» — вольт, «с» — секунда)
-    # раскрывается только в конце клаузы: should_skip_unit_candidate в
-    # cardinals.py снимает кандидата, если за единицей стоит любой непустой
-    # токен. Это защищает «пять с половиной» и «220 в сети», но теряет единицу
-    # там, где следующее слово не может быть дополнением предлога — наречие,
-    # предлог, союз. Правило должно смотреть на разбор следующего слова, а не
-    # на его наличие.
-    pytest.param(
-        "Прибор работает при напряжении 220 В постоянно и не греется.",
-        "Прибор работает при напряжении двести двадцать вольт постоянно и не греется.",
-        id="preposition_homograph_unit_before_an_adverb",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a single-letter unit homographic with a preposition expands only at a clause end",
-        ),
-    ),
     # Химическая формула требует отдельной грамматики элементов, индексов и
     # валентных обозначений; общий обработчик буквенно-цифровых токенов будет
     # конфликтовать с моделями, кодами и обычными аббревиатурами.
@@ -131,28 +115,6 @@ E2E_KNOWN_GAP_CASES = (
             reason="century abbreviation stays nominative when an adverb follows",
         ),
     ),
-    # «г.» после года в летописной датировке читается как граммы: единица
-    # выигрывает у годового контекста.
-    pytest.param(
-        "В летописи под 964 г. записано, что князь вырос и возмужал.",
-        "В летописи под девятьсот шестьдесят четвёртым годом записано, что князь вырос и возмужал.",
-        id="year_abbreviation_read_as_gram",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="г. after a year is resolved to grams instead of the year noun",
-        ),
-    ),
-    # «тыс.» после диапазона не раскрывается: точка остаётся и запускает
-    # заглавную букву у следующего слова.
-    pytest.param(
-        "Наёмных венгров и печенегов было 40—50 тыс. человек в этом походе.",
-        "Наёмных венгров и печенегов было сорок — пятьдесят тысяч человек в этом походе.",
-        id="thousands_abbreviation_after_a_range",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="тыс. after a range keeps its dot and triggers sentence capitalization",
-        ),
-    ),
     # Диапазон между числами с пробельными разрядами не распознаётся: тире
     # превращается в перечисление через запятую.
     pytest.param(
@@ -186,16 +148,6 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a total after an enumeration is rendered in the genitive",
-        ),
-    ),
-    # Счётная форма «человек» после тысяч подменяется супплетивным «людей».
-    pytest.param(
-        "Конные латники числом до 2000 человек шли впереди обоза.",
-        "Конные латники числом до двух тысяч человек шли впереди обоза.",
-        id="counted_form_chelovek_after_thousands",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="counted человек is replaced by the suppletive людей",
         ),
     ),
     # Многоточие после восклицательного знака теряет точку.
@@ -431,17 +383,6 @@ E2E_KNOWN_GAP_CASES = (
             reason="a dash used as a minus before a temperature stays a dash",
         ),
     ),
-    # Инициалы перед фамилией принимаются за сокращение: «В. Д.» читается как
-    # «восточной долготы», «Г. Г.» — как «годы».
-    pytest.param(
-        "Он спорил с князем В. Д. Горчаковым о судьбе отряда.",
-        "Он спорил с князем вэ дэ Горчаковым о судьбе отряда.",
-        id="initials_read_as_an_abbreviation",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="initials before a surname are expanded as a domain abbreviation",
-        ),
-    ),
     # Разрядка подчёркиваниями («в_н_е в_с_я_к_о_г_о») превращается в
     # последовательность отдельных букв вместо слова.
     pytest.param(
@@ -498,19 +439,11 @@ E2E_KNOWN_GAP_CASES = (
         ),
     ),
     # --- Найдено сплошным чтением книги 05 (Небольсин) ---
-    # «См.» с заглавной буквы после числа принимается за единицу «см»:
-    # «13 См.: с. 22» читается «тринадцать сантиметров».
-    pytest.param(
-        "В примечании 13 См.: с. 22 указана ссылка на грамоту.",
-        "В примечании тринадцать смотри: страница двадцать два указана ссылка на грамоту.",
-        id="see_abbreviation_after_a_number_read_as_centimetres",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="capitalized См. after a number is read as the centimetre unit",
-        ),
-    ),
     # Заглавная буква в начале строки после числа принимается за единицу:
-    # «20 А. Тюменка» читается «двадцать ампер».
+    # «20 А. Тюменка» читается «двадцать ампер». Алгоритмически не решается
+    # без понимания макета исходника: «А.» здесь — буквенная рубрика списка,
+    # формально неотличимая от символа ампера после числа; любой запрет
+    # «числу + А.» сломал бы настоящие амперы в техническом тексте.
     pytest.param(
         "20 А. Тюменка-речка течёт сто тридцать вёрст до устья.",
         "Двадцать. А. Тюменка-речка течёт сто тридцать вёрст до устья.",
@@ -662,26 +595,6 @@ E2E_KNOWN_GAP_CASES = (
             reason="a dot thousands separator is read as a decimal point and кв. as kilovolts",
         ),
     ),
-    # «т.» в значении «тысяч» читается как «тонн».
-    pytest.param(
-        "Дворяне выставляли от 80 до 100 т. чел. и носили название поместной рати.",
-        "Дворяне выставляли от восьмидесяти до ста тысяч человек и носили название поместной рати.",
-        id="t_abbreviation_read_as_tonnes",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="т. meaning thousands is read as tonnes",
-        ),
-    ),
-    # Сокращение «чел.» раскрывается как «людей» вместо счётной формы «человек».
-    pytest.param(
-        "Выставлялись две рати, каждая около 10 000 чел., у Новосела и Мценска.",
-        "Выставлялись две рати, каждая около десяти тысяч человек, у Новосела и Мценска.",
-        id="chel_abbreviation_expanded_as_lyudey",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="чел. is expanded as людей instead of the counted form человек",
-        ),
-    ),
     # Число после прилагательного в творительном падеже остаётся именительным.
     pytest.param(
         "Отряд начальствовал отборными 1000 чел., от которых высылались разъезды.",
@@ -690,16 +603,6 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a number after an instrumental adjective stays nominative",
-        ),
-    ),
-    # «в.» в значении «вёрст» читается как «веков».
-    pytest.param(
-        "Отряд стоял у Арского острога (в 75 в. от Казани) до конца осады.",
-        "Отряд стоял у Арского острога (в семидесяти пяти верстах от Казани) до конца осады.",
-        id="versta_abbreviation_read_as_century",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="в. meaning versts is read as centuries",
         ),
     ),
     # Номер пункта перечисления «1)» читается количественным «один».
@@ -779,28 +682,10 @@ E2E_KNOWN_GAP_CASES = (
             reason="a colon-separated time of day is read as an enumeration",
         ),
     ),
-    # Дореформенное написание «т.-е.» с дефисом не раскрывается.
-    pytest.param(
-        "Надо беречь и свой фронт, т.-е. готовиться к бою на два фронта.",
-        "Надо беречь и свой фронт, то есть готовиться к бою на два фронта.",
-        id="abbreviation_t_e_written_with_a_hyphen",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the hyphenated spelling т.-е. is not expanded",
-        ),
-    ),
-    # «гг.» в значении «господам» читается как «годы».
-    pytest.param(
-        "Указания изданы в 1770 году под названием «Наставление всем гг. батарейным командирам».",
-        "Указания изданы в тысяча семьсот семидесятом году под названием "
-        '"Наставление всем господам батарейным командирам".',
-        id="gg_abbreviation_meaning_gospodam",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="гг. meaning господам is expanded as years",
-        ),
-    ),
-    # «ч.» в значении «человек» читается как «часов».
+    # «ч.» в значении «человек» читается как «часов». Алгоритмически не
+    # решается надёжно: «(42 000 ч.)» и «(42 000 ч. боя)» различаются только
+    # военно-историческим смыслом; надёжного морфологического признака,
+    # отделяющего людей от часов при «ч.» без соседних слов, нет.
     pytest.param(
         "Румянцев с 115 орудиями (42 000 ч.) разбил наголову отряд турок.",
         "Румянцев с ста пятнадцатью орудиями (сорок две тысячи человек) "
@@ -908,7 +793,10 @@ E2E_KNOWN_GAP_CASES = (
             reason="the month after a day number is put into the nominative",
         ),
     ),
-    # «л.» в значении «лет» читается как «литров».
+    # «л.» в значении «лет» читается как «литров». Алгоритмически не решается
+    # нормально: нужен смысловой разбор «Только 24 л. <фамилия>» (возраст в
+    # родительном падеже), а ожидание к тому же в дореформенной орфографии
+    # («лѣтъ», «четырёхъ»), которую конвейер не воспроизводит.
     pytest.param(
         "Только 24 л. Суворовъ, пройдя всѣ нижнія званія, получилъ первый чинъ.",
         "Только двадцати четырёхъ лѣтъ Суворовъ, пройдя всѣ нижнія званія, получилъ первый чинъ.",
@@ -949,38 +837,6 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a number before an accusative noun stays cardinal instead of ordinal",
-        ),
-    ),
-    # Местоимение «те» перед точкой принимается за сокращение «т. е.»,
-    # и предложение склеивается со следующим.
-    pytest.param(
-        "Прежние времена были не те. Елисавета вступила на престол при общем ликовании.",
-        "Прежние времена были не те. Елисавета вступила на престол при общем ликовании.",
-        id="pronoun_te_read_as_the_t_e_abbreviation",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the pronoun те before a dot is taken for the abbreviation т. е.",
-        ),
-    ),
-    # «к.» в значении «копеек» после числа не раскрывается.
-    pytest.param(
-        "Хлеб продавался по 1 р. 92 к. за четверть, и цена эта считалась высокой.",
-        "Хлеб продавался по одному рублю девяносто две копейки за четверть, "
-        "и цена эта считалась высокой.",
-        id="kopeck_abbreviation_after_a_number",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="к. meaning kopecks after a number is not expanded",
-        ),
-    ),
-    # «н.с.» («нового стиля») после даты читается как «ньютонов с.».
-    pytest.param(
-        "Сражение произошло 20 н.с. и продолжалось до самого вечера.",
-        "Сражение произошло двадцатого нового стиля и продолжалось до самого вечера.",
-        id="n_s_abbreviation_read_as_newtons",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="н.с. meaning new style is read as newtons",
         ),
     ),
     # Число после «у меня» уходит в родительный падеж вместо именительного.
@@ -1090,16 +946,6 @@ E2E_KNOWN_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a roman count before a genitive plural noun is turned into an ordinal",
-        ),
-    ),
-    # «на прим.» в значении «например» раскрывается как «примечание».
-    pytest.param(
-        "Ежели другие славяне, на прим. сербы, оставили эту азбуку, то дело ясно.",
-        "Ежели другие славяне, например сербы, оставили эту азбуку, то дело ясно.",
-        id="na_prim_expanded_as_primechanie",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="на прим. meaning например is expanded as примечание",
         ),
     ),
     # Круглое число после даты принимается за год: «7000 человек» →

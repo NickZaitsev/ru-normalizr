@@ -6,7 +6,7 @@ import re
 
 import num2words
 
-from ._morph import parse_word
+from ._morph import canonicalize_case, parse_word, select_parse
 from .abbreviation_context import (
     allows_short_abbreviated_year,
     has_mass_measurement_context,
@@ -99,13 +99,14 @@ PREPOSITIONS_TO_CASE = {
     "по": "accs",
     "между": "ablt",
     "около": "gent",
+    "под": "ablt",
 }
 # The hyphen lookahead leaves «6—7-тысячного» to the compound adjective rule
 # of the numerals stage: it is one attribute, not an enumeration.
 NUMERIC_RANGE_PATTERN = compile_scan(
     r"(\d+)\s*[—–]\s*(\d+)(?!\d)(?!\s*[а-яА-ЯёЁa-zA-Z%°$€₽Ω])(?!-[а-яА-ЯёЁ])"
 )
-YEAR_PREPOSITION_REGEX = r"в|во|о|об|к|ко|с|со|до|от|за|на|по|между|около"
+YEAR_PREPOSITION_REGEX = r"в|во|о|об|к|ко|с|со|до|от|за|на|по|между|около|под"
 YEAR_IMPLICIT_PREP_REGEX = r"в|во|о|об|к|ко|на|за|под"
 ERA_REGEX = (
     r"(?:до\s+н\.?\s*э\.?|н\.?\s*э\.?|до\s+нашей\s+эры|нашей\s+эры|"
@@ -173,6 +174,74 @@ def _follows_month_name(text: str, start: int) -> bool:
 
 def _canonicalize_year_word(word: str) -> str:
     return word.replace("+", "")
+
+
+def _genitive_mass_noun_follows(text: str, end: int) -> bool:
+    """Check whether a bare genitive noun follows — «под 30 г. песка».
+
+    The annalistic «под 964 г. записано» is followed by a verb, an adverb or a
+    capitalized name, never by a lowercase genitive noun measuring the grams.
+    """
+    match = re.match(r"\s+([а-яё]+)", text[end : end + 20])
+    if match is None:
+        return False
+    parsed = select_parse(match.group(1), pos="NOUN")
+    return (
+        parsed is not None
+        and parsed.tag.case == "gent"
+        and "anim" not in parsed.tag
+    )
+
+
+_GOSPODA_OBLIQUE_CASES = frozenset({"gent", "datv", "accs", "ablt", "loct"})
+
+
+def _gospoda_case_around(text: str, start: int, end: int) -> str | None:
+    """Падеж обращения «господа», если «гг.» стоит внутри именной группы.
+
+    «всем гг. батарейным командирам»: модификатор слева и одушевлённая
+    вершина справа согласованы в косвенном падеже множественного числа —
+    это «господам», а не «годы». Орфанное «гг.» со значением «годы»
+    («в те гг. людям пришлось…») такого сквозного согласования не имеет:
+    слева стоит определение к «годам» в другом падеже.
+    """
+    before = re.search(r"([а-яёА-ЯЁ]+)\s+$", text[:start])
+    after = re.match(r"\s+([а-яё]+)(?:\s+([а-яё]+))?", text[end : end + 40])
+    if before is None or after is None:
+        return None
+    first, second = after.group(1), after.group(2)
+    head = select_parse(first, pos="NOUN", required_grammemes=("anim", "plur"))
+    modifier: str | None = None
+    if head is None and second is not None:
+        head = select_parse(second, pos="NOUN", required_grammemes=("anim", "plur"))
+        modifier = first
+    if head is None:
+        return None
+    case = canonicalize_case(head.tag.case)
+    if case not in _GOSPODA_OBLIQUE_CASES:
+        return None
+    if modifier is not None and (
+        select_parse(modifier, pos="ADJF", required_grammemes=("plur",), case=case)
+        is None
+    ):
+        return None
+    left = select_parse(
+        before.group(1),
+        pos=("ADJF", "NPRO"),
+        required_grammemes=("plur",),
+        case=case,
+    )
+    if left is None:
+        return None
+    return case
+
+
+def _render_gospoda(case: str) -> str | None:
+    parsed = select_parse("господа", pos="NOUN", required_grammemes=("plur",))
+    if parsed is None:
+        return None
+    inflected = parsed.inflect(frozenset({case, "plur"}))
+    return inflected.word if inflected is not None else None
 
 
 @functools.lru_cache(maxsize=4096)
@@ -624,6 +693,15 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
             return m.group(0)
         if is_abbrev and has_mass_measurement_context(text, m.start()):
             return m.group(0)
+        if (
+            is_abbrev
+            and prep
+            and prep.lower() == "под"
+            and _genitive_mass_noun_follows(text, m.end())
+        ):
+            # «под 30 г. песка» measures grams; the annalistic «под 964 г.
+            # записано» is never followed by a bare genitive noun.
+            return m.group(0)
         if is_abbrev and year < 1000 and not allows_short_abbreviated_year(
             text,
             m.end(),
@@ -762,9 +840,18 @@ def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
     text = pattern_ot_do_implicit.sub(replace_ot_do_implicit, text)
     text = pattern_prep_year_implicit.sub(replace_prep_year_implicit, text)
     text = pattern_year_word.sub(replace_with_word, text)
+
+    def replace_orphan_plural_abbrev(m: re.Match[str]) -> str:
+        case = _gospoda_case_around(m.string, m.start(), m.end())
+        if case is not None:
+            rendered = _render_gospoda(case)
+            if rendered is not None:
+                return rendered
+        return "годы"
+
     return re.sub(
         rf"(?<![А-Яа-яA-Za-z_]){YEAR_PLURAL_ABBREV_REGEX}(?!\w)",
-        "годы",
+        replace_orphan_plural_abbrev,
         text,
         flags=re.IGNORECASE,
     )
