@@ -93,18 +93,6 @@ HANDWRITTEN_GAP_CASES = (
 
 #: Найдено прогоном по книжному корпусу benchmarks/corpus.
 CORPUS_SWEEP_GAP_CASES = (
-    # Диапазон между числами с пробельными разрядами не распознаётся: тире
-    # превращается в перечисление через запятую.
-    pytest.param(
-        "Войско его не превосходило 50 000—60 000, обыкновенно же было гораздо меньше.",
-        "Войско его не превосходило пятьдесят тысяч — шестьдесят тысяч, "
-        "обыкновенно же было гораздо меньше.",
-        id="range_between_space_grouped_thousands",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a range between space-grouped numbers is rendered as a comma enumeration",
-        ),
-    ),
     # Итоговое число в перечислении получает родительный падеж, хотя стоит в
     # именительной позиции («а всего 30 000»).
     pytest.param(
@@ -167,16 +155,6 @@ CORPUS_SWEEP_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="the left bound of a page range takes neuter gender",
-        ),
-    ),
-    # Смешанная дробь теряет «целую»: «1 1/3» читается как «одну одну треть».
-    pytest.param(
-        "За окровавление человека посредством дерева платили 1 1/3 гривны серебром.",
-        "За окровавление человека посредством дерева платили одну целую одну треть гривны серебром.",
-        id="mixed_fraction_with_integer_part",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the integer part of a mixed fraction loses целую",
         ),
     ),
 )
@@ -359,17 +337,6 @@ BOOK_02_GAP_CASES = (
             reason="a number after the preposition в stays in the nominative",
         ),
     ),
-    # Точка как разделитель разрядов принимается за десятичную, а «кв.» —
-    # за киловольты.
-    pytest.param(
-        "При Иоанне III Москва имела площадь около 15.000 кв. миль.",
-        "При Иоанне третьем Москва имела площадь около пятнадцати тысяч квадратных миль.",
-        id="dot_as_a_thousands_separator_before_a_square_unit",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a dot thousands separator is read as a decimal point and кв. as kilovolts",
-        ),
-    ),
     # Число после прилагательного в творительном падеже остаётся именительным.
     pytest.param(
         "Отряд начальствовал отборными 1000 чел., от которых высылались разъезды.",
@@ -403,16 +370,6 @@ BOOK_02_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="the first word of the next sentence is dropped after a counted form",
-        ),
-    ),
-    # Дробное число перед «тысяч» ломает согласование: «тысячи» вместо «тысяч».
-    pytest.param(
-        "Заготовлено около 12 тысяч бомб и 11,5 тысяч ручных гранат.",
-        "Заготовлено около двенадцати тысяч бомб и одиннадцати с половиной тысяч ручных гранат.",
-        id="decimal_number_before_thousands",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a decimal before тысяч breaks the agreement of the counted noun",
         ),
     ),
     # Составное число в творительном падеже склоняется только по первой части.
@@ -455,38 +412,6 @@ BOOK_02_GAP_CASES = (
 
 #: Найдено сплошным чтением книги 02b (та же книга, дореформенная орфография).
 BOOK_02B_GAP_CASES = (
-    # Запятая как разделитель разрядов принимается за десятичную.
-    pytest.param(
-        "Выставлялись две рати, каждая около 10,000 чел., у Новосела и Мценска.",
-        "Выставлялись две рати, каждая около десяти тысяч человек, у Новосела и Мценска.",
-        id="comma_as_a_thousands_separator",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a comma thousands separator is read as a decimal point",
-        ),
-    ),
-    # Дробь, набранная одним знаком и приклеенная к целому («2½»), читается как
-    # отдельное двузначное число.
-    pytest.param(
-        "В неравной борьбе и только ценою 2½ столетий рабства они уцелели.",
-        "В неравной борьбе и только ценою двух с половиной столетий рабства они уцелели.",
-        id="vulgar_fraction_glued_to_an_integer",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a vulgar fraction glued to an integer is read as a two-digit number",
-        ),
-    ),
-    # Дробь-знак в составе прилагательного («½-пудовой») не сворачивается
-    # в «полупудовой».
-    pytest.param(
-        "Единорогъ былъ трехъ видовъ: 2-пудовой, пудовой и ½-пудовой.",
-        "Единорогъ былъ трехъ видовъ: двухпудовой, пудовой и полупудовой.",
-        id="vulgar_fraction_in_an_attribute",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a vulgar fraction in an attribute is not folded into полу-",
-        ),
-    ),
     # Творительный падеж предыдущего слова перетекает на следующее число
     # в перечислении.
     pytest.param(
@@ -658,28 +583,6 @@ BOOK_03_GAP_CASES = (
 
 #: Найдено сплошным чтением книги 01 («История России с древнейших времён»).
 BOOK_01_GAP_CASES = (
-    # Предлог «с» после дроби принимается за сокращение секунды.
-    pytest.param(
-        "Если считать по этому расчёту, то придётся на рубль положить по 10 коп. 1/8 с дробями.",
-        "Если считать по этому расчёту, то придётся на рубль положить "
-        "по десять копеек одна восьмая с дробями.",
-        id="preposition_s_read_as_seconds_after_a_fraction",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the preposition s after a fraction is read as the seconds symbol",
-        ),
-    ),
-    # Косая черта в архивном шифре при «№» читается как дробь.
-    pytest.param(
-        "Следственные дела хранятся в Архиве министерства юстиции под № 72/288.",
-        "Следственные дела хранятся в Архиве министерства юстиции "
-        "под номером семьдесят два дробь двести восемьдесят восемь.",
-        id="archive_reference_slash_read_as_a_fraction",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the slash in an archive reference number is read as a fraction",
-        ),
-    ),
     # Порядковое окончание последнего числа не распространяется на перечисление.
     pytest.param(
         "Синод сослался на 494, 495 и 496-й статьи большого наказа и отложил решение.",

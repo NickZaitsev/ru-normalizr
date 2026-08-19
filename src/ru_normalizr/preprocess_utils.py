@@ -380,6 +380,10 @@ def expand_years_ago_abbreviation(text: str) -> str:
 #: docs/SPEED_OBSERVATIONS.md, раздел «str.translate против цепочки replace».
 def normalize_unicode_fractions(text: str) -> str:
     for char, replacement in UNICODE_FRACTIONS.items():
+        if char not in text:
+            continue
+        # «2½» — смешанная дробь: без пробела замена склеила бы её в «21/2».
+        text = re.sub(rf"(?<=\d){char}", f" {replacement}", text)
         text = text.replace(char, replacement)
     return text
 
@@ -511,6 +515,18 @@ THOUSANDS_BEFORE_UNIT_PATTERN = compile_scan(
     r"(?<!\d)(?P<number>\d{1,3}\.\d{3})(?=\s*(?P<unit>[₽$€£¥%‰]|\w+))"
 )
 
+#: Запятая — штатный десятичный знак, поэтому разрядной она признаётся только
+#: при нулевом «хвосте»: дробная часть «000» не бывает осмысленной десятичной
+#: записью («10,000 чел.» — десять тысяч человек, не «десять целых»).
+COMMA_THOUSANDS_BEFORE_UNIT_PATTERN = compile_scan(
+    r"(?<![\d.,])(?P<number>\d{1,3},000)(?=\s*(?P<unit>[₽$€£¥%‰]|\w+))"
+)
+#: Две и более групп по три цифры через запятую — однозначно разрядная
+#: группировка: «1,234,567».
+COMMA_GROUPED_NUMBER_PATTERN = compile_scan(
+    r"(?<![\d.,])(\d{1,3}(?:,\d{3}){2,})(?![\d,])"
+)
+
 
 def _is_thousands_unit(token: str) -> bool:
     if not token:
@@ -534,6 +550,12 @@ def _join_thousands_before_unit(match: re.Match[str]) -> str:
     return match.group("number").replace(".", "")
 
 
+def _join_comma_thousands_before_unit(match: re.Match[str]) -> str:
+    if not _is_thousands_unit(match.group("unit")):
+        return match.group(0)
+    return match.group("number").replace(",", "")
+
+
 def clean_numbers(text: str) -> str:
     def repl_spaces(match: re.Match[str]) -> str:
         return (
@@ -552,5 +574,11 @@ def clean_numbers(text: str) -> str:
     )
     text = re.sub(
         r"(?<!\d)(\d{1,3}\.\d{3})(?=,\d+)", lambda m: m.group(1).replace(".", ""), text
+    )
+    text = COMMA_GROUPED_NUMBER_PATTERN.sub(
+        lambda m: m.group(1).replace(",", ""), text
+    )
+    text = COMMA_THOUSANDS_BEFORE_UNIT_PATTERN.sub(
+        _join_comma_thousands_before_unit, text
     )
     return THOUSANDS_BEFORE_UNIT_PATTERN.sub(_join_thousands_before_unit, text)

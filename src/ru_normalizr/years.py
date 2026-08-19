@@ -356,7 +356,15 @@ def year_to_ordinal_words(year: int, case: str = "nomn", plural: bool = False) -
 
 
 def normalize_numeric_ranges(text: str) -> str:
-    return NUMERIC_RANGE_PATTERN.sub(lambda m: f"{m.group(1)}, {m.group(2)}", text)
+    def repl(match: re.Match[str]) -> str:
+        # Малые числа без слова после — перечисление («выпуск 5—7.»), но
+        # крупные круглые величины — настоящий диапазон: «50 000—60 000»
+        # читается через тире, а не через запятую.
+        if len(match.group(1)) >= 4 or len(match.group(2)) >= 4:
+            return match.group(0)
+        return f"{match.group(1)}, {match.group(2)}"
+
+    return NUMERIC_RANGE_PATTERN.sub(repl, text)
 
 
 @functools.lru_cache(maxsize=1)

@@ -10,20 +10,20 @@
       "02_russian_army_and_navy_modern": {
         "input_chars": 200000,
         "input_sha256": "49f5d3583207cd9df7192529771c1d2d607ac8aa3c59c14c9fd3424929f4c7a7",
-        "output_chars": 206327,
-        "output_sha256": "941c5da625c7030e02ea91c5ec895b22b6fdffa8bffc60150f3aef7c6752d5e0"
+        "output_chars": 206322,
+        "output_sha256": "71e04b95f220cbcd35eeac7fcde1f00a86a81724deaa3dc3cbe144d4b8bcdd1c"
       },
       "02b_russian_army_and_navy_pre_reform": {
         "input_chars": 200000,
         "input_sha256": "bc12ab1181324e99addb01816b3473fbc5e8207d1d6e85e921119e24aaa8eb18",
-        "output_chars": 206165,
-        "output_sha256": "e4c45851e952122d0d75c25cc3dc337efb45ff99daeda6369cbefa6bade09c44"
+        "output_chars": 206140,
+        "output_sha256": "4e6067fbb4e002c2bde2c7cd5e2cfeeaf0247100d24275af1b101562b0c50d72"
       },
       "03_karamzin_history_of_russian_state": {
         "input_chars": 200000,
         "input_sha256": "c54239da14b304e450b93334d1783417fa0b5552b22c0c7d71a8f5820c920c08",
-        "output_chars": 209196,
-        "output_sha256": "df1db061a1b1f9e9bd396a1df56a8ee1bc669d02d1ba665928db24c0d4a83e8a"
+        "output_chars": 209198,
+        "output_sha256": "8d69377370ac70726b63c1bfa68ef9aca3137d2ae377713f76c153d92c0aeef7"
       },
       "04_kostomarov_russian_history_biographies": {
         "input_chars": 200000,
@@ -40,8 +40,8 @@
       "06_semenov_tyan_shansky_tien_shan_travel": {
         "input_chars": 200000,
         "input_sha256": "1e5b60e93d5b9d9b0a1383e26d7ca3e2a9d1d603483defb728ef7fbdc7456dd7",
-        "output_chars": 206514,
-        "output_sha256": "50f522f394d320fce19194795db6d551901073ea85807f8f7acfd60476216dfc"
+        "output_chars": 206505,
+        "output_sha256": "b9c3d679a90bae785e96ab1eed9c62fbcf191905a9189476a4a543973374b2bf"
       }
     },
     "mode": "tts",

@@ -33,6 +33,7 @@ from .numerals import (
     normalize_math_symbols,
     normalize_numerals,
     normalize_numeric_suffixes,
+    normalize_square_unit_attributes,
     normalize_versions,
 )
 from .numerals._hyphen import (
@@ -416,6 +417,7 @@ class PipelineNormalizer:
         text = normalize_prefixed_ordinal_adverbs(text)
         text = normalize_numeric_unit_hyphen_links(text)
         text = normalize_compound_numeric_adjectives(text)
+        text = normalize_square_unit_attributes(text)
         text = normalize_versions(text)
         text = normalize_decimals(text)
         text = normalize_fractions(text)

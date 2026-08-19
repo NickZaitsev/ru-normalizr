@@ -91,6 +91,37 @@ def render_money_amount(
     return f"{major} {render_counted_money(minor_info, minor_value, case)}"
 
 
+def _render_half_multiplier(
+    unit_info: UnitDescriptor, int_val: int, int_part_s: str, case: str
+) -> str | None:
+    """«N,5 тысяч» — «N с половиной тысяч», «1,5 млн» — «полтора миллиона».
+
+    Возвращает ``None``, когда конструкция не читается «с половиной»
+    (например, целая часть оканчивается на 1: «21,5 тысячи» остаётся
+    десятичной дробью).
+    """
+    gender = "femn" if unit_info.lemma == "тысяча" else "masc"
+    if int_val == 1:
+        if case in {"nomn", "accs"}:
+            numeral = "полторы" if gender == "femn" else "полтора"
+            noun = render_unit_expression(unit_info, {"gent", "sing"})
+        else:
+            numeral = "полутора"
+            noun = render_unit_expression(unit_info, {case, "plur"})
+        return f"{numeral} {noun}"
+    if int_val % 10 == 1 and int_val % 100 != 11:
+        return None
+    numeral = inflect_numeral_string(int_part_s, case, gender=gender)
+    if not numeral:
+        return None
+    noun = render_unit_expression(
+        unit_info,
+        get_target_tags_for_number(int_val, case, gender),
+        paucal=noun_number_form(int_val) == "few",
+    )
+    return f"{numeral} с половиной {noun}"
+
+
 @lru_cache(maxsize=32)
 def _fraction_order_base(digits: int) -> str:
     try:
@@ -273,15 +304,34 @@ def normalize_decimals(text: str) -> str:
 
             if unit_info:
                 lemma = unit_info.lemma
-                money_words = (
-                    None
-                    if unit_consumes_second_token
-                    else render_money_amount(unit_info, int_part_s, frac_part_s, case)
+                half_words = (
+                    _render_half_multiplier(
+                        unit_info, int_val, int_part_s, render_case
+                    )
+                    if lemma in _MULTIPLIER_LEMMAS
+                    and frac_part_s == "5"
+                    and int_val
+                    and not is_negative
+                    else None
                 )
-                if money_words is not None:
-                    result = money_words
+                if half_words is not None:
+                    # «11,5 тысяч» — «одиннадцать с половиной тысяч», слово
+                    # величины уже согласовано внутри.
+                    result = half_words
                 else:
-                    result += " " + render_unit_expression(unit_info, {"gent", "sing"})
+                    money_words = (
+                        None
+                        if unit_consumes_second_token
+                        else render_money_amount(
+                            unit_info, int_part_s, frac_part_s, case
+                        )
+                    )
+                    if money_words is not None:
+                        result = money_words
+                    else:
+                        result += " " + render_unit_expression(
+                            unit_info, {"gent", "sing"}
+                        )
                 if unit_consumes_second_token:
                     unit2_processed = True
                 elif unit2_raw:

@@ -461,7 +461,7 @@ class RuNormalizrStageTests(unittest.TestCase):
             ),
             (
                 "Итого 3,5 млн руб., без НДС.",
-                "Итого три целых пять десятых миллиона рублей, без НДС.",
+                "Итого три с половиной миллиона рублей, без НДС.",
             ),
         )
         for source, expected in cases:

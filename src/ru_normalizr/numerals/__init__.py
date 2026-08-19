@@ -25,6 +25,7 @@ from .symbols import (
     normalize_math_symbols,
     normalize_standalone_currency,
 )
+from .unit_expressions import normalize_square_unit_attributes
 from .versions import normalize_versions
 
 _NUMERAL_TRIGGER_CHARS = frozenset(
@@ -83,6 +84,7 @@ __all__ = [
     "normalize_numeric_unit_ranges",
     "normalize_ordinals",
     "normalize_remaining_post_numeral_abbreviations",
+    "normalize_square_unit_attributes",
     "normalize_standalone_currency",
     "normalize_versions",
     "simple_tokenize",

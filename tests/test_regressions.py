@@ -1343,7 +1343,7 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
     def test_normalize_preserves_people_lexeme_after_decimal_millions(self):
         self.assertEqual(
             normalize("2,5 млн человек"),
-            "две целых пять десятых миллиона человек",
+            "два с половиной миллиона человек",
         )
 
     def test_normalize_reads_common_binary_math_symbols(self):
