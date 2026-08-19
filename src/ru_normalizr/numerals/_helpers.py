@@ -39,6 +39,7 @@ from ._num2words import (
     resolve_num2words_case,
     resolve_primary_case,
 )
+from ._rules import DASH_TOKENS, CaseRule, NumeralContext, deciders, run_rules
 
 _TIME_CONTEXT_LEMMAS = frozenset(
     {
@@ -807,6 +808,610 @@ def _is_counting_group(tokens: Sequence[str], idx: int, visible_length: int) -> 
     )
 
 
+#: «умножить на 5», «разделить на 5»: правый операнд не управляется контекстом.
+_ARITHMETIC_OPERATOR_VERBS = frozenset({"умножить", "разделить"})
+#: «5 × 11», «5 умножить на 11»: левый операнд тоже стоит сам за себя.
+_MULTIPLICATION_MARKERS = frozenset({"×", "умножить"})
+#: Слова-вершины, после которых «2560 на 1440» — размер, а не отношение.
+_DIMENSION_HEADS = frozenset(
+    {
+        "размер",
+        "размером",
+        "разрешение",
+        "габарит",
+        "габаритами",
+        "ширина",
+        "высота",
+    }
+)
+#: Буквы температурных шкал после знака градуса: Цельсий, Фаренгейт, Кельвин.
+_TEMPERATURE_SCALE_SYMBOLS = frozenset({"с", "c", "f", "к", "k"})
+#: Составные сравнения: их правая часть требует родительного.
+_COMPARISON_PHRASES = frozenset({"больше или равно", "меньше или равно"})
+#: Единицы, при которых «равно» задаёт дательный: «равно 45 градусам».
+_ANGLE_AND_DEGREE_UNITS = frozenset({"°", "градус", "мин", "минута", "сек", "секунда"})
+#: Формы «быть равным», после которых измерение стоит в дательном.
+_EQUALITY_PREDICATES = frozenset({"равен", "равна", "равно"})
+#: «до нашей эры», «до Рождества Христова» — это эра, а не ориентир расстояния.
+_ERA_MARKER_WORDS = frozenset({"нашей", "н", "нэ", "р", "рождества"})
+#: Ориентир, от которого отмеряют расстояние: «в 200 м от дома».
+_LANDMARK_MARKERS = frozenset({"от", "до"})
+#: Спортивный счёт: «выиграли 3-1» — оба числа именительные.
+_SCORE_VERBS = frozenset({"выиграть", "победить"})
+#: Предлоги, требующие предложного падежа независимо от разбора вершины.
+_LOCATIVE_PREPOSITIONS = frozenset({"в", "во", "о", "об", "при"})
+#: Обозначения-ярлыки перед числом: «ISO 100», «f/2.8».
+_LABEL_PREFIX_TOKENS = frozenset({"iso", "f"})
+#: Вершины нумерации: «том 5», «номер 7» — число остаётся именительным.
+_NUMBERING_HEAD_TOKENS = frozenset({"том", "номер"})
+
+
+def _rule_operand_after_arithmetic_verb(ctx: NumeralContext) -> str | None:
+    """Правый операнд арифметики независим: «умножить на пять», не «на пяти»."""
+    if (
+        ctx.idx > 1
+        and ctx.word(-1) == "на"
+        and ctx.word(-2) in _ARITHMETIC_OPERATOR_VERBS
+    ):
+        return "nomn"
+    return None
+
+
+def _rule_operand_before_multiplication(ctx: NumeralContext) -> str | None:
+    """Левый операнд умножения тоже независим: «девять умножить на одиннадцать»."""
+    if (
+        ctx.idx + 2 < ctx.visible_length
+        and ctx.word(1) in _MULTIPLICATION_MARKERS
+        and ctx.word(2) == "на"
+    ):
+        return "nomn"
+    return None
+
+
+def _rule_ratio_left_operand(ctx: NumeralContext) -> str | None:
+    """Левая часть отношения не наследует падеж контекста.
+
+    «в масштабе 1 к пятидесяти» → «один к пятидесяти», а не «одном».
+    """
+    if (
+        ctx.idx + 2 < ctx.visible_length
+        and ctx.word(1) == "к"
+        and is_integer_token(ctx.raw(2))
+    ):
+        return "nomn"
+    return None
+
+
+def _rule_dimension_first_coordinate(ctx: NumeralContext) -> str | None:
+    """Первая координата размера — приложение-ярлык: «разрешение 2560 на 1440».
+
+    Голое «число на число» без слова-вершины остаётся во власти обычных правил.
+    """
+    if not (
+        ctx.idx + 2 < ctx.visible_length
+        and ctx.word(1) == "на"
+        and is_integer_token(ctx.raw(2))
+    ):
+        return None
+    for back in range(-1, max(-5, -ctx.idx - 1), -1):
+        if any(char in ctx.raw(back) for char in ".!?;:"):
+            break
+        if ctx.word(back) in _DIMENSION_HEADS:
+            return "nomn"
+    return None
+
+
+def _rule_temperature_equality(ctx: NumeralContext) -> str | None:
+    """«равно 177 °C» → дательный: «равно ста семидесяти семи градусам Цельсия».
+
+    Обычные уравнения сохраняют именительные операнды.
+    """
+    if (
+        ctx.idx > 0
+        and ctx.word(-1) == "равно"
+        and ctx.idx + 2 < ctx.visible_length
+        and ctx.word(1) == "°"
+        and ctx.word(2) in _TEMPERATURE_SCALE_SYMBOLS
+    ):
+        return "datv"
+    return None
+
+
+def _rule_comparison_or_equal(ctx: NumeralContext) -> str | None:
+    """«больше или равно 5» → «больше или равно пяти»."""
+    if ctx.idx >= 3:
+        comparison = " ".join(ctx.word(offset) for offset in (-3, -2, -1))
+        if comparison in _COMPARISON_PHRASES:
+            return "gent"
+    return None
+
+
+def _rule_equality_before_degree_unit(ctx: NumeralContext) -> str | None:
+    """«угол равен 45 градусам»: «равен» задаёт дательный через несколько слов.
+
+    TODO(rule-audit): набор сравнивается с поверхностной формой, поэтому «градус»,
+    «минута» и «секунда» в нём не срабатывают никогда — до них доходит только
+    словарная форма. Фактически правило живёт на «°». Именно поэтому «равен 45
+    градусам» решает правило существительного справа, а не это.
+    """
+    if ctx.idx >= ctx.visible_length - 1:
+        return None
+    if ctx.word(1) not in _ANGLE_AND_DEGREE_UNITS:
+        return None
+    for back in range(-1, max(-7, -ctx.idx - 1), -1):
+        if ctx.word(back) in _EQUALITY_PREDICATES:
+            return "datv"
+        if any(char in ctx.raw(back) for char in ".!?;:"):
+            break
+    return None
+
+
+def _rule_power_exponent(ctx: NumeralContext) -> str | None:
+    """«в степени 3» → «в степени три»: показатель степени не склоняется."""
+    if ctx.idx > 1 and ctx.word(-1) == "степени" and ctx.word(-2) == "в":
+        return "nomn"
+    return None
+
+
+def _rule_distance_from_landmark(ctx: NumeralContext) -> str | None:
+    """«в 200 м от дома» → «в двухстах метрах от дома».
+
+    Символ единицы не имеет своего падежа, поэтому управление в фразе никто не
+    сообщает и «в» иначе прочиталось бы винительным.
+    """
+    if not (ctx.idx > 0 and ctx.word(-1) == "в" and ctx.idx + 2 < ctx.visible_length):
+        return None
+    unit_word = ctx.raw(1).lower().strip(PUNCT_STRIP)
+    unit_offset = 2
+    is_unit = is_unit_token(unit_word)
+    if not is_unit and ctx.raw(unit_offset) == ".":
+        # Точка сокращения — отдельный токен: «в 75 в. от Казани».
+        is_unit = is_unit_token(f"{unit_word}.")
+        unit_offset += 1
+    if not (
+        is_unit
+        and ctx.idx + unit_offset < ctx.visible_length
+        and ctx.word(unit_offset) in _LANDMARK_MARKERS
+    ):
+        return None
+    era_follows = (
+        ctx.idx + unit_offset + 1 < ctx.visible_length
+        and ctx.word(unit_offset + 1) in _ERA_MARKER_WORDS
+    )
+    if not era_follows:
+        return "loct"
+    return None
+
+
+def _rule_coordinated_first_number(ctx: NumeralContext) -> str | None:
+    """Второе число сочинения берёт падеж первого: «с 5 и 7 книгами»."""
+    if not (ctx.idx > 1 and ctx.raw(-1) == "и"):
+        return None
+    for back in range(-2, max(-6, -ctx.idx - 1), -1):
+        if any(char in ctx.raw(back) for char in ".!?;:"):
+            break
+        if is_integer_token(ctx.raw(back)):
+            return _case_for(ctx.at(ctx.idx + back))
+    return None
+
+
+def _rule_range_right_boundary(ctx: NumeralContext) -> str | None:
+    """Правая граница диапазона повторяет падеж левой: «с 5-7 книгами»."""
+    if ctx.idx > 1 and ctx.raw(-1) in DASH_TOKENS and is_integer_token(ctx.raw(-2)):
+        return _case_for(ctx.at(ctx.idx - 2))
+    return None
+
+
+def _rule_fresh_quantity_after_dash(ctx: NumeralContext) -> str | None:
+    """Тире вместо опущенного сказуемого начинает новую величину.
+
+    «первый канал — 2 Мбит/с»: падеж прилагательного перед тире (особенно
+    неоднозначного «второй») наследовать нельзя.
+    """
+    if ctx.idx > 0 and ctx.raw(-1) in DASH_TOKENS:
+        return "nomn"
+    return None
+
+
+def _rule_range_start_governed_by_left(ctx: NumeralContext) -> str | None:
+    """Левая граница диапазона управляется словом перед ней: «в 3-5 квартирах»."""
+    if not (ctx.is_range_start and ctx.idx > 0):
+        return None
+    prev_token = ctx.raw(-1).strip(".,!?;:")
+    if not prev_token:
+        return None
+    p_prev = first_parse_required(prev_token)
+    if p_prev.tag.POS == "VERB" and p_prev.normal_form in _SCORE_VERBS:
+        return "nomn"
+    prev_case = "loct" if "loc2" in p_prev.tag else p_prev.tag.case
+    if not prev_case:
+        return None
+    if is_case_reliable_noun(p_prev):
+        if ctx.idx > 1:
+            prev_prev = ctx.word(-2)
+            if prev_prev in _LOCATIVE_PREPOSITIONS:
+                return "loct"
+            if prev_prev in PREP_CASE:
+                return PREP_CASE[prev_prev]
+        return prev_case
+    if p_prev.tag.POS in {"ADJF", "PRTF"}:
+        return prev_case
+    return None
+
+
+def _rule_label_prefix(ctx: NumeralContext) -> str | None:
+    """Обозначение-ярлык перед числом не склоняет его: «ISO 100», «f/2.8»."""
+    if ctx.idx > 0 and ctx.word(-1) in _LABEL_PREFIX_TOKENS:
+        return "nomn"
+    return None
+
+
+def _rule_numbering_head(ctx: NumeralContext) -> str | None:
+    """«том 5», «номер 7»: число называет объект, а не считает его.
+
+    TODO(rule-audit): «том» и «номер» есть и в `LABEL_NOUN_LEMMAS`, поэтому
+    правило дублирует `label-noun-head` — на два слова раньше и без разбора
+    морфологии. Проверить, не пропадёт ли что-нибудь, если убрать.
+    """
+    if ctx.idx > 0 and ctx.word(-1) in _NUMBERING_HEAD_TOKENS:
+        return "nomn"
+    return None
+
+
+def _rule_label_noun_head(ctx: NumeralContext) -> str | None:
+    """Существительное-ярлык слева оставляет число именительным: «рейс 213»."""
+    left_noun = ctx.parse(-1)
+    if left_noun is None:
+        return None
+    if is_case_reliable_noun(left_noun) and left_noun.normal_form in LABEL_NOUN_LEMMAS:
+        return "nomn"
+    return None
+
+
+def _rule_genitive_quantity_governor(ctx: NumeralContext) -> str | None:
+    """Вершина количества требует родительного: «более 100 человек»."""
+    left_noun = ctx.parse(-1)
+    if left_noun is None:
+        return None
+    if (
+        is_case_reliable_noun(left_noun)
+        and left_noun.normal_form in GENITIVE_QUANTITY_GOVERNORS
+        and left_noun.tag.case in {"nomn", "gent"}
+    ):
+        return "gent"
+    return None
+
+
+def _rule_locative_quantity_head(ctx: NumeralContext) -> str | None:
+    """«в возрасте 25 лет» → «в возрасте двадцати пяти лет».
+
+    Предлог помечает существительное, а не количество, поэтому предложный падеж
+    вершины до числа не доходит.
+    """
+    if ctx.idx <= 1:
+        return None
+    left_noun = ctx.parse(-1)
+    if left_noun is None:
+        return None
+    if (
+        is_case_reliable_noun(left_noun)
+        and left_noun.normal_form in LOCATIVE_GENITIVE_QUANTITY_HEADS
+        and (left_noun.tag.case == "loct" or "loc2" in left_noun.tag)
+        and ctx.word(-2) in {"в", "во"}
+    ):
+        return "gent"
+    return None
+
+
+def _rule_measure_parameter_head(ctx: NumeralContext) -> str | None:
+    """Измерение после слова-параметра — приложение в именительном.
+
+    «при температуре 660 градусов Цельсия», «со скоростью 60 километров в час».
+    Требование счётной группы держит правило на настоящих измерениях: справа
+    обязана стоять единица или считаемое слово в нужной форме.
+    """
+    left_noun = ctx.parse(-1)
+    if left_noun is None:
+        return None
+    if (
+        is_case_reliable_noun(left_noun)
+        and left_noun.normal_form in MEASURE_PARAMETER_HEADS
+        and _is_counting_group(ctx.tokens, ctx.idx, ctx.visible_length)
+    ):
+        return "nomn"
+    return None
+
+
+def _rule_oblique_noun_before_bare_number(ctx: NumeralContext) -> str | None:
+    """Косвенное существительное рядом сильнее неоднозначного предлога вдали.
+
+    «на частоте 3,2» и «при напряжении 1,15» — предложный, а те же предлоги
+    перед числом без существительного остаются во власти контекста.
+
+    Субстантивированное прилагательное исключено: «в среднем», «в целом», «в
+    общем» — наречные обороты, они ничем не управляют, но каждый разбирается как
+    прилагательное, в отличие от настоящей вершины измерения вроде «частоте».
+
+    TODO(rule-audit): правило писалось под дробь, но целое число ловит тоже, и
+    тогда читает неверно: «на частоте 3 передатчик» → «на частоте трёх
+    передатчик». См. xfail `bare_integer_after_oblique_measurement_head` в
+    `tests/test_known_gaps.py`.
+    """
+    if ctx.idx <= 1:
+        return None
+    left_noun = ctx.parse(-1)
+    if left_noun is None:
+        return None
+    if (
+        is_case_reliable_noun(left_noun)
+        and not _is_counting_group(ctx.tokens, ctx.idx, ctx.visible_length)
+        and not any("ADJF" in candidate.tag for candidate in parse_word(ctx.word(-1)))
+        and (
+            left_noun.tag.case in {"gent", "datv", "ablt", "loct"}
+            or "loc2" in left_noun.tag
+        )
+        and ctx.idx + 1 < ctx.visible_length
+        and ctx.word(1)
+        and ctx.word(-2) in {"в", "во", "на", "о", "об", "при"}
+    ):
+        return "loct" if "loc2" in left_noun.tag else left_noun.tag.case
+    return None
+
+
+def _rule_coordinated_second_noun(ctx: NumeralContext) -> str | None:
+    """В сочинённом количестве второе существительное управляет обоими числами.
+
+    «управление 3 и 5 заводами». Родительное существительное здесь не годится:
+    это обычная счётная группа («три и пять книг»), а не управление.
+    """
+    if not (ctx.idx + 2 < ctx.visible_length and ctx.word(1) == "и"):
+        return None
+    for offset in range(2, min(ctx.visible_length - ctx.idx, 6)):
+        raw = ctx.raw(offset)
+        token = raw.strip(".,!?;:()[]{}")
+        if not token:
+            continue
+        if any(char in raw for char in ".!?;:"):
+            break
+        parsed = parse_word(token)
+        p_noun = select_parse(parsed, pos="NOUN")
+        if p_noun is not None and is_case_reliable_noun(p_noun):
+            noun_case = "loct" if "loc2" in p_noun.tag else p_noun.tag.case
+            if noun_case in {"datv", "ablt", "loct"}:
+                return noun_case
+            break
+        p = first_parse_required(token)
+        if p.tag.POS in {"VERB", "INFN"}:
+            break
+    return None
+
+
+def _rule_preposition_before_number(ctx: NumeralContext) -> str | None:
+    """Предлог перед числом: «с 5 по 10», «в 1995 году», «по 5 рублей».
+
+    Ветка одна, потому что все её случаи решают один вопрос — какой падеж
+    требует предлог, — и разные предлоги отвечают на него по-разному, глядя
+    вправо.
+    """
+    prep_match = _get_preposition_before_number(ctx.tokens, ctx.idx)
+    if prep_match is None:
+        return None
+    word_left, prep_case = prep_match
+    if word_left in {"с", "со"}:
+        for offset in range(1, min(ctx.visible_length - ctx.idx, 5)):
+            if ctx.raw(offset).lower() in {"до", "по"}:
+                return "gent"
+            right_parse = first_parse_required(ctx.raw(offset))
+            if is_case_reliable_noun(right_parse):
+                if right_parse.tag.case == "ablt":
+                    return "ablt"
+                break
+    if word_left in {"в", "на"}:
+        for offset in range(1, min(ctx.visible_length - ctx.idx, 6)):
+            raw = ctx.raw(offset)
+            if any(char in raw for char in ".!?;:,"):
+                break
+            p = first_parse_required(raw)
+            if is_case_reliable_noun(p):
+                if p.tag.case == "loct" or "loc2" in p.tag:
+                    return "loct"
+                is_loc = p.inflect({"loct"})
+                is_acc = p.inflect({"accs"})
+                word_curr = raw.lower()
+                if is_loc and is_loc.word == word_curr:
+                    return "loct"
+                if is_acc and is_acc.word == word_curr:
+                    return "accs"
+            if "VERB" in p.tag or "INFN" in p.tag:
+                break
+        for offset in range(1, min(ctx.visible_length - ctx.idx, 4)):
+            p = first_parse_required(ctx.raw(offset))
+            if p.normal_form in _TIME_CONTEXT_LEMMAS:
+                if is_integer_token(ctx.token):
+                    parsed_num = parse_integer_token(ctx.token)
+                    if parsed_num is None:
+                        return "loct"
+                    _, unsigned = parsed_num
+                    val = int(unsigned)
+                    return "loct" if 1000 <= val <= 2100 else "accs"
+                return "loct"
+        return "accs"
+    if word_left == "по":
+        if is_integer_token(ctx.token):
+            parsed_num = parse_integer_token(ctx.token)
+            if parsed_num is None:
+                return "datv"
+            _, unsigned = parsed_num
+            val = int(unsigned)
+            if val % 10 == 1 and val % 100 != 11:
+                return "datv"
+            return "accs"
+        return "datv"
+    return prep_case
+
+
+def _rule_passive_participle_predicate(ctx: NumeralContext) -> str | None:
+    """Краткое страдательное причастие — сказуемое, а не источник управления.
+
+    «перечислены 3 причины»: подлежащее в именительном.
+    """
+    for i in range(ctx.idx - 1, max(ctx.left_scan_start - 1, ctx.idx - 3), -1):
+        p = first_parse_required(ctx.tokens[i])
+        if p.tag.POS == "PRTS" and "pssv" in p.tag:
+            return "nomn"
+        if p.tag.POS in {"NOUN", "ADJF", "PRTF"}:
+            break
+    return None
+
+
+def _rule_adjective_agreement(ctx: NumeralContext) -> str | None:
+    """Прилагательное слева задаёт падеж, если справа нет счётной группы.
+
+    «с двумя основными задачами». Существительное между прилагательным и числом
+    отменяет правило: тогда прилагательное относится к нему, а не к числу.
+    """
+    if _is_counting_group(ctx.tokens, ctx.idx, ctx.visible_length):
+        return None
+    blocked_by_noun = False
+    local_left_scan_start = ctx.left_scan_start
+    for i in range(ctx.idx - 1, max(ctx.left_scan_start - 1, ctx.idx - 3), -1):
+        p = first_parse_required(ctx.tokens[i])
+        if p.tag.POS in MORPHOLOGICAL_CONTEXT_BARRIER_POS:
+            local_left_scan_start = i + 1
+            break
+        if p.tag.POS == "NOUN":
+            blocked_by_noun = True
+            break
+    for i in range(max(local_left_scan_start, ctx.idx - 2), ctx.idx):
+        p = first_parse_required(ctx.tokens[i])
+        if blocked_by_noun and p.tag.POS in {"ADJF", "PRTF"}:
+            continue
+        if p.tag.POS in {"ADJF", "PRTF"} and p.tag.case:
+            return p.tag.case
+    return None
+
+
+def _rule_verb_government(ctx: NumeralContext) -> str | None:
+    """Глагол слева управляет числом: «заплатили одну тысячу».
+
+    Полные причастия («ожидаемый», «требуемый») — определения к следующему
+    существительному, а не источники управления; их разбирает правило
+    прилагательных, и число остаётся в падеже сказуемого.
+    """
+    for i in range(ctx.idx - 1, max(ctx.left_scan_start - 1, ctx.idx - 5), -1):
+        word_left = ctx.tokens[i].lower().strip(".,!?;:")
+        parsed_left = parse_word(word_left)
+        top_verbs = top_scoring_verb_parses(parsed_left)
+        for candidate in top_verbs:
+            if candidate.normal_form in VERB_CASE:
+                return VERB_CASE[candidate.normal_form]
+        # pymorphy помечает переходные глаголы грамемой ``tran``, поэтому обычному
+        # прямому объекту список глаголов не нужен. Глаголы, требующие другого
+        # падежа, перечислены в VERB_CASE выше и уже разобраны. Винительный меняет
+        # чтение только у числа, последняя группа которого кончается на 1
+        # («заплатили одну тысячу»); ``inanimate_cardinal_case`` оставляет
+        # остальные окончания такими же, как в именительном. Непереходное чтение
+        # среди равновероятных блокирует винительный: «пришли» — это и «прийти»,
+        # и повелительное от «прислать», и управляет только второе.
+        if top_verbs and all("tran" in candidate.tag for candidate in top_verbs):
+            return "accs"
+        if any(char in ctx.tokens[i] for char in ".!?"):
+            break
+    return None
+
+
+def _rule_entity_keyword_default(ctx: NumeralContext) -> str | None:
+    """Ключевое слово справа задаёт падеж по типу сущности: «дом 5», «рейс 213».
+
+    TODO(rule-audit): это правило и следующее разбирают одного и того же соседа
+    справа и проверяют одно и то же условие косвенности — просят разбор дважды.
+
+    Если справа стоит существительное в косвенном падеже, оно сильнее: там
+    управление, а не ярлык.
+    """
+    if ctx.idx >= ctx.visible_length - 1:
+        return None
+    word_right = ctx.raw(1).lower().strip(".,!?;:")
+    if not word_right:
+        return None
+    p_right = first_parse_required(word_right)
+    noun_case = p_right.tag.case
+    if is_case_reliable_noun(p_right) and (
+        noun_case in {"gent", "datv", "ablt", "loct"} or "loc2" in p_right.tag
+    ):
+        return None
+    for entity_type, keywords in ENTITY_KEYWORDS.items():
+        if p_right.normal_form in keywords or word_right in keywords:
+            return ENTITY_DEFAULT_CASE[entity_type]
+    return None
+
+
+def _rule_oblique_noun_on_the_right(ctx: NumeralContext) -> str | None:
+    """Существительное справа в косвенном падеже управляет числом.
+
+    «5 книгами» → «пятью книгами».
+    """
+    if ctx.idx >= ctx.visible_length - 1:
+        return None
+    word_right = ctx.raw(1).lower().strip(".,!?;:")
+    if not word_right:
+        return None
+    p_right = first_parse_required(word_right)
+    if not is_case_reliable_noun(p_right):
+        return None
+    noun_case = p_right.tag.case
+    if noun_case in {"datv", "ablt", "loct"} or "loc2" in p_right.tag:
+        return "loct" if noun_case == "loct" or "loc2" in p_right.tag else noun_case
+    return None
+
+
+#: Порядок — контракт: верхнее правило заслоняет нижние, и это единственная
+#: документация приоритетов. Список получен механическим переносом ветвей
+#: `get_numeral_case` сверху вниз, порядок сохранён буква в букву.
+CASE_RULES: tuple[CaseRule, ...] = (
+    CaseRule("operand-after-arithmetic-verb", _rule_operand_after_arithmetic_verb),
+    CaseRule("operand-before-multiplication", _rule_operand_before_multiplication),
+    CaseRule("ratio-left-operand", _rule_ratio_left_operand),
+    CaseRule("dimension-first-coordinate", _rule_dimension_first_coordinate),
+    CaseRule("temperature-equality", _rule_temperature_equality),
+    CaseRule("comparison-or-equal", _rule_comparison_or_equal),
+    CaseRule("equality-before-degree-unit", _rule_equality_before_degree_unit),
+    CaseRule("power-exponent", _rule_power_exponent),
+    CaseRule("distance-from-landmark", _rule_distance_from_landmark),
+    CaseRule("coordinated-first-number", _rule_coordinated_first_number),
+    CaseRule("range-right-boundary", _rule_range_right_boundary),
+    CaseRule("fresh-quantity-after-dash", _rule_fresh_quantity_after_dash),
+    CaseRule("range-start-governed-by-left", _rule_range_start_governed_by_left),
+    CaseRule("label-prefix", _rule_label_prefix),
+    CaseRule("numbering-head", _rule_numbering_head),
+    CaseRule("label-noun-head", _rule_label_noun_head),
+    CaseRule("genitive-quantity-governor", _rule_genitive_quantity_governor),
+    CaseRule("locative-quantity-head", _rule_locative_quantity_head),
+    CaseRule("measure-parameter-head", _rule_measure_parameter_head),
+    CaseRule("oblique-noun-before-bare-number", _rule_oblique_noun_before_bare_number),
+    CaseRule("coordinated-second-noun", _rule_coordinated_second_noun),
+    CaseRule("preposition-before-number", _rule_preposition_before_number),
+    CaseRule("passive-participle-predicate", _rule_passive_participle_predicate),
+    CaseRule("adjective-agreement", _rule_adjective_agreement),
+    CaseRule("verb-government", _rule_verb_government),
+    CaseRule("entity-keyword-default", _rule_entity_keyword_default),
+    CaseRule("oblique-noun-on-the-right", _rule_oblique_noun_on_the_right),
+)
+
+
+#: Тот же список, развёрнутый в функции: по нему идёт горячий цикл.
+_CASE_DECIDERS = deciders(CASE_RULES)
+
+
+def _case_for(ctx: NumeralContext) -> str:
+    """Падеж числа в готовом контексте.
+
+    Ничего не сработало — голое число стоит предикатом и остаётся именительным.
+    Дательный слева («Мне уже 40.») его за собой не тянет.
+    """
+    return run_rules(_CASE_DECIDERS, ctx) or "nomn"
+
+
 def get_numeral_case(
     tokens: list[str],
     idx: int,
@@ -817,373 +1422,4 @@ def get_numeral_case(
     if _context is None:
         _context = _build_numeral_token_context(tokens)
     visible_length = len(tokens) if _visible_length is None else min(_visible_length, len(tokens))
-    is_range_start = (
-        idx < visible_length - 1 and tokens[idx + 1] in {"-", "–", "—"}
-    )
-    left_scan_start = _context.left_scan_starts[idx]
-
-    if (
-        idx > 1
-        and normalize_context_token(tokens[idx - 1]) == "на"
-        and normalize_context_token(tokens[idx - 2]) in {"умножить", "разделить"}
-    ):
-        return "nomn"
-    if (
-        idx + 2 < visible_length
-        and normalize_context_token(tokens[idx + 1]) in {"×", "умножить"}
-        and normalize_context_token(tokens[idx + 2]) == "на"
-    ):
-        return "nomn"
-    if (
-        idx + 2 < visible_length
-        and normalize_context_token(tokens[idx + 1]) == "к"
-        and is_integer_token(tokens[idx + 2])
-    ):
-        # The left operand of a ratio is independent of a preceding context:
-        # "в масштабе 1 к пятидесяти" keeps "один", not the locative form
-        # inherited from "в масштабе".
-        return "nomn"
-    if (
-        idx + 2 < visible_length
-        and normalize_context_token(tokens[idx + 1]) == "на"
-        and is_integer_token(tokens[idx + 2])
-    ):
-        # In a resolution/dimension construction the first coordinate is a
-        # label-like nominative: "разрешение 2560 на 1440 пикселей".  A bare
-        # "число на число" remains governed by the ordinary context rules.
-        for back in range(idx - 1, max(-1, idx - 5), -1):
-            if any(char in tokens[back] for char in ".!?;:"):
-                break
-            if normalize_context_token(tokens[back]) in {
-                "размер",
-                "размером",
-                "разрешение",
-                "габарит",
-                "габаритами",
-                "ширина",
-                "высота",
-            }:
-                return "nomn"
-    if (
-        idx > 0
-        and normalize_context_token(tokens[idx - 1]) == "равно"
-        and idx + 2 < visible_length
-        and normalize_context_token(tokens[idx + 1]) == "°"
-        and normalize_context_token(tokens[idx + 2]) in {"с", "c", "f", "к", "k"}
-    ):
-        # Temperature equality uses the dative: "равно ста семидесяти семи
-        # градусам Цельсия". Plain equations keep their established
-        # nominative operands.
-        return "datv"
-    if idx >= 3:
-        comparison = " ".join(
-            normalize_context_token(token) for token in tokens[idx - 3 : idx]
-        )
-        if comparison in {"больше или равно", "меньше или равно"}:
-            return "gent"
-    if idx < visible_length - 1:
-        next_unit = normalize_context_token(tokens[idx + 1])
-        if next_unit in {"°", "градус", "мин", "минута", "сек", "секунда"}:
-            for back in range(idx - 1, max(-1, idx - 7), -1):
-                previous = normalize_context_token(tokens[back])
-                if previous in {"равен", "равна", "равно"}:
-                    return "datv"
-                if any(char in tokens[back] for char in ".!?;:"):
-                    break
-    if (
-        idx > 1
-        and normalize_context_token(tokens[idx - 1]) == "степени"
-        and normalize_context_token(tokens[idx - 2]) == "в"
-    ):
-        return "nomn"
-
-    if idx > 0 and normalize_context_token(tokens[idx - 1]) == "в" and idx + 2 < visible_length:
-        # A distance measured off a landmark is locative: «в 200 м от дома» →
-        # «в двухстах метрах от дома». A unit symbol carries no case of its own,
-        # so nothing else in the phrase reports the government and «в» would
-        # otherwise fall back to its accusative reading.
-        unit_word = tokens[idx + 1].lower().strip(PUNCT_STRIP)
-        unit_end = idx + 2
-        is_unit = is_unit_token(unit_word)
-        if not is_unit and tokens[unit_end] == ".":
-            # Точка сокращения — отдельный токен: «в 75 в. от Казани».
-            is_unit = is_unit_token(f"{unit_word}.")
-            unit_end += 1
-        if (
-            is_unit
-            and unit_end < visible_length
-            and normalize_context_token(tokens[unit_end]) in {"от", "до"}
-        ):
-            # «до нашей эры» / «до Рождества Христова» — эра, а не ориентир,
-            # от которого отмеряют расстояние: «в 5 в. до н. э.».
-            era_follows = unit_end + 1 < visible_length and normalize_context_token(
-                tokens[unit_end + 1]
-            ) in {"нашей", "н", "нэ", "р", "рождества"}
-            if not era_follows:
-                return "loct"
-
-    if idx > 1 and tokens[idx - 1] == "и":
-        for back in range(idx - 2, max(-1, idx - 6), -1):
-            if any(char in tokens[back] for char in ".!?;:"):
-                break
-            if is_integer_token(tokens[back]):
-                return get_numeral_case(
-                    tokens, back, _context=_context, _visible_length=visible_length
-                )
-    if idx > 1 and tokens[idx - 1] in {"-", "–", "—"} and is_integer_token(tokens[idx - 2]):
-        return get_numeral_case(
-            tokens, idx - 2, _context=_context, _visible_length=visible_length
-        )
-    if idx > 0 and tokens[idx - 1] in {"-", "–", "—"}:
-        # An em dash after an elided subject/predicate starts a fresh quantity:
-        # "первый канал — 2 Мбит/с". Do not inherit an accidental pymorphy
-        # case from the adjective before the dash (notably ambiguous "второй").
-        return "nomn"
-
-    if is_range_start and idx > 0:
-        prev_token = tokens[idx - 1].strip(".,!?;:")
-        if prev_token:
-            p_prev = first_parse_required(prev_token)
-            if p_prev.tag.POS == "VERB" and p_prev.normal_form in {
-                "выиграть",
-                "победить",
-            }:
-                return "nomn"
-            prev_case = "loct" if "loc2" in p_prev.tag else p_prev.tag.case
-            if prev_case:
-                if is_case_reliable_noun(p_prev):
-                    if idx > 1:
-                        prev_prev = normalize_context_token(tokens[idx - 2])
-                        if prev_prev in {"в", "во", "о", "об", "при"}:
-                            return "loct"
-                        if prev_prev in PREP_CASE:
-                            return PREP_CASE[prev_prev]
-                    return prev_case
-                if p_prev.tag.POS in {"ADJF", "PRTF"}:
-                    return prev_case
-
-    if idx > 0:
-        immediate_left = normalize_context_token(tokens[idx - 1])
-        if immediate_left:
-            if immediate_left in {"iso", "f"}:
-                return "nomn"
-            if immediate_left in {"том", "номер"}:
-                return "nomn"
-            left_noun = first_parse_required(immediate_left)
-            if (
-                is_case_reliable_noun(left_noun)
-                and left_noun.normal_form in LABEL_NOUN_LEMMAS
-            ):
-                return "nomn"
-            if (
-                is_case_reliable_noun(left_noun)
-                and left_noun.normal_form in GENITIVE_QUANTITY_GOVERNORS
-                and left_noun.tag.case in {"nomn", "gent"}
-            ):
-                return "gent"
-            # A relational quantity noun inside the «в …» frame takes a genitive
-            # complement: «в возрасте двадцати пяти лет». The preposition marks
-            # the noun, not the quantity, so its own locative never reaches the
-            # number.
-            if (
-                is_case_reliable_noun(left_noun)
-                and left_noun.normal_form in LOCATIVE_GENITIVE_QUANTITY_HEADS
-                and (left_noun.tag.case == "loct" or "loc2" in left_noun.tag)
-                and idx > 1
-                and normalize_context_token(tokens[idx - 2]) in {"в", "во"}
-            ):
-                return "gent"
-            # A parameter noun is named by the measurement that follows it, so
-            # the measurement is an apposition in the nominative: «при
-            # температуре шестьсот шестьдесят градусов Цельсия», «со скоростью
-            # шестьдесят километров в час». Requiring a counting group keeps
-            # this to real measurements: a unit or a counted word in the form
-            # the nominative numeral demands has to follow.
-            if (
-                is_case_reliable_noun(left_noun)
-                and left_noun.normal_form in MEASURE_PARAMETER_HEADS
-                and _is_counting_group(tokens, idx, visible_length)
-            ):
-                return "nomn"
-            # An oblique noun immediately before a decimal or a bare number is
-            # a stronger local signal than an ambiguous preposition farther to
-            # the left: "на частоте 3,2" and "при напряжении 1,15" are
-            # locative, while the same prepositions before a numeral without a
-            # noun remain context-dependent.
-            #
-            # A substantivized adjective is excluded: "в среднем", "в целом" and
-            # "в общем" are adverbial phrases that govern nothing, and every one
-            # of them still parses as an adjective, unlike a real measurement
-            # noun such as "частоте".
-            if (
-                is_case_reliable_noun(left_noun)
-                and not _is_counting_group(tokens, idx, visible_length)
-                and not any(
-                    "ADJF" in candidate.tag for candidate in parse_word(immediate_left)
-                )
-                and (
-                    left_noun.tag.case in {"gent", "datv", "ablt", "loct"}
-                    or "loc2" in left_noun.tag
-                )
-                and idx + 1 < visible_length
-                and normalize_context_token(tokens[idx + 1])
-                and idx > 1
-                and normalize_context_token(tokens[idx - 2])
-                in {"в", "во", "на", "о", "об", "при"}
-            ):
-                return "loct" if "loc2" in left_noun.tag else left_noun.tag.case
-
-    # In a coordinated quantity the second noun governs both numerals:
-    # "управление 3 и 5 заводами".  Do not use a genitive noun here: it is the
-    # ordinary counted-noun construction ("три и пять книг"), not government.
-    if idx + 2 < visible_length and normalize_context_token(tokens[idx + 1]) == "и":
-        for j in range(idx + 2, min(visible_length, idx + 6)):
-            token = tokens[j].strip(".,!?;:()[]{}")
-            if not token:
-                continue
-            if any(char in tokens[j] for char in ".!?;:"):
-                break
-            parsed = parse_word(token)
-            p_noun = select_parse(parsed, pos="NOUN")
-            if p_noun is not None and is_case_reliable_noun(p_noun):
-                noun_case = "loct" if "loc2" in p_noun.tag else p_noun.tag.case
-                if noun_case in {"datv", "ablt", "loct"}:
-                    return noun_case
-                break
-            p = first_parse_required(token)
-            if p.tag.POS in {"VERB", "INFN"}:
-                break
-
-    prep_match = _get_preposition_before_number(tokens, idx)
-    if prep_match is not None:
-        word_left, prep_case = prep_match
-        if word_left in {"с", "со"}:
-            for k in range(idx + 1, min(visible_length, idx + 5)):
-                if tokens[k].lower() in {"до", "по"}:
-                    return "gent"
-                right_parse = first_parse_required(tokens[k])
-                if is_case_reliable_noun(right_parse):
-                    if right_parse.tag.case == "ablt":
-                        return "ablt"
-                    break
-        if word_left in {"в", "на"}:
-            for j in range(idx + 1, min(visible_length, idx + 6)):
-                if any(char in tokens[j] for char in ".!?;:,"):
-                    break
-                p = first_parse_required(tokens[j])
-                if is_case_reliable_noun(p):
-                    if p.tag.case == "loct" or "loc2" in p.tag:
-                        return "loct"
-                    is_loc = p.inflect({"loct"})
-                    is_acc = p.inflect({"accs"})
-                    word_curr = tokens[j].lower()
-                    if is_loc and is_loc.word == word_curr:
-                        return "loct"
-                    if is_acc and is_acc.word == word_curr:
-                        return "accs"
-                if "VERB" in p.tag or "INFN" in p.tag:
-                    break
-            for j in range(idx + 1, min(visible_length, idx + 4)):
-                p = first_parse_required(tokens[j])
-                word_norm = p.normal_form
-                if word_norm in _TIME_CONTEXT_LEMMAS:
-                    if is_integer_token(tokens[idx]):
-                        parsed_num = parse_integer_token(tokens[idx])
-                        if parsed_num is None:
-                            return "loct"
-                        _, unsigned = parsed_num
-                        val = int(unsigned)
-                        return "loct" if 1000 <= val <= 2100 else "accs"
-                    return "loct"
-            return "accs"
-        if word_left == "по":
-            if is_integer_token(tokens[idx]):
-                parsed_num = parse_integer_token(tokens[idx])
-                if parsed_num is None:
-                    return "datv"
-                _, unsigned = parsed_num
-                val = int(unsigned)
-                if val % 10 == 1 and val % 100 != 11:
-                    return "datv"
-                return "accs"
-            return "datv"
-        return prep_case
-
-    blocked_by_noun = False
-    local_left_scan_start = left_scan_start
-    for i in range(idx - 1, max(left_scan_start - 1, idx - 3), -1):
-        p = first_parse_required(tokens[i])
-        if p.tag.POS in MORPHOLOGICAL_CONTEXT_BARRIER_POS:
-            local_left_scan_start = i + 1
-            break
-        if p.tag.POS == "NOUN":
-            blocked_by_noun = True
-            break
-
-    # A short passive participle is a predicate, not a government source for a
-    # following numeral: "перечислены 3 причины" has a nominative subject.
-    for i in range(idx - 1, max(left_scan_start - 1, idx - 3), -1):
-        p = first_parse_required(tokens[i])
-        if p.tag.POS == "PRTS" and "pssv" in p.tag:
-            return "nomn"
-        if p.tag.POS in {"NOUN", "ADJF", "PRTF"}:
-            break
-
-    if not _is_counting_group(tokens, idx, visible_length):
-        for i in range(max(local_left_scan_start, idx - 2), idx):
-            p = first_parse_required(tokens[i])
-            if blocked_by_noun and p.tag.POS in {"ADJF", "PRTF"}:
-                continue
-            if p.tag.POS in {"ADJF", "PRTF"} and p.tag.case:
-                return p.tag.case
-
-    for i in range(idx - 1, max(left_scan_start - 1, idx - 5), -1):
-        word_left = tokens[i].lower().strip(".,!?;:")
-        parsed_left = parse_word(word_left)
-        # Full participles ("ожидаемый", "требуемый") are attributive modifiers of
-        # a following noun, not governors of the numeral's case; leave them to the
-        # adjective scan so the numeral stays in its predicate (nominative) case.
-        top_verbs = top_scoring_verb_parses(parsed_left)
-        for candidate in top_verbs:
-            if candidate.normal_form in VERB_CASE:
-                return VERB_CASE[candidate.normal_form]
-        # pymorphy marks transitive verbs with ``tran``, so an ordinary direct
-        # object needs no verb allow-list. Verbs that govern another case are
-        # listed in VERB_CASE above and are already resolved. The accusative
-        # only changes the rendered numeral when its last group ends in 1
-        # ("заплатили одну тысячу"); ``inanimate_cardinal_case`` keeps every
-        # other ending identical to the nominative. An intransitive reading among
-        # the equally likely ones blocks the accusative: "пришли" is both
-        # "прийти" and the imperative of "прислать", and only the latter governs.
-        if top_verbs and all("tran" in candidate.tag for candidate in top_verbs):
-            return "accs"
-        if any(char in tokens[i] for char in ".!?"):
-            break
-
-    if idx < visible_length - 1:
-        word_right = tokens[idx + 1].lower().strip(".,!?;:")
-        if word_right:
-            p_right = first_parse_required(word_right)
-            noun_case = p_right.tag.case
-            if not (
-                is_case_reliable_noun(p_right)
-                and (noun_case in {"gent", "datv", "ablt", "loct"} or "loc2" in p_right.tag)
-            ):
-                for entity_type, keywords in ENTITY_KEYWORDS.items():
-                    if p_right.normal_form in keywords or word_right in keywords:
-                        return ENTITY_DEFAULT_CASE[entity_type]
-
-    if idx < visible_length - 1:
-        word_right = tokens[idx + 1].lower().strip(".,!?;:")
-        if word_right:
-            p_right = first_parse_required(word_right)
-            if is_case_reliable_noun(p_right):
-                noun_case = p_right.tag.case
-                if noun_case in {"datv", "ablt", "loct"} or "loc2" in p_right.tag:
-                    return "loct" if noun_case == "loct" or "loc2" in p_right.tag else noun_case
-
-    # Nothing else governs the numeral: a bare number is a predicate and stays
-    # nominative. A dative on the left ("Мне уже 40.") does not pull it along.
-    return "nomn"
-
-
+    return _case_for(NumeralContext(tokens, idx, visible_length, _context.left_scan_starts))
