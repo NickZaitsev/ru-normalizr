@@ -105,10 +105,18 @@ def test_num2words_failure_is_visible_at_warning_level(
     monkeypatch.setattr(num2words, "num2words", always_fails)
     monkeypatch.setattr(_helpers.num2words, "num2words", always_fails, raising=False)
 
-    with caplog.at_level(logging.WARNING, logger="ru_normalizr"):
-        # Одно и то же число трижды: каждое место сбоя предупреждает один раз,
-        # а не по разу на каждое вхождение.
-        normalize("Прошло 17 лет, потом ещё 17 лет и снова 17 лет.", NormalizeOptions.tts())
+    # Рендеринг числительных запоминается на весь процесс. Если «17» уже отрендерил
+    # какой-то тест раньше, `num2words` для него больше не вызовут и сбоя не будет —
+    # тест зависел бы от порядка. Сбросить нужно и после: иначе в кэше останется
+    # результат сорванного рендеринга и «17» перестанет читаться у соседних тестов.
+    _helpers._inflect_numeral_string_cached.cache_clear()
+    try:
+        with caplog.at_level(logging.WARNING, logger="ru_normalizr"):
+            # Одно и то же число трижды: каждое место сбоя предупреждает один раз,
+            # а не по разу на каждое вхождение.
+            normalize("Прошло 17 лет, потом ещё 17 лет и снова 17 лет.", NormalizeOptions.tts())
+    finally:
+        _helpers._inflect_numeral_string_cached.cache_clear()
 
     messages = [
         record.getMessage()
