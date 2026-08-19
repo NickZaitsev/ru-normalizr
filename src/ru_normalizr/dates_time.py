@@ -8,7 +8,8 @@ import num2words
 from .abbreviation_context import should_keep_terminal_abbreviation_dot
 from .options import NormalizeOptions
 from .text_scan import compile_scan
-from .years import year_to_ordinal_words
+from .years import _counted_noun_follows, year_to_ordinal_words
+from .years_context import is_plausible_year
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +27,25 @@ MONTHS_GENT = {
     "ноября": 11,
     "декабря": 12,
 }
+# Дореформенные написания родительного падежа месяцев. Ключ — то, что стоит в
+# тексте; значение — что читать вслух: «і» произносится как «и» и остаётся в
+# авторской орфографии, а «маия»-подобные формы сводятся к современному «мая».
+PRE_REFORM_MONTHS_GENT = {
+    "іюня": "іюня",
+    "іюля": "іюля",
+    "маия": "мая",
+    "маія": "мая",
+}
 MONTH_NAME_FRAGMENT = (
-    r"(?:" + "|".join(map(re.escape, MONTHS_GENT)) + r")(?![а-яё])"
+    r"(?:"
+    + "|".join(map(re.escape, (*MONTHS_GENT, *PRE_REFORM_MONTHS_GENT)))
+    + r")(?![а-яёі])"
 )
+
+
+def _month_output(raw: str) -> str:
+    lowered = raw.lower()
+    return PRE_REFORM_MONTHS_GENT.get(lowered, lowered)
 # The era word is optional but the whitespace in front of it is not: consuming a
 # trailing space without the word leaves the rendered date glued to whatever
 # follows ("две тысячи двадцатого годаг."). The alternation matches the shape the
@@ -69,10 +86,26 @@ TEXT_DATE_LIST_PATTERN = compile_scan(
     re.IGNORECASE,
 )
 TEXT_DATE_PATTERN = compile_scan(
-    r"\b(?:(?P<prep>перед)\s+)?(?P<day>\d{1,2})\s+(?P<month>"
+    r"\b(?:(?P<prep>перед|на)\s+)?(?P<day>\d{1,2})\s+(?P<month>"
     + MONTH_NAME_FRAGMENT
     + r")"
     + YEAR_TAIL_FRAGMENT,
+    re.IGNORECASE,
+)
+# «Октября 24» — сначала месяц, потом день; порядок принят в старых документах.
+# Ретроспектива «1 октября 24 …» отсекается запретом цифры перед месяцем.
+MONTH_FIRST_DATE_PATTERN = compile_scan(
+    r"(?<![\w.])(?<!\d )(?P<month>"
+    + MONTH_NAME_FRAGMENT
+    + r")\s+(?P<day>0?[1-9]|[12]\d|3[01])(?!\d)(?![.,:]\d)(?!\s*[-–—/%])(?!-)",
+    re.IGNORECASE,
+)
+# «7/18 июля» — двойная дата по старому и новому стилю; разница между числами
+# равна накопленному расхождению календарей (10–13 дней).
+SLASH_DOUBLE_DATE_PATTERN = compile_scan(
+    r"(?<![\w.,])(?P<day1>0?[1-9]|[12]\d|3[01])/(?P<day2>0?[1-9]|[12]\d|3[01])\s+(?P<month>"
+    + MONTH_NAME_FRAGMENT
+    + r")",
     re.IGNORECASE,
 )
 MONTHS_GENT_BY_NUMBER = {
@@ -134,6 +167,12 @@ ISO_DATE_PATTERN = compile_scan(
 )
 TIME_PATTERN = compile_scan(
     r"\b(?P<hour>[01]?\d|2[0-3]):(?P<minute>[0-5]\d)(?::(?P<second>[0-5]\d))?\b"
+)
+# «В 2:30 часа утра» — слово «час» уже стоит в тексте, поэтому время читается
+# развёрнуто («два часа тридцать минут»), а не перечислением через запятую.
+TIME_WITH_HOUR_WORD_PATTERN = compile_scan(
+    r"\b(?P<hour>[01]?\d|2[0-3]):(?P<minute>[0-5]\d)\s+(?P<hword>час(?:а|ов|у)?)(?![а-яё])",
+    re.IGNORECASE,
 )
 DOTTED_TIME_PATTERN = compile_scan(
     r"\b(?P<hour>[01]?\d|2[0-3])\.(?P<minute>[0-5]\d)\b",
@@ -207,6 +246,10 @@ def _date_year_tail(source_text: str, match: re.Match[str], year: str) -> str:
     """
     if _DUAL_DATING_TAIL_PATTERN.match(source_text, match.end()):
         return f" {year}"
+    # Число вне диапазона правдоподобных годов без явного слова «год» — не год:
+    # в «до 1 февраля 7000 человек» число считает людей, а не датирует.
+    if match.groupdict().get("era_word") is None and not is_plausible_year(int(year)):
+        return f" {year}"
     return f" {year_to_ordinal_words(int(year), case='gent')} года"
 
 
@@ -219,7 +262,7 @@ def normalize_text_dates(text: str) -> str:
             return match.group(0)
         result = (
             f"{match.group('start_prep')} {day1_word} {match.group('end_prep')} "
-            f"{day2_word} {match.group('month').lower()}"
+            f"{day2_word} {_month_output(match.group('month'))}"
         )
         if match.group("year"):
             result += _date_year_tail(text, match, match.group("year"))
@@ -232,7 +275,7 @@ def normalize_text_dates(text: str) -> str:
         )
         day1_word = _day_to_ordinal(int(match.group("day1")), case=case)
         day2_word = _day_to_ordinal(int(match.group("day2")), case=case)
-        month = match.group("month").lower()
+        month = _month_output(match.group("month"))
         if day1_word is None or day2_word is None:
             return match.group(0)
         result = f"{day1_word} — {day2_word} {month}"
@@ -243,7 +286,7 @@ def normalize_text_dates(text: str) -> str:
         return result + _era_tail_dot(text, match)
 
     def list_repl(match: re.Match[str]) -> str:
-        month = match.group("month").lower()
+        month = _month_output(match.group("month"))
         parts = re.split(r"(\s*(?:,|и)\s*)", match.group("days"))
         rendered_parts: list[str] = []
         for part in parts:
@@ -264,9 +307,16 @@ def normalize_text_dates(text: str) -> str:
 
     def repl(match: re.Match[str]) -> str:
         prep = match.group("prep")
-        day_case = "instrumental" if prep else "genitive"
+        # «перед 5 мая» согласует день творительным, «на 3 июля» — винительным
+        # среднего рода («на третье»), без предлога дата читается родительным.
+        if prep is None:
+            day_case = "genitive"
+        elif prep.lower() == "на":
+            day_case = "accusative"
+        else:
+            day_case = "instrumental"
         day_word = _day_to_ordinal(int(match.group("day")), case=day_case)
-        month = match.group("month").lower()
+        month = _month_output(match.group("month"))
         if day_word is None:
             return match.group(0)
         result = f"{prep} {day_word} {month}" if prep else f"{day_word} {month}"
@@ -274,6 +324,32 @@ def normalize_text_dates(text: str) -> str:
             result += _date_year_tail(text, match, match.group("year"))
         return result + _era_tail_dot(text, match)
 
+    def month_first_repl(match: re.Match[str]) -> str:
+        day = int(match.group("day"))
+        if _counted_noun_follows(text, match.end(), day):
+            return match.group(0)
+        day_word = _day_to_ordinal_genitive(day)
+        if day_word is None:
+            return match.group(0)
+        return f"{match.group('month')} {day_word}"
+
+    def slash_double_date_repl(match: re.Match[str]) -> str:
+        day1 = int(match.group("day1"))
+        day2 = int(match.group("day2"))
+        if not 10 <= day2 - day1 <= 13:
+            return match.group(0)
+        left_context = text[max(0, match.start() - 12) : match.start()]
+        case = "genitive"
+        if re.search(r"\b(?:на|по)\s*$", left_context, re.IGNORECASE):
+            case = "accusative"
+        day1_word = _day_to_ordinal(day1, case=case)
+        day2_word = _day_to_ordinal(day2, case=case)
+        if day1_word is None or day2_word is None:
+            return match.group(0)
+        return f"{day1_word} / {day2_word} {_month_output(match.group('month'))}"
+
+    text = SLASH_DOUBLE_DATE_PATTERN.sub(slash_double_date_repl, text)
+    text = MONTH_FIRST_DATE_PATTERN.sub(month_first_repl, text)
     text = TEXT_DATE_FROM_TO_PATTERN.sub(from_to_repl, text)
     text = TEXT_DATE_RANGE_PATTERN.sub(range_repl, text)
     text = TEXT_DATE_LIST_PATTERN.sub(list_repl, text)
@@ -431,6 +507,35 @@ def normalize_time(text: str) -> str:
             )
         return f"{hour_words}, {minute_words}"
 
+    def render_time_with_hour_word(match: re.Match[str]) -> str:
+        hour = int(match.group("hour"))
+        minute = int(match.group("minute"))
+        left_context = text[max(0, match.start() - 12) : match.start()]
+        governed_range = bool(
+            re.search(r"\b(?:с|со|от|до|после)\s*$", left_context, re.IGNORECASE)
+        )
+        noun = genitive_counted_noun if governed_range else counted_noun
+        try:
+            if governed_range:
+                hour_words = num2words.num2words(hour, lang="ru", case="genitive")
+                minute_words = num2words.num2words(
+                    minute, lang="ru", gender="feminine", case="genitive"
+                )
+            else:
+                hour_words = num2words.num2words(hour, lang="ru")
+                minute_words = num2words.num2words(
+                    minute, lang="ru", gender="feminine"
+                )
+        except Exception as exc:
+            logger.debug(
+                "num2words failed for time %02d:%02d: %s", hour, minute, exc
+            )
+            return match.group(0)
+        result = f"{hour_words} {noun(hour, ('час', 'часа', 'часов'))}"
+        if minute:
+            result += f" {minute_words} {noun(minute, ('минута', 'минуты', 'минут'))}"
+        return result
+
     def render_dotted_time(match: re.Match[str]) -> str:
         left_context = text[max(0, match.start() - 16) : match.start()]
         right_context = text[match.end() : match.end() + 24]
@@ -441,6 +546,7 @@ def normalize_time(text: str) -> str:
             return match.group(0)
         return render_time(match)
 
+    text = TIME_WITH_HOUR_WORD_PATTERN.sub(render_time_with_hour_word, text)
     text = TIME_PATTERN.sub(render_time, text)
     return DOTTED_TIME_PATTERN.sub(render_dotted_time, text)
 

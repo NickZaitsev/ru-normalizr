@@ -36,25 +36,6 @@ HANDWRITTEN_GAP_CASES = (
             reason="animate accusative convention renders the counted group in the genitive",
         ),
     ),
-    # Диапазон лет с «годов» читается родительным единственного числа для
-    # каждой границы, а не множественным числом порядкового.
-    #
-    # НЕ ИСПРАВЛЯЕТСЯ без регрессий: множественное число границ диапазона —
-    # осознанное соглашение проекта, закреплённое несколькими проходящими
-    # тестами (tests/test_year_stage.py::YearRangeTests, tests/test_coverage_edges.py
-    # про «из 1990-1995 годов», tests/test_year_stage.py про
-    # «44-45 гг. до н. э.»). Оба чтения нормативны, поэтому смена соглашения —
-    # решение пользователя, а не побочный эффект правки этого пробела.
-    pytest.param(
-        "Летопись сообщает о событиях 1475—1481 годов подробно.",
-        "Летопись сообщает о событиях тысяча четыреста семьдесят пятого — "
-        "тысяча четыреста восемьдесят первого годов подробно.",
-        id="year_range_before_plural_years",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="year range before plural годов renders plural ordinals instead of genitive singular",
-        ),
-    ),
     # Латинское «K» после числа — кельвины, но та же запись означает тысячи
     # («300K подписчиков»), а кириллическое «К» после числа — ещё и литеру
     # корпуса или комнатность. Однозначного признака в форме нет, поэтому
@@ -124,18 +105,6 @@ CORPUS_SWEEP_GAP_CASES = (
             reason="a range between space-grouped numbers is rendered as a comma enumeration",
         ),
     ),
-    # Диапазон лет перед «г.» даёт множественные порядковые, лишнюю точку внутри
-    # скобки и заглавную букву у следующего слова.
-    pytest.param(
-        "Игорь (912—945 г.) предпринимал два похода в Византию.",
-        "Игорь (девятьсот двенадцатый — девятьсот сорок пятый годы) "
-        "предпринимал два похода в Византию.",
-        id="year_range_before_singular_year_abbreviation",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="year range before singular г. leaves a stray dot and capitalizes the next word",
-        ),
-    ),
     # Итоговое число в перечислении получает родительный падеж, хотя стоит в
     # именительной позиции («а всего 30 000»).
     pytest.param(
@@ -200,28 +169,6 @@ CORPUS_SWEEP_GAP_CASES = (
             reason="the left bound of a page range takes neuter gender",
         ),
     ),
-    # Год при творительном «годом» читается количественным в творительном
-    # падеже вместо порядкового.
-    pytest.param(
-        "Под следующим 859 годом летописец помещает известие о дани.",
-        "Под следующим восемьсот пятьдесят девятым годом летописец помещает известие о дани.",
-        id="year_before_instrumental_godom",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a year before instrumental годом is read as an instrumental cardinal",
-        ),
-    ),
-    # Дата с числом после месяца («Октября 24») требует порядкового, как и
-    # обратный порядок «24 октября».
-    pytest.param(
-        "Октября 24 на придворном театре представлена была комедия.",
-        "Октября двадцать четвёртого на придворном театре представлена была комедия.",
-        id="month_first_date",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a day number after the month name is read as a cardinal",
-        ),
-    ),
     # Смешанная дробь теряет «целую»: «1 1/3» читается как «одну одну треть».
     pytest.param(
         "За окровавление человека посредством дерева платили 1 1/3 гривны серебром.",
@@ -237,30 +184,6 @@ CORPUS_SWEEP_GAP_CASES = (
 
 #: Найдено сплошным чтением книги 06 (Семёнов-Тян-Шанский).
 BOOK_06_GAP_CASES = (
-    # «гг.» после диапазона лет не раскрывается: точка остаётся и следующее
-    # слово получает заглавную букву.
-    pytest.param(
-        "Путешествие в Тянь-Шань в 1856—1857 гг. осталось единственным его исследованием.",
-        "Путешествие в Тянь-Шань в тысяча восемьсот пятьдесят шестом — "
-        "тысяча восемьсот пятьдесят седьмом годах осталось единственным его исследованием.",
-        id="year_range_before_gg_abbreviation",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="гг. after a year range keeps its dot and capitalizes the next word",
-        ),
-    ),
-    # «г.» после года перед словом с заглавной буквы принимается за конец
-    # предложения: в тексте с именами это рвёт фразу на каждом датированном месте.
-    pytest.param(
-        "В 1867 г. Семёнов поместил в записках общества описание своей поездки.",
-        "В тысяча восемьсот шестьдесят седьмом году Семёнов поместил "
-        "в записках общества описание своей поездки.",
-        id="sentence_break_after_year_abbreviation_before_a_name",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="г. before a capitalized word is treated as a sentence end",
-        ),
-    ),
     # Угловые минуты после градусов не читаются: апостроф остаётся отдельным
     # символом.
     pytest.param(
@@ -283,17 +206,6 @@ BOOK_06_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a unit abbreviation after a mixed fraction is left unexpanded",
-        ),
-    ),
-    # Сокращённая запись пары лет «1856/57 гг.» не распознаётся как диапазон.
-    pytest.param(
-        "Мне пришлось провести зиму 1856/57 гг. в Барнауле за разбором коллекций.",
-        "Мне пришлось провести зиму тысяча восемьсот пятьдесят шестого — "
-        "пятьдесят седьмого годов в Барнауле за разбором коллекций.",
-        id="split_year_notation",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the 1856/57 year notation is not read as a range",
         ),
     ),
     # Многоточие внутри цитаты принимается за конец предложения, и следующее
@@ -337,17 +249,6 @@ BOOK_06_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="an expanded abbreviation ignores the government of the phrase",
-        ),
-    ),
-    # Год в библиографической ссылке читается количественным («одна тысяча
-    # восемьсот пятьдесят»), хотя тот же год после «за» читается порядковым.
-    pytest.param(
-        "Книга напечатана в типографии, СПБ, 1850.",
-        "Книга напечатана в типографии, эс пэ бэ, тысяча восемьсот пятидесятый.",
-        id="bibliographic_year_read_as_cardinal",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a year in a bibliographic reference is read as a bare cardinal",
         ),
     ),
     # Во втором члене сочинённой пары номер остаётся количественным: «гл. 8 и 9»
@@ -401,29 +302,6 @@ BOOK_05_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a parenthesized page number is rendered in the genitive",
-        ),
-    ),
-    # Год после «лета» в старой датировке читается количественным вместо
-    # порядкового.
-    pytest.param(
-        "Грамота писана лета 7078 марта в двадцатый день на Москве.",
-        "Грамота писана лета семь тысяч семьдесят восьмого марта в двадцатый день на Москве.",
-        id="year_after_leta_read_as_cardinal",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the year after лета is read as a cardinal instead of an ordinal",
-        ),
-    ),
-    # В двойной датировке год в скобках читается количественным, хотя это тот же
-    # год, что и перед скобками.
-    pytest.param(
-        "Летом 7096 (1588) года воеводы поставили город на Оби.",
-        "Летом семь тысяч девяносто шестого (тысяча пятьсот восемьдесят восьмого) года "
-        "воеводы поставили город на Оби.",
-        id="parenthesized_year_of_a_double_date",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the parenthesized year of a double date is read as a cardinal",
         ),
     ),
     # Приклеенный к слову номер сноски читается вслух как число.
@@ -548,17 +426,6 @@ BOOK_02_GAP_CASES = (
             reason="only the first part of a compound number takes the instrumental",
         ),
     ),
-    # В старой датировке «1709 июня 24-го дня» год читается количественным.
-    pytest.param(
-        "Писано от воплощения бога-слова 1709 июня 24-го дня в лагере под Полтавой.",
-        "Писано от воплощения бога-слова тысяча семьсот девятого года июня "
-        "двадцать четвёртого дня в лагере под Полтавой.",
-        id="year_before_a_month_in_an_old_date",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the year of an old-style date before the month is read as a cardinal",
-        ),
-    ),
     # Число после «в составе» остаётся в именительном падеже.
     pytest.param(
         "Низовый корпус был в составе 12 400 чел. и стоял отдельно.",
@@ -567,16 +434,6 @@ BOOK_02_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a number after в составе stays in the nominative",
-        ),
-    ),
-    # Время суток с двоеточием читается как перечисление через запятую.
-    pytest.param(
-        "В 2:30 часа утра 1 августа главные силы выступили из лагеря.",
-        "В два часа тридцать минут утра первого августа главные силы выступили из лагеря.",
-        id="time_of_day_with_a_colon",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a colon-separated time of day is read as an enumeration",
         ),
     ),
     # «ч.» в значении «человек» читается как «часов». Алгоритмически не
@@ -650,27 +507,6 @@ BOOK_02B_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="agreement with a pre-reform adjective corrupts the adjective itself",
-        ),
-    ),
-    # Число с наращением «-го» без месяца читается количественным.
-    pytest.param(
-        "На совѣтѣ 21-го рѣшено обложеніе города со всѣхъ сторонъ.",
-        "На совѣтѣ двадцать первого рѣшено обложеніе города со всѣхъ сторонъ.",
-        id="day_ordinal_without_a_month",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a day ordinal without a month is read as a cardinal",
-        ),
-    ),
-    # Месяц после числа ставится в именительный падеж: «на 3 іюля» →
-    # «на трёх іюль».
-    pytest.param(
-        "Отрядъ, переправившись въ ночь на 3 іюля у Лебуса, направился къ Герицу.",
-        "Отрядъ, переправившись въ ночь на третье іюля у Лебуса, направился къ Герицу.",
-        id="month_after_a_day_put_in_the_nominative",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the month after a day number is put into the nominative",
         ),
     ),
     # «л.» в значении «лет» читается как «литров». Алгоритмически не решается
@@ -794,39 +630,6 @@ BOOK_03_GAP_CASES = (
             reason="кн. before a roman numeral is not expanded and the numeral agrees with it",
         ),
     ),
-    # Год после «около» уходит в родительный падеж вместо порядкового.
-    pytest.param(
-        "Аспарух перешёл за Дунай около 678 года и основал там своё царство.",
-        "Аспарух перешёл за Дунай около шестьсот семьдесят восьмого года "
-        "и основал там своё царство.",
-        id="year_after_okolo_read_as_a_genitive_cardinal",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a year after около is read as a genitive cardinal instead of an ordinal",
-        ),
-    ),
-    # Дореформенное название месяца («Маия») не распознаётся, и день остаётся
-    # количественным.
-    pytest.param(
-        "Пётр торжествовал принесение мощей 2 Маия и раздавал милостыню нищим.",
-        "Пётр торжествовал принесение мощей второго мая и раздавал милостыню нищим.",
-        id="pre_reform_month_name_not_recognised",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a pre-reform month name is not recognised, so the day stays cardinal",
-        ),
-    ),
-    # Круглое число после даты принимается за год: «7000 человек» →
-    # «семитысячного года человек».
-    pytest.param(
-        "В одном Киеве умерло от 14 Ноября до 1 Февраля 7000 человек.",
-        "В одном Киеве умерло от четырнадцатого ноября до первого февраля семь тысяч человек.",
-        id="round_number_after_a_date_read_as_a_year",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a round number after a date is taken for a year",
-        ),
-    ),
     # Восклицательный знак перед закрывающей кавычкой не считается концом
     # предложения, и следующее слово остаётся строчным.
     pytest.param(
@@ -877,17 +680,6 @@ BOOK_01_GAP_CASES = (
             reason="the slash in an archive reference number is read as a fraction",
         ),
     ),
-    # В двойной датировке через косую черту первое число остаётся количественным.
-    pytest.param(
-        "Он писал туда своему резиденту Псарскому 7/18 июля и требовал немедленного ответа.",
-        "Он писал туда своему резиденту Псарскому седьмого / восемнадцатого июля "
-        "и требовал немедленного ответа.",
-        id="slash_double_date_first_day_stays_cardinal",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the first day of a slash double date is not made ordinal",
-        ),
-    ),
     # Порядковое окончание последнего числа не распространяется на перечисление.
     pytest.param(
         "Синод сослался на 494, 495 и 496-й статьи большого наказа и отложил решение.",
@@ -908,17 +700,6 @@ BOOK_01_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="only the first number after the preposition takes its case",
-        ),
-    ),
-    # Год перед двоеточием читается количественным вместо родительного.
-    pytest.param(
-        "Императрица писала Румянцеву в марте 1771: «На Бога надейся, а сам не плошай».",
-        "Императрица писала Румянцеву в марте тысяча семьсот семьдесят первого: "
-        '"На Бога надейся, а сам не плошай".',
-        id="year_before_a_colon_read_as_cardinal",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a year followed by a colon is read as a cardinal",
         ),
     ),
     # Число в винительном падеже при инфинитиве уходит в предложный.

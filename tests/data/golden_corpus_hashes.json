@@ -4,44 +4,44 @@
       "01_solovyov_history_of_russia": {
         "input_chars": 200000,
         "input_sha256": "3f2e6f2a33f4b4ded614c594ae98adfda885b458386ee551a59f690557a1b45a",
-        "output_chars": 200853,
-        "output_sha256": "e126b93f2d02862bb4dcd35d176a5daea2632f2865a52bfb2434c1c6380bdc32"
+        "output_chars": 200848,
+        "output_sha256": "ddac38b08513a5750c461b49d08a0832dc03f1229a40d26322bc9f83412331da"
       },
       "02_russian_army_and_navy_modern": {
         "input_chars": 200000,
         "input_sha256": "49f5d3583207cd9df7192529771c1d2d607ac8aa3c59c14c9fd3424929f4c7a7",
-        "output_chars": 206325,
-        "output_sha256": "d202b3a6c82aff37ed80535f39c4c22e59706aa54e46fff9a573d79f99ada8d6"
+        "output_chars": 206327,
+        "output_sha256": "941c5da625c7030e02ea91c5ec895b22b6fdffa8bffc60150f3aef7c6752d5e0"
       },
       "02b_russian_army_and_navy_pre_reform": {
         "input_chars": 200000,
         "input_sha256": "bc12ab1181324e99addb01816b3473fbc5e8207d1d6e85e921119e24aaa8eb18",
-        "output_chars": 206139,
-        "output_sha256": "254c237ff60c1b2d5c961127ef1e5af046a9719a9fd79a761a76c102ade449ab"
+        "output_chars": 206165,
+        "output_sha256": "e4c45851e952122d0d75c25cc3dc337efb45ff99daeda6369cbefa6bade09c44"
       },
       "03_karamzin_history_of_russian_state": {
         "input_chars": 200000,
         "input_sha256": "c54239da14b304e450b93334d1783417fa0b5552b22c0c7d71a8f5820c920c08",
-        "output_chars": 209178,
-        "output_sha256": "f830f35bc4d39e5a854d8f23f0635cd4101891609ba64aa3f9578c8f87cff4dc"
+        "output_chars": 209196,
+        "output_sha256": "df1db061a1b1f9e9bd396a1df56a8ee1bc669d02d1ba665928db24c0d4a83e8a"
       },
       "04_kostomarov_russian_history_biographies": {
         "input_chars": 200000,
         "input_sha256": "3c8c620eaf8e7ff73c21423abd67ca4e93824a799d8519d2b30826eea003df27",
-        "output_chars": 203109,
-        "output_sha256": "8ef291019b4a289031cee8862fb40a75739bc3fa5d9a7ca36fb4057b4483b763"
+        "output_chars": 203104,
+        "output_sha256": "a2464090114e5614a8d54a7ee495f4e8af60b21a1cb458d5b1f04349771c23b2"
       },
       "05_nebolsin_conquest_of_siberia": {
         "input_chars": 200000,
         "input_sha256": "25a6c0ae94bdf7b961b322b51efccc319c64a78be6a8d0d40fe01f6402323e6b",
-        "output_chars": 205405,
-        "output_sha256": "b7eb81956304b0739dbe2c325c48427448c58239ab546e66a0638b73ad5310bd"
+        "output_chars": 205422,
+        "output_sha256": "f5890550a85dbba7e5c30a970702a41f40c9f9996a887000e7f92d86b5a72304"
       },
       "06_semenov_tyan_shansky_tien_shan_travel": {
         "input_chars": 200000,
         "input_sha256": "1e5b60e93d5b9d9b0a1383e26d7ca3e2a9d1d603483defb728ef7fbdc7456dd7",
-        "output_chars": 206523,
-        "output_sha256": "467aaa81e8dba38d09d4801da069592c4c4e618dec6c15f399c81c480260cabf"
+        "output_chars": 206514,
+        "output_sha256": "50f522f394d320fce19194795db6d551901073ea85807f8f7acfd60476216dfc"
       }
     },
     "mode": "tts",

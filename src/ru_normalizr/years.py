@@ -16,6 +16,8 @@ from .numerals._num2words import resolve_num2words_case, resolve_primary_case
 from .text_context import normalize_context_token, simple_tokenize
 from .text_scan import ScanPattern, compile_scan, first_non_whitespace_index
 from .years_context import (
+    DECIMAL_TAIL,
+    SPACED_THOUSANDS_TAIL,
     YEAR_ANY_NUMBER_PATTERN,
     YEAR_IMPLICIT_PREP_PATTERN,
     YEAR_RANGE_NUMBER_PATTERN,
@@ -171,6 +173,43 @@ def _follows_month_name(text: str, start: int) -> bool:
     return match is not None and match.group(1).lower() in MONTHS_GENT
 
 
+def _month_gent_fragment() -> str:
+    """Фрагмент имён месяцев в родительном падеже (с дореформенными формами)."""
+    from .dates_time import MONTH_NAME_FRAGMENT
+
+    return MONTH_NAME_FRAGMENT
+
+
+def _month_name_precedes(text: str, start: int) -> bool:
+    """Имя месяца в любом падеже стоит прямо перед ``start`` — «в марте 1771»."""
+    from .numerals.numeric_suffixes import MONTH_LEMMAS
+
+    tail = text[max(0, start - 14) : start]
+    match = re.search(r"([а-яё]+)\s+$", tail, re.IGNORECASE)
+    if match is None:
+        return False
+    parsed = select_parse(match.group(1).lower(), pos="NOUN")
+    return parsed is not None and parsed.normal_form in MONTH_LEMMAS
+
+
+def _counted_noun_follows(text: str, end: int, number: int) -> bool:
+    """«до мая 1500 солдат» — число считает существительное, а не называет год."""
+    match = re.match(r"\s+([а-яё]+)", text[end : end + 24])
+    if match is None:
+        return False
+    tail, last = number % 100, number % 10
+    if last == 1 and tail != 11:
+        return False
+    if last in {2, 3, 4} and tail not in {12, 13, 14}:
+        required: tuple[str, ...] = ("sing",)
+    else:
+        required = ("plur",)
+    parsed = select_parse(
+        match.group(1), pos="NOUN", required_grammemes=required, case="gent"
+    )
+    return parsed is not None and parsed.normal_form not in {"год", "день", "число"}
+
+
 def _canonicalize_year_word(word: str) -> str:
     return word.replace("+", "")
 
@@ -190,6 +229,30 @@ def _genitive_mass_noun_follows(text: str, end: int) -> bool:
         and parsed.tag.case == "gent"
         and "anim" not in parsed.tag
     )
+
+
+_SURNAME_SUBJECT_PATTERN = re.compile(r"\s+([А-ЯЁ][а-яё]+)")
+
+
+def _surname_subject_follows(text: str, end: int) -> bool:
+    """Фамилия-подлежащее сразу после «г.» — фраза продолжается.
+
+    «В 1867 г. Семёнов поместил…» — дата вынесена вперёд, а заглавная буква
+    принадлежит фамилии, не новому предложению. Настоящая граница предложения
+    перед голой фамилией-подлежащим встречается заметно реже, чем этот оборот,
+    поэтому словарная фамилия в именительном падеже снимает точку.
+    """
+    match = _SURNAME_SUBJECT_PATTERN.match(text, end)
+    if match is None:
+        return False
+    return any(
+        "Surn" in parse.tag and "nomn" in parse.tag and "sing" in parse.tag
+        for parse in parse_word(match.group(1))
+    )
+
+
+# Годы «от сотворения мира» в летописях доходят до середины восьмого тысячелетия.
+_BYZANTINE_YEAR_MAX = 7600
 
 
 _GOSPODA_OBLIQUE_CASES = frozenset({"gent", "datv", "accs", "ablt", "loct"})
@@ -356,6 +419,32 @@ def _year_patterns() -> tuple[ScanPattern, ...]:
             rf"\b(?P<prep>{YEAR_IMPLICIT_PREP_REGEX})\s+(?P<year>{YEAR_IMPLICIT_PREP_PATTERN})(?![\d/])",
             flags,
         ),
+        # «Зиму 1856/57 гг.» — разделённое написание двух смежных годов.
+        compile_scan(
+            rf"{entry_boundary}(?:(?P<prep>{YEAR_PREPOSITION_REGEX})\s+)?(?P<year1>1\d{{3}}|20\d{{2}})/(?P<year2>\d{{2}})\s+(?P<word>{YEAR_WORD_PATTERN}\b|{YEAR_PLURAL_ABBREV_REGEX}(?!\w)|г\.?(?!\w))",
+            flags,
+        ),
+        # «Лета 7078 марта…» — архаичная датировка; «лета 2021» — лето года.
+        compile_scan(
+            rf"(?<!\w)(?P<word>лета)\s+(?P<year>\d{{4}}){SPACED_THOUSANDS_TAIL}{DECIMAL_TAIL}(?!\s*[-–—/])(?!\s+(?:{YEAR_WORD_PATTERN}\b|{YEAR_PLURAL_ABBREV_REGEX}|г\.?(?!\w)))",
+            flags,
+        ),
+        # Голый год после родительного имени месяца: «в марте 1771: …».
+        compile_scan(
+            rf"(?<!\w)(?P<year>1\d{{3}}|20\d{{2}}){SPACED_THOUSANDS_TAIL}{DECIMAL_TAIL}(?!\s*[-–—/])(?!\s+(?:{YEAR_WORD_PATTERN}\b|{YEAR_PLURAL_ABBREV_REGEX}|г\.?(?!\w)))",
+            flags,
+        ),
+        # «1709 июня 24-го дня» — в архаичной датировке год стоит перед
+        # месяцем; слово «года» восстанавливается при чтении.
+        compile_scan(
+            rf"(?<!\w)(?P<year>1\d{{3}}|20\d{{2}})(?=\s+{_month_gent_fragment()}\s+\d{{1,2}}(?!\d))",
+            flags,
+        ),
+        # Библиографический год после места издания: «, СПБ, 1850.»
+        compile_scan(
+            r"(?<![\w.])(?P<place>(?:СПб|СПБ|Пг|Птг|[МЛ]\.)\.?\s*,\s*)(?P<year>1\d{3}|20\d{2})(?=\s*(?:[.;)\]]|$))",
+            re.UNICODE,
+        ),
     )
 
 
@@ -378,6 +467,11 @@ def normalize_years(text: str) -> str:
         year_suffix_tail_pattern,
         pattern_ot_do_implicit,
         pattern_prep_year_implicit,
+        pattern_split_year,
+        pattern_leta_year,
+        pattern_month_year,
+        pattern_year_before_month,
+        pattern_bibliographic_year,
     ) = _year_patterns()
 
     def infer_suffix_case(match: re.Match[str], suffix: str) -> str:
@@ -619,10 +713,10 @@ def normalize_years(text: str) -> str:
     def replace_dual_dating(m: re.Match[str]) -> str:
         """Render «7092 (1582) года» — one date given in two calendars.
 
-        The year word stands after the bracket and governs the *first* year, so
-        the leading number is an ordinal in that case while the bracketed
-        equivalent stays a bare cardinal. Rendering both numbers here also keeps
-        the date stage from appending a second «года» to the leading year.
+        The year word stands after the bracket and governs both numbers: they
+        name the same date, so the bracketed equivalent reads as an ordinal in
+        the same case as the leading year. Rendering both numbers here also
+        keeps the date stage from appending a second «года» to the leading year.
         """
         year1 = int(m.group("year1"))
         year2 = int(m.group("year2"))
@@ -634,11 +728,9 @@ def normalize_years(text: str) -> str:
             # A month name before the year makes the whole date genitive, which
             # an abbreviated «г.» after the bracket cannot show by itself.
             case = "gent"
-        try:
-            bracketed = num2words.num2words(year2, lang="ru")
-        except Exception as exc:
-            logger.debug("num2words failed for year %r: %s", year2, exc)
-            bracketed = str(year2)
+        # Оба числа называют одну дату, поэтому эквивалент в скобках читается
+        # тем же порядковым в том же падеже, что и ведущий год.
+        bracketed = year_to_ordinal_words(year2, case)
         word = _canonicalize_year_word(m.group("word"))
         if word.startswith("г."):
             word = YEAR_WORD_FORMS[("год", resolve_primary_case(case))]
@@ -684,8 +776,34 @@ def normalize_years(text: str) -> str:
             is_abbrev = False
             plural = word_lower in ("годы", "годов", "годам", "годами", "годах")
 
-        is_year_prepositional = word_lower == "году"
-        if not is_year_prepositional and year < 1000 and not is_abbrev:
+        # Короткое число перед словом «год» чаще считает длительность («прошло
+        # 33 года»), чем называет год. Но счётная форма жёстко связана с
+        # последней цифрой: «года» считает только 2–4, «год»/«годом» — только 1.
+        # Форма, невозможная при счёте («около 678 года», «под 859 годом»), —
+        # это датировка, и она читается порядковым.
+        tail_two, last_digit = year % 100, year % 10
+        # «года» счётно и в родительном: «в возрасте 21 года» — поэтому для
+        # него счётной остаётся вся группа 1–4.
+        is_counting_form = (
+            word_lower in ("год", "годом") and last_digit == 1 and tail_two != 11
+        ) or (
+            word_lower == "года"
+            and last_digit in {1, 2, 3, 4}
+            and tail_two not in {11, 12, 13, 14}
+        )
+        # Хвост десятичной дроби («1,5 года») — не год, какая бы цифра ни была.
+        year_start = m.start("year")
+        is_decimal_tail = (
+            year_start >= 2
+            and text[year_start - 1] in ",."
+            and text[year_start - 2].isdigit()
+        )
+        is_year_naming_word = word_lower == "году" or (
+            word_lower in ("год", "года", "годом")
+            and not is_counting_form
+            and not is_decimal_tail
+        )
+        if not is_year_naming_word and year < 1000 and not is_abbrev:
             return m.group(0)
         if is_abbrev and has_mass_measurement_context(text, m.start()):
             return m.group(0)
@@ -717,7 +835,11 @@ def normalize_years(text: str) -> str:
             result = (
                 f"{prefix}{ordinal} {YEAR_WORD_FORMS.get((word_norm, case), word_norm)}"
             )
-            if word.endswith(".") and should_keep_terminal_abbreviation_dot(text, m.end()):
+            if (
+                word.endswith(".")
+                and should_keep_terminal_abbreviation_dot(text, m.end())
+                and not _surname_subject_follows(text, m.end())
+            ):
                 result += "."
             return result
         return f"{prefix}{ordinal} {word}"
@@ -766,9 +888,12 @@ def normalize_years(text: str) -> str:
             case = PREPOSITIONS_TO_CASE.get(prep.lower(), "nomn")
         else:
             case = "nomn"
+        # Диапазон именует конкретные годы, поэтому каждый читается порядковым
+        # в единственном числе: «1475—1481 годов» — «…пятого — …первого годов».
+        # Порядковые во множественном означают десятилетия, а не границы.
         result = (
             (f"{prep} " if prep else "")
-            + f"{year_to_ordinal_words(year1, case, True)} — {year_to_ordinal_words(year2, case, True)}"
+            + f"{year_to_ordinal_words(year1, case)} — {year_to_ordinal_words(year2, case)}"
         )
         if word_norm:
             if is_abbrev:
@@ -777,6 +902,7 @@ def normalize_years(text: str) -> str:
                     era_text is None
                     and word.endswith(".")
                     and not inflected.endswith(".")
+                    and should_keep_terminal_abbreviation_dot(text, m.end())
                 ):
                     inflected += "."
                 result += f" {inflected}"
@@ -824,6 +950,63 @@ def normalize_years(text: str) -> str:
             case = "nomn"
         return f"{m.group('prep')} {year_to_ordinal_words(int(m.group('year')), case)}"
 
+    def replace_split_year(m: re.Match[str]) -> str:
+        """«Зиму 1856/57 гг.» — два смежных года, записанных через дробь."""
+        year1 = int(m.group("year1"))
+        year2_short = int(m.group("year2"))
+        if (year1 + 1) % 100 != year2_short:
+            return m.group(0)
+        prep = m.group("prep")
+        word = _canonicalize_year_word(m.group("word"))
+        word_lower = word.lower()
+        plural_abbrev = bool(re.fullmatch(YEAR_PLURAL_ABBREV_REGEX, word_lower))
+        is_abbrev = plural_abbrev or word_lower in ("г.", "г")
+        if not is_abbrev:
+            case = YEAR_WORD_TO_CASE.get(word_lower, "nomn")
+        elif prep:
+            case = PREPOSITIONS_TO_CASE.get(prep.lower(), "nomn")
+        else:
+            case = "gent"
+        result = (
+            (f"{prep} " if prep else "")
+            + f"{year_to_ordinal_words(year1, case)} — "
+            + f"{year_to_ordinal_words(year2_short, case)}"
+        )
+        if is_abbrev:
+            word_norm = "годы" if plural_abbrev else "год"
+            inflected = YEAR_WORD_FORMS.get((word_norm, case), word_norm)
+            if word.endswith(".") and should_keep_terminal_abbreviation_dot(
+                text, m.end()
+            ):
+                inflected += "."
+            result += f" {inflected}"
+        else:
+            result += f" {word}"
+        return result
+
+    def replace_leta_year(m: re.Match[str]) -> str:
+        year = int(m.group("year"))
+        if not (is_plausible_year(year) or 5500 <= year <= _BYZANTINE_YEAR_MAX):
+            return m.group(0)
+        if _counted_noun_follows(text, m.end(), year):
+            return m.group(0)
+        return f"{m.group('word')} {year_to_ordinal_words(year, 'gent')}"
+
+    def replace_month_year(m: re.Match[str]) -> str:
+        if not _month_name_precedes(text, m.start()):
+            return m.group(0)
+        year = int(m.group("year"))
+        if _counted_noun_follows(text, m.end(), year):
+            return m.group(0)
+        return year_to_ordinal_words(year, "gent")
+
+    def replace_bibliographic_year(m: re.Match[str]) -> str:
+        return f"{m.group('place')}{year_to_ordinal_words(int(m.group('year')))}"
+
+    def replace_year_before_month(m: re.Match[str]) -> str:
+        return f"{year_to_ordinal_words(int(m.group('year')), 'gent')} года"
+
+    text = pattern_split_year.sub(replace_split_year, text)
     text = pattern_range_decade.sub(replace_range_decade, text)
     text = pattern_s_po.sub(replace_s_po, text)
     text = pattern_range.sub(replace_range, text)
@@ -835,6 +1018,10 @@ def normalize_years(text: str) -> str:
     text = pattern_suffix.sub(replace_suffix, text)
     text = pattern_ot_do_implicit.sub(replace_ot_do_implicit, text)
     text = pattern_prep_year_implicit.sub(replace_prep_year_implicit, text)
+    text = pattern_year_before_month.sub(replace_year_before_month, text)
+    text = pattern_leta_year.sub(replace_leta_year, text)
+    text = pattern_month_year.sub(replace_month_year, text)
+    text = pattern_bibliographic_year.sub(replace_bibliographic_year, text)
     text = pattern_year_word.sub(replace_with_word, text)
 
     def replace_orphan_plural_abbrev(m: re.Match[str]) -> str:

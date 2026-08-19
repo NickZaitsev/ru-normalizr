@@ -74,6 +74,7 @@ _OB_BEFORE_CONSONANT_PATTERN = compile_scan(
     r"\bоб(?=\s+[бвгджзйклмнпрстфхцчшщ])", re.IGNORECASE
 )
 _COPULA_ORDINAL_SUFFIXES = frozenset({"м", "ом", "ем", "ым", "им"})
+_BARE_DATE_ORDINAL_SUFFIXES = frozenset({"го", "ого"})
 _ORDINAL_ONLY_SUFFIXES = ORDINAL_SUFFIXES - {"ми"}
 
 
@@ -213,6 +214,19 @@ def _noun_features(
         if clean.casefold() in PREP_CASE:
             continue
         parses = parse_word(clean)
+        # Сказуемое обрывает поиск: краткое причастие («решено», «назначено»)
+        # закрывает именную группу так же, как личная форма глагола. У слова,
+        # которого нет в словаре, угаданные именные разборы не в счёт — иначе
+        # дореформенное «рѣшено» сходит за существительное.
+        if (
+            parses
+            and parses[0].tag.POS in {"VERB", "INFN", "PRTS"}
+            and not any(
+                getattr(candidate, "is_known", False) and "NOUN" in candidate.tag
+                for candidate in parses
+            )
+        ):
+            break
         noun_parses = [
             candidate
             for candidate in parses
@@ -236,8 +250,6 @@ def _noun_features(
                 )
             )
         if noun_parses:
-            break
-        if parses and parses[0].tag.POS in {"VERB", "INFN"}:
             break
     return tuple(result)
 
@@ -314,7 +326,7 @@ def _agreement_score(
     return best_score
 
 
-_MONTH_LEMMAS = frozenset(
+MONTH_LEMMAS = frozenset(
     {
         "январь",
         "февраль",
@@ -338,7 +350,7 @@ def _month_follows(tokens_right: list[str]) -> bool:
         if not clean:
             continue
         parsed = select_parse(parse_word(clean), pos={"NOUN"})
-        return parsed is not None and parsed.normal_form in _MONTH_LEMMAS
+        return parsed is not None and parsed.normal_form in MONTH_LEMMAS
     return False
 
 
@@ -508,6 +520,15 @@ def resolve_numeric_suffix(
     ):
         # A suffixed day before a month name is an ordinal: «1-го октября» is
         # «первого октября», never the genitive cardinal «одного октября».
+        best = [candidate for candidate in best if candidate.kind == "ordinal"]
+    elif (
+        not noun_features
+        and suffix.casefold() in _BARE_DATE_ORDINAL_SUFFIXES
+        and any(candidate.kind == "ordinal" for candidate in best)
+    ):
+        # A bare «21-го» with no governing noun in sight is a date-like
+        # ordinal: the cardinal genitive is only ever written with its counted
+        # noun («21-го человека»), never on its own.
         best = [candidate for candidate in best if candidate.kind == "ordinal"]
     elif any(candidate.kind == "cardinal" for candidate in best):
         best = [candidate for candidate in best if candidate.kind == "cardinal"]
