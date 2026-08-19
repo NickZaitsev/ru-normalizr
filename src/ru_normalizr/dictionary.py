@@ -363,14 +363,11 @@ def get_dictionary_normalizer(
 def apply_dictionary_rules(
     text: str,
     *,
-    enabled: bool,
     dictionaries_path: str | Path | None = None,
     include_only_files: tuple[str, ...] = (),
     exclude_files: tuple[str, ...] = (),
     strip_unmatched_latin: bool = False,
 ) -> str:
-    if not enabled:
-        return text
     normalizer = get_dictionary_normalizer(
         dictionaries_path=dictionaries_path,
         include_only_files=list(include_only_files),

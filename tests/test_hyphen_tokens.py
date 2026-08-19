@@ -27,7 +27,6 @@ class RuNormalizrHyphenTokenTests(unittest.TestCase):
         self.assertEqual(
             apply_latinization(
                 "модель-восемьдесят-A",
-                enabled=True,
                 backend="dictionary",
             ),
             "модель-восемьдесят-эй",
@@ -40,7 +39,6 @@ class RuNormalizrHyphenTokenTests(unittest.TestCase):
                 self.assertEqual(
                     apply_latinization(
                         "модель-восемьдесят-U",
-                        enabled=True,
                         backend="dictionary",
                         letter_vowel_mode=vowel_mode,
                     ),

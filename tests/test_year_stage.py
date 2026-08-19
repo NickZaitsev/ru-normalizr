@@ -10,7 +10,6 @@ from unittest.mock import patch
 
 import num2words
 
-from ru_normalizr.options import NormalizeOptions
 from ru_normalizr.years import (
     normalize_numeric_ranges,
     normalize_years,
@@ -19,7 +18,7 @@ from ru_normalizr.years import (
 
 
 def years(text: str) -> str:
-    return normalize_years(text, NormalizeOptions())
+    return normalize_years(text)
 
 
 class YearOrdinalWordsTests(unittest.TestCase):

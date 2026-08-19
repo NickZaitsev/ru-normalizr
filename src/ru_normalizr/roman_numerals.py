@@ -9,7 +9,6 @@ from .constants import KNOWN_ABBREVIATIONS
 from .numerals._constants import is_exact_unit_token
 from .numerals._helpers import get_numeral_case
 from .numerals._hyphen import is_safe_numeric_hyphen_unit
-from .options import NormalizeOptions
 from .ordinal_utils import (
     choose_noun_parse,
     noun_parse_case,
@@ -797,10 +796,7 @@ def normalize_cyrillic_roman(text: str) -> str:
     return pattern.sub(repl, text)
 
 
-def normalize_roman(text: str, options: NormalizeOptions | None = None) -> str:
-    active = options or NormalizeOptions()
-    if not active.enable_roman_normalization:
-        return text
+def normalize_roman(text: str) -> str:
     text = normalize_cyrillic_roman(text)
     text = convert_shared_roman_century_ranges(text)
     text = convert_roman_century_ranges(text)

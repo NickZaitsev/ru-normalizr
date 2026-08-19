@@ -13,7 +13,6 @@ from .abbreviation_context import (
     should_keep_terminal_abbreviation_dot,
 )
 from .numerals._num2words import resolve_num2words_case, resolve_primary_case
-from .options import NormalizeOptions
 from .text_context import normalize_context_token, simple_tokenize
 from .text_scan import ScanPattern, compile_scan, first_non_whitespace_index
 from .years_context import (
@@ -360,10 +359,7 @@ def _year_patterns() -> tuple[ScanPattern, ...]:
     )
 
 
-def normalize_years(text: str, options: NormalizeOptions | None = None) -> str:
-    active = options or NormalizeOptions()
-    if not active.enable_year_normalization:
-        return text
+def normalize_years(text: str) -> str:
     if not any(char.isdecimal() for char in text):
         return text
 

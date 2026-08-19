@@ -143,7 +143,7 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            apply_latinization(text, enabled=True, backend="dictionary"),
+            apply_latinization(text, backend="dictionary"),
             "виндоус сервер апдейтс импрув браузер секьюрити, даунлоуд "
             "аркайвз, энд хоум пэйдж эксесс фор мобайл дивайсиз.",
         )
@@ -170,7 +170,7 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         for word, expected in pronunciations.items():
             with self.subTest(word=word):
                 self.assertEqual(
-                    apply_latinization(word, enabled=True, backend="dictionary"),
+                    apply_latinization(word, backend="dictionary"),
                     expected,
                 )
 
@@ -182,7 +182,7 @@ class RuNormalizrRegressionTests(unittest.TestCase):
             "global users."
         )
 
-        result = apply_latinization(text, enabled=True, backend="dictionary")
+        result = apply_latinization(text, backend="dictionary")
 
         self.assertNotEqual(result, text)
         self.assertNotRegex(result, r"[A-Za-z]")
@@ -206,7 +206,7 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         for backend in ("ipa", "dictionary"):
             for probe in probes:
                 with self.subTest(backend=backend, probe=probe):
-                    result = apply_latinization(probe, enabled=True, backend=backend)
+                    result = apply_latinization(probe, backend=backend)
                     self.assertNotRegex(result, r"[A-Za-z]")
 
     def test_thousands_abbreviation_does_not_force_prepositional_case_after_na(self):
@@ -415,15 +415,15 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         options = NormalizeOptions(enable_latinization=True, latinization_backend="dictionary")
 
         self.assertEqual(
-            apply_latinization("engineering", enabled=True, backend="dictionary"),
+            apply_latinization("engineering", backend="dictionary"),
             "энджиниринг",
         )
         self.assertEqual(
-            apply_latinization("school", enabled=True, backend="dictionary"),
+            apply_latinization("school", backend="dictionary"),
             "скул",
         )
         self.assertEqual(
-            apply_latinization("server", enabled=True, backend="dictionary"),
+            apply_latinization("server", backend="dictionary"),
             "сервер",
         )
         self.assertEqual(normalize("engineering", options), "энджиниринг")
@@ -450,7 +450,7 @@ class RuNormalizrRegressionTests(unittest.TestCase):
             "review logs и пишет stable code для remote platform."
         )
 
-        result = apply_latinization(text, enabled=True, backend="dictionary")
+        result = apply_latinization(text, backend="dictionary")
 
         self.assertEqual(
             result,
@@ -466,7 +466,6 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         self.assertEqual(
             apply_latinization(
                 "Beobachtung",
-                enabled=True,
                 backend="ipa",
                 dictionary_filename="65_ЛАТИНИЦА@.dic",
             ),
@@ -515,12 +514,10 @@ class RuNormalizrRegressionTests(unittest.TestCase):
         with patch("eng_to_ipa.ipa_list", side_effect=fake_ipa_list):
             result = apply_latinization(
                 " ".join(words),
-                enabled=True,
                 backend="ipa",
             )
             repeated_result = apply_latinization(
                 " ".join(words),
-                enabled=True,
                 backend="ipa",
             )
 

@@ -18,7 +18,6 @@ from dataclasses import dataclass
 
 from ._morph import MorphParse, canonicalize_case, parse_word, select_parse
 from .numerals._helpers import safe_inflect
-from .options import NormalizeOptions
 from .text_scan import compile_scan
 
 _NAMED = "named"
@@ -189,17 +188,9 @@ def _build_chains(text: str, matches: list[re.Match[str]]) -> list[list[re.Match
     return chains
 
 
-def expand_address_abbreviations(
-    text: str, options: NormalizeOptions | None = None
-) -> str:
+def expand_address_abbreviations(text: str) -> str:
     """Expand postal abbreviations that carry an address value."""
 
-    active = options or NormalizeOptions()
-    if not (
-        active.enable_abbreviation_expansion
-        and active.enable_contextual_abbreviation_expansion
-    ):
-        return text
     if _ADDRESS_HINT_PATTERN.search(text) is None:
         return text
 

@@ -785,8 +785,6 @@ def _normalize_contextual_ampersands(
 
 def expand_abbreviations(text: str, options: NormalizeOptions | None = None) -> str:
     active = options or NormalizeOptions()
-    if not active.enable_abbreviation_expansion:
-        return text
     text = _expand_language_origin_abbreviations(text)
     if active.enable_contextual_abbreviation_expansion:
         text = _expand_contextual_etc_abbreviations(text)

@@ -2,16 +2,12 @@ from __future__ import annotations
 
 import re
 
-import num2words
-
-from ._morph import word_is_known
 from .abbreviation_context import (
     ends_with_plain_word,
     normalize_birth_year_abbreviations,
     normalize_mass_gram_abbreviations,
 )
 from .constants import CLEANUP_REPLACEMENTS, UNICODE_FRACTIONS
-from .ordinal_utils import render_ordinal
 
 # Метки препроцессинга объявлены в реестре заменителей: там же лежат диапазоны
 # остальных клиентов, поэтому пересечение видно на глаз и проверяется тестом.
@@ -146,21 +142,6 @@ SIGNED_INTEGER_WITH_UNIT_PATTERN = compile_scan(
 )
 INTEGER_LIST_PATTERN = compile_scan(r"^\d+(?:\s*,\s*\d+)+$")
 INTEGER_RANGE_PATTERN = compile_scan(r"^\d+\s*[–—-]\s*\d+$")
-SPACE_INSIDE_QUOTES_PATTERN = compile_scan(
-    r'(^|[\s([{\-–—,;:])"\s+([^\n"]+?)\s+"(?=$|[\s)\]}\-–—,.;:!?])'
-)
-SPACE_AFTER_OPEN_QUOTE_PATTERN = compile_scan(
-    r'(^|[\s([{\-–—,;:])"([ \t]+)(?=\S)'
-)
-SPACE_BEFORE_CLOSE_QUOTE_PATTERN = compile_scan(
-    r'(?<=\S)([ \t]+)"(?=$|[\s)\]}\-–—,.;:!?])'
-)
-OPEN_SINGLE_QUOTE_PATTERN = compile_scan(
-    r"(?P<prefix>^|[\s([{\-–—,;:])(?P<quote>[‘‚‛‹])(?=\S)"
-)
-CLOSE_SINGLE_QUOTE_PATTERN = compile_scan(
-    r"(?<=\S)(?P<quote>[’›])(?=$|[\s)\]}\-–—,.;:!?])"
-)
 ELLIPSIS_SPACE_BEFORE_PATTERN = compile_scan(r"[ \t]+(?=…)")
 ELLIPSIS_SPACE_AFTER_PATTERN = compile_scan(r"(?<=…)(?=[^\s.,;:!?…)\]}\"])\S")
 # A run such as "С.Ш.А." is a dotted acronym, not three sentence ends. The
@@ -169,25 +150,10 @@ SENTENCE_SPACE_AFTER_PATTERN = compile_scan(
     r'(?<=[.!?…])(?<![A-ZА-ЯЁ]\.)'
     r'(?=["(«„“]?[A-ZА-ЯЁ])'
 )
-CYRILLIC_COMBINING_STRESS_PATTERN = compile_scan(
-    r"([АЕЁИОУЫЭЮЯаеёиоуыэюя])([\u0300\u0301])"
-)
-ZERO_WIDTH_FORMATTING_PATTERN = compile_scan(r"[\u200B\u200C\u200D\u2060\uFEFF]")
 LINEBREAK_RUN_PATTERN = compile_scan(r"\n(?:[ \t]*\n)*[ \t]*")
 LEGACY_LINE_START_PATTERN = compile_scan(r'(?:["«„“]\s*)?[А-ЯЁA-Z0-9]')
-QUOTE_PAIR_REPLACEMENTS = (("``", '"'), ("''", '"'), ("‘‘", '"'), ("’’", '"'), ("´´", '"'))
-QUOTE_SHAPE_PATTERN = compile_scan(
-    r"``|''|‘‘|’’|´´|[«»“”„‟〝〞＂]|"
-    r"(?<![A-Za-zА-Яа-яЁё])[‘‚‛‹]|[’›](?![A-Za-zА-Яа-яЁё])"
-)
-QUOTE_VARIANT_PATTERN = compile_scan(r"[«»“”„‟〝〞＂]")
-QUOTE_CANDIDATES = frozenset('"\'`´«»‘’‚‛‹›“”„‟〝〞＂')
 PAGE_ABBREVIATION_PATTERN = compile_scan(r"\b[сp]\.\s*(?=\d)", re.IGNORECASE)
 PAGE_FULL_ABBREVIATION_PATTERN = compile_scan(r"\bстр\.\s*(?=\d)", re.IGNORECASE)
-PAGE_REFERENCE_PATTERN = compile_scan(
-    r"\b(?:стр\.|с\.)\s*(?:(?P<left>\d+)\s*[–—-]\s*(?P<right>\d+)|(?P<number>\d+))",
-    re.IGNORECASE,
-)
 ARTICLE_ABBREVIATION_PATTERN = compile_scan(r"\bст\.\s*(?=\d)", re.IGNORECASE)
 FIGURE_ABBREVIATION_PATTERN = compile_scan(r"\bрис\.\s*(?=\d)", re.IGNORECASE)
 TABLE_ABBREVIATION_PATTERN = compile_scan(r"\bтабл\.\s*(?=\d)", re.IGNORECASE)
@@ -206,27 +172,9 @@ LEGAL_ARTICLE_REFERENCE_PATTERN = compile_scan(
     r"\b(?:ст\.|статья)\s*(?P<number>\d+)\s+(?P<code>УК|АК)\s+РФ\b",
     re.IGNORECASE,
 )
-LEGAL_COMPLEX_REFERENCE_PATTERN = compile_scan(
-    r"(?<!\w)п\.\s*(?P<point>\d+)\s+ст\.\s*(?P<article>\d+)\s+"
-    r"ФЗ\s+№\s*(?P<code>\d+)(?!\w)",
-    re.IGNORECASE,
-)
-ADMINISTRATIVE_LAW_REFERENCE_PATTERN = compile_scan(
-    r"(?<!\w)(?:(?P<prep>в|во|о|об|согласно)\s+)?ч\.\s*(?P<part>\d+)\s+ст\.\s*"
-    r"(?P<article>\d+(?:\.\d+)?)\s+КоАП\s+РФ(?!\w)",
-    re.IGNORECASE,
-)
-SECTION_REFERENCE_PATTERN = compile_scan(
-    r"(?<!\w)§\s*(?P<first>\d+(?:\.\d+)+)"
-    r"(?:\s+и\s+§\s*(?P<second>\d+(?:\.\d+)+))?"
-)
 AGE_RANGE_PATTERN = compile_scan(
     r"(?<!\w)(?P<left>\d+)\s*[—–-]\s*(?P<right>\d+)\s+"
     r"(?P<unit>лет|года|год)(?!\w)",
-    re.IGNORECASE,
-)
-ISBN_PATTERN = compile_scan(
-    r"(?<!\w)(?P<prefix>ISBN)\s+(?P<groups>\d+(?:[-–—]\d+){3,4})(?!\w)",
     re.IGNORECASE,
 )
 LEGAL_CODE_GENITIVE_EXPANSIONS = {
@@ -237,23 +185,6 @@ ERA_ABBREVIATION_PATTERN = compile_scan(
     r"(?<!\w)(?P<abbr>до\s+н\.?\s*э\.?|н\.?\s*э\.?)(?P<tail>\s*)",
     re.IGNORECASE,
 )
-def normalize_ascii_quote_pairs(text: str) -> str:
-    if QUOTE_CANDIDATES.isdisjoint(text):
-        return text
-    if QUOTE_SHAPE_PATTERN.search(text) is None:
-        text = SPACE_INSIDE_QUOTES_PATTERN.sub(r'\1"\2"', text)
-        text = SPACE_AFTER_OPEN_QUOTE_PATTERN.sub(r'\1"', text)
-        return SPACE_BEFORE_CLOSE_QUOTE_PATTERN.sub('"', text)
-    for old, new in QUOTE_PAIR_REPLACEMENTS:
-        text = text.replace(old, new)
-    text = QUOTE_VARIANT_PATTERN.sub('"', text)
-    text = OPEN_SINGLE_QUOTE_PATTERN.sub(r'\g<prefix>"', text)
-    text = CLOSE_SINGLE_QUOTE_PATTERN.sub('"', text)
-    text = SPACE_INSIDE_QUOTES_PATTERN.sub(r'\1"\2"', text)
-    text = SPACE_AFTER_OPEN_QUOTE_PATTERN.sub(r'\1"', text)
-    return SPACE_BEFORE_CLOSE_QUOTE_PATTERN.sub('"', text)
-
-
 def normalize_punctuation_spacing(text: str) -> str:
     text = ELLIPSIS_SPACE_BEFORE_PATTERN.sub("", text)
     text = ELLIPSIS_SPACE_AFTER_PATTERN.sub(lambda m: f" {m.group(0)}", text)
@@ -287,81 +218,6 @@ def cleanup_malformed_punctuation(text: str) -> str:
         return match.group(0)
 
     return DOT_COMMA_PATTERN.sub(repl, text)
-
-
-#: Latin letters drawn with the same glyph as a Cyrillic one. Only these can be
-#: a layout slip inside a Russian word; «l», «d» or «v» have no Cyrillic twin and
-#: mark a genuinely Latin token.
-_LATIN_TO_CYRILLIC_HOMOGLYPHS = str.maketrans(
-    {
-        "A": "А",
-        "B": "В",
-        "C": "С",
-        "E": "Е",
-        "H": "Н",
-        "K": "К",
-        "M": "М",
-        "O": "О",
-        "P": "Р",
-        "T": "Т",
-        "X": "Х",
-        "Y": "У",
-        "a": "а",
-        "c": "с",
-        "e": "е",
-        "o": "о",
-        "p": "р",
-        "x": "х",
-        "y": "у",
-    }
-)
-_HOMOGLYPH_LATIN_LETTERS = frozenset("ABCEHKMOPTXYacepoxy")
-_HOMOGLYPH_LATIN_PATTERN = compile_scan(f"[{''.join(sorted(_HOMOGLYPH_LATIN_LETTERS))}]")
-#: A word that mixes both scripts. Both lookaheads are required so the C-level
-#: scan rejects ordinary words without entering the Python callback: a full pass
-#: over every word of a book-sized text is otherwise the most expensive step of
-#: the preprocessing stage.
-_WORD_CHARS = "A-Za-zА-Яа-яЁё+"
-MIXED_SCRIPT_WORD_PATTERN = compile_scan(
-    rf"(?<![{_WORD_CHARS}])"
-    rf"(?=[{_WORD_CHARS}]*[ABCEHKMOPTXYacepoxy])"
-    rf"(?=[{_WORD_CHARS}]*[А-Яа-яЁё])"
-    rf"[{_WORD_CHARS}]{{2,}}"
-)
-
-
-def normalize_script_homoglyphs(text: str) -> str:
-    """Repair a Latin homoglyph typed inside a Russian word.
-
-    «Bсе» is «Все» with a Latin B — a typesetting defect, not a Latin token, and
-    reading it as a letter name gave «бисе». The repair only applies when every
-    Latin letter of the word has a Cyrillic twin and the substituted word is in
-    the dictionary, so a genuinely mixed identifier is left alone.
-    """
-    if _HOMOGLYPH_LATIN_PATTERN.search(text) is None:
-        return text
-
-    def repl(match: re.Match[str]) -> str:
-        word = match.group(0)
-        latin = [char for char in word if char.isascii() and char.isalpha()]
-        if not latin or any(char not in _HOMOGLYPH_LATIN_LETTERS for char in latin):
-            return word
-        if not any(not char.isascii() and char.isalpha() for char in word):
-            return word
-        candidate = word.translate(_LATIN_TO_CYRILLIC_HOMOGLYPHS)
-        if not word_is_known(candidate.replace("+", "")):
-            return word
-        return candidate
-
-    return MIXED_SCRIPT_WORD_PATTERN.sub(repl, text)
-
-
-def normalize_cyrillic_combining_stress_marks(text: str) -> str:
-    return CYRILLIC_COMBINING_STRESS_PATTERN.sub(r"+\1", text)
-
-
-def remove_zero_width_formatting(text: str) -> str:
-    return ZERO_WIDTH_FORMATTING_PATTERN.sub("", text)
 
 
 def normalize_era_abbreviations(text: str) -> str:
@@ -423,143 +279,24 @@ def normalize_numeric_abbreviations(text: str) -> str:
     return normalize_era_abbreviations(text)
 
 
-def normalize_page_references(text: str) -> str:
-    def repl(match: re.Match[str]) -> str:
-        left_context = text[max(0, match.start() - 24) : match.start()]
-        preceding = re.search(
-            r"(?:^|\s)(?P<word>на|в|во|см\.|смотри)\s*$",
-            left_context,
-            re.IGNORECASE,
-        )
-        if preceding is None:
-            return match.group(0)
-        directive = preceding.group("word").casefold().rstrip(".")
-        if match.group("left") is not None:
-            left = render_ordinal(
-                int(match.group("left")), case="gent", gender="femn", inanimate=True
-            )
-            right = render_ordinal(
-                int(match.group("right")), case="accs", gender="femn", inanimate=True
-            )
-            return f"страницах с {left} по {right}"
-        case = "accs" if directive in {"см", "смотри"} else "loct"
-        noun = "страницу" if case == "accs" else "странице"
-        number = render_ordinal(
-            int(match.group("number")), case=case, gender="femn", inanimate=True
-        )
-        return f"{noun} {number}"
+def left_context(text: str, pos: int, window: int) -> str:
+    """Не больше `window` знаков текста слева от `pos`.
 
-    return PAGE_REFERENCE_PATTERN.sub(repl, text)
-
-
-def normalize_complex_legal_references(text: str) -> str:
-    def repl(match: re.Match[str]) -> str:
-        left_context = text[max(0, match.start() - 32) : match.start()]
-        prep_match = re.search(
-            r"(?:^|\s)(?P<word>согласно|в|во|о|об|по|к|ко|из|с|со|до|от)\s*$",
-            left_context,
-            re.IGNORECASE,
-        )
-        prep = prep_match.group("word").casefold() if prep_match else ""
-        if prep in {"согласно", "по", "к", "ко"}:
-            point_case = "datv"
-            point_word = "пункту"
-        elif prep in {"в", "во", "о", "об"}:
-            point_case = "loct"
-            point_word = "пункте"
-        elif prep in {"из", "с", "со", "до", "от"}:
-            point_case = "gent"
-            point_word = "пункта"
-        else:
-            point_case = "nomn"
-            point_word = "пункт"
-        point = render_ordinal(
-            int(match.group("point")),
-            case=point_case,
-            gender="masc",
-            inanimate=True,
-        )
-        article = render_ordinal(
-            int(match.group("article")),
-            case="gent",
-            gender="femn",
-            inanimate=True,
-        )
-        return (
-            f"{point_word} {point} статьи {article} федерального закона "
-            f"номер {match.group('code')}"
-        )
-
-    return LEGAL_COMPLEX_REFERENCE_PATTERN.sub(repl, text)
-
-
-def normalize_administrative_law_references(text: str) -> str:
-    def render_hierarchical_number(raw: str) -> str | None:
-        words: list[str] = []
-        for part in raw.split("."):
-            try:
-                words.append(num2words.num2words(int(part), lang="ru"))
-            except (TypeError, ValueError):
-                return None
-        return " точка ".join(words)
-
-    def repl(match: re.Match[str]) -> str:
-        prep = match.group("prep")
-        governed_part = prep is not None
-        try:
-            part = render_ordinal(
-                int(match.group("part")),
-                case="gent" if governed_part else "ablt",
-                gender="femn",
-                inanimate=True,
-            )
-        except (TypeError, ValueError):
-            return match.group(0)
-        article = render_hierarchical_number(match.group("article"))
-        if article is None:
-            return match.group(0)
-        part_word = "части" if governed_part else "частью"
-        prefix = f"{prep} " if prep else ""
-        return (
-            f"{prefix}{part_word} {part} статьи {article} Кодекса Российской Федерации "
-            "об административных правонарушениях"
-        )
-
-    return ADMINISTRATIVE_LAW_REFERENCE_PATTERN.sub(repl, text)
-
-
-def normalize_section_references(text: str) -> str:
-    def render_hierarchical_number(raw: str) -> str | None:
-        words: list[str] = []
-        for part in raw.split("."):
-            try:
-                words.append(num2words.num2words(int(part), lang="ru"))
-            except (TypeError, ValueError):
-                return None
-        return " точка ".join(words)
-
-    def repl(match: re.Match[str]) -> str:
-        first = render_hierarchical_number(match.group("first"))
-        second_raw = match.group("second")
-        second = render_hierarchical_number(second_raw) if second_raw else None
-        if first is None or (second_raw is not None and second is None):
-            return match.group(0)
-        left_context = text[max(0, match.start() - 24) : match.start()]
-        noun = "параграфах" if re.search(r"\bв\s*$", left_context) else "параграф"
-        return f"{noun} {first}" + (f" и {second}" if second else "")
-
-    return SECTION_REFERENCE_PATTERN.sub(repl, text)
+    Размер окна на каждой площадке подобран под своё правило и сам является
+    частью правила: расширить окно значит поймать чужое подлежащее.
+    """
+    return text[max(0, pos - window) : pos]
 
 
 def normalize_age_ranges(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
-        left_context = text[max(0, match.start() - 64) : match.start()]
+        context = left_context(text, match.start(), 64)
         # Only a group of people named before the range makes "6–12 лет" an age
         # span that has to be read as "от … до …". After "возраст" the numbers
         # are the value of that attribute and stay a plain range ("возраст
         # десять — двадцать лет"), which is also how every other range in the
         # text is read.
-        if not re.search(r"\bдет(?:и|ей|ям|ях)\b", left_context, re.IGNORECASE):
+        if not re.search(r"\bдет(?:и|ей|ям|ях)\b", context, re.IGNORECASE):
             return match.group(0)
         return (
             f"от {match.group('left')} до {match.group('right')} "
@@ -567,20 +304,6 @@ def normalize_age_ranges(text: str) -> str:
         )
 
     return AGE_RANGE_PATTERN.sub(repl, text)
-
-
-def normalize_isbn_identifiers(text: str) -> str:
-    def repl(match: re.Match[str]) -> str:
-        groups = re.split(r"[-–—]", match.group("groups"))
-        if len(groups) not in {4, 5}:
-            return match.group(0)
-        try:
-            rendered = [num2words.num2words(int(group), lang="ru") for group in groups]
-        except (TypeError, ValueError):
-            return match.group(0)
-        return f"{match.group('prefix')} {' — '.join(rendered)}"
-
-    return ISBN_PATTERN.sub(repl, text)
 
 
 def normalize_explicit_dashes(text: str) -> str:

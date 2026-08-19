@@ -13,7 +13,6 @@ from ru_normalizr.numerals import (
     normalize_ordinals,
 )
 from ru_normalizr.roman_numerals import normalize_roman
-from ru_normalizr.urls import normalize_urls
 from ru_normalizr.years import normalize_years
 from ru_normalizr.years_context import is_plausible_year
 
@@ -240,8 +239,16 @@ class RuNormalizrStageTests(unittest.TestCase):
         self.assertEqual(normalize_roman("IIII-IV век"), "IIII-IV век")
 
     def test_roman_stage_respects_disabled_option(self):
+        """Флаг стадии проверяется в пайплайне, а не внутри самой стадии.
+
+        Поэтому выключенность проверяется через `run_stage`: у `normalize_roman`
+        параметра `options` больше нет, и вызов её напрямую всегда работает.
+        """
         options = NormalizeOptions(enable_roman_normalization=False)
-        self.assertEqual(normalize_roman("Глава IV.", options), "Глава IV.")
+        self.assertEqual(
+            Normalizer(options).run_stage("roman", "Глава IV."), "Глава IV."
+        )
+        self.assertEqual(normalize_roman("Глава IV."), "Глава четвёртая.")
 
     def test_dates_time_stage(self):
         self.assertEqual(
@@ -500,8 +507,9 @@ class RuNormalizrStageTests(unittest.TestCase):
         )
 
     def test_url_stage_is_disabled_outside_tts_by_default(self):
+        # Вне TTS стадия выключена по умолчанию, и решает это пайплайн.
         self.assertEqual(
-            normalize_urls("https://milk.org/a1?b=23.", enabled=False),
+            Normalizer().run_stage("urls", "https://milk.org/a1?b=23."),
             "https://milk.org/a1?b=23.",
         )
 

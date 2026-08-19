@@ -174,8 +174,8 @@ def _normalize_url(url: str) -> str:
     return re.sub(r"\s+", " ", " ".join(piece for piece in pieces if piece)).strip()
 
 
-def normalize_urls(text: str, *, enabled: bool) -> str:
-    if not enabled or not (
+def normalize_urls(text: str) -> str:
+    if not (
         URL_PATTERN.search(text)
         or EMAIL_PATTERN.search(text)
         or BARE_DOMAIN_PATTERN.search(text)

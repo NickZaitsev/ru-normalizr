@@ -3,7 +3,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from ru_normalizr import NormalizeOptions
+from ru_normalizr import NormalizeOptions, Normalizer
 from ru_normalizr.abbreviation_context import (
     _has_dictionary_continuation,
     allows_short_abbreviated_year,
@@ -164,7 +164,6 @@ class UrlBranchTests(unittest.TestCase):
         self.assertEqual(
             normalize_urls(
                 "Смотри https://example.org/a0?b=1&c-2_d#3%4+5@6~789.",
-                enabled=True,
             ),
             "Смотри https двоеточие слэш слэш example точка org слэш "
             "a ноль вопрос b равно один амперсанд c дефис два "
@@ -189,24 +188,27 @@ class UrlBranchTests(unittest.TestCase):
         )
         for source, expected in cases:
             with self.subTest(source=source):
-                self.assertEqual(normalize_urls(source, enabled=True), expected)
+                self.assertEqual(normalize_urls(source), expected)
 
     def test_url_stage_normalizes_social_handles_and_hashtags_before_preprocess(self):
         self.assertEqual(
-            normalize_urls("@support_team #Наука2025", enabled=True),
+            normalize_urls("@support_team #Наука2025"),
             "собака support подчёркивание team решётка наука 2025",
         )
 
     def test_url_stage_does_not_claim_email_fragments_or_numeric_hashes_as_handles(self):
         source = "Почта help@example.ru, формула C# и ссылка #123."
         self.assertEqual(
-            normalize_urls(source, enabled=True),
+            normalize_urls(source),
             "Почта help собака example точка ру, формула C# и ссылка #123.",
         )
 
     def test_url_stage_leaves_social_tokens_untouched_when_disabled(self):
+        # Флаг стадии живёт в пайплайне, поэтому выключенность проверяется через
+        # него, а не параметром самой `normalize_urls`.
         source = "@support_team #Наука2025"
-        self.assertEqual(normalize_urls(source, enabled=False), source)
+        normalizer = Normalizer(NormalizeOptions(enable_url_normalization=False))
+        self.assertEqual(normalizer.run_stage("urls", source), source)
 
     def test_url_stage_keeps_balanced_closers_inside_the_url(self):
         cases = (
@@ -225,7 +227,7 @@ class UrlBranchTests(unittest.TestCase):
         )
         for source, expected in cases:
             with self.subTest(source=source):
-                self.assertEqual(normalize_urls(source, enabled=True), expected)
+                self.assertEqual(normalize_urls(source), expected)
 
 
 class FractionBranchTests(unittest.TestCase):

@@ -391,14 +391,13 @@ def _apply_ipa_latinization(
 def apply_latinization(
     text: str,
     *,
-    enabled: bool,
     backend: str,
     dictionaries_path: Path | None = None,
     dictionary_filename: str = "latinization_rules.dic",
     include_stress_markers: bool = False,
     letter_vowel_mode: LetterVowelMode = "single",
 ) -> str:
-    if not enabled or not re.search(r"[A-Za-z]", text):
+    if not re.search(r"[A-Za-z]", text):
         return text
 
     text = ALPHANUMERIC_SUFFIX_LETTER_PATTERN.sub(

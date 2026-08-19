@@ -12,7 +12,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from ru_normalizr import dictionary
+from ru_normalizr import NormalizeOptions, Normalizer, dictionary
 from ru_normalizr.dictionary import (
     DictionaryLoadError,
     DictionaryNormalizer,
@@ -509,7 +509,6 @@ class PublicFunctionTests(DictionaryRuleTestCase):
         self.assertEqual(
             apply_dictionary_rules(
                 "Он поставил линукс вместо Windows",
-                enabled=True,
                 dictionaries_path=self.root,
             ),
             "Он поставил Linux вместо Windows",
@@ -519,7 +518,7 @@ class PublicFunctionTests(DictionaryRuleTestCase):
         # No path means "use the ones shipped with the package"; nothing outside
         # latinization ships, so the text returns untouched rather than raising.
         self.assertEqual(
-            apply_dictionary_rules("Он поставил линукс вместо Windows", enabled=True),
+            apply_dictionary_rules("Он поставил линукс вместо Windows"),
             "Он поставил линукс вместо Windows",
         )
 
@@ -527,7 +526,6 @@ class PublicFunctionTests(DictionaryRuleTestCase):
         self.assertEqual(
             apply_dictionary_rules(
                 "Модель a",
-                enabled=True,
                 include_only_files=("latinization_rules.dic",),
             ),
             "Модель Эй,",
@@ -536,12 +534,16 @@ class PublicFunctionTests(DictionaryRuleTestCase):
     def test_disabled_rules_leave_the_text_alone(self):
         self.write_dic("a.dic", "линукс=Linux\n")
 
-        self.assertEqual(
-            apply_dictionary_rules(
-                "Он поставил линукс вместо Windows",
-                enabled=False,
+        # Выключение стадии — дело пайплайна: у `apply_dictionary_rules`
+        # параметра `enabled` больше нет.
+        normalizer = Normalizer(
+            NormalizeOptions(
+                enable_dictionary_normalization=False,
                 dictionaries_path=self.root,
-            ),
+            )
+        )
+        self.assertEqual(
+            normalizer.run_stage("dictionary", "Он поставил линукс вместо Windows"),
             "Он поставил линукс вместо Windows",
         )
 
