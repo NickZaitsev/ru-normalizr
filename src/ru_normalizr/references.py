@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 
 import num2words
+import roman
 
 from .ordinal_utils import render_ordinal
 from .preprocess_utils import left_context
@@ -36,10 +37,25 @@ NUMBER_SIGN_PREPOSITION_FORMS = {
     "до": "до номера ",
 }
 
+#: Номер страницы бывает и римским («с. CVIII»): предисловия и вводные тома
+#: нумеруются римскими цифрами. Одна буква не допускается — «С. М. Соловьёв»
+#: не ссылка на тысячную страницу.
+_PAGE_NUMBER_PATTERN = r"\d+|[IVXLCDM]{2,}"
 PAGE_REFERENCE_PATTERN = compile_scan(
-    r"\b(?:стр\.|с\.)\s*(?:(?P<left>\d+)\s*[–—-]\s*(?P<right>\d+)|(?P<number>\d+))",
+    rf"\b(?:стр\.|с\.)\s*(?:(?P<left>{_PAGE_NUMBER_PATTERN})\s*[–—-]\s*"
+    rf"(?P<right>{_PAGE_NUMBER_PATTERN})|(?P<number>{_PAGE_NUMBER_PATTERN}))"
+    r"(?![A-Za-zА-ЯЁа-яё])",
     re.IGNORECASE,
 )
+
+
+def _page_number(raw: str) -> int | None:
+    if raw.isdecimal():
+        return int(raw)
+    try:
+        return roman.fromRoman(raw.upper())
+    except roman.InvalidRomanNumeralError:
+        return None
 
 LEGAL_COMPLEX_REFERENCE_PATTERN = compile_scan(
     r"(?<!\w)п\.\s*(?P<point>\d+)\s+ст\.\s*(?P<article>\d+)\s+"
@@ -73,20 +89,39 @@ def normalize_page_references(text: str) -> str:
             re.IGNORECASE,
         )
         if preceding is None:
-            return match.group(0)
+            # Без управляющего слова прочитать диапазон всё же можно:
+            # «(с. 108—113)» — это «страницы сто восемь — сто тринадцать».
+            # Заглавная «С.» без управления — с тем же успехом инициал
+            # («Иванов С.»), поэтому раскрывается только строчное сокращение.
+            if match.group("left") is None or not match.group(0)[0].islower():
+                return match.group(0)
+            left_number = _page_number(match.group("left"))
+            right_number = _page_number(match.group("right"))
+            if left_number is None or right_number is None:
+                return match.group(0)
+            left_word = num2words.num2words(left_number, lang="ru")
+            right_word = num2words.num2words(right_number, lang="ru")
+            return f"страницы {left_word} — {right_word}"
         directive = preceding.group("word").casefold().rstrip(".")
         if match.group("left") is not None:
+            left_number = _page_number(match.group("left"))
+            right_number = _page_number(match.group("right"))
+            if left_number is None or right_number is None:
+                return match.group(0)
             left = render_ordinal(
-                int(match.group("left")), case="gent", gender="femn", inanimate=True
+                left_number, case="gent", gender="femn", inanimate=True
             )
             right = render_ordinal(
-                int(match.group("right")), case="accs", gender="femn", inanimate=True
+                right_number, case="accs", gender="femn", inanimate=True
             )
             return f"страницах с {left} по {right}"
+        number_value = _page_number(match.group("number"))
+        if number_value is None:
+            return match.group(0)
         case = "accs" if directive in {"см", "смотри"} else "loct"
         noun = "страницу" if case == "accs" else "странице"
         number = render_ordinal(
-            int(match.group("number")), case=case, gender="femn", inanimate=True
+            number_value, case=case, gender="femn", inanimate=True
         )
         return f"{noun} {number}"
 

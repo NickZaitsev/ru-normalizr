@@ -98,28 +98,6 @@ HANDWRITTEN_GAP_CASES = (
 
 #: Найдено прогоном по книжному корпусу benchmarks/corpus.
 CORPUS_SWEEP_GAP_CASES = (
-    # Римская цифра перед предлогом «в» съедает сам предлог: правило вековой
-    # аббревиатуры «в.» срабатывает и на предлоге без точки.
-    pytest.param(
-        "Въезд Петра I в Москву состоялся после Полтавской битвы.",
-        "Въезд Петра первого в Москву состоялся после Полтавской битвы.",
-        id="roman_regnal_number_before_preposition_v",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="bare preposition в after a roman numeral is consumed as the century abbreviation",
-        ),
-    ),
-    # Век после «в начале»/«в половине» остаётся именительным, если следом идёт
-    # наречие или предлог: падеж берётся от следующего слова, а не от предлога.
-    pytest.param(
-        "Однако в начале IX в. сквозь хозар прорвались с востока печенеги.",
-        "Однако в начале девятого века сквозь хозар прорвались с востока печенеги.",
-        id="century_abbreviation_before_adverbial_word",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="century abbreviation stays nominative when an adverb follows",
-        ),
-    ),
     # Диапазон между числами с пробельными разрядами не распознаётся: тире
     # превращается в перечисление через запятую.
     pytest.param(
@@ -174,39 +152,6 @@ CORPUS_SWEEP_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="an unknown abbreviation with a dot capitalizes the next word",
-        ),
-    ),
-    # Порядковый номер монарха согласуется с омонимичным женским разбором имени
-    # («Карла» → «карла»), поэтому выходит «двенадцатая».
-    pytest.param(
-        "Движение Карла XII началось от Полоцка к Гродно.",
-        "Движение Карла двенадцатого началось от Полоцка к Гродно.",
-        id="regnal_number_after_name_homographic_with_feminine_noun",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="regnal number agrees with a feminine homograph parse of the name",
-        ),
-    ),
-    # Первая римская цифра в сочинительной паре («конец XVI и начало XVII
-    # веков») читается количественным, потому что «веков» стоит только у второй.
-    pytest.param(
-        "Смутное время охватывает конец XVI и начало XVII веков.",
-        "Смутное время охватывает конец шестнадцатого и начало семнадцатого веков.",
-        id="roman_century_before_a_conjunction",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the first roman numeral of a coordinated pair is read as a cardinal",
-        ),
-    ),
-    # Левая граница диапазона «с … до …» без своего «века» читается
-    # количественным в родительном падеже.
-    pytest.param(
-        "Собор строили с половины XIV до половины XV века.",
-        "Собор строили с половины четырнадцатого до половины пятнадцатого века.",
-        id="roman_century_range_with_do",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the left bound of a с … до … century range is read as a cardinal",
         ),
     ),
     # Дата вида «12 числа» требует порядкового, как и «12-го числа».
@@ -302,29 +247,6 @@ BOOK_06_GAP_CASES = (
             reason="г. before a capitalized word is treated as a sentence end",
         ),
     ),
-    # Век после «к середине» получает падеж от предлога «к», а не родительный
-    # от управляющего существительного.
-    pytest.param(
-        "Наука подошла к середине XIX в., хорошо изучив побережья материка.",
-        "Наука подошла к середине девятнадцатого века, хорошо изучив побережья материка.",
-        id="century_takes_case_from_the_preposition",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="century after к середине is rendered in the dative instead of the genitive",
-        ),
-    ),
-    # Диапазон веков «IV—VII вв.» читается именительным единственного числа
-    # вместо родительного множественного.
-    pytest.param(
-        "Сведения шли от миссионеров буддизма IV—VII вв. и от чиновников новейших времён.",
-        "Сведения шли от миссионеров буддизма четвёртого — седьмого веков "
-        "и от чиновников новейших времён.",
-        id="century_range_abbreviation",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a century range before вв. stays nominative singular",
-        ),
-    ),
     # Угловые минуты после градусов не читаются: апостроф остаётся отдельным
     # символом.
     pytest.param(
@@ -392,17 +314,6 @@ BOOK_06_GAP_CASES = (
             reason="underscore letter-spacing is read as separate letters",
         ),
     ),
-    # Односимвольные римские цифры в перечислении читаются названиями латинских
-    # букв, хотя соседние двухсимвольные раскрываются правильно.
-    pytest.param(
-        "Статьи вышли в выпусках I, II, IV, V этого издания за один год.",
-        "Статьи вышли в выпусках первом, втором, четвёртом, пятом этого издания за один год.",
-        id="single_letter_roman_numerals_in_a_list",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="single-letter roman numerals in a list are read as latin letter names",
-        ),
-    ),
     # Сокращение раскрывается в именительном падеже независимо от управления:
     # «оз.» → «озеро», «ред.» → «Редактор», «сост.» → «Составитель».
     pytest.param(
@@ -466,18 +377,6 @@ BOOK_05_GAP_CASES = (
             reason="a page range closing a reference is read as an enumeration",
         ),
     ),
-    # Римские номера страниц после «с.» читаются в родительном падеже и теряют
-    # диапазон.
-    pytest.param(
-        "Край Югорский описан подробно (с. CVIII—CXIII) в предисловии издателя.",
-        "Край Югорский описан подробно (страницы сто восемь — сто тринадцать) "
-        "в предисловии издателя.",
-        id="roman_page_range_after_page_abbreviation",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a roman page range after с. is left in the genitive without a range",
-        ),
-    ),
     # Номер страницы в скобках читается в родительном падеже вместо
     # именительного.
     pytest.param(
@@ -488,28 +387,6 @@ BOOK_05_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a parenthesized page number is rendered in the genitive",
-        ),
-    ),
-    # Одиночная римская цифра с точкой после сокращения тома читается названием
-    # латинской буквы: «Т. I.» → «Т. ай.».
-    pytest.param(
-        "Ссылка выглядит так: Шафарик. Т. I. С. 315.",
-        "Ссылка выглядит так: Шафарик. Том первый. Страница триста пятнадцать.",
-        id="roman_one_with_a_dot_after_a_volume_abbreviation",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="roman I followed by a dot after Т. is read as a latin letter name",
-        ),
-    ),
-    # Существительное перед римским диапазоном переставляется за него:
-    # «глав XXXVII—XL» → «тридцать седьмую — сороковую глав».
-    pytest.param(
-        "Эти сведения составляют содержание маленьких глав XXXVII—XL летописи.",
-        "Эти сведения составляют содержание маленьких глав тридцать седьмой — сороковой летописи.",
-        id="noun_moved_after_a_roman_chapter_range",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the noun before a roman range is moved after it",
         ),
     ),
     # Год после «лета» в старой датировке читается количественным вместо
@@ -750,16 +627,6 @@ BOOK_02B_GAP_CASES = (
             reason="the instrumental of a previous word leaks to the next count",
         ),
     ),
-    # Век перед сокращением «стол.» не раскрывается и остаётся количественным.
-    pytest.param(
-        "Стрѣльцовъ къ концу XVI стол. было около двѣнадцати тысячъ человѣкъ.",
-        "Стрѣльцовъ къ концу шестнадцатаго столѣтія было около двѣнадцати тысячъ человѣкъ.",
-        id="century_before_stol_abbreviation",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a century before стол. stays a cardinal and the abbreviation is kept",
-        ),
-    ),
     # Согласование числа с дореформенным прилагательным портит само слово:
     # «2 прочныя» → «двух прочныев».
     pytest.param(
@@ -779,17 +646,6 @@ BOOK_02B_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a day ordinal without a month is read as a cardinal",
-        ),
-    ),
-    # Номер монарха перед точкой читается количественным: «Карлъ XII.» →
-    # «Карлъ двенадцать».
-    pytest.param(
-        "Чѣмъ не замедлилъ воспользоваться Карлъ XII. Третьяго іюля онъ обрушился на насъ.",
-        "Чѣмъ не замедлилъ воспользоваться Карлъ двѣнадцатый. Третьяго іюля онъ обрушился на насъ.",
-        id="regnal_roman_before_a_dot_read_as_cardinal",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a regnal roman numeral before a dot is read as a cardinal",
         ),
     ),
     # Месяц после числа ставится в именительный падеж: «на 3 іюля» →
@@ -821,18 +677,15 @@ BOOK_02B_GAP_CASES = (
 
 #: Найдено сплошным чтением книги 04 (Костомаров, «Русская история»).
 BOOK_04_GAP_CASES = (
-    # Римская «X» с наращением падежа принимается за латинскую букву «икс».
-    pytest.param(
-        "Такие своды составлялись в IX-го и X-го века, когда письменность была редкостью.",
-        "Такие своды составлялись в девятого и десятого века, когда письменность была редкостью.",
-        id="roman_x_with_a_case_ending_read_as_a_latin_letter",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a roman X with a case ending is read as the latin letter name",
-        ),
-    ),
     # Сокращение «гл.» после числа раскрывается в именительном, а само число
     # остаётся количественным.
+    #
+    # НЕ РЕШАЕТСЯ без пересмотра конвенции: ожидание требует полного раскрытия
+    # маркеров «гл.»/«кн.» с падежом, а принятая конвенция (см.
+    # ABBREVIATED_HEADING_MARKER_CASES в test_known_gap_fixes.py) сознательно
+    # сохраняет маркер сокращённым («т. втором», «кн. пятую»). Отдельный дефект
+    # «в восемь глава» — падеж арабского номера перед «гл.» — решается в рамках
+    # кластера падежного согласования числительных.
     pytest.param(
         "Об этом сказано в 8 гл. кн. Царств, и с тем согласны все толкователи.",
         "Об этом сказано в восьмой главе книги Царств, и с тем согласны все толкователи.",
@@ -913,6 +766,11 @@ BOOK_03_GAP_CASES = (
     ),
     # Сокращение «кн.» перед римским номером не раскрывается, а номер получает
     # женский род по самому сокращению.
+    #
+    # НЕ РЕШАЕТСЯ без пересмотра конвенции: номер уже читается правильно
+    # («в кн. четвёртой»), а раскрытие маркера «кн.» в «книге» противоречит
+    # принятой конвенции сокращённых маркеров рубрикации (см.
+    # ABBREVIATED_HEADING_MARKER_CASES в test_known_gap_fixes.py).
     pytest.param(
         "Геродот пишет об этом в кн. IV, где описаны обычаи скифов и соседних народов.",
         "Геродот пишет об этом в книге четвёртой, где описаны обычаи скифов и соседних народов.",
@@ -920,17 +778,6 @@ BOOK_03_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="кн. before a roman numeral is not expanded and the numeral agrees with it",
-        ),
-    ),
-    # Перечисление римских веков через «или» рассыпается: первые номера теряют
-    # падеж, а «в» превращается в «век».
-    pytest.param(
-        "Жители её могли в VII, VIII или IX веке быть известны варягам.",
-        "Жители её могли в седьмом, восьмом или девятом веке быть известны варягам.",
-        id="roman_century_list_joined_by_ili",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a list of roman centuries joined by или loses the shared preposition",
         ),
     ),
     # Год после «около» уходит в родительный падеж вместо порядкового.
@@ -953,17 +800,6 @@ BOOK_03_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a pre-reform month name is not recognised, so the day stays cardinal",
-        ),
-    ),
-    # Римское число перед существительным в родительном множественном становится
-    # порядковым: «XII книг» → «двенадцатой книг».
-    pytest.param(
-        "Император Маврикий сочинил XII книг о военном искусстве своего времени.",
-        "Император Маврикий сочинил двенадцать книг о военном искусстве своего времени.",
-        id="roman_count_before_a_genitive_plural_noun",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a roman count before a genitive plural noun is turned into an ordinal",
         ),
     ),
     # Круглое число после даты принимается за год: «7000 человек» →

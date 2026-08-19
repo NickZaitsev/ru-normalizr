@@ -905,7 +905,7 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
     def test_normalize_expands_page_reference_before_numeric_range(self):
         self.assertEqual(
             normalize("радиационные пояса [Земля и Вселенная, 1980, N2, с.22-25]"),
-            "радиационные пояса (Земля и Вселенная, одна тысяча девятьсот восемьдесят, N два, страница двадцать два — двадцать пять)",
+            "радиационные пояса (Земля и Вселенная, одна тысяча девятьсот восемьдесят, N два, страницы двадцать два — двадцать пять)",
         )
 
     def test_normalize_fixes_bce_and_ce_year_phrases(self):
