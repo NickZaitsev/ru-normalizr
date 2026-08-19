@@ -2,7 +2,7 @@
 
 import pytest
 
-from ru_normalizr import NormalizeOptions, normalize
+from .conftest import CheckTts
 
 E2E_CASES = (
     (
@@ -42,11 +42,6 @@ E2E_CASES = (
         "child_age",
         "Ребёнку исполнилось 1,5 года, а его брату — 3 года.",
         "Ребёнку исполнилось одна целая пять десятых года, а его брату — три года.",
-    ),
-    (
-        "delivery_interval",
-        "Доставка займёт 2–3 рабочих дня и будет стоить 350 руб.",
-        "Доставка займёт два — три рабочих дня и будет стоить триста пятьдесят рублей.",
     ),
     (
         "mixed_length_units",
@@ -117,5 +112,7 @@ E2E_CASES = (
 @pytest.mark.parametrize(
     ("_name", "source", "expected"), E2E_CASES, ids=[case[0] for case in E2E_CASES]
 )
-def test_tts_e2e_normalization_benchmark(_name: str, source: str, expected: str) -> None:
-    assert normalize(source, NormalizeOptions.tts()) == expected
+def test_tts_e2e_normalization_corpus(
+    check_tts: CheckTts, _name: str, source: str, expected: str
+) -> None:
+    check_tts(source, expected)

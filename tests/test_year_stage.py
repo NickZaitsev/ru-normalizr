@@ -9,7 +9,9 @@ import unittest
 from unittest.mock import patch
 
 import num2words
+import pytest
 
+from ru_normalizr import normalize
 from ru_normalizr.years import (
     normalize_numeric_ranges,
     normalize_years,
@@ -583,6 +585,55 @@ class NumericRangeTests(unittest.TestCase):
         self.assertEqual(normalize_numeric_ranges("5—7 человек"), "5—7 человек")
         self.assertEqual(normalize_numeric_ranges("5—7%"), "5—7%")
 
+
+# --- Эры и сокращения при годах: E2E, а не только стадия ---------------------
+#
+# Здесь вызывается полный `normalize`: раскрытие «г.»/«гг.»/«н. э.» делится
+# между стадией годов и стадией сокращений, и проверять его на одной стадии
+# бессмысленно.
+
+
+def test_normalize_handles_era_year_abbreviation_without_preposition():
+    assert normalize("50 г. до н. э.") == "пятидесятый год до нашей эры."
+    assert normalize("50 г. н. э.") == "пятидесятый год нашей эры."
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    (
+        (
+            "44-45 гг. до н. э.",
+            "сорок четвёртые — сорок пятые годы до нашей эры.",
+        ),
+        (
+            "В 300-200 г. до н. э.",
+            "В трёхсотых — двухсотых годах до нашей эры.",
+        ),
+        (
+            "44-45 гг. нашей эры.",
+            "сорок четвёртые — сорок пятые годы нашей эры.",
+        ),
+        (
+            "В 300-200 г. нашей эры.",
+            "В трёхсотых — двухсотых годах нашей эры.",
+        ),
+        (
+            "В 300-200 г. до н. э. продолжались войны.",
+            "В трёхсотых — двухсотых годах до нашей эры продолжались войны.",
+        ),
+        ("44-45 гг.", "сорок четвёртые — сорок пятые годы."),
+        ("В 300-200 г.", "В трёхсотых — двухсотых годах."),
+        (
+            "1941-1945 гг. до н. э.",
+            "с тысяча девятьсот сорок первого по тысяча девятьсот сорок пятый год "
+            "до нашей эры.",
+        ),
+    ),
+)
+def test_normalize_keeps_shared_era_marker_attached_to_year_range(
+    source: str, expected: str
+) -> None:
+    assert normalize(source) == expected
 
 if __name__ == "__main__":
     unittest.main()

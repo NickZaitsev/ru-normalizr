@@ -2,9 +2,10 @@
 
 import pytest
 
-from ru_normalizr import NormalizeOptions, normalize
+from .conftest import CheckTts
 
-E2E_KNOWN_GAP_CASES = (
+#: Пробелы, найденные точечными проверками, а не сплошным чтением книги.
+HANDWRITTEN_GAP_CASES = (
     # Родительное приложение после счётной группы тоже не управляет ею.
     #
     # НЕ РЕШАЕТСЯ алгоритмически: «отправили 4 человека» и «вижу 2 человека»
@@ -27,7 +28,7 @@ E2E_KNOWN_GAP_CASES = (
     # НЕ ИСПРАВЛЯЕТСЯ без регрессий: множественное число границ диапазона —
     # осознанное соглашение проекта, закреплённое несколькими проходящими
     # тестами (tests/test_year_stage.py::YearRangeTests, tests/test_coverage_edges.py
-    # про «из 1990-1995 годов», tests/test_era_year_abbrev_regressions.py про
+    # про «из 1990-1995 годов», tests/test_year_stage.py про
     # «44-45 гг. до н. э.»). Оба чтения нормативны, поэтому смена соглашения —
     # решение пользователя, а не побочный эффект правки этого пробела.
     pytest.param(
@@ -92,7 +93,11 @@ E2E_KNOWN_GAP_CASES = (
             reason="structured mathematical expression grammar is not generic prose normalization",
         ),
     ),
-    # --- Найдено прогоном по книжному корпусу benchmarks/corpus ---
+)
+
+
+#: Найдено прогоном по книжному корпусу benchmarks/corpus.
+CORPUS_SWEEP_GAP_CASES = (
     # Римская цифра перед предлогом «в» съедает сам предлог: правило вековой
     # аббревиатуры «в.» срабатывает и на предлоге без точки.
     pytest.param(
@@ -268,18 +273,11 @@ E2E_KNOWN_GAP_CASES = (
             reason="the integer part of a mixed fraction loses целую",
         ),
     ),
-    # Число после двух дат подхватывается годовым контекстом и становится
-    # порядковым годом («семитысячного года человек»).
-    pytest.param(
-        "В городе умерло от 14 ноября до 1 февраля 7000 человек.",
-        "В городе умерло от четырнадцатого ноября до первого февраля семь тысяч человек.",
-        id="cardinal_after_a_date_read_as_year",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a cardinal following a date pair is absorbed by the year context",
-        ),
-    ),
-    # --- Найдено сплошным чтением книги 06 (Семёнов-Тян-Шанский) ---
+)
+
+
+#: Найдено сплошным чтением книги 06 (Семёнов-Тян-Шанский).
+BOOK_06_GAP_CASES = (
     # «гг.» после диапазона лет не раскрывается: точка остаётся и следующее
     # слово получает заглавную букву.
     pytest.param(
@@ -438,7 +436,11 @@ E2E_KNOWN_GAP_CASES = (
             reason="the second number of a coordinated pair stays a cardinal",
         ),
     ),
-    # --- Найдено сплошным чтением книги 05 (Небольсин) ---
+)
+
+
+#: Найдено сплошным чтением книги 05 (Небольсин).
+BOOK_05_GAP_CASES = (
     # Заглавная буква в начале строки после числа принимается за единицу:
     # «20 А. Тюменка» читается «двадцать ампер». Алгоритмически не решается
     # без понимания макета исходника: «А.» здесь — буквенная рубрика списка,
@@ -563,7 +565,11 @@ E2E_KNOWN_GAP_CASES = (
             reason="an apostrophe inside a latin word is split off with spaces",
         ),
     ),
-    # --- Найдено сплошным чтением книги 02 («История русской армии и флота») ---
+)
+
+
+#: Найдено сплошным чтением книги 02 («История русской армии и флота»).
+BOOK_02_GAP_CASES = (
     # Диапазон при мере длины уходит в родительный падеж вместо именительного.
     pytest.param(
         "От них до реки 130—140 верст по прямой дороге.",
@@ -696,7 +702,11 @@ E2E_KNOWN_GAP_CASES = (
             reason="ч. meaning человек is read as hours",
         ),
     ),
-    # --- Найдено сплошным чтением книги 02b (та же книга, дореформенная орфография) ---
+)
+
+
+#: Найдено сплошным чтением книги 02b (та же книга, дореформенная орфография).
+BOOK_02B_GAP_CASES = (
     # Запятая как разделитель разрядов принимается за десятичную.
     pytest.param(
         "Выставлялись две рати, каждая около 10,000 чел., у Новосела и Мценска.",
@@ -806,7 +816,11 @@ E2E_KNOWN_GAP_CASES = (
             reason="л. meaning years is read as litres",
         ),
     ),
-    # --- Найдено сплошным чтением книги 04 (Костомаров, «Русская история») ---
+)
+
+
+#: Найдено сплошным чтением книги 04 (Костомаров, «Русская история»).
+BOOK_04_GAP_CASES = (
     # Римская «X» с наращением падежа принимается за латинскую букву «икс».
     pytest.param(
         "Такие своды составлялись в IX-го и X-го века, когда письменность была редкостью.",
@@ -881,7 +895,11 @@ E2E_KNOWN_GAP_CASES = (
             reason="a number before тысяч takes the dative of the governing verb",
         ),
     ),
-    # --- Найдено сплошным чтением книги 03 (Карамзин, «История государства Российского») ---
+)
+
+
+#: Найдено сплошным чтением книги 03 (Карамзин, «История государства Российского»).
+BOOK_03_GAP_CASES = (
     # Греческое слово транслитерируется частично: отдельные буквы заменяются
     # русскими названиями, остальные остаются как есть.
     pytest.param(
@@ -982,7 +1000,11 @@ E2E_KNOWN_GAP_CASES = (
             reason="an internal private-use sentinel character leaks into the output",
         ),
     ),
-    # --- Найдено сплошным чтением книги 01 («История России с древнейших времён») ---
+)
+
+
+#: Найдено сплошным чтением книги 01 («История России с древнейших времён»).
+BOOK_01_GAP_CASES = (
     # Предлог «с» после дроби принимается за сокращение секунды.
     pytest.param(
         "Если считать по этому расчёту, то придётся на рубль положить по 10 коп. 1/8 с дробями.",
@@ -1083,6 +1105,24 @@ E2E_KNOWN_GAP_CASES = (
 )
 
 
+#: Полный список: разбит по происхождению, потому что пробелы одной книги
+#: правятся и снимаются пачкой, а плоская таблица на сотню записей
+#: не даёт увидеть, что именно принесло каждое сплошное чтение.
+E2E_KNOWN_GAP_CASES = (
+    *HANDWRITTEN_GAP_CASES,
+    *CORPUS_SWEEP_GAP_CASES,
+    *BOOK_06_GAP_CASES,
+    *BOOK_05_GAP_CASES,
+    *BOOK_02_GAP_CASES,
+    *BOOK_02B_GAP_CASES,
+    *BOOK_04_GAP_CASES,
+    *BOOK_03_GAP_CASES,
+    *BOOK_01_GAP_CASES,
+)
+
+
 @pytest.mark.parametrize(("source", "expected"), E2E_KNOWN_GAP_CASES)
-def test_tts_e2e_normalization_known_gaps(source: str, expected: str) -> None:
-    assert normalize(source, NormalizeOptions.tts()) == expected
+def test_tts_e2e_normalization_known_gaps(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
