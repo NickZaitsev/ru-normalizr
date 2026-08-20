@@ -149,17 +149,6 @@ BOOK_06_GAP_CASES = (
             reason="an ellipsis inside a quotation capitalizes the next word",
         ),
     ),
-    # Разрядка подчёркиваниями («в_н_е в_с_я_к_о_г_о») превращается в
-    # последовательность отдельных букв вместо слова.
-    pytest.param(
-        "Найденные окаменелости определили, в_н_е в_с_я_к_о_г_о с_о_м_н_е_н_и_я, эпоху пластов.",
-        "Найденные окаменелости определили, вне всякого сомнения, эпоху пластов.",
-        id="letterspaced_emphasis_with_underscores",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="underscore letter-spacing is read as separate letters",
-        ),
-    ),
 )
 
 

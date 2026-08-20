@@ -79,6 +79,7 @@ from .preprocess_utils import (
     restore_letter_hyphens,
 )
 from .quotes import (
+    collapse_letterspaced_emphasis,
     normalize_ascii_quote_pairs,
     normalize_cyrillic_combining_stress_marks,
     normalize_script_homoglyphs,
@@ -303,6 +304,7 @@ class PipelineNormalizer:
         text = remove_zero_width_formatting(text)
         text = normalize_cyrillic_combining_stress_marks(text)
         text = normalize_script_homoglyphs(text)
+        text = collapse_letterspaced_emphasis(text)
         # An address chain is the specific case: «стр. 2» right after a house
         # number is a building, not a page, and «д.» must lose its dot before
         # the numerals stage reads it as a sentence end and capitalizes the

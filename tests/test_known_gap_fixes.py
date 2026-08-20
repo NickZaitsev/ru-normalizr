@@ -2073,3 +2073,45 @@ def test_unit_sentence_boundary_edges(
     check_tts: CheckTts, source: str, expected: str
 ) -> None:
     check_tts(source, expected)
+
+
+LETTERSPACED_EMPHASIS_CASES = (
+    # Разрядка подчёркиваниями собирается обратно в слово.
+    pytest.param(
+        "Найденные окаменелости определили, в_н_е в_с_я_к_о_г_о с_о_м_н_е_н_и_я, эпоху пластов.",
+        "Найденные окаменелости определили, вне всякого сомнения, эпоху пластов.",
+        id="letterspaced_emphasis_collapses_to_words",
+    ),
+    # Дореформенные буквы в разрядке тоже собираются.
+    pytest.param(
+        "Это было сдѣлано, б_е_з_ъ с_о_м_н_ѣ_н_і_я, нарочно.",
+        "Это было сдѣлано, безъ сомнѣнія, нарочно.",
+        id="letterspaced_pre_reform_word_collapses",
+    ),
+    # Идентификатор snake_case с многобуквенными сегментами не трогается.
+    pytest.param(
+        "Переменная имя_файла хранит путь к настройкам программы.",
+        "Переменная имя_файла хранит путь к настройкам программы.",
+        id="snake_case_identifier_is_left_alone",
+    ),
+    # Двухбуквенное слово с одним подчёркиванием остаётся как есть:
+    # правилу нужны минимум два подчёркивания.
+    pytest.param(
+        "Частица н_е осталась в тексте как есть.",
+        "Частица н_е осталась в тексте как есть.",
+        id="single_underscore_pair_is_not_collapsed",
+    ),
+    # Разрядка с цифрой внутри — не выделение слова.
+    pytest.param(
+        "Код х_1_2 не является разрядкой и не собирается.",
+        "Код х_один_два не является разрядкой и не собирается.",
+        id="digit_inside_underscores_is_not_emphasis",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), LETTERSPACED_EMPHASIS_CASES)
+def test_letterspaced_emphasis_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)

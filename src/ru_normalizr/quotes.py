@@ -33,6 +33,12 @@ CYRILLIC_COMBINING_STRESS_PATTERN = compile_scan(
     r"([АЕЁИОУЫЭЮЯаеёиоуыэюя])([\u0300\u0301])"
 )
 ZERO_WIDTH_FORMATTING_PATTERN = compile_scan(r"[\u200B\u200C\u200D\u2060\uFEFF]")
+_LETTERSPACED_LETTER = "\u0410-\u042F\u0430-\u044F\u0401\u0451\u0462\u0463\u0406\u0456\u0472\u0473\u0474\u0475"
+LETTERSPACED_UNDERSCORE_PATTERN = compile_scan(
+    rf"(?<![A-Za-z\d_{_LETTERSPACED_LETTER}])"
+    rf"[{_LETTERSPACED_LETTER}](?:_[{_LETTERSPACED_LETTER}]){{2,}}"
+    rf"(?![A-Za-z\d_{_LETTERSPACED_LETTER}])"
+)
 
 QUOTE_PAIR_REPLACEMENTS = (("``", '"'), ("''", '"'), ("‘‘", '"'), ("’’", '"'), ("´´", '"'))
 QUOTE_SHAPE_PATTERN = compile_scan(
@@ -137,3 +143,18 @@ def normalize_cyrillic_combining_stress_marks(text: str) -> str:
 
 def remove_zero_width_formatting(text: str) -> str:
     return ZERO_WIDTH_FORMATTING_PATTERN.sub("", text)
+
+
+def collapse_letterspaced_emphasis(text: str) -> str:
+    """Собрать слово из разрядки подчёркиваниями («в_н_е» → «вне»).
+
+    Разрядка — типографское выделение: каждая буква слова отбита
+    подчёркиванием. Узор строго «одиночная кириллическая буква между
+    подчёркиваниями» на весь токен, поэтому идентификаторы snake_case с
+    многобуквенными сегментами («имя_файла») под правило не попадают.
+    """
+    if "_" not in text:
+        return text
+    return LETTERSPACED_UNDERSCORE_PATTERN.sub(
+        lambda match: match.group(0).replace("_", ""), text
+    )
