@@ -11,19 +11,19 @@
         "input_chars": 200000,
         "input_sha256": "49f5d3583207cd9df7192529771c1d2d607ac8aa3c59c14c9fd3424929f4c7a7",
         "output_chars": 206353,
-        "output_sha256": "f404541ae332a325c9451d92a79d9ebaf7334f13adb430813e4886920992d493"
+        "output_sha256": "4759f5db142c29dee14065461407ec93840c861ee42f062400cb2b7a78011d68"
       },
       "02b_russian_army_and_navy_pre_reform": {
         "input_chars": 200000,
         "input_sha256": "bc12ab1181324e99addb01816b3473fbc5e8207d1d6e85e921119e24aaa8eb18",
         "output_chars": 206177,
-        "output_sha256": "24bb9ebc4473d6e631e07eab073478ccc78301d748b5d00b68bc662a13a33ab5"
+        "output_sha256": "e6d8ab3f4995f996a8b5d2783e581d91c935f5211c4e9dbbdc41d4d856adedd8"
       },
       "03_karamzin_history_of_russian_state": {
         "input_chars": 200000,
         "input_sha256": "c54239da14b304e450b93334d1783417fa0b5552b22c0c7d71a8f5820c920c08",
         "output_chars": 209163,
-        "output_sha256": "e2233a544504b79e85b04fbf15227f349a56e54b8f4df827bda8b156143cbb60"
+        "output_sha256": "0eb797cb613d7587c9d11e253eb6a97c724ce934a8efa5502e88898d2706c25f"
       },
       "04_kostomarov_russian_history_biographies": {
         "input_chars": 200000,
@@ -41,7 +41,7 @@
         "input_chars": 200000,
         "input_sha256": "1e5b60e93d5b9d9b0a1383e26d7ca3e2a9d1d603483defb728ef7fbdc7456dd7",
         "output_chars": 206522,
-        "output_sha256": "a40e335ff47e59ae350be2ba7ed309a0695d118b9b8b617cab760bdaa6ab78bf"
+        "output_sha256": "6c2e8bf35dd681ab3bab8dfb9243c7180c9e8bfdccf983a67a73f283318439e2"
       }
     },
     "mode": "tts",

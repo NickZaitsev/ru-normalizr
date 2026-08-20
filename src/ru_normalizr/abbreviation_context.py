@@ -3,7 +3,7 @@ from __future__ import annotations
 import functools
 import re
 
-from ._morph import parse_word
+from ._morph import MorphParse, parse_word
 from .text_scan import first_non_whitespace_index
 
 BIRTH_YEAR_ABBREVIATION_PATTERN = re.compile(
@@ -116,6 +116,14 @@ def _has_dictionary_continuation(token: str) -> bool:
     return next(iter(get_morph().dictionary.words.iterkeys(token)), None) is not None
 
 
+_PERSON_NAME_GRAMMEMES = ("Name", "Surn", "Patr")
+
+
+def _is_person_name(parse: MorphParse) -> bool:
+    """Check whether a reading is a personal name, surname or patronymic."""
+    return any(grammeme in parse.tag for grammeme in _PERSON_NAME_GRAMMEMES)
+
+
 @functools.lru_cache(maxsize=16384)
 def is_abbreviation_fragment(token: str) -> bool:
     """Check whether a short lowercase token before a dot is an abbreviation.
@@ -130,9 +138,15 @@ def is_abbreviation_fragment(token: str) -> bool:
     abbreviations and guesses at the rest:
 
     * every reading is tagged ``Abbr`` — «стр», «руб», «ул»;
-    * no dictionary reading at all, while the dictionary does hold longer words
-      that start with the token — «мкр», «пом», «примеч» are truncations of
-      «микрорайон», «помещение», «примечание».
+    * no dictionary reading of its own, while the dictionary does hold longer
+      words that start with the token — «мкр», «пом», «примеч» are truncations
+      of «микрорайон», «помещение», «примечание».
+
+    A reading that is only a personal name does not count as a dictionary
+    reading here. «генер» is known to pymorphy solely as a plural form of the
+    name «генера», and a name form written in lowercase is not how a name
+    appears in text — the token is a truncation of «генеральный», so the name
+    readings are dropped and the continuation check decides.
 
     The continuation check is what keeps an unknown *whole* word out: «деплой»
     has no dictionary reading either, but nothing in the dictionary extends it,
@@ -149,7 +163,8 @@ def is_abbreviation_fragment(token: str) -> bool:
         return False
     if all("Abbr" in parse.tag for parse in parses):
         return True
-    if any(getattr(parse, "is_known", False) for parse in parses):
+    known = [parse for parse in parses if getattr(parse, "is_known", False)]
+    if known and not all(_is_person_name(parse) for parse in known):
         return False
     return _has_dictionary_continuation(token)
 

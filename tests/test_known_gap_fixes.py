@@ -2742,3 +2742,51 @@ def test_quoted_exclamation_caps_edges(
     check_tts: CheckTts, source: str, expected: str
 ) -> None:
     check_tts(source, expected)
+
+
+NAME_ONLY_ABBREVIATION_CASES = (
+    # «генер» морфология знает только как форму имени «генера», а имя строчными
+    # не пишут: это усечение «генерального», и точка после него не кончает
+    # предложение.
+    pytest.param(
+        "Отряд состоял из генер. штаба подполковника и трёх писарей.",
+        "Отряд состоял из генер. штаба подполковника и трёх писарей.",
+        id="sentence_caps_after_a_name_only_abbreviation",
+    ),
+    pytest.param(
+        "Прислан из инж. управления чертёж моста через реку Сити.",
+        "Прислан из инж. управления чертёж моста через реку Сити.",
+        id="engineering_abbreviation_does_not_end_a_sentence",
+    ),
+    # Настоящее слово перед точкой по-прежнему кончает предложение, в том числе
+    # если у него есть и именное чтение («вера», «роза», «лев», «надежда»).
+    pytest.param(
+        "Он взял нить. она оказалась крепкой и совсем короткой.",
+        "Он взял нить. Она оказалась крепкой и совсем короткой.",
+        id="plain_noun_still_ends_a_sentence",
+    ),
+    pytest.param(
+        "Была у него вера. она держала его в самые тяжёлые годы.",
+        "Была у него вера. Она держала его в самые тяжёлые годы.",
+        id="noun_with_a_name_reading_still_ends_a_sentence",
+    ),
+    pytest.param(
+        "На плите лежал лев. он был вылит из чугуна ещё при деде.",
+        "На плите лежал лев. Он был вылит из чугуна ещё при деде.",
+        id="short_noun_with_a_name_reading_still_ends_a_sentence",
+    ),
+    # Неизвестное словарю целое слово тоже кончает предложение: его нечем
+    # продолжить в словаре.
+    pytest.param(
+        "Он написал деплой. потом всё сломалось на втором сервере.",
+        "Он написал деплой. Потом всё сломалось на втором сервере.",
+        id="unknown_whole_word_still_ends_a_sentence",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), NAME_ONLY_ABBREVIATION_CASES)
+def test_name_only_abbreviation_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)

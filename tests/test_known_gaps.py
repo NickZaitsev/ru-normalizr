@@ -63,19 +63,7 @@ HANDWRITTEN_GAP_CASES = (
 
 
 #: Найдено прогоном по книжному корпусу benchmarks/corpus.
-CORPUS_SWEEP_GAP_CASES = (
-    # Незнакомое сокращение с точкой принимается за конец предложения, и
-    # следующее слово получает заглавную букву.
-    pytest.param(
-        "Отряд состоял из генер. штаба подполковника и трёх писарей.",
-        "Отряд состоял из генер. штаба подполковника и трёх писарей.",
-        id="sentence_caps_after_unknown_abbreviation",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="an unknown abbreviation with a dot capitalizes the next word",
-        ),
-    ),
-)
+CORPUS_SWEEP_GAP_CASES = ()
 
 
 #: Найдено сплошным чтением книги 06 (Семёнов-Тян-Шанский).
