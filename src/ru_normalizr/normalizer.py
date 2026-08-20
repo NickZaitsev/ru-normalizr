@@ -65,6 +65,7 @@ from .preprocess_utils import (
     expand_new_style_date_abbreviation,
     expand_years_ago_abbreviation,
     insert_missing_space_before_paren,
+    join_hyphenated_line_breaks,
     normalize_age_ranges,
     normalize_explicit_dashes,
     normalize_linebreaks,
@@ -304,6 +305,10 @@ class PipelineNormalizer:
         text = remove_decorative_separators(text)
         text = DECORATIVE_MARKER_PATTERN.sub(" ", text)
         text = ASTERISK_SEPARATOR_PATTERN.sub(" ", text)
+        # Переносы склеиваются до normalize_linebreaks: тот превращает одиночный
+        # перевод строки в пробел, и висячий дефис уже не отличить от дефиса
+        # составного слова.
+        text = join_hyphenated_line_breaks(text)
         text = normalize_linebreaks(text)
         text = remove_zero_width_formatting(text)
         text = normalize_cyrillic_combining_stress_marks(text)

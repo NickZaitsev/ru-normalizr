@@ -34,19 +34,6 @@ HANDWRITTEN_GAP_CASES = (
             reason="bare K after a number is ambiguous between kelvin and a thousands suffix",
         ),
     ),
-    # Перенос слова по строке: дефис в конце строки склеивает части слова, а
-    # не разделяет их. Сейчас дефис между буквами превращается в тире
-    # (LETTER_HYPHEN_PATTERN в preprocess_utils.py) без проверки переноса
-    # строки, и середина слова читается как вставная конструкция.
-    pytest.param(
-        "Гра-\nфическим редактором пользовались все сотрудники отдела.",
-        "Графическим редактором пользовались все сотрудники отдела.",
-        id="line_break_hyphen_splits_a_wrapped_word",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="hyphen before a line break becomes a dash instead of joining the wrapped word",
-        ),
-    ),
     # Химическая формула требует отдельной грамматики элементов, индексов и
     # валентных обозначений; общий обработчик буквенно-цифровых токенов будет
     # конфликтовать с моделями, кодами и обычными аббревиатурами.

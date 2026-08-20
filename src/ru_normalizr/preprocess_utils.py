@@ -44,6 +44,14 @@ COMMA_DOT_TYPO_PATTERN = compile_scan(r",\.")
 MISSING_SPACE_BEFORE_PAREN_PATTERN = compile_scan(
     r"(?<=[А-Яа-яЁёѢѣІіѲѳѴѵ])\((?!\d+(?:[-–—]\d+)?\))"
 )
+#: Перенос слова по строке: дефис в конце строки склеивает части одного слова.
+#: Продолжение переноса всегда строчное, поэтому заглавная справа исключается —
+#: это разорванное составное имя («Санктъ-\nПетербургъ»), а не перенос.
+WRAPPED_WORD_HYPHEN_PATTERN = compile_scan(
+    r"(?P<left>[A-Za-zА-Яа-яЁёѢѣІіѲѳѴѵ]+)-[ \t]*\n[ \t]*"
+    r"(?P<right>[a-zа-яёѣіѳѵ]+)"
+)
+
 _PAREN_INNER_WORD_PATTERN = compile_scan(r"([а-яёѣіѳѵ]+)\)")
 _WORD_INTERNAL_PAREN_LETTERS = frozenset(
     "абвгдеёжзийклмнопрстуфхцчшщъыьэюя"
@@ -380,6 +388,34 @@ def normalize_unary_plus_numbers(text: str) -> str:
     return UNARY_PLUS_NUMBER_PATTERN.sub(
         lambda match: f"{match.group('prefix')}плюс {match.group('number')}", text
     )
+
+
+def join_hyphenated_line_breaks(text: str) -> str:
+    """Склеить слово, разорванное переносом на конце строки.
+
+    Разделить перенос от настоящего дефиса составного слова можно морфологией:
+    у переноса словарю известна слитная форма («гра-\\nфическим» ->
+    «графическим»), у составного слова — дефисная («по-\\nрусски» ->
+    «по-русски»). Когда словарь не знает ни одной формы (дореформенная
+    орфография, редкие слова), части склеиваются: висячий дефис для синтеза
+    всегда ошибка, а перенос строки — самая частая его причина. Исключение —
+    когда обе части сами по себе полноценные слова: тогда дефис поставил автор.
+    """
+
+    def repl(match: re.Match[str]) -> str:
+        left = match.group("left")
+        right = match.group("right")
+        joined = f"{left}{right}"
+        if word_is_known(joined.lower()):
+            return joined
+        hyphenated = f"{left}-{right}"
+        if word_is_known(hyphenated.lower()):
+            return hyphenated
+        if word_is_known(left.lower()) and word_is_known(right):
+            return hyphenated
+        return joined
+
+    return WRAPPED_WORD_HYPHEN_PATTERN.sub(repl, text)
 
 
 def protect_letter_hyphens(text: str) -> str:
