@@ -164,6 +164,7 @@ LABEL_NOUN_LEMMAS = frozenset(
         "комната",
         "палата",
         "литера",
+        "страница",
     }
 )
 #: Gender of the magnitude nouns num2words emits, for agreement of the unit
@@ -1110,6 +1111,15 @@ def _rule_range_start_governed_by_left(ctx: NumeralContext) -> str | None:
     if not prev_case:
         return None
     if is_case_reliable_noun(p_prev):
+        # Ярлычная вершина метит номерами весь диапазон: «на страницах
+        # 91—92» — обе границы именительные, как и одиночный номер. Но
+        # счётная группа за правой границей — количество: «в комнатах
+        # 5-7 окон» считает окна, а не нумерует их.
+        if p_prev.normal_form in LABEL_NOUN_LEMMAS and not (
+            ctx.idx + 2 < ctx.visible_length
+            and _is_counting_group(ctx.tokens, ctx.idx + 2, ctx.visible_length)
+        ):
+            return "nomn"
         if p_prev.normal_form in GENITIVE_QUANTITY_GOVERNORS:
             return "gent"
         if ctx.idx > 1:

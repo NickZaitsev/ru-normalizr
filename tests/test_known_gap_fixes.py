@@ -2184,3 +2184,46 @@ SIGN_ELLIPSIS_CASES = (
 @pytest.mark.parametrize(("source", "expected"), SIGN_ELLIPSIS_CASES)
 def test_sign_ellipsis_edges(check_tts: CheckTts, source: str, expected: str) -> None:
     check_tts(source, expected)
+
+
+PAGE_LABEL_CASES = (
+    # Номера страниц — ярлык: обе границы диапазона в именительном, а род
+    # не наследуется от следующего слова другой синтагмы.
+    pytest.param(
+        "Летописец пишет об этом на страницах 91—92 своего сочинения.",
+        "Летописец пишет об этом на страницах девяносто один — девяносто два"
+        " своего сочинения.",
+        id="page_range_reads_as_nominative_labels",
+    ),
+    # Одиночный номер страницы тоже читается ярлыком без чужого рода.
+    pytest.param(
+        "Летописец пишет об этом на странице 91 своего сочинения.",
+        "Летописец пишет об этом на странице девяносто один своего сочинения.",
+        id="single_page_number_reads_as_a_label",
+    ),
+    # Счётная группа за диапазоном — количество, а не нумерация: падеж
+    # наследуется от предложной вершины.
+    pytest.param(
+        "В комнатах 5-7 окон, и все выходят на юг.",
+        "В комнатах пяти — семи окон, и все выходят на юг.",
+        id="counting_group_after_range_is_still_a_quantity",
+    ),
+    # Число на 1 согласуется со своим существительным как раньше.
+    pytest.param(
+        "В музее хранится 21 старинная книга.",
+        "В музее хранится двадцать одна старинная книга.",
+        id="agreeing_one_form_noun_still_counts",
+    ),
+    # Считаемое существительное за правой границей диапазона согласует
+    # левую границу, когда определение стоит в нужном числе.
+    pytest.param(
+        "На это уйдёт 2 — 3 рабочих дня.",
+        "На это уйдёт два — три рабочих дня.",
+        id="counted_noun_across_range_still_agrees",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), PAGE_LABEL_CASES)
+def test_page_label_edges(check_tts: CheckTts, source: str, expected: str) -> None:
+    check_tts(source, expected)

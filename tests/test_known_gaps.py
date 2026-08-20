@@ -88,17 +88,6 @@ CORPUS_SWEEP_GAP_CASES = (
             reason="an unknown abbreviation with a dot capitalizes the next word",
         ),
     ),
-    # Диапазон страниц после «на страницах» получает средний род у первой
-    # границы («девяносто одно»).
-    pytest.param(
-        "Летописец пишет об этом на страницах 91—92 своего сочинения.",
-        "Летописец пишет об этом на страницах девяносто один — девяносто два своего сочинения.",
-        id="page_range_gender_after_stranicah",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the left bound of a page range takes neuter gender",
-        ),
-    ),
 )
 
 

@@ -331,7 +331,17 @@ def _counted_noun_across_range(
         # A modifier is checked first: a substantivized adjective such as
         # "рабочих" also parses as an animate noun, and taking it for the
         # counted noun would read "2 — 3 рабочих дня" as counting people.
-        if select_parse(candidate, pos={"ADJF", "PRTF"}) is not None:
+        modifier = select_parse(candidate, pos={"ADJF", "PRTF"})
+        if modifier is not None:
+            # Определение обязано согласоваться со счётной формой правой
+            # границы: «2 — 3 своих сочинения», но «91—92 своего сочинения» —
+            # «своего» единственного числа принадлежит другой синтагме.
+            right_value = int(tokens[index + 2].strip(PUNCT_STRIP))
+            expected_number = (
+                "sing" if noun_number_form(right_value) == "one" else "plur"
+            )
+            if modifier.tag.number is not None and expected_number not in modifier.tag:
+                return None
             continue
         p_noun = select_parse(candidate, pos="NOUN")
         if p_noun is not None:
@@ -506,6 +516,28 @@ def _unit_case_at_site(site: _NumberSite, unit: _UnitAtSite, info: UnitDescripto
     return case
 
 
+def _counted_one_form_agrees(site: _NumberSite, noun_word: str) -> bool:
+    """Согласуется ли существительное с числом на 1 (кроме 11).
+
+    Такое число требует единственного числа в падеже самого числа:
+    «двадцать один дом», «с девяноста одним сочинением». «на страницах 91
+    своего сочинения» — «сочинения» стоит в родительном при именительном
+    числе, значит оно не считается, а принадлежит другой синтагме.
+    Слово вне словаря форм не доказывает — считаем согласованным.
+    """
+    if not word_is_known(noun_word):
+        return True
+    expected = {site.case, "nomn" if site.case == "accs" else site.case}
+    if site.case == "nomn":
+        expected.add("accs")
+    for parse in parse_word(noun_word):
+        if "NOUN" not in parse.tag or "sing" not in parse.tag:
+            continue
+        if parse.tag.case in expected:
+            return True
+    return False
+
+
 def _handle_adjective_and_noun(site: _NumberSite) -> Outcome | None:
     """Число + прилагательное + существительное: «2 основные задачи».
 
@@ -533,6 +565,10 @@ def _handle_adjective_and_noun(site: _NumberSite) -> Outcome | None:
         else select_parse(clean_noun, pos="NOUN")
     )
     if p_noun is None or resolve_unit_info(adj_token) is not None:
+        return None
+    if noun_number_form(site.value) == "one" and not _counted_one_form_agrees(
+        site, clean_noun
+    ):
         return None
     is_anim = "anim" in p_noun.tag
     num_words = site.rendered(
@@ -718,6 +754,10 @@ def _handle_counted_noun(site: _NumberSite, unit: _UnitAtSite) -> Outcome | None
     mismatch = _ordinal_for_mismatched_noun(site, unit.alias, p_noun)
     if mismatch is not None:
         return mismatch
+    if noun_number_form(site.value) == "one" and not _counted_one_form_agrees(
+        site, unit.alias
+    ):
+        return None
     noun_token = unit.noun_token
     is_anim = "anim" in p_noun.tag
     # Счётный оборот читает числительное неодушевлённым: «по два бургомистра»

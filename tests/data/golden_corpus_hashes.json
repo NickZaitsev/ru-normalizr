@@ -11,7 +11,7 @@
         "input_chars": 200000,
         "input_sha256": "49f5d3583207cd9df7192529771c1d2d607ac8aa3c59c14c9fd3424929f4c7a7",
         "output_chars": 206335,
-        "output_sha256": "57dbdead6bfd086d50d5edb9c0fdf85a2fc5d85dcb5178b52a1981138746a418"
+        "output_sha256": "94112d8e34a047a982bfca88a237cad76b781fc80b97042f9a7738d8ef8c63ab"
       },
       "02b_russian_army_and_navy_pre_reform": {
         "input_chars": 200000,
