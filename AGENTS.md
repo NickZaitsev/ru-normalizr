@@ -93,6 +93,8 @@ Never add bullets to AGENTS.md on your own — propose the wording and get the u
   a numerals regex eats hyphens, see [unary minus](docs/agents/negative-numbers.md).
 - Every defect you discover and do not fix MUST immediately get an `xfail(strict=True)`
   test in `tests/test_known_gaps.py`, using a full realistic sentence, never isolated words or a short phrase.
+- Артефакт распознавания в корпусе (например «43=» вместо «43°») — дефект
+  исходника, а не нормализатора: не чистим его и не заводим на него xfail.
 - CI's Windows cell is cp1252 and the dev machine is cp1251, so locale-encoding
   bugs pass locally — always pass `encoding="utf-8"`, see
   [locale encoding](docs/agents/locale-encoding.md).
