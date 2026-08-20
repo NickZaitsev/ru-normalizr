@@ -57,6 +57,36 @@ def _page_number(raw: str) -> int | None:
     except roman.InvalidRomanNumeralError:
         return None
 
+
+#: Библиографическая цепочка «Т. IX. С. 381—382.»: том с номером снимает
+#: двусмысленность заглавной «С.» (инициал против страницы). Одиночная
+#: заглавная «С.» без тома по-прежнему считается инициалом.
+VOLUME_PAGE_REFERENCE_PATTERN = compile_scan(
+    rf"\bТ\.\s*(?P<volume>[IVXLCDM]+|\d+)\.\s*[Сс]\.\s*"
+    rf"(?P<left>{_PAGE_NUMBER_PATTERN})"
+    rf"(?:\s*[–—-]\s*(?P<right>{_PAGE_NUMBER_PATTERN}))?"
+    r"(?![A-Za-zА-ЯЁа-яё])"
+)
+
+
+def _replace_volume_page_reference(match: re.Match[str]) -> str:
+    volume_number = _page_number(match.group("volume"))
+    left_number = _page_number(match.group("left"))
+    if volume_number is None or left_number is None:
+        return match.group(0)
+    volume_word = render_ordinal(
+        volume_number, case="nomn", gender="masc", inanimate=True
+    )
+    left_word = num2words.num2words(left_number, lang="ru")
+    if match.group("right") is None:
+        return f"Том {volume_word}. Страница {left_word}"
+    right_number = _page_number(match.group("right"))
+    if right_number is None:
+        return match.group(0)
+    right_word = num2words.num2words(right_number, lang="ru")
+    return f"Том {volume_word}. Страницы {left_word} — {right_word}"
+
+
 LEGAL_COMPLEX_REFERENCE_PATTERN = compile_scan(
     r"(?<!\w)п\.\s*(?P<point>\d+)\s+ст\.\s*(?P<article>\d+)\s+"
     r"ФЗ\s+№\s*(?P<code>\d+)(?!\w)",
@@ -81,6 +111,8 @@ ISBN_PATTERN = compile_scan(
 
 
 def normalize_page_references(text: str) -> str:
+    text = VOLUME_PAGE_REFERENCE_PATTERN.sub(_replace_volume_page_reference, text)
+
     def repl(match: re.Match[str]) -> str:
         context = left_context(text, match.start(), 24)
         preceding = re.search(

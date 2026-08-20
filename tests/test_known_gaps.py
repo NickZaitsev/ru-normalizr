@@ -147,17 +147,6 @@ BOOK_05_GAP_CASES = (
             reason="a capital letter after a number is read as a unit symbol",
         ),
     ),
-    # Диапазон страниц в конце ссылки теряет тире и читается перечислением.
-    pytest.param(
-        "Ссылка дана так: Карамзин. Т. IX. С. 381—382.",
-        "Ссылка дана так: Карамзин. Том девятый. Страницы триста восемьдесят один — "
-        "триста восемьдесят два.",
-        id="page_range_at_the_end_of_a_reference",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a page range closing a reference is read as an enumeration",
-        ),
-    ),
 )
 
 
