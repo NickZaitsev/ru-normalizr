@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import re
 
-from ._morph import first_parse_required
+from ._morph import first_parse_required, parse_word
 from .constants import LetterVowelMode, resolve_letter_name
 from .numerals._constants import is_unit_token, resolve_unit_info
+from .numerals._helpers import LABEL_NOUN_LEMMAS
 from .numerals.numeric_suffixes import NUMERIC_SUFFIXES
 from .placeholders import GLUED_CODES, PlaceholderAllocator
 from .preprocess_utils import left_context
@@ -177,6 +178,63 @@ def normalize_phone_numbers(text: str) -> str:
     return PHONE_NUMBER_PATTERN.sub(repl, text)
 
 
+#: Слово, к которому мог приклеиться номер сноски: строчная кириллица без
+#: смешения алфавитов, достаточно длинное, чтобы не быть предлогом или кодом.
+_FOOTNOTE_HOST_WORD_PATTERN = compile_scan(r"[а-яё]{3,}\Z")
+
+
+def _next_word_after(text: str, pos: int) -> str:
+    while pos < len(text) and text[pos].isspace():
+        pos += 1
+    start = pos
+    while pos < len(text) and (text[pos].isalpha() or text[pos] in "-'’"):
+        pos += 1
+    return text[start:pos]
+
+
+def _glued_digits_are_footnote(
+    letters: str, number: str, text: str, end: int
+) -> bool:
+    """Приклеенные к слову цифры — номер сноски, который нужно опустить.
+
+    Пропущенный пробел перед количеством («человек5 рублей») отличается от
+    сноски правым контекстом: за количеством идёт считаемое существительное
+    в родительном падеже или единица измерения — такие случаи по-прежнему
+    расклеиваются пробелом.
+    """
+    if len(number) > 2 or number.startswith("0"):
+        return False
+    if end < len(text) and (text[end].isalnum() or text[end] in "-–—%°"):
+        return False
+    if _FOOTNOTE_HOST_WORD_PATTERN.search(letters) is None:
+        return False
+    host_parses = parse_word(letters)
+    if any(
+        candidate.normal_form in LABEL_NOUN_LEMMAS for candidate in host_parses
+    ):
+        return False
+    # Постпозитивное приблизительное количество стоит после родительного
+    # падежа («часа 3», «человек 5») — такое склеивание расклеивается пробелом.
+    if any(
+        "NOUN" in candidate.tag and candidate.tag.case == "gent"
+        for candidate in host_parses
+    ):
+        return False
+    next_word = _next_word_after(text, end)
+    if next_word:
+        clean = next_word.strip("-'’").lower()
+        if clean and (is_unit_token(clean) or resolve_unit_info(clean) is not None):
+            return False
+        if len(clean) >= 3 and any(
+            "NOUN" in candidate.tag
+            and candidate.tag.case == "gent"
+            and "Abbr" not in candidate.tag
+            for candidate in parse_word(clean)
+        ):
+            return False
+    return True
+
+
 def fix_glued_numbers(text: str) -> str:
     codes = PlaceholderAllocator(GLUED_CODES, text)
 
@@ -211,7 +269,10 @@ def fix_glued_numbers(text: str) -> str:
         token = match.group(0)
         if resolve_unit_info(token) is not None:
             return token
-        return f"{match.group('letters')} {match.group('number')}"
+        letters, number = match.group("letters"), match.group("number")
+        if _glued_digits_are_footnote(letters, number, text, match.end()):
+            return letters
+        return f"{letters} {number}"
 
     text = LEADING_LETTER_DIGIT_PATTERN.sub(split_leading_letter_number, text)
     # Одна замена может склеить новую пару («2х3х4»), поэтому проход повторяется

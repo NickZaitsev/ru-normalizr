@@ -2342,3 +2342,62 @@ def test_latin_apostrophe_edges(
     check_tts: CheckTts, source: str, expected: str
 ) -> None:
     check_tts(source, expected)
+
+
+FOOTNOTE_DIGIT_CASES = (
+    # Приклеенный к слову номер сноски опускается, а не читается числом.
+    pytest.param(
+        "Так пинежане8 и мезенцы ходили на промысел за Камень каждое лето.",
+        "Так пинежане и мезенцы ходили на промысел за Камень каждое лето.",
+        id="footnote_digit_glued_to_a_word_is_dropped",
+    ),
+    # Надстрочная цифра сноски опускается так же, как обычная.
+    pytest.param(
+        "Так пинежане⁸ и мезенцы ходили на промысел за Камень каждое лето.",
+        "Так пинежане и мезенцы ходили на промысел за Камень каждое лето.",
+        id="superscript_footnote_digit_is_dropped",
+    ),
+    # Сноска перед точкой в конце предложения тоже опускается.
+    pytest.param(
+        "Об этом писали многие исследователи2. Позднее споры утихли.",
+        "Об этом писали многие исследователи. Позднее споры утихли.",
+        id="footnote_digit_before_full_stop_is_dropped",
+    ),
+    # Постпозитивное количество после родительного падежа — пропущенный
+    # пробел, число сохраняется.
+    pytest.param(
+        "Дорога заняла часа3 или четыре, не больше.",
+        "Дорога заняла часа три или четыре, не больше.",
+        id="postposed_quantity_after_genitive_is_split",
+    ),
+    pytest.param(
+        "Он прошёл пешком километров7 в тот день.",
+        "Он прошёл пешком километров семь в тот день.",
+        id="postposed_quantity_with_unit_noun_is_split",
+    ),
+    # Ярлычное существительное («том 3») расклеивается, число читается.
+    pytest.param(
+        "Он открыл том3 и начал читать с самого начала.",
+        "Он открыл том три и начал читать с самого начала.",
+        id="label_noun_glued_number_is_split",
+    ),
+    # Три цифры — не сноска: число читается как раньше.
+    pytest.param(
+        "Проект использовал шрифт гарнитуры123 без изменений.",
+        "Проект использовал шрифт гарнитуры сто двадцать три без изменений.",
+        id="three_digit_glue_is_not_a_footnote",
+    ),
+    # Слово с заглавной буквы — имя собственное с номером, не сноска.
+    pytest.param(
+        "Аполлон11 сел на Луну в июле того года.",
+        "Аполлон одиннадцать сел на Луну в июле того года.",
+        id="capitalized_word_glue_is_not_a_footnote",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), FOOTNOTE_DIGIT_CASES)
+def test_footnote_digit_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)

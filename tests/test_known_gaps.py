@@ -158,16 +158,6 @@ BOOK_05_GAP_CASES = (
             reason="a page range closing a reference is read as an enumeration",
         ),
     ),
-    # Приклеенный к слову номер сноски читается вслух как число.
-    pytest.param(
-        "Так пинежане8 и мезенцы ходили на промысел за Камень каждое лето.",
-        "Так пинежане и мезенцы ходили на промысел за Камень каждое лето.",
-        id="footnote_digit_glued_to_a_word",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a footnote number glued to a word is read aloud",
-        ),
-    ),
 )
 
 
