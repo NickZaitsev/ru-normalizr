@@ -348,15 +348,33 @@ EDITION_ORDINAL_PATTERN = compile_scan(
 )
 
 
+#: Буквы, изъятые реформой 1918 года: у каждой ровно один современный
+#: эквивалент, поэтому замена однозначна и обратима на уровне классификации.
+_PRE_REFORM_LETTERS = str.maketrans({"і": "и", "ѣ": "е", "ѳ": "ф", "ѵ": "и"})
+
+
 def _modern_spelling(word_lower: str) -> str:
-    """Pre-reform ending mapped to its modern form, for classification only."""
-    spelling = word_lower
+    """Pre-reform spelling mapped to its modern form, for classification only.
+
+    Морфология знает только современную орфографию, поэтому дореформенное
+    прилагательное («фунтовыя», «лѣтній») ей неизвестно и составное числительное
+    к нему не приклеивается. Написание приводится к современному лишь для
+    разбора — в текст возвращается исходное слово.
+    """
+    spelling = word_lower.translate(_PRE_REFORM_LETTERS)
     if spelling.endswith("ъ"):
         spelling = spelling[:-1]
     if spelling.endswith("аго"):
         spelling = spelling[:-3] + "ого"
     elif spelling.endswith("яго"):
         spelling = spelling[:-3] + "его"
+    elif spelling.endswith("ыя"):
+        # Женский и средний род множественного числа: «полевыя» → «полевые».
+        spelling = spelling[:-2] + "ые"
+    elif spelling.endswith("ия") and len(spelling) > 4:
+        # То же для мягкой основы: «синія» → «синие». Короткие слова исключены,
+        # иначе под правило попадают существительные вроде «имя» или «выя».
+        spelling = spelling[:-2] + "ие"
     return spelling
 
 

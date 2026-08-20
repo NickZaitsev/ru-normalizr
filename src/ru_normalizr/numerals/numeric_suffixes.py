@@ -50,7 +50,7 @@ ORDINAL_SUFFIXES = frozenset(
 # in source material.  The registry is deliberately closed: a short arbitrary
 # Cyrillic tail must not become a grammatical instruction by accident.
 CARDINAL_SUFFIXES = frozenset(
-    {"ти", "и", "ми", "х", "мя", "тью", "ух", "ех", "ёх", "ум", "ём", "у"}
+    {"ти", "и", "ми", "х", "мя", "тью", "ух", "ех", "ёх", "ум", "ём", "у", "ть"}
 )
 NUMERIC_SUFFIXES = ORDINAL_SUFFIXES | CARDINAL_SUFFIXES
 

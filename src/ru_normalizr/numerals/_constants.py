@@ -1034,7 +1034,9 @@ FRACTION_PATTERN = compile_scan(r"(?<![\d,])(\d+)/(\d+)(?![\d,])")
 # The optional infix is a duplicated case ending of the numeral written out
 # before the word it modifies: «17-ти-летняя» is «семнадцатилетняя».
 HYPHENATED_WORD_PATTERN = compile_scan(
-    r"(?<![\w\d])(?P<num>\d+)-(?:(?P<infix>тью|ти|ми|мя|ух|ех|ёх|х)-)?"
+    # Твёрдый знак после окончания числительного — дореформенное «3-хъ-дневный»:
+    # он часть окончания, а не начало слова справа.
+    r"(?<![\w\d])(?P<num>\d+)-(?:(?P<infix>тью|ти|ми|мя|ух|ех|ёх|х)ъ?-)?"
     r"(?P<word>[а-яА-ЯёЁ]{1,})"
 )
 STANDALONE_CURRENCY_PATTERN = compile_scan(r"(?<!\S)([$€£¥₽₴₸₺₹¢])(?!\S)")

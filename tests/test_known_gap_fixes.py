@@ -2790,3 +2790,95 @@ def test_name_only_abbreviation_edges(
     check_tts: CheckTts, source: str, expected: str
 ) -> None:
     check_tts(source, expected)
+
+
+PRE_REFORM_COMPOUND_ADJECTIVE_CASES = (
+    # Дореформенное окончание прилагательного («-ыя», «-ій», «ѣ», «і») морфологии
+    # неизвестно, поэтому составное числительное к нему не приклеивалось:
+    # выходило «шестнадцати-ти-фунтовыя».
+    pytest.param(
+        "Полевая артиллерія имѣла 8-ми- и 16-ти-фунтовыя пушки.",
+        "Полевая артиллерія имѣла восьми- и шестнадцатифунтовыя пушки.",
+        id="numeric_suffix_before_pre_reform_compound_adjective",
+    ),
+    pytest.param(
+        "Полевая артиллерія имѣла 16-ти-фунтовыя пушки въ каждой батареѣ.",
+        "Полевая артиллерія имѣла шестнадцатифунтовыя пушки въ каждой батареѣ.",
+        id="pre_reform_compound_adjective_alone",
+    ),
+    pytest.param(
+        "Въ отрядѣ была 17-ти-лѣтняя дѣвица и старый капитанъ.",
+        "Въ отрядѣ была семнадцатилѣтняя дѣвица и старый капитанъ.",
+        id="pre_reform_yat_inside_a_compound_adjective",
+    ),
+    # Твёрдый знак внутри окончания числительного — часть окончания, а не
+    # начало слова справа: «3-хъ-дневный» → «трёхдневный».
+    pytest.param(
+        "Отрядъ шёлъ 3-хъ-дневный переходъ до самой переправы черезъ рѣку.",
+        "Отрядъ шёлъ трёхдневный переходъ до самой переправы черезъ рѣку.",
+        id="hard_sign_inside_a_numeral_ending",
+    ),
+    # Современная орфография читается как раньше.
+    pytest.param(
+        "Полевая артиллерия имела 8-ми- и 16-ти-фунтовые пушки.",
+        "Полевая артиллерия имела восьми- и шестнадцатифунтовые пушки.",
+        id="modern_compound_adjective_still_folds",
+    ),
+    pytest.param(
+        "Отряд шёл 3-х-дневный переход до самой переправы через реку.",
+        "Отряд шёл трёхдневный переход до самой переправы через реку.",
+        id="modern_three_day_march_still_folds",
+    ),
+    # Существительное справа не прилагательное — склейки нет.
+    pytest.param(
+        "На складе лежало 5-ти орудий разного калибра и веса.",
+        "На складе лежало пяти орудий разного калибра и веса.",
+        id="noun_after_a_numeral_ending_does_not_fold",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), PRE_REFORM_COMPOUND_ADJECTIVE_CASES)
+def test_pre_reform_compound_adjective_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+CARDINAL_TH_SUFFIX_CASES = (
+    # «6-ть» — распространённое написание количественного числительного;
+    # окончания не было в реестре, и «-ть» оставалось в тексте отдельно.
+    pytest.param(
+        "В полку было 6-ть орудий разного калибра и веса.",
+        "В полку было шесть орудий разного калибра и веса.",
+        id="six_written_with_a_th_ending",
+    ),
+    pytest.param(
+        "В полку было 20-ть орудий разного калибра и веса.",
+        "В полку было двадцать орудий разного калибра и веса.",
+        id="twenty_written_with_a_th_ending",
+    ),
+    # У числа без «-ть» в окончании падеж берётся из контекста.
+    pytest.param(
+        "К вечеру пришло 100-ть человек из соседней волости.",
+        "К вечеру пришло сто человек из соседней волости.",
+        id="hundred_written_with_a_th_ending",
+    ),
+    pytest.param(
+        "Он заплатил 7-ть рублей за подводу в тот же день.",
+        "Он заплатил семь рублей за подводу в тот же день.",
+        id="seven_written_with_a_th_ending",
+    ),
+    pytest.param(
+        "Въ полку было 6-ть орудій разнаго калибра и вѣса.",
+        "Въ полку было шесть орудій разнаго калибра и вѣса.",
+        id="pre_reform_six_written_with_a_th_ending",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), CARDINAL_TH_SUFFIX_CASES)
+def test_cardinal_th_suffix_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
