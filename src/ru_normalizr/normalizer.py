@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
+from typing import ClassVar, Literal
 
-from ._morph import first_parse_required
 from .abbreviations import expand_abbreviations
 from .address import expand_address_abbreviations
 from .caps import (
@@ -13,8 +15,19 @@ from .caps import (
 )
 from .dates_time import normalize_dates_and_time
 from .dictionary import apply_dictionary_rules
+from .identifiers import (
+    STRUCTURED_NUMERIC_SUFFIX_PATTERN,
+    fix_glued_numbers,
+    normalize_identifier_letter_suffixes,
+    normalize_phone_numbers,
+    normalize_vehicle_registration_plates,
+)
 from .latinization import DEFAULT_DICTIONARIES_PATH, apply_latinization
-from .numbering import convert_bracketed_numbers, convert_line_numbering
+from .numbering import (
+    convert_bracketed_numbers,
+    convert_inline_list_markers,
+    convert_line_numbering,
+)
 from .numerals import (
     _contains_numeral_candidates,
     normalize_compound_numeric_adjectives,
@@ -24,24 +37,37 @@ from .numerals import (
     normalize_math_symbols,
     normalize_numerals,
     normalize_numeric_suffixes,
+    normalize_square_unit_attributes,
     normalize_versions,
 )
-from .numerals._constants import is_unit_token
 from .numerals._hyphen import (
     normalize_numeric_unit_hyphen_links,
     normalize_spaced_numeric_hyphen_words,
 )
-from .numerals.numeric_suffixes import NUMERIC_SUFFIXES
+from .numerals.ordinals import (
+    normalize_edition_ordinals,
+    normalize_prefixed_ordinal_adverbs,
+    normalize_thousands_abbreviated_attributes,
+)
 from .options import NormalizeOptions
+from .placeholders import (
+    NUMERAL_TOKENS,
+    WINDOWS_PATHS,
+    PlaceholderAllocator,
+)
 from .preprocess_utils import (
     SLASH_FIX_PATTERN,
     UNIT_SLASH_PLACEHOLDER,
     apply_cleanup_replacements,
     clean_numbers,
     cleanup_malformed_punctuation,
+    expand_arc_minutes,
+    expand_na_prim_abbreviation,
+    expand_new_style_date_abbreviation,
     expand_years_ago_abbreviation,
-    normalize_ascii_quote_pairs,
-    normalize_cyrillic_combining_stress_marks,
+    insert_missing_space_before_paren,
+    join_hyphenated_line_breaks,
+    normalize_age_ranges,
     normalize_explicit_dashes,
     normalize_linebreaks,
     normalize_numeric_abbreviations,
@@ -55,84 +81,111 @@ from .preprocess_utils import (
     protect_unit_slashes,
     remove_decorative_separators,
     remove_numeric_footnotes,
-    remove_zero_width_formatting,
     restore_binary_math_operators,
     restore_letter_hyphens,
 )
+from .quotes import (
+    collapse_letterspaced_emphasis,
+    normalize_ascii_quote_pairs,
+    normalize_cyrillic_combining_stress_marks,
+    normalize_script_homoglyphs,
+    remove_zero_width_formatting,
+)
+from .references import (
+    normalize_administrative_law_references,
+    normalize_complex_legal_references,
+    normalize_isbn_identifiers,
+    normalize_number_signs,
+    normalize_page_references,
+    normalize_section_references,
+)
 from .roman_numerals import normalize_roman
+from .text_scan import clear_fold_cache, compile_scan
 from .urls import ProtectedUrls, normalize_urls, protect_urls
 from .years import normalize_numeric_ranges, normalize_years
 
-PARTICLE_PATTERN = re.compile(
-    r"(?<=[а-яА-ЯёЁ])\s*[–—―]\s*(?=(?:то|либо|нибудь|ка|таки|де|с)\b)",
+# A dash typed instead of a particle hyphen is glued to its word on the left
+# («кто— то», «что—либо»). A dash separated by a space on the left is real
+# punctuation: «вернулся домой — с добычей» and «сталось — то сам ведаешь»
+# must keep the dash, so the left side may not be whitespace.
+PARTICLE_PATTERN = compile_scan(
+    r"(?<=[а-яА-ЯёЁ])[–—―]\s*(?=(?:то|либо|нибудь|ка|таки|де|с)\b)",
     re.IGNORECASE,
 )
-DECORATIVE_MARKER_PATTERN = re.compile(r"(?:[*=_~+#\-\xad\u2010-\u2015]\s*){5,}")
-ASTERISK_SEPARATOR_PATTERN = re.compile(r"(?:\*\s*){3,}")
-CURRENCY_AMOUNT_PATTERN = re.compile(r"([$€₽])\s?(\d+(?:[.,]\d+)?)")
-DEGREE_SPACING_PATTERN = re.compile(r"(\d)°")
-LEADING_LETTER_DIGIT_PATTERN = re.compile(r"(?<=[а-яА-ЯёЁa-zA-Z])(\d+)")
-GLUED_NUMBER_WORD_PATTERN = re.compile(r"(\d+)([а-яА-ЯёЁa-zA-Z+]{1,})")
-
-GLUED_PREPOSITIONS = {
-    "до",
-    "по",
-    "от",
-    "из",
-    "с",
-    "со",
-    "к",
-    "ко",
-    "в",
-    "во",
-    "на",
-    "у",
-    "о",
-    "об",
-    "обо",
-    "при",
-    "за",
-    "под",
-    "над",
-    "без",
-    "для",
-    "ради",
-    "через",
-    "сквозь",
-    "вдоль",
-    "мимо",
-    "кроме",
-    "вместо",
-    "против",
-    "среди",
-    "между",
-    "перед",
-    "пред",
-    "близ",
-    "около",
-    "свыше",
-}
-GLUED_NUMERIC_SUFFIXES = NUMERIC_SUFFIXES
-_GLUED_SUFFIX_ALTERNATION = "|".join(
-    re.escape(suffix)
-    for suffix in sorted(NUMERIC_SUFFIXES, key=lambda value: (-len(value), value))
+DECORATIVE_MARKER_PATTERN = compile_scan(r"(?:[*=_~+#\-\xad\u2010-\u2015]\s*){5,}")
+ASTERISK_SEPARATOR_PATTERN = compile_scan(r"(?:\*\s*){3,}")
+CURRENCY_AMOUNT_PATTERN = compile_scan(r"([$€₽])\s?(\d+(?:[.,]\d+)?)")
+DEGREE_SPACING_PATTERN = compile_scan(r"(\d)°")
+WINDOWS_PATH_PATTERN = compile_scan(
+    r"(?<![\w@])(?P<path>[A-Za-z]:\\[^\s<>\"']+)"
 )
-EMBEDDED_NUMERIC_SUFFIX_CODE_PATTERN = re.compile(
-    rf"(?<=[а-яА-ЯёЁa-zA-Z])\d+-?(?:{_GLUED_SUFFIX_ALTERNATION})(?!\w)",
-    re.IGNORECASE | re.UNICODE,
-)
-STRUCTURED_NUMERIC_SUFFIX_PATTERN = re.compile(
-    rf"(?:"
-    rf"(?<!\w)[а-яА-ЯёЁa-zA-Z][а-яА-ЯёЁa-zA-Z\d_]*\d+"
-    rf"-?(?:{_GLUED_SUFFIX_ALTERNATION})(?!\w)"
-    rf"|(?<![\w.,-])\d+[.,]\d+-(?:{_GLUED_SUFFIX_ALTERNATION})(?!\w)"
-    rf")",
-    re.IGNORECASE | re.UNICODE,
-)
-SUPERSCRIPT_DIGIT_PATTERN = re.compile(r"[⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉]")
+SUPERSCRIPT_DIGIT_PATTERN = compile_scan(r"[⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉]")
 SUPERSCRIPT_DIGIT_TRANSLATION = str.maketrans(
     "⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉", "01234567890123456789"
 )
+
+
+@dataclass(frozen=True, slots=True)
+class ProtectedWindowsPaths:
+    """Текст со спрятанными путями Windows и средство вернуть их на место.
+
+    Раньше все пути прятались за ОДИН символ и восстанавливались по порядку
+    списка, поэтому стадия, переставившая фрагменты, подставляла путь не на
+    своё место. Теперь у каждого пути свой заменитель.
+    """
+
+    text: str
+    allocator: PlaceholderAllocator | None = None
+
+    def restore(self, text: str) -> str:
+        if self.allocator is None:
+            return text
+        return self.allocator.restore(text)
+
+
+def _split_windows_path_trailing_punctuation(path: str) -> tuple[str, str]:
+    trailing: list[str] = []
+    while path and path[-1] in ".,;:!?":
+        trailing.append(path[-1])
+        path = path[:-1]
+    return path, "".join(reversed(trailing))
+
+
+def protect_windows_paths(text: str) -> ProtectedWindowsPaths:
+    if not WINDOWS_PATH_PATTERN.search(text):
+        return ProtectedWindowsPaths(text)
+    allocator = PlaceholderAllocator(WINDOWS_PATHS, text)
+
+    def repl(match: re.Match[str]) -> str:
+        path, suffix = _split_windows_path_trailing_punctuation(match.group("path"))
+        if not path:
+            return match.group(0)
+        placeholder = allocator.allocate(path)
+        if placeholder is None:
+            return match.group(0)
+        return f"{placeholder}{suffix}"
+
+    protected = WINDOWS_PATH_PATTERN.sub(repl, text)
+    if not len(allocator):
+        return ProtectedWindowsPaths(text)
+    return ProtectedWindowsPaths(protected, allocator)
+
+
+#: Имена стадий, которые принимает `run_stage`. Часть публичного API: по этому
+#: типу вызывающий код проверяется статически, а не падает в рантайме на опечатке.
+Stage = Literal[
+    "urls",
+    "preprocess",
+    "roman",
+    "address",
+    "years",
+    "dates_time",
+    "numerals",
+    "abbreviations",
+    "dictionary",
+    "latinization",
+    "finalize",
+]
 
 
 class PipelineNormalizer:
@@ -145,35 +198,47 @@ class PipelineNormalizer:
     def dictionaries_path(self) -> Path:
         return self.options.dictionaries_path or DEFAULT_DICTIONARIES_PATH
 
-    def run_stage(self, stage: str, text: str) -> str:
-        handlers = {
-            "urls": self.run_urls,
-            "preprocess": self.run_preprocess,
-            "roman": self.run_roman,
-            "address": self.run_address,
-            "years": self.run_years,
-            "dates_time": self.run_dates_time,
-            "numerals": self.run_numerals,
-            "abbreviations": self.run_abbreviations,
-            "dictionary": self.run_dictionary,
-            "latinization": self.run_latinization,
-            "finalize": self.run_finalize,
-        }
-        try:
-            handler = handlers[stage]
-        except KeyError as exc:
-            available = ", ".join(sorted(handlers))
-            raise ValueError(
-                f"Unknown stage '{stage}'. Available stages: {available}"
-            ) from exc
+    #: Имя стадии -> метод. Атрибут класса, а не локальный словарь: пересоздавать
+    #: одиннадцать связанных методов на каждый вызов незачем, а `STAGE_NAMES`
+    #: рядом гарантирует, что публичный `Stage` и таблица не разъедутся.
+    _STAGE_HANDLERS: ClassVar[dict[Stage, str]] = {
+        "urls": "run_urls",
+        "preprocess": "run_preprocess",
+        "roman": "run_roman",
+        "address": "run_address",
+        "years": "run_years",
+        "dates_time": "run_dates_time",
+        "numerals": "run_numerals",
+        "abbreviations": "run_abbreviations",
+        "dictionary": "run_dictionary",
+        "latinization": "run_latinization",
+        "finalize": "run_finalize",
+    }
+
+    def run_stage(self, stage: Stage, text: str) -> str:
+        method = self._STAGE_HANDLERS.get(stage)
+        if method is None:
+            available = ", ".join(sorted(self._STAGE_HANDLERS))
+            raise ValueError(f"Unknown stage '{stage}'. Available stages: {available}")
+        handler: Callable[[str], str] = getattr(self, method)
         return handler(text)
 
     def normalize_text(self, text: str) -> str:
+        try:
+            return self._normalize_text(text)
+        finally:
+            # The case-insensitive guards cache one casefolded document; drop it
+            # so a finished run stops holding the input alive.
+            clear_fold_cache()
+
+    def _normalize_text(self, text: str) -> str:
         protected_urls = ProtectedUrls(text)
         if not self.options.enable_url_normalization:
             protected_urls = protect_urls(text)
             text = protected_urls.text
         text = self.run_urls(text)
+        protected_paths = protect_windows_paths(text)
+        text = protected_paths.text
         text = self._run_preprocess_steps(
             text,
             apply_caps_normalization=False,
@@ -201,13 +266,11 @@ class PipelineNormalizer:
         # rewritten the token into Cyrillic.
         text = self.run_dictionary(text)
         text = self.run_latinization(text)
-        return protected_urls.restore(self.run_finalize(text))
+        text = self.run_finalize(text)
+        text = protected_paths.restore(text)
+        return protected_urls.restore(text)
 
-    def run_preprocess(
-        self, text: str, keep_paragraph_placeholders: bool = False
-    ) -> str:
-        # Retained for compatibility with the established public method signature.
-        del keep_paragraph_placeholders
+    def run_preprocess(self, text: str) -> str:
         text = self._run_preprocess_steps(
             text,
             apply_caps_normalization=True,
@@ -222,7 +285,9 @@ class PipelineNormalizer:
         return text
 
     def run_urls(self, text: str) -> str:
-        return normalize_urls(text, enabled=self.options.enable_url_normalization)
+        if not self.options.enable_url_normalization:
+            return text
+        return normalize_urls(text)
 
     def _run_preprocess_steps(
         self,
@@ -234,9 +299,22 @@ class PipelineNormalizer:
         if leading_text.startswith("+"):
             text = " " + leading_text
 
+        # Decorative separator lines go first: normalize_linebreaks closes a
+        # paragraph with a dot, and a still-present «* * *» line would receive
+        # that dot itself and survive the line-anchored removal below.
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
+        text = remove_decorative_separators(text)
+        text = DECORATIVE_MARKER_PATTERN.sub(" ", text)
+        text = ASTERISK_SEPARATOR_PATTERN.sub(" ", text)
+        # Переносы склеиваются до normalize_linebreaks: тот превращает одиночный
+        # перевод строки в пробел, и висячий дефис уже не отличить от дефиса
+        # составного слова.
+        text = join_hyphenated_line_breaks(text)
         text = normalize_linebreaks(text)
         text = remove_zero_width_formatting(text)
         text = normalize_cyrillic_combining_stress_marks(text)
+        text = normalize_script_homoglyphs(text)
+        text = collapse_letterspaced_emphasis(text)
         # An address chain is the specific case: «стр. 2» right after a house
         # number is a building, not a page, and «д.» must lose its dot before
         # the numerals stage reads it as a sentence end and capitalizes the
@@ -246,23 +324,41 @@ class PipelineNormalizer:
         text = self.run_address(text)
         text = protect_letter_hyphens(text)
         text = text.replace("◦", " ")
-        text = remove_decorative_separators(text)
-        text = DECORATIVE_MARKER_PATTERN.sub(" ", text)
-        text = ASTERISK_SEPARATOR_PATTERN.sub(" ", text)
         text = text.replace("[", "(").replace("]", ")")
         text = protect_unit_slashes(text)
         text = SLASH_FIX_PATTERN.sub(" ", text)
         text = text.replace(UNIT_SLASH_PLACEHOLDER, "/")
         text = normalize_ascii_quote_pairs(text)
         text = normalize_punctuation_spacing(text)
+        # Source-level typo: Russian prose never glues «(» to the preceding
+        # word. Preprocess only — later stages rewrite footnote digits into
+        # words, and those historical glued forms must stay glued.
+        text = insert_missing_space_before_paren(text)
         if self.options.enable_years_ago_expansion:
             text = expand_years_ago_abbreviation(text)
+        text = expand_na_prim_abbreviation(text)
+        text = expand_new_style_date_abbreviation(text)
+        text = normalize_page_references(text)
+        text = normalize_section_references(text)
+        text = normalize_administrative_law_references(text)
+        text = normalize_complex_legal_references(text)
         text = normalize_numeric_abbreviations(text)
+        text = normalize_number_signs(text)
+        text = normalize_vehicle_registration_plates(
+            text, letter_vowel_mode=self.options.letter_vowel_mode
+        )
+        text = normalize_identifier_letter_suffixes(
+            text, letter_vowel_mode=self.options.letter_vowel_mode
+        )
+        text = normalize_phone_numbers(text)
         text = normalize_unary_plus_numbers(text)
         text = protect_negative_numbers(text)
         text = normalize_explicit_dashes(text)
+        text = normalize_age_ranges(text)
+        text = normalize_isbn_identifiers(text)
         text = convert_bracketed_numbers(text, self.options)
         text = convert_line_numbering(text)
+        text = convert_inline_list_markers(text)
         if apply_caps_normalization:
             text = self._run_caps_normalization(text)
         text = PARTICLE_PATTERN.sub("-", text)
@@ -272,9 +368,12 @@ class PipelineNormalizer:
         if SUPERSCRIPT_DIGIT_PATTERN.search(text):
             text = text.translate(SUPERSCRIPT_DIGIT_TRANSLATION)
         text = CURRENCY_AMOUNT_PATTERN.sub(r"\2\1", text)
+        # Штрихи угловых минут раскрываются до расстановки пробела перед «°»:
+        # правило опирается на знак градуса, приклеенный к цифре.
+        text = expand_arc_minutes(text)
         text = DEGREE_SPACING_PATTERN.sub(r"\1 °", text)
         text = clean_numbers(text)
-        text = self._fix_glued_numbers(text)
+        text = fix_glued_numbers(text)
         text = restore_binary_math_operators(text)
         text = restore_letter_hyphens(text)
         return text
@@ -286,15 +385,26 @@ class PipelineNormalizer:
         )
 
     def run_roman(self, text: str) -> str:
-        return normalize_roman(text, self.options)
+        if not self.options.enable_roman_normalization:
+            return text
+        return normalize_roman(text)
 
     def run_address(self, text: str) -> str:
-        return expand_address_abbreviations(text, self.options)
+        # Адресная цепочка — частный случай контекстного раскрытия сокращений,
+        # поэтому она выключается вместе с ним.
+        if not (
+            self.options.enable_abbreviation_expansion
+            and self.options.enable_contextual_abbreviation_expansion
+        ):
+            return text
+        return expand_address_abbreviations(text)
 
     def run_years(self, text: str) -> str:
+        if not self.options.enable_year_normalization:
+            return text
         if not any(char.isdecimal() for char in text):
             return text
-        text = normalize_years(text, self.options)
+        text = normalize_years(text)
         return normalize_numeric_ranges(text)
 
     def run_dates_time(self, text: str) -> str:
@@ -307,22 +417,23 @@ class PipelineNormalizer:
             return text
         if not _contains_numeral_candidates(text):
             return normalize_numerals(text, self.options)
-        protected_tokens: list[str] = []
-        token_placeholders: list[str] = []
+        tokens = PlaceholderAllocator(NUMERAL_TOKENS, text)
 
         def protect_structured_token(match: re.Match[str]) -> str:
-            if len(protected_tokens) >= 0x20000:
-                return match.group(0)
-            protected_tokens.append(match.group(0))
-            placeholder = chr(0xF0000 + len(protected_tokens) - 1)
-            token_placeholders.append(placeholder)
-            return placeholder
+            placeholder = tokens.allocate(match.group(0))
+            return match.group(0) if placeholder is None else placeholder
 
         text = STRUCTURED_NUMERIC_SUFFIX_PATTERN.sub(protect_structured_token, text)
         text = normalize_math_symbols(text)
         text = normalize_spaced_numeric_hyphen_words(text)
+        # Before the unit rule unglues «15-тыс.» into «15 тыс.» and before the
+        # suffix rule reads «2-е» after «Изд.» as a cardinal.
+        text = normalize_thousands_abbreviated_attributes(text)
+        text = normalize_edition_ordinals(text)
+        text = normalize_prefixed_ordinal_adverbs(text)
         text = normalize_numeric_unit_hyphen_links(text)
         text = normalize_compound_numeric_adjectives(text)
+        text = normalize_square_unit_attributes(text)
         text = normalize_versions(text)
         text = normalize_decimals(text)
         text = normalize_fractions(text)
@@ -332,26 +443,28 @@ class PipelineNormalizer:
         )
         text = normalize_hyphenated_words(text, include_numeric_suffixes=False)
         text = normalize_numerals(text, self.options)
-        for placeholder, token in zip(token_placeholders, protected_tokens, strict=True):
-            text = text.replace(placeholder, token)
-        return text
+        return tokens.restore(text)
 
     def run_abbreviations(self, text: str) -> str:
+        if not self.options.enable_abbreviation_expansion:
+            return text
         return expand_abbreviations(text, self.options)
 
     def run_dictionary(self, text: str) -> str:
+        if not self.options.enable_dictionary_normalization:
+            return text
         return apply_dictionary_rules(
             text,
-            enabled=self.options.enable_dictionary_normalization,
             dictionaries_path=self.dictionaries_path,
             include_only_files=self.options.dictionary_include_files,
             exclude_files=self.options.dictionary_exclude_files,
         )
 
     def run_latinization(self, text: str) -> str:
+        if not self.options.enable_latinization:
+            return text
         return apply_latinization(
             text,
-            enabled=self.options.enable_latinization,
             backend=self.options.latinization_backend,
             dictionaries_path=self.dictionaries_path,
             dictionary_filename=self.options.latin_dictionary_filename,
@@ -367,65 +480,6 @@ class PipelineNormalizer:
         text = normalize_sentence_start_caps(text)
         if self.options.cleanup_malformed_punctuation:
             text = cleanup_malformed_punctuation(text)
-        return text
-
-    def _classify_glued_numeric_rhs(self, word: str) -> str:
-        word_lower = word.lower()
-        if word == "k":
-            return "thousand_suffix"
-        if word_lower in GLUED_NUMERIC_SUFFIXES or word_lower in {"о", "а"}:
-            return "hyphen"
-        if is_unit_token(word) or word_lower in GLUED_PREPOSITIONS:
-            return "space"
-
-        parsed = first_parse_required(word_lower)
-        if "ADJF" in parsed.tag:
-            return "hyphen"
-        if "NOUN" in parsed.tag:
-            return "space"
-        return "hyphen"
-
-    def _fix_glued_numbers(self, text: str) -> str:
-        protected_codes: list[str] = []
-
-        def protect_code(match: re.Match[str]) -> str:
-            protected_codes.append(match.group(0))
-            return f"\ue010{len(protected_codes) - 1:x}\ue011"
-
-        def fix_glued(match: re.Match[str]) -> str:
-            num, word = match.group(1), match.group(2)
-            start = match.start()
-            previous_is_letter = start > 0 and text[start - 1].isalpha()
-            previous_is_spaced_letter = (
-                start > 1 and text[start - 1].isspace() and text[start - 2].isalpha()
-            )
-            embedded_in_alphanumeric_code = (
-                (previous_is_letter or previous_is_spaced_letter)
-                and len(word) == 1
-            )
-            rhs_kind = (
-                "hyphen"
-                if embedded_in_alphanumeric_code
-                else self._classify_glued_numeric_rhs(word)
-            )
-            if rhs_kind == "thousand_suffix":
-                return f"{num} тыс"
-            if rhs_kind == "hyphen":
-                return f"{num}-{word}"
-            if rhs_kind == "space":
-                return f"{num} {word}"
-            return f"{num}-{word}"
-
-        text = EMBEDDED_NUMERIC_SUFFIX_CODE_PATTERN.sub(protect_code, text)
-        text = LEADING_LETTER_DIGIT_PATTERN.sub(r" \1", text)
-        previous = None
-        iteration = 0
-        while previous != text and iteration < 5:
-            previous = text
-            text = GLUED_NUMBER_WORD_PATTERN.sub(fix_glued, text)
-            iteration += 1
-        for index, code in enumerate(protected_codes):
-            text = text.replace(f"\ue010{index:x}\ue011", code)
         return text
 
 

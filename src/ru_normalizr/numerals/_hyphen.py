@@ -4,12 +4,13 @@ import re
 from typing import Literal
 
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
+from ..text_scan import compile_scan
 from ._constants import UNIT_TOKEN_FRAGMENT, resolve_unit_info
 from .numeric_suffixes import CARDINAL_SUFFIXES, ORDINAL_SUFFIXES
 
 CARDINAL_CASE_SUFFIXES = CARDINAL_SUFFIXES
 AMBIGUOUS_SINGLE_LETTER_HYPHEN_UNITS = {"г", "л", "м", "н", "р", "с", "т", "ф", "ч"}
-NUMERIC_UNIT_HYPHEN_PATTERN = re.compile(
+NUMERIC_UNIT_HYPHEN_PATTERN = compile_scan(
     rf"(?<![\d{re.escape(NEGATIVE_NUMBER_PLACEHOLDER)}])"
     rf"(?P<num>(?:{re.escape(NEGATIVE_NUMBER_PLACEHOLDER)}|-)?\d+(?:[.,]\d+)?)"
     rf"\s*[-–—]\s*"
@@ -17,7 +18,7 @@ NUMERIC_UNIT_HYPHEN_PATTERN = re.compile(
     rf"(?!\w)",
     re.UNICODE,
 )
-SPACED_NUMERIC_HYPHEN_WORD_PATTERN = re.compile(
+SPACED_NUMERIC_HYPHEN_WORD_PATTERN = compile_scan(
     r"(?<!\d)(?P<num>\d+)\s+-\s+(?P<rhs>[а-яА-ЯёЁ]{1,})(?!\w)",
     re.UNICODE,
 )

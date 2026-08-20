@@ -8,6 +8,7 @@ from .abbreviation_rules import (
     ABBREVIATION_LITERAL_HINTS,
     ABBREVIATION_PATTERNS,
     ADJECTIVE_ABBREVIATION_EXPANSIONS,
+    GEO_CLASSIFIER_ABBREVIATIONS,
 )
 from .constants import (
     ABBREV_DOTTED_PATTERN,
@@ -29,23 +30,24 @@ from .constants import (
     apply_letter_vowel_mode,
     resolve_letter_name,
 )
-from .numerals._constants import VERB_CASE
+from .numerals._constants import PREP_CASE, VERB_CASE
 from .numerals._helpers import safe_inflect
 from .options import InitialsPauseMode, LetterVowelMode, NormalizeOptions
-from .text_scan import first_non_whitespace_index
+from .text_context import PUNCT_STRIP, simple_tokenize
+from .text_scan import compile_scan, first_non_whitespace_index
 
-_ETC_ABBREVIATION_PATTERN = re.compile(
+_ETC_ABBREVIATION_PATTERN = compile_scan(
     r"(?<!\w)(?P<abbr>т\.?\s*[дп]\.)(?P<tail>\s*)(?!\w)", re.IGNORECASE
 )
 _ADJECTIVE_ABBREVIATION_WORD = (
     r"(?!и\b|или\b|либо\b|да\b|но\b|а\b)[А-ЯЁа-яё-]+"
 )
-_ADJECTIVE_ABBREVIATION_PATTERN = re.compile(
+_ADJECTIVE_ABBREVIATION_PATTERN = compile_scan(
     rf"(?<!\w)(?P<abbr>{'|'.join(sorted((re.escape(key) for key in ADJECTIVE_ABBREVIATION_EXPANSIONS), key=len, reverse=True))})"
     rf"(?P<space>\s+)(?P<phrase>{_ADJECTIVE_ABBREVIATION_WORD}(?:\s+{_ADJECTIVE_ABBREVIATION_WORD}){{0,5}})",
     re.IGNORECASE,
 )
-_LEFT_CONTEXT_TOKEN_PATTERN = re.compile(r"[А-ЯЁа-яё-]+|[.!?]")
+_LEFT_CONTEXT_TOKEN_PATTERN = compile_scan(r"[А-ЯЁа-яё-]+|[.!?]")
 _UNAMBIGUOUS_PREPOSITION_CASES = {
     "без": "gent",
     "для": "gent",
@@ -80,7 +82,7 @@ _CASE_CONTEXT_BARRIER_POS = frozenset(
         "PRTS",
     }
 )
-_WORD_AMPERSAND_PATTERN = re.compile(
+_WORD_AMPERSAND_PATTERN = compile_scan(
     r"(?P<left>[A-Za-zА-Яа-яЁё]+(?:[-'][A-Za-zА-Яа-яЁё0-9]+)*)\s*&\s*(?P<right>[A-Za-zА-Яа-яЁё]+(?:[-'][A-Za-zА-Яа-яЁё0-9]+)*)"
 )
 _SINGLE_TOKEN_EN_LETTER_NAMES = frozenset(
@@ -104,14 +106,25 @@ _LANGUAGE_ORIGIN_ABBREVIATIONS = {
 }
 _SENTENCE_OPENING_CHARS = " \t\r\"'«„“([{"
 _SENTENCE_END_CHARS = ".!?…"
-_LANGUAGE_ORIGIN_PATTERN = re.compile(
+_LANGUAGE_ORIGIN_PATTERN = compile_scan(
     rf"(?<!\w)(?P<prep>от|из|с|со)\s+(?P<abbr>{'|'.join(sorted((re.escape(key) for key in _LANGUAGE_ORIGIN_ABBREVIATIONS), key=len, reverse=True))})"
     r"(?P<space>\s+)(?P<word>[^\s.,;:!?()\"\[\]{}«»]+)",
     re.IGNORECASE,
 )
-_FOLLOWING_NAME_TOKEN_PATTERN = re.compile(
+_FOLLOWING_NAME_TOKEN_PATTERN = compile_scan(
     rf"\s+(?P<token>{RUSSIAN_NAME_TOKEN})(?![A-Za-zА-Яа-яЁё])"
 )
+_CARDINAL_ONE_WORDS = frozenset({"один", "одна", "одно", "одну"})
+
+
+def _has_non_one_cardinal_before_abbreviation(left_context: str) -> bool:
+    tokens = _LEFT_CONTEXT_TOKEN_PATTERN.findall(left_context[-40:])
+    if not tokens:
+        return False
+    preceding = tokens[-1].casefold()
+    if preceding in _CARDINAL_ONE_WORDS:
+        return False
+    return any(candidate.tag.POS == "NUMR" for candidate in parse_word(preceding))
 
 
 def _expand_contextual_etc_abbreviations(text: str) -> str:
@@ -320,7 +333,9 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
                 modifier_parses.extend(adjective_candidates)
         return fallback_noun
 
-    def inflect_adjective(lemma: str, noun_parse) -> str:
+    def inflect_adjective(
+        lemma: str, noun_parse, *, counted_by_non_one_cardinal: bool = False
+    ) -> str:
         parsed = parse_word(lemma)
         adjective_parse = next(
             (
@@ -336,16 +351,26 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
         noun_case = canonicalize_case(noun_parse.tag.case)
         if noun_case is None:
             return lemma
-        target_tags = {noun_case}
         is_plural = "plur" in noun_parse.tag
-        if is_plural:
-            target_tags.add("plur")
+        if counted_by_non_one_cardinal:
+            # The noun's surface form is ambiguous in phrases such as "пути";
+            # cardinal government still requires a genitive-plural modifier:
+            # "два государственных пути".
+            target_tags = {"gent", "plur"}
         else:
-            target_tags.add("sing")
-            if noun_parse.tag.gender:
-                target_tags.add(noun_parse.tag.gender)
-        if noun_case == "accs" and (
-            is_plural or noun_parse.tag.gender == "masc"
+            target_tags = {noun_case}
+            if is_plural:
+                target_tags.add("plur")
+            else:
+                target_tags.add("sing")
+                if noun_parse.tag.gender:
+                    target_tags.add(noun_parse.tag.gender)
+        # Animacy only matters for a real accusative target; the cardinal branch
+        # above already fixed the modifier at genitive plural.
+        if (
+            not counted_by_non_one_cardinal
+            and noun_case == "accs"
+            and (is_plural or noun_parse.tag.gender == "masc")
         ):
             for animacy in ("anim", "inan"):
                 if animacy in noun_parse.tag:
@@ -371,7 +396,13 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
         noun_parse = choose_head_noun(phrase, expected_case)
         if noun_parse is None:
             return match.group(0)
-        expanded = inflect_adjective(lemma, noun_parse)
+        expanded = inflect_adjective(
+            lemma,
+            noun_parse,
+            counted_by_non_one_cardinal=_has_non_one_cardinal_before_abbreviation(
+                text[left_context_start : match.start()]
+            ),
+        )
         if abbr[:1].isupper():
             expanded = expanded[:1].upper() + expanded[1:]
         return f"{expanded}{match.group('space')}{phrase}"
@@ -647,8 +678,22 @@ def expand_person_initials(
 def expand_letter_abbreviations(
     text: str, *, vowel_mode: LetterVowelMode = "single"
 ) -> str:
-    def expand_token(token: str, is_dotted: bool) -> str:
-        tail_dot = token.endswith(".")
+    def keep_dotted_tail_dot(match: re.Match[str]) -> bool:
+        next_index, saw_newline = first_non_whitespace_index(text, match.end())
+        if next_index >= len(text) or saw_newline:
+            return True
+        next_char = text[next_index]
+        if next_char in ".!?…":
+            return True
+        if next_char in "\"»”)]}":
+            next_index, _ = first_non_whitespace_index(text, next_index + 1)
+            return next_index >= len(text) or text[next_index].isupper()
+        return next_char.isupper()
+
+    def expand_token(
+        token: str, is_dotted: bool, *, keep_terminal_dot: bool = True
+    ) -> str:
+        tail_dot = token.endswith(".") and keep_terminal_dot
         letters = [char for char in token if char.isalpha()]
         if len(letters) < ABBREV_MIN_LEN:
             return token
@@ -656,9 +701,9 @@ def expand_letter_abbreviations(
         letters_upper = [char.upper() for char in letters]
         joined_key = "".join(letters_upper)
         if joined_key in KNOWN_ABBREVIATIONS:
-            custom_reading = apply_letter_vowel_mode(
-                KNOWN_ABBREVIATIONS[joined_key], vowel_mode
-            )
+            custom_reading = KNOWN_ABBREVIATIONS[joined_key]
+            if joined_key not in {"UTC", "ISO"}:
+                custom_reading = apply_letter_vowel_mode(custom_reading, vowel_mode)
             return custom_reading + "." if tail_dot else custom_reading
 
         if all(char in RU_LETTER_NAMES for char in letters_upper):
@@ -682,7 +727,12 @@ def expand_letter_abbreviations(
         expanded = " ".join(names)
         return expanded + "." if tail_dot else expanded
 
-    text = ABBREV_DOTTED_PATTERN.sub(lambda m: expand_token(m.group(0), True), text)
+    text = ABBREV_DOTTED_PATTERN.sub(
+        lambda m: expand_token(
+            m.group(0), True, keep_terminal_dot=keep_dotted_tail_dot(m)
+        ),
+        text,
+    )
     return ABBREV_SOLID_PATTERN.sub(lambda m: expand_token(m.group(0), False), text)
 
 
@@ -735,12 +785,71 @@ def _normalize_contextual_ampersands(
     return _WORD_AMPERSAND_PATTERN.sub(repl, text)
 
 
+_GEO_CLASSIFIER_PATTERN = compile_scan(
+    rf"(?<!\w)(?P<abbr>{'|'.join(GEO_CLASSIFIER_ABBREVIATIONS)})\.\s+"
+    rf"(?=[А-ЯЁ][а-яё-])",
+    re.IGNORECASE,
+)
+#: «в»/«на»/«за» перед географическим классификатором читаются локативно:
+#: повествование описывает положение («на оз. Байкал»), а не направление.
+_GEO_STATIC_PREPOSITION_CASE = {
+    "в": "loct",
+    "во": "loct",
+    "на": "loct",
+    "за": "ablt",
+    "под": "ablt",
+    "над": "ablt",
+    "перед": "ablt",
+}
+
+
+def _expand_geo_classifier_abbreviations(text: str) -> str:
+    """«до оконечности оз. Иссык-Куль» → «озера»: падеж задаёт левый контекст.
+
+    Падеж классификатора сообщает предлог перед ним или управляющее
+    существительное слева (родительная цепочка «оконечности озера»); без них
+    классификатор — подлежащее и остаётся именительным.
+    """
+
+    def repl(match: re.Match[str]) -> str:
+        abbr = match.group("abbr")
+        lemma = GEO_CLASSIFIER_ABBREVIATIONS[abbr.lower()]
+        left_tokens = simple_tokenize(text[max(0, match.start() - 40) : match.start()])
+        case = "nomn"
+        prev = left_tokens[-1].lower().strip(PUNCT_STRIP) if left_tokens else ""
+        if prev:
+            if prev in _GEO_STATIC_PREPOSITION_CASE:
+                case = _GEO_STATIC_PREPOSITION_CASE[prev]
+            elif prev in PREP_CASE:
+                case = PREP_CASE[prev]
+            else:
+                p_prev = first_parse_required(prev)
+                if "NOUN" in p_prev.tag and "Fixd" not in p_prev.tag:
+                    case = "gent"
+        expanded = lemma
+        if case != "nomn":
+            p_lemma = next(
+                (
+                    candidate
+                    for candidate in parse_word(lemma)
+                    if "NOUN" in candidate.tag and candidate.tag.case == "nomn"
+                ),
+                None,
+            )
+            if p_lemma is not None:
+                expanded = safe_inflect(p_lemma, {case, "sing"}, fallback_word=lemma)
+        if abbr[:1].isupper():
+            expanded = expanded[:1].upper() + expanded[1:]
+        return f"{expanded} "
+
+    return _GEO_CLASSIFIER_PATTERN.sub(repl, text)
+
+
 def expand_abbreviations(text: str, options: NormalizeOptions | None = None) -> str:
     active = options or NormalizeOptions()
-    if not active.enable_abbreviation_expansion:
-        return text
     text = _expand_language_origin_abbreviations(text)
     if active.enable_contextual_abbreviation_expansion:
+        text = _expand_geo_classifier_abbreviations(text)
         text = _expand_contextual_etc_abbreviations(text)
         text = _expand_contextual_adjective_abbreviations(text)
         folded_text = text.casefold()
@@ -767,5 +876,13 @@ def expand_abbreviations(text: str, options: NormalizeOptions | None = None) -> 
             pause_mode=active.initials_pause_mode,
         )
     if active.enable_letter_abbreviation_expansion:
+        # A trailing all-caps run in a CamelCase protocol or product name is a
+        # real acronym (PostgreSQL, GraphQL, OpenVPN). Split only a terminal
+        # run of at least two capitals; ordinary iPhone-like words stay intact.
+        text = re.sub(
+            r"(?<=[a-zа-яё])(?=[A-ZА-ЯЁ]{2,}\b)",
+            " ",
+            text,
+        )
         text = expand_letter_abbreviations(text, vowel_mode=active.letter_vowel_mode)
     return _normalize_contextual_ampersands(text, active)

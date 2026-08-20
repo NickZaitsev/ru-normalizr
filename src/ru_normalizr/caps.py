@@ -1,58 +1,22 @@
 from __future__ import annotations
 
-import functools
 import re
 
 from ._morph import first_parse_required, parse_word
+from .abbreviation_context import ends_with_abbreviation
 from .constants import KNOWN_ABBREVIATIONS
+from .text_scan import compile_scan
 
-_LINE_SPLIT_PATTERN = re.compile(r"(\n)")
-_FIRST_WORD_CAPS_PATTERN = re.compile(
+_LINE_SPLIT_PATTERN = compile_scan(r"(\n)")
+_FIRST_WORD_CAPS_PATTERN = compile_scan(
     r"^([^\S\r\n]*)([A-ZА-ЯЁ]{2,})(?=\b|\s|[.,!?;:])", re.MULTILINE
 )
-_SENTENCE_START_PATTERN = re.compile(
+_SENTENCE_START_PATTERN = compile_scan(
     r"(?P<punct>[.!?…])(?P<prefix>(?:(?=[^\r\n])\s|[\"'«»„“”()\[\]{}])*)"
     r"(?P<letter>[a-zA-Zа-яА-ЯёЁ])"
 )
+_WORD_AT_POSITION_PATTERN = compile_scan(r"[A-Za-zА-Яа-яЁё]+")
 _CAPS_CONNECTORS = {"А", "В", "И", "К", "О", "С", "У"}
-_ABBREVIATION_TAIL_PATTERN = re.compile(r"(?<![\w.])(?P<token>[A-Za-zА-Яа-яЁё]{1,4})\Z")
-_ABBREVIATION_TAIL_MAX_LOOKBACK = 8
-
-
-@functools.lru_cache(maxsize=4096)
-def _is_abbreviation_fragment(token: str) -> bool:
-    """Check whether a short lowercase token before a dot is an abbreviation.
-
-    A dotted single letter is an abbreviation or an initial by orthography; the
-    one-letter words that could stand before a real sentence end are all
-    prepositions and conjunctions, which cannot end a sentence at all. «я» is
-    the exception and keeps its boundary.
-
-    Longer fragments need two disjoint signals, because pymorphy knows some
-    abbreviations and guesses at the rest: a dictionary entry whose every
-    reading is tagged ``Abbr`` («стр», «руб», «ул»), or no dictionary entry at
-    all («мкр», «пом», «эт»). A short real word that merely happens to end a
-    sentence («сто», «раз», «дом») fails both and keeps its boundary.
-    """
-
-    if not token.islower():
-        return False
-    if len(token) == 1:
-        return token != "я"
-    parses = parse_word(token)
-    if not parses:
-        return False
-    if all("Abbr" in parse.tag for parse in parses):
-        return True
-    return not any(getattr(parse, "is_known", False) for parse in parses)
-
-
-def _ends_with_abbreviation(text: str, dot_index: int) -> bool:
-    start = max(0, dot_index - _ABBREVIATION_TAIL_MAX_LOOKBACK)
-    match = _ABBREVIATION_TAIL_PATTERN.search(text, start, dot_index)
-    if match is None:
-        return False
-    return _is_abbreviation_fragment(match.group("token"))
 
 
 def normalize_first_word_caps(text: str, enabled: bool = True) -> str:
@@ -74,6 +38,34 @@ def normalize_first_word_caps(text: str, enabled: bool = True) -> str:
     return _FIRST_WORD_CAPS_PATTERN.sub(normalize_line_start, text)
 
 
+def _ellipsis_precedes(text: str, punctuation_position: int) -> bool:
+    """Знак в `punctuation_position` — часть многоточия, а не точка."""
+
+    if text[punctuation_position] == "…":
+        return True
+    if text[punctuation_position] != ".":
+        return False
+    return punctuation_position > 0 and text[punctuation_position - 1] in ".…"
+
+
+def _starts_with_numeral(text: str, position: int) -> bool:
+    """Слово в позиции `position` — числительное (количественное или порядковое).
+
+    Восклицание внутри кавычек обычно не кончает предложение («Стой!» крикнул
+    он), и рамку продолжают глагол речи, союз или наречие. Числительное её
+    продолжать не может: строчным оно оказалось потому, что на его месте в
+    исходнике стояли цифры, у которых регистра нет вовсе.
+    """
+
+    word_match = _WORD_AT_POSITION_PATTERN.match(text, position)
+    if word_match is None:
+        return False
+    return any(
+        candidate.tag.POS == "NUMR" or "Anum" in candidate.tag
+        for candidate in parse_word(word_match.group(0))
+    )
+
+
 def normalize_sentence_start_caps(text: str, enabled: bool = True) -> str:
     if not enabled:
         return text
@@ -86,6 +78,18 @@ def normalize_sentence_start_caps(text: str, enabled: bool = True) -> str:
             punctuation in {"?", "!"}
             and any(quote in prefix for quote in ('"', "'", "»", "”"))
             and letter.islower()
+            and not _starts_with_numeral(text, match.start("letter"))
+        ):
+            return match.group(0)
+        # Многоточие — не конец предложения: им отмечают и пропуск внутри цитаты
+        # («писал так: «... факты»), и обрыв речи посередине фразы («Начало...
+        # конец»). Строчная буква в исходнике сама говорит, что фраза
+        # продолжается; поднимать регистр надо только там, где его не было
+        # изначально — у числа, развёрнутого в слово.
+        if (
+            _ellipsis_precedes(text, match.start("punct"))
+            and letter.islower()
+            and not _starts_with_numeral(text, match.start("letter"))
         ):
             return match.group(0)
         # The dot of an abbreviation the pipeline left alone is not a sentence
@@ -93,7 +97,7 @@ def normalize_sentence_start_caps(text: str, enabled: bool = True) -> str:
         # sentence break in the middle of a phrase, which a TTS engine reads as
         # a pause. A genuine sentence end after an abbreviation is unaffected:
         # its next word is already capitalized in the source.
-        if punctuation == "." and _ends_with_abbreviation(text, match.start("punct")):
+        if punctuation == "." and ends_with_abbreviation(text, match.start("punct")):
             return match.group(0)
         return f"{punctuation}{prefix}{letter.upper()}"
 

@@ -37,8 +37,11 @@ ABBREVIATION_DOT_CASES = (
         id="single_letter_abbreviation_clause",
     ),
     pytest.param(
+        # The case only guards against a capital letter after the abbreviation
+        # dot. The page reference itself is read as "на странице седьмой", the
+        # form the page-reference rule produces everywhere else.
         "Ссылка ведёт на стр. 7 приложения к договору.",
-        "Ссылка ведёт на страница семь приложения к договору.",
+        "Ссылка ведёт на странице седьмой приложения к договору.",
         id="expanded_abbreviation_needs_no_guard",
     ),
 )
@@ -138,6 +141,40 @@ def test_guard_ignores_a_capitalized_abbreviation():
     )
 
 
+def test_initial_sequence_before_a_conjunction_is_not_a_sentence_boundary():
+    source = "В комиссию вошли Петров В. Г. и Сидоров."
+    assert normalize(source) == source
+
+
 def test_disabled_option_leaves_the_text_untouched():
     source = "Он ушёл домой. она осталась ждать."
     assert normalize_sentence_start_caps(source, enabled=False) == source
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "Ионические колонии до р.х. не заставили переменить это имя моря.",
+        "Ионические колонии (750 кораблей до р.х.) не заставили переменить имя.",
+        "Персы пришли сюда до н.э. и остались здесь надолго.",
+        "Он приехал в Москву, т.е. в столицу, и остался там надолго.",
+        "В комиссию вошли Петров В.Г. и Сидоров, оба из уездного правления.",
+    ],
+    ids=["rh", "rh_in_parens", "ne", "te", "initials_without_spaces"],
+)
+def test_dotted_letter_chain_is_not_a_sentence_boundary(source: str) -> None:
+    # «р.х.», «н.э.», «т.е.» — цепочка однобуквенных сокращений: точка перед
+    # буквой прячет её от общего хвостового шаблона, и без отдельного правила
+    # предложение ложно начиналось с «Не заставили».
+    assert normalize_sentence_start_caps(source) == source
+
+
+def test_dotted_letter_chain_keeps_a_real_boundary():
+    # Настоящая граница после цепочки уже заглавная в источнике, а обычное
+    # слово перед точкой цепочкой не считается.
+    assert normalize_sentence_start_caps("Это было до н.э. Позже пришли греки.") == (
+        "Это было до н.э. Позже пришли греки."
+    )
+    assert normalize_sentence_start_caps("Он закончил работу. дальше шли другие.") == (
+        "Он закончил работу. Дальше шли другие."
+    )

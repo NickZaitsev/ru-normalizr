@@ -272,7 +272,7 @@ def test_non_address_abbreviation_keeps_its_own_expansion(
 def test_ambiguous_abbreviation_outside_a_chain_is_left_alone(
     source: str, kept_fragments: tuple[str, ...]
 ) -> None:
-    result = expand_address_abbreviations(source, TTS)
+    result = expand_address_abbreviations(source)
     assert result == source
     for fragment in kept_fragments:
         assert fragment in result
@@ -301,36 +301,36 @@ def test_address_chain_expands_the_same_way_in_safe_mode():
 def test_conjunction_breaks_the_address_chain():
     # «и» is not an address separator, so the ambiguous «д.» loses its only
     # unambiguous neighbour and must stay abbreviated.
-    result = expand_address_abbreviations("Он живёт в д. 10 и в кв. 5.", TTS)
+    result = expand_address_abbreviations("Он живёт в д. 10 и в кв. 5.")
     assert result == "Он живёт в д. 10 и в квартире 5."
 
 
 def test_lowercase_street_name_is_not_treated_as_an_address():
-    assert expand_address_abbreviations("Сверните на ул. лесной дорогой.", TTS) == (
+    assert expand_address_abbreviations("Сверните на ул. лесной дорогой.") == (
         "Сверните на ул. лесной дорогой."
     )
 
 
 def test_named_abbreviation_without_a_name_is_not_expanded():
-    assert expand_address_abbreviations("Значение ул. равно нулю.", TTS) == (
+    assert expand_address_abbreviations("Значение ул. равно нулю.") == (
         "Значение ул. равно нулю."
     )
 
 
 def test_numbered_abbreviation_without_a_number_is_not_expanded():
-    assert expand_address_abbreviations("Значение кв. велико.", TTS) == (
+    assert expand_address_abbreviations("Значение кв. велико.") == (
         "Значение кв. велико."
     )
 
 
 def test_house_number_with_a_letter_suffix_is_preserved():
-    assert expand_address_abbreviations("Адрес: ул. Полевая, д. 7Б, кв. 3.", TTS) == (
+    assert expand_address_abbreviations("Адрес: ул. Полевая, д. 7Б, кв. 3.") == (
         "Адрес: улица Полевая, дом 7Б, квартира 3."
     )
 
 
 def test_house_number_with_a_slash_is_preserved():
-    assert expand_address_abbreviations("Адрес: ул. Полевая, д. 10/2, кв. 3.", TTS) == (
+    assert expand_address_abbreviations("Адрес: ул. Полевая, д. 10/2, кв. 3.") == (
         "Адрес: улица Полевая, дом 10/2, квартира 3."
     )
 
@@ -346,8 +346,11 @@ def test_house_number_with_a_slash_is_preserved():
 def test_disabled_abbreviation_options_skip_the_address_stage(
     disabled: dict[str, bool],
 ) -> None:
+    # Флаги стадий проверяет пайплайн, а не сама стадия, поэтому выключенность
+    # видна через `run_stage`.
     source = "Адрес: ул. Полевая, д. 10, кв. 35."
-    assert expand_address_abbreviations(source, NormalizeOptions.tts(**disabled)) == source
+    normalizer = PipelineNormalizer(NormalizeOptions.tts(**disabled))
+    assert normalizer.run_stage("address", source) == source
 
 
 def test_address_stage_is_reachable_by_name():
@@ -359,8 +362,8 @@ def test_address_stage_is_reachable_by_name():
 
 def test_address_expansion_is_idempotent():
     source = "Курьер прибудет по адресу: ул. Полевая, д. 10, корп. 2, кв. 35."
-    once = expand_address_abbreviations(source, TTS)
-    assert expand_address_abbreviations(once, TTS) == once
+    once = expand_address_abbreviations(source)
+    assert expand_address_abbreviations(once) == once
 
 
 @pytest.mark.parametrize(
@@ -369,4 +372,4 @@ def test_address_expansion_is_idempotent():
     ids=["empty", "plain", "bare_house", "bare_street", "square_unit", "decimal_before"],
 )
 def test_degenerate_input_is_returned_unchanged(source: str) -> None:
-    assert expand_address_abbreviations(source, TTS) == source
+    assert expand_address_abbreviations(source) == source

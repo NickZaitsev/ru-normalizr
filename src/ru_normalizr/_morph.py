@@ -115,6 +115,12 @@ def select_parse(
     return best
 
 
+@functools.lru_cache(maxsize=16384)
+def word_is_known(word: str) -> bool:
+    """Whether the dictionary holds ``word`` itself, without guessing."""
+    return bool(get_morph().word_is_known(word.lower()))
+
+
 def first_parse(word: str) -> MorphParse | None:
     """Return the first pymorphy parse for ``word``, or ``None`` if there is none.
 
@@ -132,7 +138,13 @@ def first_parse(word: str) -> MorphParse | None:
 
 
 def first_parse_required(word: str) -> MorphParse:
-    """Return the first parse and enforce pymorphy's non-empty result invariant."""
+    """Return the first parse and enforce pymorphy's non-empty result invariant.
+
+    Raises instead of asserting: под ``python -O`` assert исчезает, и вместо
+    внятной ошибки вызывающий код получил бы ``None`` в аннотации ``MorphParse``
+    и падение где-то дальше по стеку.
+    """
     parsed = first_parse(word)
-    assert parsed is not None, f"pymorphy3 returned no parses for {word!r}"
+    if parsed is None:
+        raise RuntimeError(f"pymorphy3 returned no parses for {word!r}")
     return parsed

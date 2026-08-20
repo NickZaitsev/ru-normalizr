@@ -9,6 +9,7 @@ from scripts.benchmark import (
     _load_report,
     _write_report,
     find_regressions,
+    find_throughput_shortfalls,
 )
 
 
@@ -32,6 +33,33 @@ def _result(
         output_sha256=output_sha256,
         peak_rss_bytes=peak_rss_bytes,
     )
+
+
+def test_find_throughput_shortfalls_reports_only_scenarios_below_the_floor() -> None:
+    # _result(median) даёт throughput = 100 / median.
+    current = {"fast": _result(0.001), "slow": _result(1.0)}
+
+    shortfalls = find_throughput_shortfalls(current, 1000.0)
+
+    assert shortfalls == [("slow", 100.0)]
+
+
+def test_find_throughput_shortfalls_is_disabled_without_a_floor() -> None:
+    """Порог по умолчанию не проверяется, иначе PR-gate стал бы флаки на CI."""
+    current = {"slow": _result(1.0)}
+
+    assert find_throughput_shortfalls(current, None) == []
+
+
+def test_find_throughput_shortfalls_accepts_a_scenario_exactly_at_the_floor() -> None:
+    current = {"exact": _result(1.0)}
+
+    assert find_throughput_shortfalls(current, 100.0) == []
+
+
+def test_find_throughput_shortfalls_rejects_a_negative_floor() -> None:
+    with pytest.raises(ValueError, match="не может быть отрицательным"):
+        find_throughput_shortfalls({"any": _result(1.0)}, -1.0)
 
 
 def test_find_regressions_reports_only_scenario_above_threshold() -> None:

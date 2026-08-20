@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import re
-
 from ._morph import parse_word
 from .numerals._constants import (
     ALL_UNITS,
@@ -11,6 +9,7 @@ from .numerals._constants import (
     resolve_unit_info,
 )
 from .text_context import TOKEN_PATTERN, normalize_context_token
+from .text_scan import ScanPattern
 
 YEAR_MIN = 1000
 YEAR_MAX = 2100
@@ -100,8 +99,8 @@ def should_treat_as_implicit_year(
     text: str,
     start: int,
     *,
-    explicit_year_word_pattern: re.Pattern[str],
-    year_suffix_tail_pattern: re.Pattern[str] | None = None,
+    explicit_year_word_pattern: ScanPattern,
+    year_suffix_tail_pattern: ScanPattern | None = None,
 ) -> bool:
     if year_suffix_tail_pattern and year_suffix_tail_pattern.match(text, start):
         return False

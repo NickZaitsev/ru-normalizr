@@ -844,8 +844,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "eng-to-ipa", specifier = "==0.0.2" },
-    { name = "num2words", specifier = ">=0.5.13" },
+    { name = "eng-to-ipa", specifier = ">=0.0.2,<0.1" },
+    { name = "num2words", specifier = ">=0.5.13,<0.6" },
     { name = "pymorphy3", extras = ["fast"], specifier = ">=2.0,<3" },
     { name = "pymorphy3-dicts-ru", specifier = ">=2.0,<3" },
     { name = "roman", specifier = ">=4.0" },

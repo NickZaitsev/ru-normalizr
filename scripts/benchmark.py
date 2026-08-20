@@ -284,6 +284,28 @@ def _options_for_mode(mode: str) -> NormalizeOptions:
     return NormalizeOptions.tts() if mode == "tts" else NormalizeOptions.safe()
 
 
+def find_throughput_shortfalls(
+    current: Mapping[str, BenchmarkResult],
+    min_chars_per_second: float | None,
+) -> list[tuple[str, float]]:
+    """Вернуть сценарии, не дотянувшие до абсолютного порога пропускной способности.
+
+    Сравнение с base commit ловит только относительное замедление: цель из
+    AGENTS.md (180 000 символов/с) может нарушаться сколько угодно долго, пока
+    каждый отдельный PR замедляет пайплайн меньше чем на 25%.
+    """
+
+    if min_chars_per_second is None:
+        return []
+    if min_chars_per_second < 0:
+        raise ValueError("Порог пропускной способности не может быть отрицательным")
+    return sorted(
+        (name, result.throughput_chars_per_second)
+        for name, result in current.items()
+        if result.throughput_chars_per_second < min_chars_per_second
+    )
+
+
 def find_regressions(
     current: Mapping[str, BenchmarkResult],
     baseline: Mapping[str, BenchmarkResult],
@@ -753,6 +775,15 @@ def _build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_MAX_MEMORY_REGRESSION_PERCENT,
         help="допустимый рост peak RSS по сценарию (по умолчанию: 30)",
     )
+    parser.add_argument(
+        "--min-chars-per-second",
+        type=float,
+        default=None,
+        help=(
+            "минимальная пропускная способность каждого сценария; "
+            "запуск падает, если она ниже (по умолчанию порог не проверяется)"
+        ),
+    )
     parser.add_argument("--samples", "--repeats", type=_positive_int, default=5)
     parser.add_argument(
         "--warmups",
@@ -815,18 +846,31 @@ def main(argv: Sequence[str] | None = None) -> int:
                 warmups=args.warmups,
                 target_sample_seconds=args.target_sample_seconds,
             )
-        if baseline is None:
-            return 0
-
-        regressions = find_regressions(
-            current,
-            baseline,
-            args.max_regression_percent,
-            args.max_memory_regression_percent,
+        shortfalls = find_throughput_shortfalls(current, args.min_chars_per_second)
+        regressions = (
+            find_regressions(
+                current,
+                baseline,
+                args.max_regression_percent,
+                args.max_memory_regression_percent,
+            )
+            if baseline is not None
+            else []
         )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"benchmark: {exc}", file=sys.stderr)
         return 2
+
+    failed = False
+
+    if shortfalls:
+        failed = True
+        print(
+            f"Пропускная способность ниже порога {args.min_chars_per_second:,.0f} символов/с:",
+            file=sys.stderr,
+        )
+        for scenario, throughput in shortfalls:
+            print(f"- {scenario}: {throughput:,.0f} символов/с", file=sys.stderr)
 
     if regressions:
         print(
@@ -842,8 +886,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"{regression.current_seconds:.0f} {value_unit})",
                 file=sys.stderr,
             )
-        return 1
-    return 0
+        failed = True
+
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -23,8 +23,13 @@ classifiers = [
   "Topic :: Text Processing :: Linguistic",
 ]
 dependencies = [
-  "eng_to_ipa==0.0.2",
-  "num2words>=0.5.13",
+  # eng_to_ipa не выпускался с 0.0.2 и не следует semver: любой новый выпуск
+  # нужно проверять руками на составе словаря IPA, поэтому верхняя граница.
+  "eng_to_ipa>=0.0.2,<0.1",
+  # num2words меняет формулировки числительных между минорными выпусками —
+  # это напрямую ломает эталоны тестов. Границу двигаем осознанно; недельный
+  # запуск CI ловит момент, когда её пора поднять.
+  "num2words>=0.5.13,<0.6",
   "pymorphy3[fast]>=2.0,<3",
   "pymorphy3-dicts-ru>=2.0,<3",
   "roman>=4.0",
@@ -52,14 +57,21 @@ ru-normalizr = "ru_normalizr.__main__:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-packages = ["ru_normalizr", "ru_normalizr.numerals"]
 include-package-data = false
+
+# Пакеты ищутся автоматически: перечисление руками уже однажды означало бы
+# потерю нового подпакета в wheel без единой ошибки сборки.
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.setuptools.package-data]
 ru_normalizr = ["py.typed", "dictionaries/**/*.dic"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+  "packaging: собирает wheel через `python -m build` (медленно, нужна сеть); в CI запускается в одной ячейке матрицы",
+]
 
 [tool.pyright]
 pythonVersion = "3.10"

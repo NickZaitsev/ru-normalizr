@@ -468,7 +468,9 @@ class HyphenatedWordTests(unittest.TestCase):
 
     def test_standalone_suffixes_above_one_hundred_are_normalized(self):
         self.assertEqual(normalize_hyphenated_words("120-й"), "сто двадцатый")
-        self.assertEqual(normalize_hyphenated_words("101-ого"), "ста одного")
+        # Голое «-ого» без управляющего существительного — порядковая запись:
+        # родительный количественного пишется только вместе со счётным словом.
+        self.assertEqual(normalize_hyphenated_words("101-ого"), "сто первого")
 
     def test_case_suffixes_above_one_hundred_are_normalized(self):
         self.assertEqual(normalize_hyphenated_words("120-х"), "сто двадцатых")

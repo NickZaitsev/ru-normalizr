@@ -9,7 +9,6 @@ from .constants import KNOWN_ABBREVIATIONS
 from .numerals._constants import is_exact_unit_token
 from .numerals._helpers import get_numeral_case
 from .numerals._hyphen import is_safe_numeric_hyphen_unit
-from .options import NormalizeOptions
 from .ordinal_utils import (
     choose_noun_parse,
     noun_parse_case,
@@ -18,6 +17,7 @@ from .ordinal_utils import (
     render_ordinal_from_noun_word,
 )
 from .text_context import normalize_context_token, simple_tokenize
+from .text_scan import compile_scan
 
 _ROMAN_ABBREVIATION_EXCEPTIONS = frozenset(
     {
@@ -72,20 +72,52 @@ _ROMAN_CONTEXT_LEMMAS = frozenset(
         "том",
         "книга",
         "квартал",
+        "выпуск",
     }
 )
 _ROMAN_HEADING_LEMMAS = frozenset(
-    {"глава", "раздел", "часть", "том", "книга", "квартал"}
+    {"глава", "раздел", "часть", "том", "книга", "квартал", "выпуск"}
 )
+# Bibliographic heading markers that keep their abbreviated spelling in speech:
+# only the roman numeral after them becomes an ordinal, and it agrees with the
+# gender of the word the abbreviation stands for.
+_ROMAN_HEADING_ABBREVIATION_LEMMAS = {
+    "т": "том",
+    "кн": "книга",
+    "гл": "глава",
+    "разд": "раздел",
+    "ч": "часть",
+}
 _ROMAN_ABBREVIATION_TO_CONTEXT = {
     "в": ("век", "sing"),
     "вв": ("век", "plur"),
     "кв": ("квартал", "sing"),
+    "стол": ("столетие", "sing"),
 }
-_ROMAN_SHARED_SEPARATOR_PATTERN = re.compile(r"(\s*,\s*|\s+и\s+)")
+# «стол» без точки — обычное существительное, а не «столетие»: сокращённое
+# чтение допустимо только для написания с точкой.
+_ROMAN_DOT_ONLY_ABBREVIATIONS = frozenset({"стол"})
+_ROMAN_SHARED_SEPARATOR_PATTERN = compile_scan(r"(\s*,\s*|\s+(?:и|или)\s+)")
+_ROMAN_SERIES_ITEM_PATTERN = r"[IVXLCDM]+(?:(?:\s*,\s*|\s+(?:и|или)\s+)[IVXLCDM]+)+"
 _ROMAN_CONTEXT_WORD_PATTERN = r"[A-Za-zА-ЯЁа-яё]+\.?"
 _ROMAN_CYRILLIC_LOOKALIKE_CHARS = frozenset("ХхСсІіМм")
 _ROMAN_LATIN_CHARS = frozenset("IVXLCDM")
+# Слова-«части века», после которых номер века стоит в родительном падеже
+# независимо от предлога слева: «к середине XIX в.» — «к середине
+# девятнадцатого века».
+_ROMAN_CENTURY_HEAD_PATTERN = (
+    r"(?:конец|конц[ауе]|концом|начал[оаеу]|началом|"
+    r"середин[аыуе]|серединой|половин[аыуе]|половиной|"
+    r"треть|трети|третью|четверть|четверти|четвертью)"
+)
+_ROMAN_SHARED_CENTURY_RANGE_PATTERN = compile_scan(
+    rf"\b(?P<left_head>{_ROMAN_CENTURY_HEAD_PATTERN})\s+"
+    r"(?P<left>[IVXLCDM]+)"
+    r"(?P<mid>\s*[—–-]\s*|\s+(?:и|до|по)\s+)"
+    rf"(?P<right_head>{_ROMAN_CENTURY_HEAD_PATTERN})\s+"
+    r"(?P<right>[IVXLCDM]+)\s+(?P<word>вв?\.|веков?|век[аеу]?|веком|веках|веками)(?!\w)",
+    re.IGNORECASE,
+)
 
 
 def _split_context_word_punctuation(word: str) -> tuple[str, str]:
@@ -102,7 +134,11 @@ def _resolve_roman_context_noun(
     normalized = normalize_context_token(word)
     if not normalized:
         return None
-    if allow_abbreviations and normalized in _ROMAN_ABBREVIATION_TO_CONTEXT:
+    if (
+        allow_abbreviations
+        and normalized in _ROMAN_ABBREVIATION_TO_CONTEXT
+        and (normalized not in _ROMAN_DOT_ONLY_ABBREVIATIONS or word.endswith("."))
+    ):
         lemma, abbreviation_number = _ROMAN_ABBREVIATION_TO_CONTEXT[normalized]
         parse = choose_noun_parse(lemma)
         if parse is None:
@@ -164,11 +200,82 @@ def _resolve_explicit_roman_context_form(
     return noun_parse, case, f"{rendered_word}{trailing_punctuation}"
 
 
+def _governing_noun_precedes(text: str, start: int) -> bool:
+    """Стоит ли вплотную слева неодушевлённое существительное-управитель.
+
+    «К середине XIX в.» — век зависит не от предлога «к», а от «середине», и
+    читается в родительном падеже. Слово должно примыкать к совпадению через
+    пробел: знак препинания между ними разрывает управление. Слова с разбором
+    имени или фамилии (в том числе угаданные вне словаря, как «Шафарик»)
+    не управляют: после них номер — не родительное определение.
+    """
+    left = text[max(0, start - 40) : start]
+    trimmed = left.rstrip()
+    if trimmed == left or not trimmed:
+        return False
+    word_match = re.search(r"[А-ЯЁа-яё-]+$", trimmed)
+    if word_match is None:
+        return False
+    parses = parse_word(word_match.group(0).lower())
+    if not parses or "NOUN" not in parses[0].tag or "inan" not in parses[0].tag:
+        return False
+    return not any(
+        marker in candidate.tag
+        for candidate in parses
+        for marker in ("Name", "Surn", "Patr")
+    )
+
+
+def _animate_name_precedes(text: str, start: int) -> bool:
+    left = text[max(0, start - 40) : start]
+    trimmed = left.rstrip()
+    if trimmed == left or not trimmed:
+        return False
+    word_match = re.search(r"[А-ЯЁ][а-яё]+$", trimmed)
+    if word_match is None:
+        return False
+    return any(
+        "anim" in candidate.tag
+        and any(marker in candidate.tag for marker in ("Name", "Surn", "Patr"))
+        for candidate in parse_word(word_match.group(0))
+    )
+
+
+def _is_counted_plural_form(noun_parse) -> bool:
+    return "plur" in noun_parse.tag and noun_parse_case(noun_parse) == "gent"
+
+
+def _agreeing_adjective_precedes(text: str, start: int, noun_parse) -> bool:
+    """Согласованное прилагательное вплотную слева от существительного.
+
+    «Маленьких глав XXXVII—XL» нельзя переставлять в «тридцать седьмую —
+    сороковую глав»: прилагательное потеряет свою вершину. При согласованном
+    определении слева порядок «существительное — номера» сохраняется.
+    """
+    left = text[max(0, start - 40) : start]
+    trimmed = left.rstrip()
+    if trimmed == left or not trimmed:
+        return False
+    word_match = re.search(r"[А-ЯЁа-яё-]+$", trimmed)
+    if word_match is None:
+        return False
+    noun_case = noun_parse_case(noun_parse)
+    noun_number = noun_parse.tag.number
+    return any(
+        candidate.tag.POS in {"ADJF", "PRTF"}
+        and canonicalize_case(candidate.tag.case) == noun_case
+        and candidate.tag.number == noun_number
+        for candidate in parse_word(word_match.group(0).lower())
+    )
+
+
 def _infer_roman_context_case(
     text: str,
     match: re.Match[str],
     noun_word: str,
 ) -> str:
+    if _governing_noun_precedes(text, match.start()):
+        return "gent"
     left_context = text[max(0, match.start() - 60) : match.start()]
     right_context = text[match.end() : match.end() + 60]
     left_tokens = simple_tokenize(left_context)
@@ -210,16 +317,9 @@ def _resolve_contextual_ordinal_case(
     return _infer_roman_context_case(text, match, noun_word)
 
 
-def _infer_abbreviated_century_case(
-    text: str,
-    match: re.Match[str],
-) -> str:
-    case = _infer_roman_context_case(text, match, "век")
-    if case != "accs":
-        return case
-    left_context = text[max(0, match.start() - 40) : match.start()]
-    left_tokens = simple_tokenize(left_context)
-    left_word = next(
+def _preceding_word(text: str, match: re.Match[str]) -> str:
+    left_tokens = simple_tokenize(text[max(0, match.start() - 40) : match.start()])
+    return next(
         (
             normalize_context_token(token)
             for token in reversed(left_tokens)
@@ -227,31 +327,49 @@ def _infer_abbreviated_century_case(
         ),
         "",
     )
-    if left_word in {"в", "во", "на", "о", "об", "обо", "при"}:
+
+
+def _infer_abbreviated_context_case(
+    text: str,
+    match: re.Match[str],
+    lemma: str,
+    locative_prepositions: frozenset[str],
+) -> str:
+    """Infer the case of an ordinal that stands next to an abbreviated head noun.
+
+    The head noun keeps its abbreviated spelling, so its own form gives no case
+    signal and the ordinal has to be decided from the surrounding words. The
+    accusative reading is the ambiguous one: after a locative preposition the
+    same slot is locative, and only the preposition tells them apart.
+    """
+    case = _infer_roman_context_case(text, match, lemma)
+    if case != "accs":
+        return case
+    if _preceding_word(text, match) in locative_prepositions:
         return "loct"
     return case
+
+
+_CENTURY_LOCATIVE_PREPOSITIONS = frozenset({"в", "во", "на", "о", "об", "обо", "при"})
+_HEAD_LOCATIVE_PREPOSITIONS = frozenset({"в", "во", "о", "об", "обо", "при"})
+
+
+def _infer_abbreviated_century_case(
+    text: str,
+    match: re.Match[str],
+) -> str:
+    return _infer_abbreviated_context_case(
+        text, match, "век", _CENTURY_LOCATIVE_PREPOSITIONS
+    )
 
 
 def _infer_abbreviated_quarter_case(
     text: str,
     match: re.Match[str],
 ) -> str:
-    case = _infer_roman_context_case(text, match, "квартал")
-    if case != "accs":
-        return case
-    left_context = text[max(0, match.start() - 40) : match.start()]
-    left_tokens = simple_tokenize(left_context)
-    left_word = next(
-        (
-            normalize_context_token(token)
-            for token in reversed(left_tokens)
-            if any(char.isalpha() for char in token)
-        ),
-        "",
+    return _infer_abbreviated_context_case(
+        text, match, "квартал", _HEAD_LOCATIVE_PREPOSITIONS
     )
-    if left_word in {"в", "во", "о", "об", "обо", "при"}:
-        return "loct"
-    return case
 
 
 def _render_shared_ordinal_in_context(
@@ -285,6 +403,11 @@ def _render_single_roman_with_context(
     if resolved is None:
         return None
     lemma, noun_parse, abbreviation_number = resolved
+    # «Сочинил XII книг»: родительный множественного — счётная форма, число
+    # при ней читается количественным. Отдаём арабскую цифру стадии
+    # числительных, которая согласует количественное с контекстом.
+    if abbreviation_number is None and _is_counted_plural_form(noun_parse):
+        return f"{number} {base_word}{trailing_punctuation}"
     case = (
         noun_parse_case(noun_parse)
         if not abbreviation_number
@@ -324,12 +447,19 @@ def _render_roman_series_with_context(
     if resolved is None:
         return None
     lemma, noun_parse, abbreviation_number = resolved
-    case = _resolve_contextual_ordinal_case(
-        text,
-        match,
-        base_word,
-        lemma,
-        abbreviation_number=abbreviation_number,
+    keep_noun_first = noun_first and _agreeing_adjective_precedes(
+        text, match.start(), noun_parse
+    )
+    case = (
+        noun_parse_case(noun_parse)
+        if keep_noun_first
+        else _resolve_contextual_ordinal_case(
+            text,
+            match,
+            base_word,
+            lemma,
+            abbreviation_number=abbreviation_number,
+        )
     )
     parts = _ROMAN_SHARED_SEPARATOR_PATTERN.split(series)
     rendered_parts: list[str] = []
@@ -355,6 +485,8 @@ def _render_roman_series_with_context(
         abbreviation_number=abbreviation_number,
     )
     if noun_first:
+        if keep_noun_first:
+            return f"{rendered_noun} {rendered_series}{trailing_punctuation}"
         if noun_word[:1].isupper() and rendered_series:
             rendered_series = rendered_series[:1].upper() + rendered_series[1:]
         return f"{rendered_series} {rendered_noun.lower()}{trailing_punctuation}"
@@ -375,12 +507,22 @@ def _render_roman_hyphen_range_with_context(
     if resolved is None:
         return None
     lemma, noun_parse, abbreviation_number = resolved
-    case = _resolve_contextual_ordinal_case(
-        text,
-        match,
-        base_word,
-        lemma,
-        abbreviation_number=abbreviation_number,
+    # При согласованном определении слева существительное остаётся вершиной
+    # на своём месте, и номера согласуются с его собственной формой, а не с
+    # выведенным из контекста падежом.
+    keep_noun_first = noun_first and _agreeing_adjective_precedes(
+        text, match.start(), noun_parse
+    )
+    case = (
+        noun_parse_case(noun_parse)
+        if keep_noun_first
+        else _resolve_contextual_ordinal_case(
+            text,
+            match,
+            base_word,
+            lemma,
+            abbreviation_number=abbreviation_number,
+        )
     )
     rendered_noun = _render_context_noun_word(
         base_word,
@@ -393,6 +535,8 @@ def _render_roman_hyphen_range_with_context(
     right_ordinal = _render_ordinal_for_context_noun(right_number, noun_parse, case=case)
     rendered_range = f"{left_ordinal} — {right_ordinal}"
     if noun_first:
+        if keep_noun_first:
+            return f"{rendered_noun} {rendered_range}{trailing_punctuation}"
         if noun_word[:1].isupper() and rendered_range:
             rendered_range = rendered_range[:1].upper() + rendered_range[1:]
         return f"{rendered_range} {base_word.lower()}{trailing_punctuation}"
@@ -400,8 +544,8 @@ def _render_roman_hyphen_range_with_context(
 
 
 def convert_shared_roman_words(text: str) -> str:
-    pattern = re.compile(
-        rf"\b(?P<series>[IVXLCDM]+(?:\s*(?:,\s*|\s+и\s+)[IVXLCDM]+)+)\s+(?P<suffix>{_ROMAN_CONTEXT_WORD_PATTERN})(?!\w)"
+    pattern = compile_scan(
+        rf"\b(?P<series>{_ROMAN_SERIES_ITEM_PATTERN})\s+(?P<suffix>{_ROMAN_CONTEXT_WORD_PATTERN})(?!\w)"
     )
 
     def repl(match: re.Match[str]) -> str:
@@ -417,8 +561,8 @@ def convert_shared_roman_words(text: str) -> str:
 
 
 def convert_left_shared_roman_words(text: str) -> str:
-    pattern = re.compile(
-        rf"\b(?P<suffix>{_ROMAN_CONTEXT_WORD_PATTERN})\s+(?P<series>[IVXLCDM]+(?:\s*(?:,\s*|\s+и\s+)[IVXLCDM]+)+)\b",
+    pattern = compile_scan(
+        rf"\b(?P<suffix>{_ROMAN_CONTEXT_WORD_PATTERN})\s+(?P<series>{_ROMAN_SERIES_ITEM_PATTERN})\b",
         re.IGNORECASE,
     )
 
@@ -436,7 +580,7 @@ def convert_left_shared_roman_words(text: str) -> str:
 
 
 def convert_roman_words(text: str) -> str:
-    pattern = re.compile(
+    pattern = compile_scan(
         rf"\b(?P<roman>[IVXLCDM]+)(?P<spacing>\s*)(?P<word>{_ROMAN_CONTEXT_WORD_PATTERN})(?!\w)",
         re.IGNORECASE,
     )
@@ -451,6 +595,12 @@ def convert_roman_words(text: str) -> str:
             return match.group(0)
         if not match.group("spacing") and normalize_context_token(match.group("word")) != "в":
             return match.group(0)
+        # «Петра I в Москву»: после имени римская цифра — номер монарха, а
+        # голое «в» — предлог, не сокращение века.
+        if match.group("word") in {"в", "В"} and _animate_name_precedes(
+            text, match.start()
+        ):
+            return match.group(0)
         rendered = _render_single_roman_with_context(
             text,
             match,
@@ -463,7 +613,7 @@ def convert_roman_words(text: str) -> str:
 
 
 def convert_roman_century_ranges(text: str) -> str:
-    pattern = re.compile(
+    pattern = compile_scan(
         r"\b(?P<prep>с|со|от)\s+(?P<left>[IVXLCDM]+)\s+(?P<mid>до|по)\s+(?P<right>[IVXLCDM]+)\s+(?P<word>век(?:а|у|е|ом|ами|ах|ов)?|в\.|вв\.)(?!\w)",
         re.IGNORECASE,
     )
@@ -491,8 +641,36 @@ def convert_roman_century_ranges(text: str) -> str:
     return pattern.sub(repl, text)
 
 
+def convert_shared_roman_century_ranges(text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        try:
+            left_number = roman.fromRoman(match.group("left").upper())
+            right_number = roman.fromRoman(match.group("right").upper())
+        except roman.InvalidRomanNumeralError:
+            return match.group(0)
+        left_ordinal = render_ordinal(
+            left_number, case="gent", gender="masc", inanimate=True
+        )
+        right_ordinal = render_ordinal(
+            right_number, case="gent", gender="masc", inanimate=True
+        )
+        mid = match.group("mid")
+        connector = " — " if any(char in "—–-" for char in mid) else f" {mid.strip()} "
+        # У сокращённого «в.»/«вв.» нет собственной формы, и общий для пары
+        # веков счёт читается во множественном родительном; полное слово
+        # («века», «веков») уже согласовано автором и остаётся как есть.
+        word = match.group("word")
+        rendered_word = "веков" if word.lower() in {"в.", "вв."} else word
+        return (
+            f"{match.group('left_head')} {left_ordinal}{connector}"
+            f"{match.group('right_head')} {right_ordinal} {rendered_word}"
+        )
+
+    return _ROMAN_SHARED_CENTURY_RANGE_PATTERN.sub(repl, text)
+
+
 def convert_hyphenated_roman_ranges(text: str) -> str:
-    pattern = re.compile(
+    pattern = compile_scan(
         rf"\b(?P<left>[IVXLCDM]+)\s*[-–—]\s*(?P<right>[IVXLCDM]+)\s+(?P<word>{_ROMAN_CONTEXT_WORD_PATTERN})(?!\w)"
     )
 
@@ -515,7 +693,7 @@ def convert_hyphenated_roman_ranges(text: str) -> str:
 
 
 def convert_left_shared_hyphenated_roman_ranges(text: str) -> str:
-    pattern = re.compile(
+    pattern = compile_scan(
         rf"\b(?P<word>{_ROMAN_CONTEXT_WORD_PATTERN})\s+(?P<left>[IVXLCDM]+)\s*[-–—]\s*(?P<right>[IVXLCDM]+)\b",
         re.IGNORECASE,
     )
@@ -542,17 +720,24 @@ def convert_left_shared_hyphenated_roman_ranges(text: str) -> str:
 def convert_roman_names(text: str) -> str:
     pattern = r"\b(?P<name>[А-ЯЁ][а-яё]+)\s+(?P<roman>[IVXLCDM]+)(?![-–—][а-яА-ЯёЁ])\b"
 
-    def pick_name_parse(match: re.Match[str]):
-        name = match.group("name")
-        parses = [
+    def filter_name_parses(word: str) -> list:
+        return [
             candidate
-            for candidate in parse_word(name)
+            for candidate in parse_word(word)
             if "NOUN" in candidate.tag
             and "anim" in candidate.tag
             and any(
                 marker in candidate.tag for marker in ("Name", "Surn", "Patr")
             )
         ]
+
+    def pick_name_parse(match: re.Match[str]):
+        name = match.group("name")
+        parses = filter_name_parses(name)
+        # Дореформенный твёрдый знак на конце («Карлъ») скрывает имя от
+        # словаря; современная форма без «ъ» разбирается штатно.
+        if not parses and name.endswith(("ъ", "Ъ")):
+            parses = filter_name_parses(name[:-1])
         if not parses:
             return None
 
@@ -567,6 +752,13 @@ def convert_roman_names(text: str) -> str:
             "",
         )
         target_case = _REGNAL_CASE_CONTEXT.get(left_word)
+        if target_case is None and left_word:
+            # «Движение Карла XII»: после существительного имя — родительное
+            # приложение, и омонимичный разбор («Карла» как женское имя в
+            # именительном) уступает родительному.
+            left_parses = parse_word(left_word)
+            if left_parses and "NOUN" in left_parses[0].tag:
+                target_case = "gent"
         if target_case is not None:
             for candidate in parses:
                 candidate_case = canonicalize_case(candidate.tag.case)
@@ -590,7 +782,7 @@ def convert_roman_names(text: str) -> str:
 
 
 def convert_suffixed_roman_regnal_names(text: str) -> str:
-    pattern = re.compile(
+    pattern = compile_scan(
         r"\b(?P<name>[А-ЯЁ][а-яё]+)\s+(?P<roman>[IVXLCDM]+)[-–—](?P<suffix>[а-яё]{1,4})\b",
         re.IGNORECASE,
     )
@@ -603,6 +795,14 @@ def convert_suffixed_roman_regnal_names(text: str) -> str:
         noun_parse = choose_noun_parse(match.group("name"), prefer_inanimate=False)
         if noun_parse is None or "anim" not in noun_parse.tag:
             return match.group(0)
+        # «Участники X-го съезда» — одушевлённое слово перед римской цифрой
+        # ещё не монарх: без разбора-имени наращение читает стадия суффиксов.
+        if not any(
+            marker in candidate.tag
+            for candidate in parse_word(match.group("name"))
+            for marker in ("Name", "Surn", "Patr")
+        ):
+            return match.group(0)
         return (
             f"{match.group('name')} "
             f"{render_ordinal_from_noun_parse(number, noun_parse, singularize_plural=True)}"
@@ -611,8 +811,47 @@ def convert_suffixed_roman_regnal_names(text: str) -> str:
     return pattern.sub(repl, text)
 
 
+def _render_abbreviated_heading(text: str, match: re.Match[str]) -> str:
+    """Render «т. II» and friends as an ordinal without expanding the marker."""
+    word = match.group("word")
+    if not word.endswith("."):
+        return match.group(0)
+    lemma = _ROMAN_HEADING_ABBREVIATION_LEMMAS.get(normalize_context_token(word[:-1]))
+    if lemma is None:
+        return match.group(0)
+    # «Т. И. Петров» has the same shape as «т. I»: a one-letter marker, a
+    # one-letter roman numeral and a dot. Initials are by far the commoner
+    # reading of that shape, so the numeral stays a letter there — unless a
+    # page reference follows («Т. I. С. 315»), which only a bibliographic
+    # volume produces. A marker of two letters or more («кн. V.») cannot be
+    # an initial at all.
+    if (
+        len(word) == 2
+        and len(match.group("roman")) == 1
+        and text[match.end() : match.end() + 1] == "."
+        and re.match(
+            r"\.\s+(?:[Сс](?:тр)?\.|[Сс]траниц[а-яё]*)\s*\d",
+            text[match.end() : match.end() + 16],
+        )
+        is None
+    ):
+        return match.group(0)
+    noun_parse = choose_noun_parse(lemma)
+    if noun_parse is None:
+        return match.group(0)
+    try:
+        number = roman.fromRoman(match.group("roman").upper())
+    except roman.InvalidRomanNumeralError:
+        return match.group(0)
+    case = _infer_abbreviated_context_case(
+        text, match, lemma, _HEAD_LOCATIVE_PREPOSITIONS
+    )
+    ordinal = _render_ordinal_for_context_noun(number, noun_parse, case=case)
+    return f"{word} {ordinal}"
+
+
 def convert_heading_roman_numerals(text: str) -> str:
-    pattern = re.compile(
+    pattern = compile_scan(
         rf"\b(?P<word>{_ROMAN_CONTEXT_WORD_PATTERN})\s+(?P<roman>[IVXLCDM]+)\b",
         re.IGNORECASE,
     )
@@ -625,7 +864,7 @@ def convert_heading_roman_numerals(text: str) -> str:
             allow_abbreviations=False,
         )
         if resolved is None or resolved[0] not in _ROMAN_HEADING_LEMMAS:
-            return match.group(0)
+            return _render_abbreviated_heading(text, match)
         try:
             ordinal = render_ordinal_from_noun_word(
                 roman.fromRoman(match.group("roman").upper()),
@@ -634,6 +873,24 @@ def convert_heading_roman_numerals(text: str) -> str:
             if ordinal is None:
                 return f"{match.group('word')} {roman.fromRoman(match.group('roman').upper())}"
             return f"{match.group('word')} {ordinal}"
+        except roman.InvalidRomanNumeralError:
+            return match.group(0)
+
+    return pattern.sub(repl, text)
+
+
+def convert_suffixed_roman_ordinals(text: str) -> str:
+    """«X-го», «IX-му» — римская цифра с наращением становится арабской.
+
+    Наращение — русское падежное окончание, поэтому и одиночные «X»/«V»
+    здесь однозначно числа, а не латинские буквы. Дальше цифру с наращением
+    штатно читает стадия числовых суффиксов.
+    """
+    pattern = compile_scan(r"\b([IVXLCDM]+)(?=[-–—][а-яё]{1,4}\b)")
+
+    def repl(match: re.Match[str]) -> str:
+        try:
+            return str(roman.fromRoman(match.group(1)))
         except roman.InvalidRomanNumeralError:
             return match.group(0)
 
@@ -687,7 +944,7 @@ def normalize_cyrillic_roman(text: str) -> str:
         "М": "M",
         "м": "M",
     }
-    pattern = re.compile(r"\b([IVXLCDMХхСсІіМм]{2,})\b")
+    pattern = compile_scan(r"\b([IVXLCDMХхСсІіМм]{2,})\b")
 
     def repl(match: re.Match[str]) -> str:
         word = match.group(1)
@@ -715,11 +972,9 @@ def normalize_cyrillic_roman(text: str) -> str:
     return pattern.sub(repl, text)
 
 
-def normalize_roman(text: str, options: NormalizeOptions | None = None) -> str:
-    active = options or NormalizeOptions()
-    if not active.enable_roman_normalization:
-        return text
+def normalize_roman(text: str) -> str:
     text = normalize_cyrillic_roman(text)
+    text = convert_shared_roman_century_ranges(text)
     text = convert_roman_century_ranges(text)
     text = convert_hyphenated_roman_ranges(text)
     text = convert_shared_roman_words(text)
@@ -727,6 +982,7 @@ def normalize_roman(text: str, options: NormalizeOptions | None = None) -> str:
     text = convert_left_shared_roman_words(text)
     text = convert_roman_words(text)
     text = convert_suffixed_roman_regnal_names(text)
+    text = convert_suffixed_roman_ordinals(text)
     text = convert_roman_names(text)
     text = convert_heading_roman_numerals(text)
     text = convert_other_roman_numerals(text)

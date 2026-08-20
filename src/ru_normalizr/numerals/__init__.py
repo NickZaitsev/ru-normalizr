@@ -3,7 +3,7 @@ from __future__ import annotations
 from ..options import NormalizeOptions
 from ..text_context import simple_tokenize
 from ._constants import ALL_UNITS, CURRENCY_STANDALONE, GREEK_LETTERS, MATH_SYMBOLS
-from ._helpers import detokenize, get_numeral_case
+from ._helpers import get_numeral_case
 from .cardinals import (
     normalize_all_digits_everywhere,
     normalize_cardinal_numerals,
@@ -25,6 +25,7 @@ from .symbols import (
     normalize_math_symbols,
     normalize_standalone_currency,
 )
+from .unit_expressions import normalize_square_unit_attributes
 from .versions import normalize_versions
 
 _NUMERAL_TRIGGER_CHARS = frozenset(
@@ -52,7 +53,7 @@ def _contains_numeral_candidates(text: str) -> bool:
 def normalize_numerals(text: str, options: NormalizeOptions | None = None) -> str:
     del options
     if not _contains_numeral_candidates(text):
-        return detokenize(simple_tokenize(text))
+        return text
     text = normalize_heading_ranges(text)
     text = normalize_heading_numbers(text)
     text = normalize_numeric_unit_ranges(text)
@@ -83,6 +84,7 @@ __all__ = [
     "normalize_numeric_unit_ranges",
     "normalize_ordinals",
     "normalize_remaining_post_numeral_abbreviations",
+    "normalize_square_unit_attributes",
     "normalize_standalone_currency",
     "normalize_versions",
     "simple_tokenize",

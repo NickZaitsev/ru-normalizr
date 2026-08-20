@@ -26,3 +26,4 @@ TODO.txt
 
 # Local compatibility link; canonical skills live in .claude/skills.
 .agents/skills/
+scratch_*

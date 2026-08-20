@@ -6,14 +6,16 @@ from functools import lru_cache
 
 import num2words
 
+from .._log_once import warn_once
 from .._morph import first_parse_required, parse_word
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
-from ..text_context import PUNCT_STRIP, simple_tokenize
-from ..text_scan import first_non_whitespace_index
+from ..text_context import PUNCT_STRIP, normalize_context_token, simple_tokenize
+from ..text_scan import compile_scan, first_non_whitespace_index
 from ._constants import (
     CURRENCY_MINOR_UNITS,
     PREP_CASE,
     UNIT_TOKEN_FRAGMENT,
+    resolve_unit_form,
     resolve_unit_info,
 )
 from ._helpers import (
@@ -21,6 +23,7 @@ from ._helpers import (
     get_target_tags_for_number,
     inanimate_cardinal_case,
     inflect_numeral_string,
+    noun_number_form,
     safe_inflect,
     should_keep_decimal_unit_dot_at,
 )
@@ -36,7 +39,7 @@ from .unit_rendering import render_unit_expression
 # range separator: normalize_hyphenated_words treats "10-пять целых…" like
 # "10-этажный" and replaces the hyphen with a space. Re-emitting it spaced lets
 # detokenize turn it into an em dash, exactly as it already does for "10-20".
-DECIMAL_PATTERN = re.compile(
+DECIMAL_PATTERN = compile_scan(
     rf"(?:(?<=\d)(?P<range_sep>-))?(?<!\d)(?P<num>(?:(?<![^\W_])-|{re.escape(NEGATIVE_NUMBER_PLACEHOLDER)})?\d+[.,]\d+)(?:\s*(?P<unit>{UNIT_TOKEN_FRAGMENT})(?P<unit_dot>\.)?)?(?:\s+(?P<unit2>{UNIT_TOKEN_FRAGMENT})(?P<unit2_dot>\.)?)?(?!\d)"
 )
 
@@ -58,7 +61,9 @@ def render_counted_money(
         str(value), inanimate_cardinal_case(value, case), descriptor.gender, False
     )
     noun = render_unit_expression(
-        descriptor, get_target_tags_for_number(value, case, descriptor.gender)
+        descriptor,
+        get_target_tags_for_number(value, case, descriptor.gender),
+        paucal=noun_number_form(value) == "few",
     )
     return f"{numeral} {noun}"
 
@@ -86,12 +91,49 @@ def render_money_amount(
     return f"{major} {render_counted_money(minor_info, minor_value, case)}"
 
 
+def _render_half_multiplier(
+    unit_info: UnitDescriptor, int_val: int, int_part_s: str, case: str
+) -> str | None:
+    """«N,5 тысяч» — «N с половиной тысяч», «1,5 млн» — «полтора миллиона».
+
+    Возвращает ``None``, когда конструкция не читается «с половиной»
+    (например, целая часть оканчивается на 1: «21,5 тысячи» остаётся
+    десятичной дробью).
+    """
+    gender = "femn" if unit_info.lemma == "тысяча" else "masc"
+    if int_val == 1:
+        if case in {"nomn", "accs"}:
+            numeral = "полторы" if gender == "femn" else "полтора"
+            noun = render_unit_expression(unit_info, {"gent", "sing"})
+        else:
+            numeral = "полутора"
+            noun = render_unit_expression(unit_info, {case, "plur"})
+        return f"{numeral} {noun}"
+    if int_val % 10 == 1 and int_val % 100 != 11:
+        return None
+    numeral = inflect_numeral_string(int_part_s, case, gender=gender)
+    if not numeral:
+        return None
+    noun = render_unit_expression(
+        unit_info,
+        get_target_tags_for_number(int_val, case, gender),
+        paucal=noun_number_form(int_val) == "few",
+    )
+    return f"{numeral} с половиной {noun}"
+
+
 @lru_cache(maxsize=32)
 def _fraction_order_base(digits: int) -> str:
     try:
         return num2words.num2words(10**digits, lang="ru", to="ordinal")
     except Exception as exc:
-        logger.debug("num2words failed for 10**%d ordinal: %s", digits, exc)
+        warn_once(
+            logger,
+            f"num2words-order:{digits}",
+            "num2words failed for 10**%d ordinal: %s",
+            digits,
+            exc,
+        )
         return {
             1: "десятая",
             2: "сотая",
@@ -166,10 +208,18 @@ def normalize_decimals(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
         s = match.group("num").replace(",", ".")
         unit_raw = match.group("unit")
+        unit2_raw = match.group("unit2")
         start_pos = match.start()
         context = text[max(0, start_pos - 40) : start_pos]
         tokens_left = simple_tokenize(context)
-        case = get_numeral_case([*tokens_left, s], len(tokens_left))
+        context_tokens = [*tokens_left, s]
+        # Include the written unit in the bounded context.  This lets the
+        # numeral-case resolver distinguish a governed decimal quantity
+        # ("на частоте 3,2 ГГц") from a bare predicate after a dative noun
+        # ("Директору 45").
+        if unit_raw:
+            context_tokens.append(unit_raw)
+        case = get_numeral_case(context_tokens, len(tokens_left))
         is_negative = s.startswith("-") or s.startswith(NEGATIVE_NUMBER_PLACEHOLDER)
         abs_s = s.lstrip(f"-{NEGATIVE_NUMBER_PLACEHOLDER}")
         parts = abs_s.split(".")
@@ -179,20 +229,40 @@ def normalize_decimals(text: str) -> str:
         int_val = int(int_part_s)
         frac_val = int(frac_part_s)
         digits = len(frac_part_s)
-        int_words = inflect_numeral_string(int_part_s, case, gender="femn")
+        render_case = case
+        if (
+            case in {"accs", "loct"}
+            and unit_raw
+            and tokens_left
+            and normalize_context_token(tokens_left[-1]) in {"за", "на", "через"}
+            and unit_raw.casefold().strip(".")
+            not in {"тыс", "млн", "млрд", "трлн"}
+        ):
+            # Prepositional physical quantities such as "за 8,4 с" use the
+            # inanimate accusative, while a direct object or a decimal
+            # multiplier retains the long-standing decimal contract.
+            render_case = inanimate_cardinal_case(int_val, "accs")
+        if int_val == 0:
+            # The zero in a decimal quantity is conventionally invariant in
+            # Russian speech: "при дозе ноль целых пять десятых миллилитра".
+            render_case = "nomn"
+        int_words = inflect_numeral_string(int_part_s, render_case, gender="femn")
         p_cel = first_parse_required("целая")
         tags_cel = (
-            {case, "femn", "sing"}
+            {render_case, "femn", "sing"}
             if int_val % 10 == 1 and int_val % 100 != 11
-            else ({"gent", "plur"} if case in ["nomn", "accs"] else {case, "plur"})
+            else (
+                {"gent", "plur"}
+                if render_case in ["nomn", "accs"]
+                else {render_case, "plur"}
+            )
         )
         cel_words = safe_inflect(p_cel, tags_cel)
-        frac_words = inflect_fraction_numerator(frac_part_s, case)
-        order_words = render_fraction_order_words(digits, frac_val, case)
+        frac_words = inflect_fraction_numerator(frac_part_s, render_case)
+        order_words = render_fraction_order_words(digits, frac_val, render_case)
         result = f"{int_words} {cel_words} {frac_words} {order_words}"
         if unit_raw:
             unit_dot = match.group("unit_dot")
-            unit2_raw = match.group("unit2")
             unit2_dot = match.group("unit2_dot")
             unit_info = None
             unit_consumes_second_token = False
@@ -211,6 +281,14 @@ def normalize_decimals(text: str) -> str:
                 unit_raw, text, unit_tail_start
             ):
                 unit_info = resolve_unit_info(unit_raw)
+                if unit_info is None:
+                    resolved_form = resolve_unit_form(unit_raw)
+                    if resolved_form is not None and (
+                        resolved_form.morphology.paradigm
+                        or resolved_form.morphology.indeclinable
+                        or resolved_form.category == "money"
+                    ):
+                        unit_info = resolved_form
             unit2_processed = False
 
             def trailing_unit_dot() -> str:
@@ -226,15 +304,34 @@ def normalize_decimals(text: str) -> str:
 
             if unit_info:
                 lemma = unit_info.lemma
-                money_words = (
-                    None
-                    if unit_consumes_second_token
-                    else render_money_amount(unit_info, int_part_s, frac_part_s, case)
+                half_words = (
+                    _render_half_multiplier(
+                        unit_info, int_val, int_part_s, render_case
+                    )
+                    if lemma in _MULTIPLIER_LEMMAS
+                    and frac_part_s == "5"
+                    and int_val
+                    and not is_negative
+                    else None
                 )
-                if money_words is not None:
-                    result = money_words
+                if half_words is not None:
+                    # «11,5 тысяч» — «одиннадцать с половиной тысяч», слово
+                    # величины уже согласовано внутри.
+                    result = half_words
                 else:
-                    result += " " + render_unit_expression(unit_info, {"gent", "sing"})
+                    money_words = (
+                        None
+                        if unit_consumes_second_token
+                        else render_money_amount(
+                            unit_info, int_part_s, frac_part_s, case
+                        )
+                    )
+                    if money_words is not None:
+                        result = money_words
+                    else:
+                        result += " " + render_unit_expression(
+                            unit_info, {"gent", "sing"}
+                        )
                 if unit_consumes_second_token:
                     unit2_processed = True
                 elif unit2_raw:

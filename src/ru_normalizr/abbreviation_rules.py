@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from .text_scan import ScanPattern, compile_scan
+
 
 @dataclass(frozen=True, slots=True)
 class RegexRule:
@@ -18,8 +20,25 @@ ABBREVIATION_RULES = {
     rx(r"\bсм\.\s*рис\.(?!\w)"): "смотри рисунок",
     rx(r"\bсм\."): "смотри",
     rx(r"\bнапр\."): "например",
-    rx(r"\bт\.?\s*е\."): "то есть",
-    rx(r"\bт\.?\s*к\."): "так как",
+    # Первая точка обязательна: «те.» — местоимение перед точкой, а не «т.е.».
+    # Дореформенное «т.-е.» пишется через дефис. Заглавные «Т. Е.» — инициалы,
+    # поэтому вторая буква должна быть строчной.
+    rx(r"\b[Тт]\.\s*-?\s*е\.", 0): "то есть",
+    rx(r"\b[Тт]\.\s*-?\s*к\.", 0): "так как",
+    rx(r"\bрт\.\s*ст\.(?=\s*$)"): "ртутного столба.",
+    rx(r"\bрт\.\s*ст\.(?!\w)"): "ртутного столба",
+    # Координатные сокращения пишутся строчными; заглавные «В. Д.» перед
+    # фамилией — инициалы, а не долгота.
+    rx(r"\bс\.\s*ш\.(?=\s*$)", 0): "северной широты.",
+    rx(r"\bс\.\s*ш\.(?!\w)", 0): "северной широты",
+    rx(r"\bю\.\s*ш\.(?=\s*$)", 0): "южной широты.",
+    rx(r"\bю\.\s*ш\.(?!\w)", 0): "южной широты",
+    rx(r"\bв\.\s*д\.(?=\s*$)", 0): "восточной долготы.",
+    rx(r"\bв\.\s*д\.(?!\w)", 0): "восточной долготы",
+    rx(r"\bз\.\s*д\.(?=\s*$)", 0): "западной долготы.",
+    rx(r"\bз\.\s*д\.(?!\w)", 0): "западной долготы",
+    rx(r"\bэкз\.(?=\s*$)"): "экземпляров.",
+    rx(r"\bэкз\.(?!\w)"): "экземпляров",
     rx(r"(?<!\w)н\.?\s*э\.(?!\w)"): "нашей эры",
     rx(r"(?<!\w)нэ\.?(?!\w)"): "нашей эры",
     rx(r"\bгл\."): "глава",
@@ -75,6 +94,15 @@ ABBREVIATION_RULES = {
     "респ.": "республика",
 }
 
+#: Классификаторы географических объектов перед именем собственным: падеж
+#: классификатору сообщает левый контекст («до оконечности оз. Иссык-Куль» —
+#: родительный), а не само сокращение. Обычные правила выше остаются
+#: запасным вариантом для употреблений без имени.
+GEO_CLASSIFIER_ABBREVIATIONS = {
+    "оз": "озеро",
+    "пос": "посёлок",
+}
+
 ADJECTIVE_ABBREVIATION_EXPANSIONS = {
     "англ.": "английский",
     "руск.": "русский",
@@ -95,14 +123,14 @@ ADJECTIVE_ABBREVIATION_EXPANSIONS = {
 }
 
 
-def _compile_literal_rule(abbr: str) -> re.Pattern[str]:
-    return re.compile(rf"(?<!\w){re.escape(abbr)}(?!\w)", re.IGNORECASE)
+def _compile_literal_rule(abbr: str) -> ScanPattern:
+    return compile_scan(rf"(?<!\w){re.escape(abbr)}(?!\w)", re.IGNORECASE)
 
 
 ABBREVIATION_PATTERNS = [
     (
         (
-            re.compile(matcher.pattern, matcher.flags)
+            compile_scan(matcher.pattern, matcher.flags)
             if isinstance(matcher, RegexRule)
             else _compile_literal_rule(matcher)
         ),

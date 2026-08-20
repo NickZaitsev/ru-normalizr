@@ -3,10 +3,11 @@ from __future__ import annotations
 import functools
 import re
 
+from ..text_scan import compile_scan
 from .unit_data import explicit_expression_aliases, generated_prefixed_aliases
 from .unit_registry import UnitDescriptor, UnitMorphology, UnitRegistry
 
-POST_NUMERAL_ABBREVIATION_PATTERN = re.compile(
+POST_NUMERAL_ABBREVIATION_PATTERN = compile_scan(
     r"(?<!\w)(?:тыс\.|млн\.|млрд\.|трлн\.|руб\.|долл\.|дол\.|и\s+др\.)(?!\w)",
     re.IGNORECASE,
 )
@@ -130,6 +131,8 @@ PREP_CASE = {
     "больше": "gent",
     "менее": "gent",
     "меньше": "gent",
+    "больше или равно": "gent",
+    "меньше или равно": "gent",
     "свыше": "gent",
     "после": "gent",
     "против": "gent",
@@ -251,8 +254,9 @@ VERB_CASE = {
     "радоваться": "datv",
     "завидовать": "datv",
     "угрожать": "datv",
-    "рекомендовать": "datv",
-    "предлагать": "datv",
+    # «рекомендовать» и «предлагать» дательным управляют только для адресата;
+    # число при них — прямой объект («предлагали 300 тысяч»), его решает
+    # переходность.
     "являться": "ablt",
     "считаться": "ablt",
     "обладать": "ablt",
@@ -262,15 +266,10 @@ VERB_CASE = {
     "пользоваться": "ablt",
     "управлять": "ablt",
     "владеть": "ablt",
-    "говорить": "loct",
-    "сообщать": "loct",
-    "рассказывать": "loct",
-    "упоминать": "loct",
-    "писать": "loct",
-    "думать": "loct",
-    "размышлять": "loct",
-    "основываться": "loct",
-    "заключаться": "loct",
+    # Предложный падеж без предлога в русском невозможен, поэтому глаголы
+    # речи и мысли («говорить», «думать», «писать»…) голым числом не управляют:
+    # «думает 100000 рублей достать» — винительный. Чтение «о пяти задачах»
+    # обеспечивает сам предлог «о».
     "стоить": "accs",
 }
 
@@ -295,7 +294,27 @@ _UNIT_MORPHOLOGY = {
     "лира": UnitMorphology(expected_normal_form="лира", animacy="inan"),
     "вона": UnitMorphology(expected_normal_form="вона", animacy="inan"),
     "моль": UnitMorphology(expected_normal_form="моль", animacy="inan"),
-    "человек": UnitMorphology(expected_normal_form="человек", animacy="anim"),
+    "микрограмм": UnitMorphology(
+        expected_normal_form="микрограмм",
+        forbidden_grammemes=frozenset({"Coun"}),
+    ),
+    # Счётная форма: после числительных родительный множественного — «человек»,
+    # а не супплетивное «людей» («десять тысяч человек»).
+    "человек": UnitMorphology(
+        expected_normal_form="человек",
+        animacy="anim",
+        paradigm=(("gent", "plur", "человек"),),
+    ),
+    # Косвенные падежи множественного числа верста́ несут ударение на окончании
+    # («в двух верстах от города»); pymorphy отдаёт разговорное «вёрстах».
+    "верста": UnitMorphology(
+        expected_normal_form="верста",
+        paradigm=(
+            ("datv", "plur", "верстам"),
+            ("ablt", "plur", "верстами"),
+            ("loct", "plur", "верстах"),
+        ),
+    ),
     "шекель": UnitMorphology(
         expected_normal_form="шекель",
         paradigm=_paradigm(
@@ -698,6 +717,14 @@ UNITS_DATA = _upgrade_units({
     "квм": ("квадратный метр", "masc", "measure"),
     "куб.м": ("кубический метр", "masc", "measure"),
     "кубм": ("кубический метр", "masc", "measure"),
+    "кв.км": ("квадратный километр", "masc", "measure"),
+    "куб.км": ("кубический километр", "masc", "measure"),
+    "кв.см": ("квадратный сантиметр", "masc", "measure"),
+    "куб.см": ("кубический сантиметр", "masc", "measure"),
+    "кв.мм": ("квадратный миллиметр", "masc", "measure"),
+    "куб.мм": ("кубический миллиметр", "masc", "measure"),
+    "кв.дм": ("квадратный дециметр", "masc", "measure"),
+    "куб.дм": ("кубический дециметр", "masc", "measure"),
     "кмч": ("километр", "masc", "measure", "в час"),
     "км": ("километр", "masc", "measure"),
     "километр": ("километр", "masc", "measure"),
@@ -707,6 +734,7 @@ UNITS_DATA = _upgrade_units({
     "км^2": ("квадратный километр", "masc", "measure"),
     "inch": ("дюйм", "masc", "measure"),
     "inches": ("дюйм", "masc", "measure"),
+    "дюйм": ("дюйм", "masc", "measure"),
     "in³": ("кубический дюйм", "masc", "measure"),
     "л": ("литр", "masc", "measure"),
     "литр": ("литр", "masc", "measure"),
@@ -716,11 +744,16 @@ UNITS_DATA = _upgrade_units({
     "пинта": ("пинта", "femn", "measure"),
     "pint": ("пинта", "femn", "measure"),
     "м/с": ("метр", "masc", "measure", "в секунду"),
+    "м/с²": ("метр", "masc", "measure", "в секунду в квадрате"),
+    "м/с2": ("метр", "masc", "measure", "в секунду в квадрате"),
+    "м/с^2": ("метр", "masc", "measure", "в секунду в квадрате"),
     "км/ч": ("километр", "masc", "measure", "в час"),
     "об/мин": ("оборот", "masc", "measure", "в минуту"),
     "rpm": ("оборот", "masc", "measure", "в минуту"),
     "ч": ("час", "masc", "measure"),
     "ч.": ("час", "masc", "measure"),
+    "ч.л.": ("чайная ложка", "femn", "measure"),
+    "ч. л.": ("чайная ложка", "femn", "measure"),
     "час": ("час", "masc", "measure"),
     "мин": ("минута", "femn", "measure"),
     "мин.": ("минута", "femn", "measure"),
@@ -780,6 +813,7 @@ UNITS_DATA = _upgrade_units({
     "mi": ("миля", "femn", "measure"),
     "аршин": ("аршин", "masc", "measure"),
     "арш": ("аршин", "masc", "measure"),
+    "верста": ("верста", "femn", "measure"),
     "mph": ("миля", "femn", "measure", "в час"),
     "обмин": ("оборот", "masc", "measure", "в минуту"),
     "уз": ("узел", "masc", "measure"),
@@ -830,6 +864,10 @@ CASE_SENSITIVE_UNITS_DATA = _upgrade_units({
     "т": ("тонна", "femn", "measure"),
     "°С": ("градус", "masc", "measure", "Цельсия"),
     "°К": ("градус", "masc", "measure", "Кельвина"),
+    # Traditional Russian spelling of the temperature scales, still common in
+    # older prose: «12,5° Ц.», «60° Ф.».
+    "°Ц": ("градус", "masc", "measure", "Цельсия"),
+    "°Ф": ("градус", "masc", "measure", "Фаренгейта"),
     "мкА": ("микроампер", "masc", "measure"),
     "мА": ("миллиампер", "masc", "measure"),
     "кА": ("килоампер", "masc", "measure"),
@@ -989,13 +1027,20 @@ UNIT_TOKEN_FRAGMENT = (
     rf"(?:[./^·][{_UNIT_FRAGMENT_CHARS}]+|\d+|[²³])*"
 )
 
-NUMERIC_UNIT_RANGE_PATTERN = re.compile(
-    rf"(?<!\d)(?P<left>\d+)\s*[—–-]\s*(?P<right>\d+)\s*(?P<unit>{UNIT_TOKEN_FRAGMENT}(?:\s+[^\W\d_]+){{0,2}})(?!\w)"
+NUMERIC_UNIT_RANGE_PATTERN = compile_scan(
+    rf"(?<!\d)(?P<left>\d+)\s*[—–-]\s*(?P<right>\d+)\s*(?P<unit>{UNIT_TOKEN_FRAGMENT}(?:\s+[^\W\d_]+){{0,2}})(?P<udot>\.(?!\.))?(?!\w)"
 )
-FRACTION_PATTERN = re.compile(r"(?<![\d,])(\d+)/(\d+)(?![\d,])")
-HYPHENATED_WORD_PATTERN = re.compile(r"(?<![\w\d])(\d+)-([а-яА-ЯёЁ]{1,})")
-STANDALONE_CURRENCY_PATTERN = re.compile(r"(?<!\S)([$€£¥₽₴₸₺₹¢])(?!\S)")
-DIGIT_PATTERN = re.compile(r"\d+")
+FRACTION_PATTERN = compile_scan(r"(?<![\d,])(\d+)/(\d+)(?![\d,])")
+# The optional infix is a duplicated case ending of the numeral written out
+# before the word it modifies: «17-ти-летняя» is «семнадцатилетняя».
+HYPHENATED_WORD_PATTERN = compile_scan(
+    # Твёрдый знак после окончания числительного — дореформенное «3-хъ-дневный»:
+    # он часть окончания, а не начало слова справа.
+    r"(?<![\w\d])(?P<num>\d+)-(?:(?P<infix>тью|ти|ми|мя|ух|ех|ёх|х)ъ?-)?"
+    r"(?P<word>[а-яА-ЯёЁ]{1,})"
+)
+STANDALONE_CURRENCY_PATTERN = compile_scan(r"(?<!\S)([$€£¥₽₴₸₺₹¢])(?!\S)")
+DIGIT_PATTERN = compile_scan(r"\d+")
 
 TIME_WORDS = {
     "год": "masc",

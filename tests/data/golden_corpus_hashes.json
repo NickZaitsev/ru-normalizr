@@ -1,0 +1,50 @@
+{
+  "prefix": {
+    "books": {
+      "01_solovyov_history_of_russia": {
+        "input_chars": 200000,
+        "input_sha256": "3f2e6f2a33f4b4ded614c594ae98adfda885b458386ee551a59f690557a1b45a",
+        "output_chars": 200856,
+        "output_sha256": "03137ac346d9aa32d8bd77fccd641faae97e5266fc749b9eef66712394f00610"
+      },
+      "02_russian_army_and_navy_modern": {
+        "input_chars": 200000,
+        "input_sha256": "49f5d3583207cd9df7192529771c1d2d607ac8aa3c59c14c9fd3424929f4c7a7",
+        "output_chars": 206353,
+        "output_sha256": "4759f5db142c29dee14065461407ec93840c861ee42f062400cb2b7a78011d68"
+      },
+      "02b_russian_army_and_navy_pre_reform": {
+        "input_chars": 200000,
+        "input_sha256": "bc12ab1181324e99addb01816b3473fbc5e8207d1d6e85e921119e24aaa8eb18",
+        "output_chars": 206169,
+        "output_sha256": "e51708fb5b9971ec160786b8940485459fb4aff0196e589594b29fe12882d42e"
+      },
+      "03_karamzin_history_of_russian_state": {
+        "input_chars": 200000,
+        "input_sha256": "c54239da14b304e450b93334d1783417fa0b5552b22c0c7d71a8f5820c920c08",
+        "output_chars": 209163,
+        "output_sha256": "0eb797cb613d7587c9d11e253eb6a97c724ce934a8efa5502e88898d2706c25f"
+      },
+      "04_kostomarov_russian_history_biographies": {
+        "input_chars": 200000,
+        "input_sha256": "3c8c620eaf8e7ff73c21423abd67ca4e93824a799d8519d2b30826eea003df27",
+        "output_chars": 203104,
+        "output_sha256": "8e355b01366583635bd2805f05a45be5a90fe4682879c07e9d0a8248e8d77b6b"
+      },
+      "05_nebolsin_conquest_of_siberia": {
+        "input_chars": 200000,
+        "input_sha256": "25a6c0ae94bdf7b961b322b51efccc319c64a78be6a8d0d40fe01f6402323e6b",
+        "output_chars": 205088,
+        "output_sha256": "9d6308ae3313abd6b9240fc64e4317a1cb7d7efe15face0f85e2f11b7107ec94"
+      },
+      "06_semenov_tyan_shansky_tien_shan_travel": {
+        "input_chars": 200000,
+        "input_sha256": "1e5b60e93d5b9d9b0a1383e26d7ca3e2a9d1d603483defb728ef7fbdc7456dd7",
+        "output_chars": 206522,
+        "output_sha256": "6c2e8bf35dd681ab3bab8dfb9243c7180c9e8bfdccf983a67a73f283318439e2"
+      }
+    },
+    "mode": "tts",
+    "prefix_chars": 200000
+  }
+}

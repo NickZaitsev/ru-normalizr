@@ -27,7 +27,6 @@ class RuNormalizrHyphenTokenTests(unittest.TestCase):
         self.assertEqual(
             apply_latinization(
                 "модель-восемьдесят-A",
-                enabled=True,
                 backend="dictionary",
             ),
             "модель-восемьдесят-эй",
@@ -40,7 +39,6 @@ class RuNormalizrHyphenTokenTests(unittest.TestCase):
                 self.assertEqual(
                     apply_latinization(
                         "модель-восемьдесят-U",
-                        enabled=True,
                         backend="dictionary",
                         letter_vowel_mode=vowel_mode,
                     ),
@@ -51,6 +49,24 @@ class RuNormalizrHyphenTokenTests(unittest.TestCase):
         options = NormalizeOptions.tts()
         self.assertEqual(normalize("Stg-44", options), "стг-сорок четыре")
         self.assertEqual(normalize("STG-44", options), "эс ти джи-сорок четыре")
+
+    def test_number_glued_to_an_unknown_tail_is_separated_by_a_space(self):
+        """Дефис — утверждение о связи; для неизвестного хвоста его нет.
+
+        Латинские буквы читаются по названиям, поэтому дефис доходил до вывода
+        («сто-писиз»). Разбор цифры, подменившей букву при наборе, дефис
+        сохраняет: «3аклятые» лучше прочесть одним словом.
+        """
+        options = NormalizeOptions.tts()
+        cases = (
+            ("Купил 100pcs товара.", "Купил сто писиз товара."),
+            ("Версия 3beta вышла вчера.", "Версия три бейтэ вышла вчера."),
+            ("Осталось 5кркр штук.", "Осталось пять кркр штук."),
+            ("Он взял 3аклятые письма.", "Он взял трёхаклятые письма."),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize(source, options), expected)
 
 
 if __name__ == "__main__":

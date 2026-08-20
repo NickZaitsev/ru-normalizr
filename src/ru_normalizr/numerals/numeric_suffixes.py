@@ -6,10 +6,13 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-from .._morph import canonicalize_case, parse_word
+from .._log_once import warn_once
+from .._morph import canonicalize_case, parse_word, select_parse
 from ..ordinal_utils import render_ordinal
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
-from ..text_context import simple_tokenize
+from ..text_context import PUNCT_STRIP, simple_tokenize
+from ..text_scan import compile_scan
+from ._constants import PREP_CASE
 from ._helpers import get_numeral_case, inflect_numeral_string
 
 logger = logging.getLogger(__name__)
@@ -47,25 +50,32 @@ ORDINAL_SUFFIXES = frozenset(
 # in source material.  The registry is deliberately closed: a short arbitrary
 # Cyrillic tail must not become a grammatical instruction by accident.
 CARDINAL_SUFFIXES = frozenset(
-    {"ти", "и", "ми", "х", "мя", "тью", "ух", "ех", "ёх", "ум", "ём", "у"}
+    {"ти", "и", "ми", "х", "мя", "тью", "ух", "ех", "ёх", "ум", "ём", "у", "ть"}
 )
 NUMERIC_SUFFIXES = ORDINAL_SUFFIXES | CARDINAL_SUFFIXES
 
 _SUFFIX_ALTERNATION = "|".join(
     re.escape(value) for value in sorted(NUMERIC_SUFFIXES, key=lambda item: (-len(item), item))
 )
-NUMERIC_SUFFIX_PATTERN = re.compile(
+# The trailing hard sign covers pre-reform spellings («3-хъ», «5-ти» stays
+# as is): the ending resolves without it and the sign is re-attached after a
+# consonant. The hyphen lookahead leaves «17-ти-летняя» to the compound
+# adjective rule, which folds the numeral into the word.
+NUMERIC_SUFFIX_PATTERN = compile_scan(
     rf"(?<![\w,-])(?<!\d[.,])(?P<sign>{re.escape(NEGATIVE_NUMBER_PLACEHOLDER)}|-)?"
-    rf"(?P<number>\d+)-(?P<suffix>{_SUFFIX_ALTERNATION})(?!\w)",
+    rf"(?P<number>\d+)-(?P<suffix>{_SUFFIX_ALTERNATION})(?P<hard>ъ)?(?!\w)(?!-[а-яё])",
     re.IGNORECASE | re.UNICODE,
 )
 
 _CASES = ("nomn", "gent", "datv", "accs", "ablt", "loct")
 _CASE_ORDER = {case: index for index, case in enumerate(_CASES)}
 _TEXT_START_PREFIX_CHARS = " \t\r\n\"'«„“([{"
-_OB_BEFORE_CONSONANT_PATTERN = re.compile(
+_OB_BEFORE_CONSONANT_PATTERN = compile_scan(
     r"\bоб(?=\s+[бвгджзйклмнпрстфхцчшщ])", re.IGNORECASE
 )
+_COPULA_ORDINAL_SUFFIXES = frozenset({"м", "ом", "ем", "ым", "им"})
+_BARE_DATE_ORDINAL_SUFFIXES = frozenset({"го", "ого"})
+_ORDINAL_ONLY_SUFFIXES = ORDINAL_SUFFIXES - {"ми"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,7 +211,22 @@ def _noun_features(
         clean = token.strip(".,!?;:«»\"'()[]{}")
         if not clean:
             continue
+        if clean.casefold() in PREP_CASE:
+            continue
         parses = parse_word(clean)
+        # Сказуемое обрывает поиск: краткое причастие («решено», «назначено»)
+        # закрывает именную группу так же, как личная форма глагола. У слова,
+        # которого нет в словаре, угаданные именные разборы не в счёт — иначе
+        # дореформенное «рѣшено» сходит за существительное.
+        if (
+            parses
+            and parses[0].tag.POS in {"VERB", "INFN", "PRTS"}
+            and not any(
+                getattr(candidate, "is_known", False) and "NOUN" in candidate.tag
+                for candidate in parses
+            )
+        ):
+            break
         noun_parses = [
             candidate
             for candidate in parses
@@ -226,9 +251,20 @@ def _noun_features(
             )
         if noun_parses:
             break
-        if parses and parses[0].tag.POS in {"VERB", "INFN"}:
-            break
     return tuple(result)
+
+
+def _has_copula_before(tokens: list[str]) -> bool:
+    for token in reversed(tokens[-6:]):
+        clean = token.strip(PUNCT_STRIP)
+        if not clean:
+            continue
+        if any(char in token for char in ".!?;:"):
+            break
+        parsed = select_parse(parse_word(clean), pos={"VERB", "INFN"})
+        if parsed is not None and parsed.normal_form == "быть":
+            return True
+    return False
 
 
 def _cardinal_government_score(
@@ -290,6 +326,86 @@ def _agreement_score(
     return best_score
 
 
+MONTH_LEMMAS = frozenset(
+    {
+        "январь",
+        "февраль",
+        "март",
+        "апрель",
+        "май",
+        "июнь",
+        "июль",
+        "август",
+        "сентябрь",
+        "октябрь",
+        "ноябрь",
+        "декабрь",
+    }
+)
+
+
+def _month_follows(tokens_right: list[str]) -> bool:
+    for token in tokens_right[:2]:
+        clean = token.strip(PUNCT_STRIP)
+        if not clean:
+            continue
+        parsed = select_parse(parse_word(clean), pos={"NOUN"})
+        return parsed is not None and parsed.normal_form in MONTH_LEMMAS
+    return False
+
+
+_COORDINATORS = frozenset({"и", "или", "ни"})
+_SUFFIXED_NUMBER_TOKEN = compile_scan(r"\A(?P<number>\d+)-?(?P<suffix>[а-яё]{1,3})\Z", re.IGNORECASE)
+
+
+def _coordinated_suffix_numbers(
+    tokens_left: list[str], tokens_right: list[str], suffix: str
+) -> list[int]:
+    """Numbers coordinated with this one and written with the same suffix.
+
+    Only the immediate neighbour across a coordinator is inspected, so the scan
+    stays constant-time per match.
+    """
+    # The tokenizer splits "2-м" into "2", "-", "м", so a sibling spans up to
+    # three tokens next to the coordinator.
+    neighbours: list[list[str]] = []
+    if tokens_right and tokens_right[0].strip(PUNCT_STRIP).casefold() in _COORDINATORS:
+        neighbours.append(tokens_right[1:4])
+    if tokens_left and tokens_left[-1].strip(PUNCT_STRIP).casefold() in _COORDINATORS:
+        neighbours.append(tokens_left[-4:-1])
+
+    numbers: list[int] = []
+    for neighbour in neighbours:
+        joined = "".join(token.strip(PUNCT_STRIP) for token in neighbour)
+        sibling = _SUFFIXED_NUMBER_TOKEN.match(joined)
+        if sibling is not None and sibling.group("suffix").casefold() == suffix.casefold():
+            numbers.append(int(sibling.group("number")))
+    return numbers
+
+
+def _kind_forced_by_coordination(
+    suffix: str,
+    context_case: str,
+    tokens_left: list[str],
+    tokens_right: list[str],
+) -> str | None:
+    """Reading imposed on an ambiguous numeral by a coordinated sibling.
+
+    Coordinated members share one reading: in "в 1-м и 2-м кварталах" the
+    sibling "2-м" has no cardinal form in the locative, which settles the
+    otherwise ambiguous "1-м" ("одном" vs "первом") as an ordinal.
+    """
+    for number in _coordinated_suffix_numbers(tokens_left, tokens_right, suffix):
+        kinds = {
+            candidate.kind
+            for candidate in generate_numeric_suffix_candidates(number, suffix)
+            if candidate.exact and candidate.case == context_case
+        }
+        if len(kinds) == 1:
+            return next(iter(kinds))
+    return None
+
+
 def _candidate_sort_key(candidate: NumericSuffixCandidate) -> tuple[object, ...]:
     return (
         0 if candidate.kind == "cardinal" else 1,
@@ -333,6 +449,25 @@ def resolve_numeric_suffix(
     try:
         context_tokens = [*tokens_left, number_text, *tokens_right]
         context_case = get_numeral_case(context_tokens, len(tokens_left))
+        if (
+            suffix.casefold() in _COPULA_ORDINAL_SUFFIXES
+            and _has_copula_before(tokens_left)
+        ):
+            # A copular predicate with a written ordinal is instrumental:
+            # "он был 2-м после лидера".  This is a grammatical predicate
+            # context, not a special case for the particular verb form.
+            context_case = "ablt"
+        if (
+            suffix.casefold() in _ORDINAL_ONLY_SUFFIXES
+            and context_case == "accs"
+            and tokens_left
+            and tokens_left[-1].casefold().strip(PUNCT_STRIP) in {"в", "во"}
+            and not _noun_features(tokens_right)
+        ):
+            # ``в 3-м`` can end a clause without an overt head noun.  The
+            # standard ``-м`` spelling is still ordinal, and this residual
+            # preposition ambiguity is locative rather than accusative.
+            context_case = "loct"
         right_noun_features = _noun_features(tokens_right)
         left_name_features = _noun_features(tokens_left, reverse=True, names_only=True)
         noun_features = right_noun_features or left_name_features
@@ -344,7 +479,13 @@ def resolve_numeric_suffix(
             if candidate.exact
         ]
     except Exception as exc:  # pragma: no cover - dependency boundary
-        logger.debug("numeric suffix morphology failed for %r: %s", number_text, exc)
+        warn_once(
+            logger,
+            f"suffix-morphology:{number_text}:{suffix}",
+            "numeric suffix morphology failed for %r: %s",
+            number_text,
+            exc,
+        )
         return inflect_numeral_string(number_text, "nomn")
     if not exact:
         return _fallback_cardinal(
@@ -367,7 +508,29 @@ def resolve_numeric_suffix(
     ]
     best_score = max(score for score, _candidate in scored)
     best = [candidate for score, candidate in scored if score == best_score]
-    if any(candidate.kind == "cardinal" for candidate in best):
+    if len({candidate.kind for candidate in best}) > 1:
+        forced_kind = _kind_forced_by_coordination(
+            suffix, context_case, tokens_left, tokens_right
+        )
+        if forced_kind is not None:
+            best = [candidate for candidate in best if candidate.kind == forced_kind]
+    if (
+        any(candidate.kind == "ordinal" for candidate in best)
+        and _month_follows(tokens_right)
+    ):
+        # A suffixed day before a month name is an ordinal: «1-го октября» is
+        # «первого октября», never the genitive cardinal «одного октября».
+        best = [candidate for candidate in best if candidate.kind == "ordinal"]
+    elif (
+        not noun_features
+        and suffix.casefold() in _BARE_DATE_ORDINAL_SUFFIXES
+        and any(candidate.kind == "ordinal" for candidate in best)
+    ):
+        # A bare «21-го» with no governing noun in sight is a date-like
+        # ordinal: the cardinal genitive is only ever written with its counted
+        # noun («21-го человека»), never on its own.
+        best = [candidate for candidate in best if candidate.kind == "ordinal"]
+    elif any(candidate.kind == "cardinal" for candidate in best):
         best = [candidate for candidate in best if candidate.kind == "cardinal"]
     best_agreement = max(_agreement_score(candidate, noun_features) for candidate in best)
     best = [
@@ -381,9 +544,69 @@ def resolve_numeric_suffix(
     return min(best, key=_candidate_sort_key).reading
 
 
+_ORDINAL_ENUMERATION_PATTERN = compile_scan(
+    rf"(?<![\w.,-])(?P<head>\d+(?:\s*,\s*\d+)+)(?P<conj>\s+и\s+)"
+    rf"(?P<last>\d+)-(?P<suffix>{_SUFFIX_ALTERNATION})(?P<hard>ъ)?(?!\w)(?!-[а-яё])"
+    rf"(?P<gap>\s+)(?P<noun>[а-яёА-ЯЁ]+)",
+    re.UNICODE,
+)
+
+
+def _spread_ordinal_over_enumeration(text: str) -> str:
+    """Суффикс последнего числа задаёт порядковое чтение всему ряду.
+
+    «на 494, 495 и 496-й статьи»: автор подписал окончание только у последнего
+    числа, но перечисляет однородные порядковые. Каждое число читается
+    порядковым в единственном числе, согласованным с существительным справа
+    («четыреста девяносто четвёртую, … пятую и … шестую статьи»).
+    """
+
+    def repl(match: re.Match[str]) -> str:
+        suffix = match.group("suffix").casefold()
+        if suffix not in _ORDINAL_ONLY_SUFFIXES:
+            return match.group(0)
+        noun = match.group("noun")
+        noun_parses = parse_word(noun.casefold())
+        if not noun_parses:
+            return match.group(0)
+        p_noun = noun_parses[0]
+        if "NOUN" not in p_noun.tag or p_noun.tag.case is None:
+            return match.group(0)
+        noun_case = "loct" if "loc2" in p_noun.tag else p_noun.tag.case
+        if noun_case in {"datv", "ablt", "loct"}:
+            case = noun_case
+        else:
+            context_left = simple_tokenize(text[max(0, match.start() - 60) : match.start()])
+            context_right = simple_tokenize(text[match.end("noun") : match.end("noun") + 60])
+            body = simple_tokenize(match.group(0))
+            case = get_numeral_case(
+                [*context_left, *body, *context_right], len(context_left)
+            )
+        gender = p_noun.tag.gender
+        inanimate = "anim" not in p_noun.tag
+
+        def ordinal(number_text: str) -> str:
+            return render_ordinal(
+                int(number_text), case=case, gender=gender, plural=False,
+                inanimate=inanimate,
+            )
+
+        head_parts = re.split(r"(\s*,\s*)", match.group("head"))
+        head = "".join(
+            ordinal(part) if part.isdigit() else part for part in head_parts
+        )
+        last = ordinal(match.group("last"))
+        if match.group("hard") and last and last[-1] not in "аеёиоуыэюяьъ":
+            last += "ъ"
+        return f"{head}{match.group('conj')}{last}{match.group('gap')}{noun}"
+
+    return _ORDINAL_ENUMERATION_PATTERN.sub(repl, text)
+
+
 def normalize_numeric_suffixes(
     text: str, *, capitalize_text_start: bool = False
 ) -> str:
+    text = _spread_ordinal_over_enumeration(text)
     text_start_end = len(text) - len(text.lstrip(_TEXT_START_PREFIX_CHARS))
 
     def repl(match: re.Match[str]) -> str:
@@ -397,6 +620,9 @@ def normalize_numeric_suffixes(
             tokens_left=simple_tokenize(context_left),
             tokens_right=simple_tokenize(context_right),
         )
+        if match.group("hard") and reading and reading[-1] not in "аеёиоуыэюяьъ":
+            # Pre-reform orthography closes a consonant-final word with «ъ».
+            reading += "ъ"
         if match.group("sign"):
             reading = f"минус {reading}"
         if (
