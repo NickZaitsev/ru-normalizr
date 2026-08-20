@@ -189,16 +189,6 @@ BOOK_05_GAP_CASES = (
             reason="a footnote number glued to a word is read aloud",
         ),
     ),
-    # Скобка внутри слова отделяется пробелом и разрывает слово.
-    pytest.param(
-        "А ты по той м(оей) граммате ничего не учинил и посольского дьяка не слушал.",
-        "А ты по той м(оей) граммате ничего не учинил и посольского дьяка не слушал.",
-        id="parentheses_inside_a_word",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a parenthesis inside a word is separated by spaces",
-        ),
-    ),
     # Апостроф внутри латинского слова отбивается пробелами с обеих сторон.
     pytest.param(
         "В книге стоит фраза est fait de millet et d’orge monde на полях.",

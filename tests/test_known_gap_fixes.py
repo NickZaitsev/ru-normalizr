@@ -2115,3 +2115,39 @@ def test_letterspaced_emphasis_edges(
     check_tts: CheckTts, source: str, expected: str
 ) -> None:
     check_tts(source, expected)
+
+
+WORD_INTERNAL_PAREN_CASES = (
+    # Редакторское раскрытие внутри слова остаётся приклеенным: фрагмент
+    # перед скобкой и буквы внутри неё образуют словарное слово.
+    pytest.param(
+        "А ты по той м(оей) граммате ничего не учинил и посольского дьяка не слушал.",
+        "А ты по той м(оей) граммате ничего не учинил и посольского дьяка не слушал.",
+        id="word_internal_parenthesis_stays_glued",
+    ),
+    # Более длинный фрагмент перед скобкой тоже распознаётся.
+    pytest.param(
+        "Писали о государ(ыни) милости в той грамоте.",
+        "Писали о государ(ыни) милости в той грамоте.",
+        id="long_fragment_before_parenthesis_stays_glued",
+    ),
+    # Опечатка «слово(пояснение)» получает пробел: склейка не словарна.
+    pytest.param(
+        "Он назвал итоговую сумму(без налога) в самом конце письма.",
+        "Он назвал итоговую сумму (без налога) в самом конце письма.",
+        id="glued_annotation_still_gets_a_space",
+    ),
+    # Скобка с заглавной буквы внутри — не раскрытие слова.
+    pytest.param(
+        "Столица уезда(бывший острог) стояла на холме.",
+        "Столица уезда (бывший острог) стояла на холме.",
+        id="glued_clause_still_gets_a_space",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), WORD_INTERNAL_PAREN_CASES)
+def test_word_internal_paren_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)

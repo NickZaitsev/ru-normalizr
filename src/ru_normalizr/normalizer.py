@@ -52,7 +52,6 @@ from .placeholders import (
     PlaceholderAllocator,
 )
 from .preprocess_utils import (
-    MISSING_SPACE_BEFORE_PAREN_PATTERN,
     SLASH_FIX_PATTERN,
     UNIT_SLASH_PLACEHOLDER,
     apply_cleanup_replacements,
@@ -61,6 +60,7 @@ from .preprocess_utils import (
     expand_na_prim_abbreviation,
     expand_new_style_date_abbreviation,
     expand_years_ago_abbreviation,
+    insert_missing_space_before_paren,
     normalize_age_ranges,
     normalize_explicit_dashes,
     normalize_linebreaks,
@@ -323,7 +323,7 @@ class PipelineNormalizer:
         # Source-level typo: Russian prose never glues «(» to the preceding
         # word. Preprocess only — later stages rewrite footnote digits into
         # words, and those historical glued forms must stay glued.
-        text = MISSING_SPACE_BEFORE_PAREN_PATTERN.sub(" (", text)
+        text = insert_missing_space_before_paren(text)
         if self.options.enable_years_ago_expansion:
             text = expand_years_ago_abbreviation(text)
         text = expand_na_prim_abbreviation(text)

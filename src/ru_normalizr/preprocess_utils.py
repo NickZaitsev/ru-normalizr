@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from ._morph import word_is_known
 from .abbreviation_context import (
     ends_with_plain_word,
     normalize_birth_year_abbreviations,
@@ -40,8 +41,41 @@ COMMA_DOT_TYPO_PATTERN = compile_scan(r",\.")
 # A glued bracket with a bare number inside is a footnote reference and keeps
 # its shape for the footnote-removal stage; anything else is a typo.
 MISSING_SPACE_BEFORE_PAREN_PATTERN = compile_scan(
-    r"(?<=[А-Яа-яЁё])\((?!\d+(?:[-–—]\d+)?\))"
+    r"(?<=[А-Яа-яЁёѢѣІіѲѳѴѵ])\((?!\d+(?:[-–—]\d+)?\))"
 )
+_PAREN_INNER_WORD_PATTERN = compile_scan(r"([а-яёѣіѳѵ]+)\)")
+_WORD_INTERNAL_PAREN_LETTERS = frozenset(
+    "абвгдеёжзийклмнопрстуфхцчшщъыьэюя"
+    "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
+    "ѢѣІіѲѳѴѵ"
+)
+
+
+def insert_missing_space_before_paren(text: str) -> str:
+    """Отбить пробелом скобку, приклеенную к слову опечаткой.
+
+    Скобка внутри слова — редакторское раскрытие («м(оей)», «государ(ыни)»):
+    если фрагмент перед скобкой вместе с буквами внутри неё образует
+    словарное слово, скобка остаётся приклеенной. Иначе это опечатка
+    («слова(пояснение)») и перед скобкой ставится пробел. Паттерн заякорен
+    на «(»; буквенный фрагмент слева добирается вручную и только на
+    совпадениях — линейность скана сохраняется.
+    """
+
+    def repl(match: re.Match[str]) -> str:
+        inner = _PAREN_INNER_WORD_PATTERN.match(text, match.end())
+        if inner is not None:
+            pos = match.start()
+            start = pos
+            while start and text[start - 1] in _WORD_INTERNAL_PAREN_LETTERS:
+                start -= 1
+            if word_is_known(text[start:pos] + inner.group(1)):
+                return match.group(0)
+        return " ("
+
+    return MISSING_SPACE_BEFORE_PAREN_PATTERN.sub(repl, text)
+
+
 MULTI_SPACE_PATTERN = compile_scan(r"[ \t]{2,}")
 SPACE_BEFORE_CLOSE_BRACKET_PATTERN = compile_scan(r"[ \t]+([\)\]\}])")
 SPACE_AFTER_OPEN_BRACKET_PATTERN = compile_scan(r"([\(\[\{])[ \t]+")

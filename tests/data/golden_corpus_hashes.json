@@ -34,8 +34,8 @@
       "05_nebolsin_conquest_of_siberia": {
         "input_chars": 200000,
         "input_sha256": "25a6c0ae94bdf7b961b322b51efccc319c64a78be6a8d0d40fe01f6402323e6b",
-        "output_chars": 205432,
-        "output_sha256": "2478546d9436f33c235e9faf3703c8275587f6676d5bdbc0184519c613c98e2c"
+        "output_chars": 205429,
+        "output_sha256": "038c81b67e983c556cc9aeac135002426e9bfdae11b0e6051bb0b96a81bb2701"
       },
       "06_semenov_tyan_shansky_tien_shan_travel": {
         "input_chars": 200000,
