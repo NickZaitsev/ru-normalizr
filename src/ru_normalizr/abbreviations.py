@@ -8,6 +8,7 @@ from .abbreviation_rules import (
     ABBREVIATION_LITERAL_HINTS,
     ABBREVIATION_PATTERNS,
     ADJECTIVE_ABBREVIATION_EXPANSIONS,
+    GEO_CLASSIFIER_ABBREVIATIONS,
 )
 from .constants import (
     ABBREV_DOTTED_PATTERN,
@@ -29,9 +30,10 @@ from .constants import (
     apply_letter_vowel_mode,
     resolve_letter_name,
 )
-from .numerals._constants import VERB_CASE
+from .numerals._constants import PREP_CASE, VERB_CASE
 from .numerals._helpers import safe_inflect
 from .options import InitialsPauseMode, LetterVowelMode, NormalizeOptions
+from .text_context import PUNCT_STRIP, simple_tokenize
 from .text_scan import compile_scan, first_non_whitespace_index
 
 _ETC_ABBREVIATION_PATTERN = compile_scan(
@@ -783,10 +785,71 @@ def _normalize_contextual_ampersands(
     return _WORD_AMPERSAND_PATTERN.sub(repl, text)
 
 
+_GEO_CLASSIFIER_PATTERN = compile_scan(
+    rf"(?<!\w)(?P<abbr>{'|'.join(GEO_CLASSIFIER_ABBREVIATIONS)})\.\s+"
+    rf"(?=[А-ЯЁ][а-яё-])",
+    re.IGNORECASE,
+)
+#: «в»/«на»/«за» перед географическим классификатором читаются локативно:
+#: повествование описывает положение («на оз. Байкал»), а не направление.
+_GEO_STATIC_PREPOSITION_CASE = {
+    "в": "loct",
+    "во": "loct",
+    "на": "loct",
+    "за": "ablt",
+    "под": "ablt",
+    "над": "ablt",
+    "перед": "ablt",
+}
+
+
+def _expand_geo_classifier_abbreviations(text: str) -> str:
+    """«до оконечности оз. Иссык-Куль» → «озера»: падеж задаёт левый контекст.
+
+    Падеж классификатора сообщает предлог перед ним или управляющее
+    существительное слева (родительная цепочка «оконечности озера»); без них
+    классификатор — подлежащее и остаётся именительным.
+    """
+
+    def repl(match: re.Match[str]) -> str:
+        abbr = match.group("abbr")
+        lemma = GEO_CLASSIFIER_ABBREVIATIONS[abbr.lower()]
+        left_tokens = simple_tokenize(text[max(0, match.start() - 40) : match.start()])
+        case = "nomn"
+        prev = left_tokens[-1].lower().strip(PUNCT_STRIP) if left_tokens else ""
+        if prev:
+            if prev in _GEO_STATIC_PREPOSITION_CASE:
+                case = _GEO_STATIC_PREPOSITION_CASE[prev]
+            elif prev in PREP_CASE:
+                case = PREP_CASE[prev]
+            else:
+                p_prev = first_parse_required(prev)
+                if "NOUN" in p_prev.tag and "Fixd" not in p_prev.tag:
+                    case = "gent"
+        expanded = lemma
+        if case != "nomn":
+            p_lemma = next(
+                (
+                    candidate
+                    for candidate in parse_word(lemma)
+                    if "NOUN" in candidate.tag and candidate.tag.case == "nomn"
+                ),
+                None,
+            )
+            if p_lemma is not None:
+                expanded = safe_inflect(p_lemma, {case, "sing"}, fallback_word=lemma)
+        if abbr[:1].isupper():
+            expanded = expanded[:1].upper() + expanded[1:]
+        return f"{expanded} "
+
+    return _GEO_CLASSIFIER_PATTERN.sub(repl, text)
+
+
 def expand_abbreviations(text: str, options: NormalizeOptions | None = None) -> str:
     active = options or NormalizeOptions()
     text = _expand_language_origin_abbreviations(text)
     if active.enable_contextual_abbreviation_expansion:
+        text = _expand_geo_classifier_abbreviations(text)
         text = _expand_contextual_etc_abbreviations(text)
         text = _expand_contextual_adjective_abbreviations(text)
         folded_text = text.casefold()

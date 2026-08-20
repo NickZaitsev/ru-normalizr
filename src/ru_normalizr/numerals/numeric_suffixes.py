@@ -544,9 +544,69 @@ def resolve_numeric_suffix(
     return min(best, key=_candidate_sort_key).reading
 
 
+_ORDINAL_ENUMERATION_PATTERN = compile_scan(
+    rf"(?<![\w.,-])(?P<head>\d+(?:\s*,\s*\d+)+)(?P<conj>\s+и\s+)"
+    rf"(?P<last>\d+)-(?P<suffix>{_SUFFIX_ALTERNATION})(?P<hard>ъ)?(?!\w)(?!-[а-яё])"
+    rf"(?P<gap>\s+)(?P<noun>[а-яёА-ЯЁ]+)",
+    re.UNICODE,
+)
+
+
+def _spread_ordinal_over_enumeration(text: str) -> str:
+    """Суффикс последнего числа задаёт порядковое чтение всему ряду.
+
+    «на 494, 495 и 496-й статьи»: автор подписал окончание только у последнего
+    числа, но перечисляет однородные порядковые. Каждое число читается
+    порядковым в единственном числе, согласованным с существительным справа
+    («четыреста девяносто четвёртую, … пятую и … шестую статьи»).
+    """
+
+    def repl(match: re.Match[str]) -> str:
+        suffix = match.group("suffix").casefold()
+        if suffix not in _ORDINAL_ONLY_SUFFIXES:
+            return match.group(0)
+        noun = match.group("noun")
+        noun_parses = parse_word(noun.casefold())
+        if not noun_parses:
+            return match.group(0)
+        p_noun = noun_parses[0]
+        if "NOUN" not in p_noun.tag or p_noun.tag.case is None:
+            return match.group(0)
+        noun_case = "loct" if "loc2" in p_noun.tag else p_noun.tag.case
+        if noun_case in {"datv", "ablt", "loct"}:
+            case = noun_case
+        else:
+            context_left = simple_tokenize(text[max(0, match.start() - 60) : match.start()])
+            context_right = simple_tokenize(text[match.end("noun") : match.end("noun") + 60])
+            body = simple_tokenize(match.group(0))
+            case = get_numeral_case(
+                [*context_left, *body, *context_right], len(context_left)
+            )
+        gender = p_noun.tag.gender
+        inanimate = "anim" not in p_noun.tag
+
+        def ordinal(number_text: str) -> str:
+            return render_ordinal(
+                int(number_text), case=case, gender=gender, plural=False,
+                inanimate=inanimate,
+            )
+
+        head_parts = re.split(r"(\s*,\s*)", match.group("head"))
+        head = "".join(
+            ordinal(part) if part.isdigit() else part for part in head_parts
+        )
+        last = ordinal(match.group("last"))
+        if match.group("hard") and last and last[-1] not in "аеёиоуыэюяьъ":
+            last += "ъ"
+        return f"{head}{match.group('conj')}{last}{match.group('gap')}{noun}"
+
+    return _ORDINAL_ENUMERATION_PATTERN.sub(repl, text)
+
+
 def normalize_numeric_suffixes(
     text: str, *, capitalize_text_start: bool = False
 ) -> str:
+    text = _spread_ordinal_over_enumeration(text)
     text_start_end = len(text) - len(text.lstrip(_TEXT_START_PREFIX_CHARS))
 
     def repl(match: re.Match[str]) -> str:

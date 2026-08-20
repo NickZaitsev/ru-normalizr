@@ -6,34 +6,18 @@ from .conftest import CheckTts
 
 #: Пробелы, найденные точечными проверками, а не сплошным чтением книги.
 HANDWRITTEN_GAP_CASES = (
-    # Косвенная вершина измерения слева склоняет и целое число, хотя при целом
-    # это приложение-ярлык: «на частоте три», как «на частоте три и две десятых».
-    # Правило `oblique-noun-before-bare-number` писалось под дробь и целое ловит
-    # заодно; отличить дробь от целого одного взгляда на соседей не хватает —
-    # нужен признак «число называет параметр, а не считает предметы».
+    # Числовой суффикс перед дореформенным составным прилагательным: «фунтовыя»
+    # неизвестно словарю, и резолвер суффикса оставляет «-ти» приклеенным
+    # («шестнадцати-ти-фунтовыя»). В современной орфографии («фунтовые»)
+    # та же запись сворачивается верно.
     pytest.param(
-        "На частоте 3 передатчик работает стабильно почти без помех.",
-        "На частоте три передатчик работает стабильно почти без помех.",
-        id="bare_integer_after_oblique_measurement_head",
+        "Полевая артиллерія имѣла 8-ми- и 16-ти-фунтовыя пушки.",
+        "Полевая артиллерія имѣла восьми- и шестнадцатифунтовыя пушки.",
+        id="numeric_suffix_before_pre_reform_compound_adjective",
         marks=pytest.mark.xfail(
             strict=True,
-            reason="oblique-noun-before-bare-number also declines a bare integer label",
-        ),
-    ),
-    # Родительное приложение после счётной группы тоже не управляет ею.
-    #
-    # НЕ РЕШАЕТСЯ алгоритмически: «отправили 4 человека» и «вижу 2 человека»
-    # различаются только смыслом, а не формой — в обоих случаях счётная форма
-    # «человека» стоит при одушевлённом прямом объекте. Проект осознанно читает
-    # такую пару как «двух человек» (paucal_accusative_case, tests/test_cardinal_stage.py),
-    # поэтому «четыре человека» здесь недостижимо без обратной регрессии.
-    pytest.param(
-        "К ним отправили 4 человека детей боярских.",
-        "К ним отправили четыре человека детей боярских.",
-        id="count_group_before_genitive_apposition",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="animate accusative convention renders the counted group in the genitive",
+            reason="suffix resolver keeps «-ти» glued when the compound adjective "
+            "is unknown to the morphology (pre-reform spelling)",
         ),
     ),
     # Латинское «K» после числа — кельвины, но та же запись означает тысячи
@@ -93,17 +77,6 @@ HANDWRITTEN_GAP_CASES = (
 
 #: Найдено прогоном по книжному корпусу benchmarks/corpus.
 CORPUS_SWEEP_GAP_CASES = (
-    # Итоговое число в перечислении получает родительный падеж, хотя стоит в
-    # именительной позиции («а всего 30 000»).
-    pytest.param(
-        "Он имел сзади пятнадцать тысяч пехоты, а всего 30 000, и прошёл клиссуры.",
-        "Он имел сзади пятнадцать тысяч пехоты, а всего тридцать тысяч, и прошёл клиссуры.",
-        id="total_after_enumeration_gets_genitive",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a total after an enumeration is rendered in the genitive",
-        ),
-    ),
     # Многоточие после восклицательного знака теряет точку.
     pytest.param(
         "Он больше не нашёл себе продолжателей!..",
@@ -123,27 +96,6 @@ CORPUS_SWEEP_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="an unknown abbreviation with a dot capitalizes the next word",
-        ),
-    ),
-    # Дата вида «12 числа» требует порядкового, как и «12-го числа».
-    pytest.param(
-        "Напоследок 12 числа всё было в готовности к походу.",
-        "Напоследок двенадцатого числа всё было в готовности к походу.",
-        id="ordinal_before_chisla",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a bare day number before числа is read as a cardinal",
-        ),
-    ),
-    # Перечисление страниц после «стр.» ставит первую страницу в родительный
-    # падеж («страница пяти»).
-    pytest.param(
-        "Нестор говорит выше (стр. 5, 6) о разделении языков после столпотворения.",
-        "Нестор говорит выше (страница пять, шесть) о разделении языков после столпотворения.",
-        id="page_list_after_page_abbreviation",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the first page of a list after стр. is rendered in the genitive",
         ),
     ),
     # Диапазон страниц после «на страницах» получает средний род у первой
@@ -218,28 +170,6 @@ BOOK_06_GAP_CASES = (
             reason="underscore letter-spacing is read as separate letters",
         ),
     ),
-    # Сокращение раскрывается в именительном падеже независимо от управления:
-    # «оз.» → «озеро», «ред.» → «Редактор», «сост.» → «Составитель».
-    pytest.param(
-        "Отряд дошёл до западной оконечности оз. Иссык-Куль в июне того года.",
-        "Отряд дошёл до западной оконечности озера Иссык-Куль в июне того года.",
-        id="abbreviation_expanded_in_the_nominative",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="an expanded abbreviation ignores the government of the phrase",
-        ),
-    ),
-    # Во втором члене сочинённой пары номер остаётся количественным: «гл. 8 и 9»
-    # → «глава восьмая и девять».
-    pytest.param(
-        "Об этом сказано в гл. 8 и 9 второго тома издания.",
-        "Об этом сказано в главах восьмой и девятой второго тома издания.",
-        id="second_number_of_a_coordinated_pair",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the second number of a coordinated pair stays a cardinal",
-        ),
-    ),
 )
 
 
@@ -268,18 +198,6 @@ BOOK_05_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a page range closing a reference is read as an enumeration",
-        ),
-    ),
-    # Номер страницы в скобках читается в родительном падеже вместо
-    # именительного.
-    pytest.param(
-        "Миллер, осматривавший это место, говорит (с. 179): что касается до перекопи.",
-        "Миллер, осматривавший это место, говорит (страница сто семьдесят девять): "
-        "что касается до перекопи.",
-        id="page_number_in_parentheses_read_in_genitive",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a parenthesized page number is rendered in the genitive",
         ),
     ),
     # Приклеенный к слову номер сноски читается вслух как число.
@@ -317,36 +235,6 @@ BOOK_05_GAP_CASES = (
 
 #: Найдено сплошным чтением книги 02 («История русской армии и флота»).
 BOOK_02_GAP_CASES = (
-    # Диапазон при мере длины уходит в родительный падеж вместо именительного.
-    pytest.param(
-        "От них до реки 130—140 верст по прямой дороге.",
-        "От них до реки сто тридцать — сто сорок вёрст по прямой дороге.",
-        id="measure_range_read_in_the_genitive",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a range of a length measure is rendered in the genitive",
-        ),
-    ),
-    # Число после предлога «в» в значении меры остаётся в именительном падеже.
-    pytest.param(
-        "Ягайло, простояв верстах в 40, повернул назад к своим границам.",
-        "Ягайло, простояв верстах в сорока, повернул назад к своим границам.",
-        id="number_after_preposition_v_in_the_locative",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a number after the preposition в stays in the nominative",
-        ),
-    ),
-    # Число после прилагательного в творительном падеже остаётся именительным.
-    pytest.param(
-        "Отряд начальствовал отборными 1000 чел., от которых высылались разъезды.",
-        "Отряд начальствовал отборными тысячей человек, от которых высылались разъезды.",
-        id="number_after_an_instrumental_adjective",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a number after an instrumental adjective stays nominative",
-        ),
-    ),
     # Номер пункта перечисления «1)» читается количественным «один».
     pytest.param(
         "Служили сначала иноземцы, а потом: 1) «гулящие некрепостные люди», "
@@ -372,27 +260,6 @@ BOOK_02_GAP_CASES = (
             reason="the first word of the next sentence is dropped after a counted form",
         ),
     ),
-    # Составное число в творительном падеже склоняется только по первой части.
-    pytest.param(
-        "Мы закончили дело 2700 пленными и полным разгромом неприятельского обоза.",
-        "Мы закончили дело двумя тысячами семьюстами пленными "
-        "и полным разгромом неприятельского обоза.",
-        id="instrumental_of_a_four_digit_number",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="only the first part of a compound number takes the instrumental",
-        ),
-    ),
-    # Число после «в составе» остаётся в именительном падеже.
-    pytest.param(
-        "Низовый корпус был в составе 12 400 чел. и стоял отдельно.",
-        "Низовый корпус был в составе двенадцати тысяч четырёхсот человек и стоял отдельно.",
-        id="number_after_v_sostave",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a number after в составе stays in the nominative",
-        ),
-    ),
     # «ч.» в значении «человек» читается как «часов». Алгоритмически не
     # решается надёжно: «(42 000 ч.)» и «(42 000 ч. боя)» различаются только
     # военно-историческим смыслом; надёжного морфологического признака,
@@ -412,28 +279,6 @@ BOOK_02_GAP_CASES = (
 
 #: Найдено сплошным чтением книги 02b (та же книга, дореформенная орфография).
 BOOK_02B_GAP_CASES = (
-    # Творительный падеж предыдущего слова перетекает на следующее число
-    # в перечислении.
-    pytest.param(
-        "Шведы теряютъ до трехъ тысячъ убитыми, 8 знаменъ, 4 орудія и весь обозъ.",
-        "Шведы теряютъ до трехъ тысячъ убитыми, восемь знаменъ, четыре орудія и весь обозъ.",
-        id="instrumental_leaks_to_the_next_count",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the instrumental of a previous word leaks to the next count",
-        ),
-    ),
-    # Согласование числа с дореформенным прилагательным портит само слово:
-    # «2 прочныя» → «двух прочныев».
-    pytest.param(
-        "Эта работа подготовила 2 прочныя ступени къ новому подвигу нашей рати.",
-        "Эта работа подготовила двѣ прочныя ступени къ новому подвигу нашей рати.",
-        id="adjective_corrupted_by_agreement",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="agreement with a pre-reform adjective corrupts the adjective itself",
-        ),
-    ),
     # «л.» в значении «лет» читается как «литров». Алгоритмически не решается
     # нормально: нужен смысловой разбор «Только 24 л. <фамилия>» (возраст в
     # родительном падеже), а ожидание к тому же в дореформенной орфографии
@@ -468,59 +313,6 @@ BOOK_04_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="гл. after a number is expanded in the nominative and the number stays cardinal",
-        ),
-    ),
-    # Число перед существительным в винительном падеже остаётся количественным
-    # вместо порядкового.
-    pytest.param(
-        "Работы были назначены на 27 неделю по церковному календарю того года.",
-        "Работы были назначены на двадцать седьмую неделю по церковному календарю того года.",
-        id="number_before_an_accusative_noun_stays_cardinal",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a number before an accusative noun stays cardinal instead of ordinal",
-        ),
-    ),
-    # Число после «у меня» уходит в родительный падеж вместо именительного.
-    pytest.param(
-        "У меня 350 казаков, и с ними я готов идти на неприятеля.",
-        "У меня триста пятьдесят казаков, и с ними я готов идти на неприятеля.",
-        id="count_after_u_menya_read_in_the_genitive",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a count after у меня is put into the genitive",
-        ),
-    ),
-    # Время «в 2 часа ночи» получает предложный падеж вместо винительного:
-    # «в 2 часа» → «в двух часа».
-    pytest.param(
-        "Он пришёл в 2 часа ночи и сразу лёг спать до самого утра.",
-        "Он пришёл в два часа ночи и сразу лёг спать до самого утра.",
-        id="hour_after_v_gets_locative_case",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="в + N часа is read as a locative instead of accusative",
-        ),
-    ),
-    # Разделительное «по» с числом даёт винительный вместо родительного:
-    # «по 2 бургомистра» → «по двух бургомистров».
-    pytest.param(
-        "В каждом городе выбирали по 2 бургомистра из числа торговых людей.",
-        "В каждом городе выбирали по два бургомистра из числа торговых людей.",
-        id="distributive_po_with_a_count_noun",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="distributive по with a count noun produces the wrong case",
-        ),
-    ),
-    # Число перед «тысяч» уходит в дательный падеж вслед за глаголом.
-    pytest.param(
-        "Ему предлагали 300 тысяч рейхсталеров, но он отказался от этих денег.",
-        "Ему предлагали триста тысяч рейхсталеров, но он отказался от этих денег.",
-        id="number_before_thousands_read_in_the_dative",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a number before тысяч takes the dative of the governing verb",
         ),
     ),
 )
@@ -583,59 +375,6 @@ BOOK_03_GAP_CASES = (
 
 #: Найдено сплошным чтением книги 01 («История России с древнейших времён»).
 BOOK_01_GAP_CASES = (
-    # Порядковое окончание последнего числа не распространяется на перечисление.
-    pytest.param(
-        "Синод сослался на 494, 495 и 496-й статьи большого наказа и отложил решение.",
-        "Синод сослался на четыреста девяносто четвёртую, четыреста девяносто пятую "
-        "и четыреста девяносто шестую статьи большого наказа и отложил решение.",
-        id="ordinal_suffix_not_spread_over_an_enumeration",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="only the last number of the enumeration becomes an ordinal",
-        ),
-    ),
-    # Падеж от предлога «до» получает только первое число перечисления.
-    pytest.param(
-        "Соль продается неравными ценами от 3 копеек до 20, 30 и 40 копеек за пуд.",
-        "Соль продается неравными ценами от трёх копеек до двадцати, тридцати "
-        "и сорока копеек за пуд.",
-        id="case_not_spread_over_an_enumerated_range",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="only the first number after the preposition takes its case",
-        ),
-    ),
-    # Число в винительном падеже при инфинитиве уходит в предложный.
-    pytest.param(
-        "Он думает сим способом 100000 рублей достать, а после уехать за границу.",
-        "Он думает сим способом сто тысяч рублей достать, а после уехать за границу.",
-        id="accusative_object_read_in_the_prepositional",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the accusative object of the infinitive is read in the prepositional",
-        ),
-    ),
-    # Номер часа после предлога «в» остаётся количественным.
-    pytest.param(
-        "Пополуночи в 9 часу неприятель показался на левом фланге.",
-        "Пополуночи в девятом часу неприятель показался на левом фланге.",
-        id="hour_after_v_stays_cardinal",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the hour number after v is not made ordinal",
-        ),
-    ),
-    # Счёт в позиции подлежащего уходит в косвенный падеж.
-    pytest.param(
-        "В Козлове 103 церкви, 7596 дворов и более двадцати пяти тысяч жителей.",
-        "В Козлове сто три церкви, семь тысяч пятьсот девяносто шесть дворов "
-        "и более двадцати пяти тысяч жителей.",
-        id="subject_count_read_in_an_oblique_case",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a count in subject position is put into an oblique case",
-        ),
-    ),
 )
 
 

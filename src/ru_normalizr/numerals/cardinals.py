@@ -7,8 +7,9 @@ from dataclasses import dataclass
 import num2words
 
 from .._log_once import warn_once
-from .._morph import first_parse_required, parse_word, select_parse
+from .._morph import first_parse_required, parse_word, select_parse, word_is_known
 from ..abbreviation_context import should_keep_terminal_abbreviation_dot
+from ..ordinal_utils import render_ordinal, render_ordinal_from_noun_parse
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_context import (
     PUNCT_STRIP,
@@ -512,12 +513,19 @@ def _handle_adjective_and_noun(site: _NumberSite) -> Outcome | None:
     clean_adj = adj_token.lower().strip(PUNCT_STRIP)
     clean_noun = noun_token.lower().strip(PUNCT_STRIP)
     p_adj = select_parse(clean_adj, pos={"ADJF", "PRTF"})
+    # Слово вне словаря («2 прочныя ступени», дореформенная орфография)
+    # между числом и существительным читается как его определение:
+    # согласование всё равно ведёт существительное.
+    if p_adj is None and (
+        not clean_adj.isalpha() or "," in adj_token or word_is_known(clean_adj)
+    ):
+        return None
     p_noun = (
         None
         if _is_ambiguous_preposition_token(clean_noun)
         else select_parse(clean_noun, pos="NOUN")
     )
-    if p_adj is None or p_noun is None or resolve_unit_info(adj_token) is not None:
+    if p_noun is None or resolve_unit_info(adj_token) is not None:
         return None
     is_anim = "anim" in p_noun.tag
     num_words = site.rendered(
@@ -629,6 +637,67 @@ def _handle_unit(
     return [(i, i + step, f"{num_words} {full_unit}")], step
 
 
+def _ordinal_for_mismatched_noun(
+    site: _NumberSite, alias: str, p_noun
+) -> Outcome | None:
+    """Существительное не в счётной форме — число читается порядковым.
+
+    «12 числа», «на 27 неделю», «в 9 часу»: количественное чтение требовало бы
+    родительного множественного («двенадцать чисел»), а автор согласовал
+    единственное число существительного с числом как с порядковым. Ярлычные
+    конструкции («глава 5 книги», «№ 12 журнала») отсекает сосед слева.
+    """
+    i = site.idx
+    if site.is_negative or noun_number_form(site.value) == "one":
+        return None
+    tag = p_noun.tag
+    if "sing" not in tag or tag.case is None or "Fixd" in tag:
+        return None
+    # Форму сообщает только доминирующее существительное: «рядом» — наречие,
+    # его принудительный разбор «ряд» в творительном формы не доказывает.
+    if not is_case_reliable_noun(first_parse_required(alias)):
+        return None
+    if tag.case == "nomn":
+        # Именительное — подлежащее следующей клаузы: «В 1990 команда…».
+        return None
+    if tag.case in {"gent", "accs"} and noun_number_form(site.value) == "few":
+        # Счётная форма паукальных совпадает с родительным единственного:
+        # «три числа», «вижу двух человек» — количественное чтение верно.
+        return None
+    if tag.case == "gent" and site.value > 31:
+        # Родительный единственного после большого числа — счётный эллипсис
+        # неисчисляемого («15 000 пехоты»); порядковым в родительном читается
+        # только число месяца.
+        return None
+    if any(
+        "NOUN" in c.tag and c.tag.case == "gent" and "plur" in c.tag
+        for c in parse_word(alias)
+    ):
+        # Омоформ счётной формы: «10 рот» — «рот» разбирается и как
+        # винительный «рта», и как родительный множественного «роты», а
+        # родительный множественного и есть счётная форма — чтение
+        # количественное.
+        return None
+    if i > 0:
+        left_raw = site.tokens[i - 1]
+        if left_raw == "." and i > 1:
+            prev = site.tokens[i - 2]
+            if prev.isalpha() and len(prev) <= 3:
+                # «в д. 5», «на стр. 5» — сокращение-ярлык перед номером.
+                return None
+            # Точка конца предложения контекста слева не даёт.
+            left_raw = ""
+        if "№" in left_raw:
+            return None
+        left = left_raw.lower().strip(PUNCT_STRIP)
+        if left and is_case_reliable_noun(first_parse_required(left)):
+            return None
+    ordinal = render_ordinal_from_noun_parse(site.value, p_noun)
+    prefix = site.token[: len(site.token) - len(site.token.lstrip(PUNCT_STRIP))]
+    suffix = site.token[len(site.token.rstrip(PUNCT_STRIP)) :]
+    return [(i, i + 1, f"{prefix}{ordinal}{suffix}"), (i + 1, i + 2, None)], 2
+
+
 def _handle_counted_noun(site: _NumberSite, unit: _UnitAtSite) -> Outcome | None:
     """Число + считаемое существительное: «5 книг», «вижу двух человек»."""
     i = site.idx
@@ -639,8 +708,35 @@ def _handle_counted_noun(site: _NumberSite, unit: _UnitAtSite) -> Outcome | None
     )
     if p_noun is None:
         return None
+    mismatch = _ordinal_for_mismatched_noun(site, unit.alias, p_noun)
+    if mismatch is not None:
+        return mismatch
     noun_token = unit.noun_token
     is_anim = "anim" in p_noun.tag
+    # Счётный оборот читает числительное неодушевлённым: «по два бургомистра»
+    # (распределительное «по» не знает одушевлённого винительного) и
+    # «четыре человека детей боярских» (классификатор с родительным
+    # приложением). Без этих признаков одушевлённый винительный обычный:
+    # «вижу двух человек».
+    if (
+        is_anim
+        and site.case == "accs"
+        and noun_number_form(site.value) == "few"
+        and p_noun.tag.case == "gent"
+        and p_noun.tag.number == "sing"
+    ):
+        prev_word = site.tokens[i - 1].lower().strip(PUNCT_STRIP) if i > 0 else ""
+        apposition = None
+        if i + 2 < site.length:
+            appos_word = site.tokens[i + 2].lower().strip(PUNCT_STRIP)
+            if appos_word:
+                apposition = first_parse_required(appos_word)
+        if prev_word in {"по"} or (
+            apposition is not None
+            and apposition.tag.case == "gent"
+            and apposition.tag.number == "plur"
+        ):
+            is_anim = False
     num_words = site.rendered(
         paucal_accusative_case(site.value, site.case, animate=is_anim),
         TIME_WORDS.get(unit.alias, p_noun.tag.gender),
@@ -690,10 +786,59 @@ def _handle_token_on_the_right(site: _NumberSite) -> Outcome | None:
     )
 
 
+def _handle_coordinated_ordinal(site: _NumberSite) -> Outcome | None:
+    """Число, сочинённое с порядковым, читается порядковым: «главе восьмой и 9».
+
+    Однородные члены — слова одного разряда, поэтому падеж, род и число
+    задаёт порядковое слева от союза.
+    """
+    i = site.idx
+    if i < 2 or site.is_negative or site.tokens[i - 1].lower() != "и":
+        return None
+    left = site.tokens[i - 2].lower().strip(PUNCT_STRIP)
+    if not left:
+        return None
+    anum_parses = [
+        candidate
+        for candidate in parse_word(left)
+        if "Anum" in candidate.tag and candidate.tag.case is not None
+    ]
+    if not anum_parses or "Anum" not in first_parse_required(left).tag:
+        return None
+    p_left = anum_parses[0]
+    if i >= 3:
+        # Форма порядкового многозначна («восьмой» — женские косвенные или
+        # мужской именительный); её уточняет определяемое существительное:
+        # «главе восьмой и 9» ↔ «том восьмой и 9».
+        head = site.tokens[i - 3].lower().strip(PUNCT_STRIP)
+        p_head = select_parse(head, pos="NOUN") if head else None
+        if p_head is not None and p_head.tag.gender:
+            head_case = "loct" if "loc2" in p_head.tag else p_head.tag.case
+            agreeing = [
+                candidate
+                for candidate in anum_parses
+                if candidate.tag.gender == p_head.tag.gender
+            ]
+            if agreeing:
+                p_left = next(
+                    (c for c in agreeing if c.tag.case == head_case), agreeing[0]
+                )
+    case = "loct" if "loc2" in p_left.tag else p_left.tag.case
+    ordinal = render_ordinal(
+        site.value,
+        case=case,
+        gender=p_left.tag.gender,
+        plural="plur" in p_left.tag,
+        inanimate="anim" not in p_left.tag,
+    )
+    return [(i, i + 1, ordinal)], 1
+
+
 #: Порядок — контракт: первый обработчик, узнавший свою конструкцию, забирает
 #: токены. Прилагательное впереди, потому что «2 основные задачи» иначе разберётся
 #: как число со считаемым существительным «основные».
 _CARDINAL_HANDLERS = (
+    _handle_coordinated_ordinal,
     _handle_adjective_and_noun,
     _handle_token_on_the_right,
 )

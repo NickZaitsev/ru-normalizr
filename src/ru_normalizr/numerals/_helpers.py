@@ -59,6 +59,24 @@ _TIME_CONTEXT_LEMMAS = frozenset(
     }
 )
 
+#: Партитивно-временные вершины — часть или граница отрезка. Такое слово само
+#: управляет родительным справа и потому прозрачно для предлога слева:
+#: «до исхода 14 [века]», «с половины 11 века», «до полудня 27 числа».
+_PARTITIVE_BOUNDARY_LEMMAS = frozenset(
+    {
+        "исход",
+        "конец",
+        "начало",
+        "окончание",
+        "половина",
+        "полдень",
+        "полночь",
+        "середина",
+        "треть",
+        "четверть",
+    }
+)
+
 logger = logging.getLogger(__name__)
 
 #: A decimal literal, matched at the end of a token so a sign or a protection
@@ -72,6 +90,7 @@ SENTENCE_BOUNDARY_TOKENS = frozenset({".", "!", "?", "…", ";"})
 MORPHOLOGICAL_CONTEXT_BARRIER_POS = {"VERB", "INFN", "GRND"}
 GENITIVE_QUANTITY_GOVERNORS = {
     "выигрыш",
+    "датировка",
     "количество",
     "потеря",
     "сумма",
@@ -119,7 +138,9 @@ LOCATIVE_GENITIVE_QUANTITY_HEADS = frozenset(
         "возраст",
         "количество",
         "размер",
+        "состав",
         "сумма",
+        "число",
     }
 )
 #: Nouns whose immediately following bare number labels them instead of
@@ -720,6 +741,10 @@ def get_target_tags_for_number(
             if form == "one"
             else {"gent", "sing"} if form == "few" else {"gent", "plur"}
         )
+    if num >= 1000 and num % 1000 == 0:
+        # Число оканчивается словом-разрядом, и оно само управляет родительным
+        # множественного: «одной тысячей человек», а не «тысячей человеками».
+        return {"gent", "plur"}
     return {case, "sing"} if form == "one" else {case, "plur"}
 
 
@@ -744,13 +769,24 @@ def _get_preposition_before_number(tokens: list[str], idx: int) -> tuple[str, st
         word_left = normalize_context_token(tokens[i])
         if word_left == "чем" or word_left in NUMERAL_CONTEXT_BARRIERS:
             break
-        if (
-            first_parse_required(word_left).tag.POS
-            in MORPHOLOGICAL_CONTEXT_BARRIER_POS
-        ):
+        parsed_left = first_parse_required(word_left)
+        if parsed_left.tag.POS in MORPHOLOGICAL_CONTEXT_BARRIER_POS:
             break
+        # Производный предлог разбирается как существительное, но барьером не
+        # служит: «в течение ближайших 30 лет».
         if word_left in PREP_CASE:
             return word_left, PREP_CASE[word_left]
+        # Имя или местоимение между предлогом и числом забирает управление
+        # себе: «У меня 350 казаков», «в городе 12 школ» — число именительное.
+        # Временное слово — обстоятельство, а партитивная вершина сама
+        # управляет числом справа; сквозь них предлог виден: «до мая 1500
+        # солдат не досчитавшись», «до исхода 14 [века]».
+        if parsed_left.tag.POS == "NPRO" or (
+            is_case_reliable_noun(parsed_left)
+            and parsed_left.normal_form not in _TIME_CONTEXT_LEMMAS
+            and parsed_left.normal_form not in _PARTITIVE_BOUNDARY_LEMMAS
+        ):
+            break
     return None
 
 
@@ -844,6 +880,8 @@ _LOCATIVE_PREPOSITIONS = frozenset({"в", "во", "о", "об", "при"})
 _LABEL_PREFIX_TOKENS = frozenset({"iso", "f"})
 #: Вершины нумерации: «том 5», «номер 7» — число остаётся именительным.
 _NUMBERING_HEAD_TOKENS = frozenset({"том", "номер"})
+#: Итожащие частицы перед числом: «а всего 30 000» — не родительный от «весь».
+_TOTALIZING_PARTICLES = frozenset({"всего", "итого"})
 
 
 def _rule_operand_after_arithmetic_verb(ctx: NumeralContext) -> str | None:
@@ -983,15 +1021,60 @@ def _rule_distance_from_landmark(ctx: NumeralContext) -> str | None:
     return None
 
 
-def _rule_coordinated_first_number(ctx: NumeralContext) -> str | None:
-    """Второе число сочинения берёт падеж первого: «с 5 и 7 книгами»."""
-    if not (ctx.idx > 1 and ctx.raw(-1) == "и"):
+def _rendered_numeral_case(raw: str) -> str | None:
+    """Падеж уже развёрнутого в слова числительного; не числительное — None.
+
+    Обход слева направо переписывает числа словами, и следующий член
+    сочинённого ряда видит слева не «25», а «двадцати пяти» — падеж читается
+    прямо с формы.
+    """
+    word = normalize_context_token(raw)
+    if not word or is_integer_token(word):
         return None
-    for back in range(-2, max(-6, -ctx.idx - 1), -1):
-        if any(char in ctx.raw(back) for char in ".!?;:"):
-            break
-        if is_integer_token(ctx.raw(back)):
-            return _case_for(ctx.at(ctx.idx + back))
+    parsed = first_parse_required(word)
+    if parsed.tag.POS == "NUMR" and parsed.tag.case is not None:
+        return parsed.tag.case
+    return None
+
+
+def _rule_coordinated_first_number(ctx: NumeralContext) -> str | None:
+    """Следующее число сочинения берёт падеж первого: «с 5 и 7 книгами».
+
+    Первый член ряда к этому моменту уже развёрнут в слова, поэтому кроме
+    цифровых токенов распознаются и словесные числительные («из двадцати пяти
+    пехотных, 9 кавалерийских…»). Перечисление через запятую наследует падеж
+    только внутри своего ряда: надёжное существительное обрывает поиск, чтобы
+    не пересечь границу клаузы («в 1905 году, 3 солдата…»).
+    """
+    if ctx.idx < 2:
+        return None
+    prev = ctx.raw(-1)
+    if prev == "и":
+        for back in range(-2, max(-6, -ctx.idx - 1), -1):
+            raw = ctx.raw(back)
+            if any(char in raw for char in ".!?;:"):
+                break
+            if is_integer_token(raw.rstrip(",")):
+                return _case_for(ctx.at(ctx.idx + back))
+            rendered = _rendered_numeral_case(raw)
+            if rendered is not None:
+                return rendered
+        return None
+    if prev == "," and is_integer_token(ctx.raw(-2)):
+        return _case_for(ctx.at(ctx.idx - 2))
+    if prev.endswith(",") and is_integer_token(prev.rstrip(",")):
+        return _case_for(ctx.at(ctx.idx - 1))
+    if prev.endswith(","):
+        for back in range(-1, max(-4, -ctx.idx - 1), -1):
+            raw = ctx.raw(back).rstrip(",")
+            if is_integer_token(raw):
+                return _case_for(ctx.at(ctx.idx + back))
+            rendered = _rendered_numeral_case(raw)
+            if rendered is not None:
+                return rendered
+            word = normalize_context_token(raw)
+            if word and is_case_reliable_noun(first_parse_required(word)):
+                break
     return None
 
 
@@ -1027,11 +1110,20 @@ def _rule_range_start_governed_by_left(ctx: NumeralContext) -> str | None:
     if not prev_case:
         return None
     if is_case_reliable_noun(p_prev):
+        if p_prev.normal_form in GENITIVE_QUANTITY_GOVERNORS:
+            return "gent"
         if ctx.idx > 1:
             prev_prev = ctx.word(-2)
             if prev_prev in _LOCATIVE_PREPOSITIONS:
                 return "loct"
             if prev_prev in PREP_CASE:
+                # Падеж существительного объяснён его собственным предлогом
+                # («до реки»), и если диапазон образует счётную группу
+                # («130—140 верст»), он — самостоятельное количество.
+                if ctx.idx + 2 < ctx.visible_length and _is_counting_group(
+                    ctx.tokens, ctx.idx + 2, ctx.visible_length
+                ):
+                    return None
                 return PREP_CASE[prev_prev]
         return prev_case
     if p_prev.tag.POS in {"ADJF", "PRTF"}:
@@ -1132,13 +1224,22 @@ def _rule_oblique_noun_before_bare_number(ctx: NumeralContext) -> str | None:
     общем» — наречные обороты, они ничем не управляют, но каждый разбирается как
     прилагательное, в отличие от настоящей вершины измерения вроде «частоте».
 
-    TODO(rule-audit): правило писалось под дробь, но целое число ловит тоже, и
-    тогда читает неверно: «на частоте 3 передатчик» → «на частоте трёх
-    передатчик». См. xfail `bare_integer_after_oblique_measurement_head` в
-    `tests/test_known_gaps.py`.
+    Целое число наследует падеж, только когда за ним не начинается новая
+    именная группа: перед существительным целое — приложение-ярлык («на
+    частоте 3 передатчик работает» — «частоте три»), а перед наречием или
+    глаголом фраза числом и закончилась («в начале 9 уже видим…»). Дробь
+    всегда сама величина («на частоте 3,2»).
     """
     if ctx.idx <= 1:
         return None
+    if not DECIMAL_TOKEN_PATTERN.search(ctx.token):
+        next_word = ctx.word(1)
+        if next_word and first_parse_required(next_word).tag.POS in {
+            "NOUN",
+            "ADJF",
+            "PRTF",
+        }:
+            return None
     left_noun = ctx.parse(-1)
     if left_noun is None:
         return None
@@ -1207,6 +1308,22 @@ def _rule_preposition_before_number(ctx: NumeralContext) -> str | None:
                     return "ablt"
                 break
     if word_left in {"в", "на"}:
+        # Инверсия приблизительного количества: «верстах в 40» — число в
+        # предложном падеже вершины слева, фраза им и заканчивается.
+        if ctx.word(-1) in {"в", "во"}:
+            inverted_head = ctx.parse(-2)
+            next_raw = ctx.raw(1)
+            if (
+                inverted_head is not None
+                and is_case_reliable_noun(inverted_head)
+                and (inverted_head.tag.case == "loct" or "loc2" in inverted_head.tag)
+                and (not next_raw or not any(ch.isalnum() for ch in next_raw))
+            ):
+                return "loct"
+        # Счётная группа сразу после числа — самостоятельное количество:
+        # «в 2 часа», «в 5 групп» — винительный, не поиск вершины справа.
+        if _is_counting_group(ctx.tokens, ctx.idx, ctx.visible_length):
+            return "accs"
         for offset in range(1, min(ctx.visible_length - ctx.idx, 6)):
             raw = ctx.raw(offset)
             if any(char in raw for char in ".!?;:,"):
@@ -1269,12 +1386,20 @@ def _rule_adjective_agreement(ctx: NumeralContext) -> str | None:
 
     «с двумя основными задачами». Существительное между прилагательным и числом
     отменяет правило: тогда прилагательное относится к нему, а не к числу.
+    Запятая — граница однородного ряда: определение перед ней относится к
+    предыдущему члену («до трёх тысяч убитыми, 8 знамен»). Итожащие частицы
+    («всего», «итого») разбираются как родительный от «весь», но числом не
+    управляют. Счётная группа справа отменяет только согласуемые падежи:
+    прилагательное в однозначно косвенном падеже («начальствовал отборными
+    1000 чел.») не может быть определением именительной группы и управляет.
     """
-    if _is_counting_group(ctx.tokens, ctx.idx, ctx.visible_length):
-        return None
+    counting_group = _is_counting_group(ctx.tokens, ctx.idx, ctx.visible_length)
     blocked_by_noun = False
     local_left_scan_start = ctx.left_scan_start
     for i in range(ctx.idx - 1, max(ctx.left_scan_start - 1, ctx.idx - 3), -1):
+        if "," in ctx.tokens[i]:
+            local_left_scan_start = i + 1
+            break
         p = first_parse_required(ctx.tokens[i])
         if p.tag.POS in MORPHOLOGICAL_CONTEXT_BARRIER_POS:
             local_left_scan_start = i + 1
@@ -1283,10 +1408,15 @@ def _rule_adjective_agreement(ctx: NumeralContext) -> str | None:
             blocked_by_noun = True
             break
     for i in range(max(local_left_scan_start, ctx.idx - 2), ctx.idx):
+        token_word = ctx.tokens[i].lower()
+        if token_word in _TOTALIZING_PARTICLES:
+            continue
         p = first_parse_required(ctx.tokens[i])
         if blocked_by_noun and p.tag.POS in {"ADJF", "PRTF"}:
             continue
         if p.tag.POS in {"ADJF", "PRTF"} and p.tag.case:
+            if counting_group and p.tag.case not in {"datv", "ablt", "loct"}:
+                return None
             return p.tag.case
     return None
 
@@ -1314,6 +1444,18 @@ def _rule_verb_government(ctx: NumeralContext) -> str | None:
         # среди равновероятных блокирует винительный: «пришли» — это и «прийти»,
         # и повелительное от «прислать», и управляет только второе.
         if top_verbs and all("tran" in candidate.tag for candidate in top_verbs):
+            # Прямое дополнение не бывает в дательном, творительном или
+            # предложном: «закончили дело 2700 пленными» — «пленными» показывает,
+            # что число не объект глагола, и падеж задаёт правило справа.
+            if ctx.idx < ctx.visible_length - 1:
+                word_right = ctx.raw(1).lower().strip(".,!?;:")
+                if word_right:
+                    p_right = first_parse_required(word_right)
+                    if is_case_reliable_noun(p_right) and (
+                        p_right.tag.case in {"datv", "ablt", "loct"}
+                        or "loc2" in p_right.tag
+                    ):
+                        return None
             return "accs"
         if any(char in ctx.tokens[i] for char in ".!?"):
             break
