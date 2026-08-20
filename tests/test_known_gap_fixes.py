@@ -2254,3 +2254,55 @@ GREEK_LETTER_CASES = (
 @pytest.mark.parametrize(("source", "expected"), GREEK_LETTER_CASES)
 def test_greek_letter_edges(check_tts: CheckTts, source: str, expected: str) -> None:
     check_tts(source, expected)
+
+
+INLINE_LIST_MARKER_CASES = (
+    # Номера пунктов перечисления после двоеточия читаются порядковыми.
+    pytest.param(
+        "Служили сначала иноземцы, а потом: 1) «гулящие некрепостные люди», "
+        "2) дворяне и дети боярские.",
+        'Служили сначала иноземцы, а потом: первое) "гулящие некрепостные люди", '
+        "второе) дворяне и дети боярские.",
+        id="inline_list_markers_read_as_ordinals",
+    ),
+    # Три пункта через точку с запятой — вся серия порядковая.
+    pytest.param(
+        "Причины были такие: 1) голод; 2) холод; 3) война.",
+        "Причины были такие: первое) голод; второе) холод; третье) война.",
+        id="semicolon_separated_run_reads_as_ordinals",
+    ),
+    # Скобка закрывает настоящую «(…)» — серия не начинается.
+    pytest.param(
+        "Он писал об этом (там же, стр. 381) неоднократно и подробно.",
+        "Он писал об этом (там же, страница триста восемьдесят один) "
+        "неоднократно и подробно.",
+        id="closing_paren_of_a_reference_is_not_a_marker",
+    ),
+    # Разрыв последовательности — серии нет, числа читаются как раньше.
+    pytest.param(
+        "Итак: 1) сначала одно, 3) потом совсем другое.",
+        "Итак: один) сначала одно, три) потом совсем другое.",
+        id="broken_sequence_is_not_an_enumeration",
+    ),
+    # Последний пункт после союза «и» — тоже часть серии.
+    pytest.param(
+        "Требовали, чтобы татары: 1) не ходили войною, 2) не брали дани "
+        "и 3) отпустили пленных.",
+        "Требовали, чтобы татары: первое) не ходили войною, второе) не брали дани "
+        "и третье) отпустили пленных.",
+        id="conjunction_before_last_marker_continues_the_run",
+    ),
+    # «и» на конце слова («почти») — не союз, серия не продолжается.
+    pytest.param(
+        "Список такой: 1) первое, 2) второе, а их почти 3) не бывает.",
+        "Список такой: первое) первое, второе) второе, а их почти три) не бывает.",
+        id="word_final_i_is_not_a_conjunction_lead",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), INLINE_LIST_MARKER_CASES)
+def test_inline_list_marker_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)

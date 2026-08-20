@@ -23,7 +23,11 @@ from .identifiers import (
     normalize_vehicle_registration_plates,
 )
 from .latinization import DEFAULT_DICTIONARIES_PATH, apply_latinization
-from .numbering import convert_bracketed_numbers, convert_line_numbering
+from .numbering import (
+    convert_bracketed_numbers,
+    convert_inline_list_markers,
+    convert_line_numbering,
+)
 from .numerals import (
     _contains_numeral_candidates,
     normalize_compound_numeric_adjectives,
@@ -348,6 +352,7 @@ class PipelineNormalizer:
         text = normalize_isbn_identifiers(text)
         text = convert_bracketed_numbers(text, self.options)
         text = convert_line_numbering(text)
+        text = convert_inline_list_markers(text)
         if apply_caps_normalization:
             text = self._run_caps_normalization(text)
         text = PARTICLE_PATTERN.sub("-", text)
