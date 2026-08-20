@@ -2227,3 +2227,30 @@ PAGE_LABEL_CASES = (
 @pytest.mark.parametrize(("source", "expected"), PAGE_LABEL_CASES)
 def test_page_label_edges(check_tts: CheckTts, source: str, expected: str) -> None:
     check_tts(source, expected)
+
+
+GREEK_LETTER_CASES = (
+    # Буква внутри греческого слова — не обозначение: слово не трогается.
+    pytest.param(
+        "Греки называли это море Μαῦρο θάλασσα, а турки давали ему своё имя.",
+        "Греки называли это море Μαῦρο θάλασσα, а турки давали ему своё имя.",
+        id="greek_word_is_left_untouched",
+    ),
+    # Одиночная греческая буква-обозначение читается названием.
+    pytest.param(
+        "Коэффициент α равен 0,5 при нормальных условиях.",
+        "Коэффициент альфа равен ноль целых пять десятых при нормальных условиях.",
+        id="standalone_greek_symbol_reads_its_name",
+    ),
+    # Буква с дефисным продолжением — тоже обозначение.
+    pytest.param(
+        "Поток β-частиц зафиксировали приборы станции.",
+        "Поток бета-частиц зафиксировали приборы станции.",
+        id="greek_symbol_before_hyphen_reads_its_name",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), GREEK_LETTER_CASES)
+def test_greek_letter_edges(check_tts: CheckTts, source: str, expected: str) -> None:
+    check_tts(source, expected)

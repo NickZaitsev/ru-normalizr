@@ -90,8 +90,14 @@ EQUATION_PATTERN = compile_scan(
     rf"(?<!\w){_EQUATION_OPERAND}(?:\s*[-+*/^=]\s*{_EQUATION_OPERAND})+",
     re.UNICODE,
 )
+# Сосед по греческому блоку (включая политоническое письмо) означает
+# греческое слово, а не обозначение: «Μαῦρο» не формула, и «α» внутри него
+# не читается «альфа».
+_GREEK_SCRIPT_CLASS = "Ͱ-Ͽἀ-῿"
 _GREEK_PATTERN = compile_scan(
+    rf"(?<![{_GREEK_SCRIPT_CLASS}])"
     rf"[{''.join(re.escape(char) for char in GREEK_LETTERS)}]+"
+    rf"(?![{_GREEK_SCRIPT_CLASS}])"
 )
 
 
