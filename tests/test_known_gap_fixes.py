@@ -2004,3 +2004,72 @@ CASE_AGREEMENT_CASES = (
 @pytest.mark.parametrize(("source", "expected"), CASE_AGREEMENT_CASES)
 def test_case_agreement_fixes(check_tts: CheckTts, source: str, expected: str) -> None:
     check_tts(source, expected)
+
+
+UNARY_MINUS_SIGN_CASES = (
+    # Минус, набранный приклеенным тире, читается словом «минус».
+    pytest.param(
+        "Ночь была холодная, и к утру было —2° Ц в палатке.",
+        "Ночь была холодная, и к утру было минус два градуса Цельсия в палатке.",
+        id="glued_dash_before_temperature_reads_as_minus",
+    ),
+    # Отбитый дефис после запятой — авторское тире, а не минус; служебный
+    # символ приватной области не протекает в вывод.
+    pytest.param(
+        "Он писал так: «Я выехал из Москвы, - пишет он, - 13 апреля и прибыл к вечеру».",
+        'Он писал так: "Я выехал из Москвы, — пишет он, — тринадцатого апреля'
+        ' и прибыл к вечеру".',
+        id="spaced_hyphen_after_comma_is_a_dash_not_a_minus",
+    ),
+    # Приклеенный дефис после запятой остаётся минусом: перечисление значений.
+    pytest.param(
+        "Записаны значения 10, -15 и 20.",
+        "Записаны значения десять, минус пятнадцать и двадцать.",
+        id="glued_hyphen_after_comma_stays_a_minus",
+    ),
+    # Диапазон, набранный тире между цифрами, минусом не становится.
+    pytest.param(
+        "Он родился в 1873—1875 годах.",
+        "Он родился в тысяча восемьсот семьдесят третьем — тысяча восемьсот"
+        " семьдесят пятом годах.",
+        id="glued_dash_range_is_not_a_minus",
+    ),
+    # Тире прямой речи, отбитое пробелом от числа, — не минус.
+    pytest.param(
+        "«Мороз, - сказал он, - минус 30 градусов».",
+        '"Мороз, — сказал он, — минус тридцать градусов".',
+        id="speech_dash_before_a_number_is_not_a_minus",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), UNARY_MINUS_SIGN_CASES)
+def test_unary_minus_sign_edges(check_tts: CheckTts, source: str, expected: str) -> None:
+    check_tts(source, expected)
+
+
+UNIT_SENTENCE_BOUNDARY_CASES = (
+    # Подлежащее следующего предложения с леммой единицы не съедается
+    # как дублирующая счётная форма.
+    pytest.param(
+        "Всего было принято 32 000 человек. Люди поступили на укомплектование "
+        "двадцати семи пехотных полков.",
+        "Всего было принято тридцать две тысячи человек. Люди поступили "
+        "на укомплектование двадцати семи пехотных полков.",
+        id="capitalised_subject_after_a_counted_form_is_kept",
+    ),
+    # Строчное подлежащее в именительном после запятой тоже сохраняется:
+    # дублем считается только родительный падеж.
+    pytest.param(
+        "Всего было принято 32 000 человек, люди поступили охотно.",
+        "Всего было принято тридцать две тысячи человек, люди поступили охотно.",
+        id="lowercase_nominative_after_a_counted_form_is_kept",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), UNIT_SENTENCE_BOUNDARY_CASES)
+def test_unit_sentence_boundary_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)

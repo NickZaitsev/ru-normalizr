@@ -10,8 +10,8 @@
       "02_russian_army_and_navy_modern": {
         "input_chars": 200000,
         "input_sha256": "49f5d3583207cd9df7192529771c1d2d607ac8aa3c59c14c9fd3424929f4c7a7",
-        "output_chars": 206321,
-        "output_sha256": "3956363206c2349c8787b677f72b84681f9c3adec88e71262c9244ebd2da6d5e"
+        "output_chars": 206326,
+        "output_sha256": "f9ace15e04377f680b7b3fbcfa25a1899a8a5d47ce5c397aa5b75bfcbfe2919f"
       },
       "02b_russian_army_and_navy_pre_reform": {
         "input_chars": 200000,

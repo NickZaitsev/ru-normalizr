@@ -149,16 +149,6 @@ BOOK_06_GAP_CASES = (
             reason="an ellipsis inside a quotation capitalizes the next word",
         ),
     ),
-    # Минус перед температурой набран тире и остаётся тире, теряя «минус».
-    pytest.param(
-        "Ночь была холодная, и к утру было —2° Ц в палатке.",
-        "Ночь была холодная, и к утру было минус два градуса Цельсия в палатке.",
-        id="dash_as_minus_before_temperature",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a dash used as a minus before a temperature stays a dash",
-        ),
-    ),
     # Разрядка подчёркиваниями («в_н_е в_с_я_к_о_г_о») превращается в
     # последовательность отдельных букв вместо слова.
     pytest.param(
@@ -245,19 +235,6 @@ BOOK_02_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="an enumeration marker 1) is read as the cardinal один",
-        ),
-    ),
-    # Слово в начале следующего предложения пропадает из вывода после числа
-    # со счётной формой.
-    pytest.param(
-        "Всего было принято 32 000 человек. Люди поступили на укомплектование "
-        "двадцати семи пехотных полков.",
-        "Всего было принято тридцать две тысячи человек. Люди поступили "
-        "на укомплектование двадцати семи пехотных полков.",
-        id="word_dropped_after_a_sentence_boundary",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the first word of the next sentence is dropped after a counted form",
         ),
     ),
     # «ч.» в значении «человек» читается как «часов». Алгоритмически не
@@ -357,17 +334,6 @@ BOOK_03_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a sentence-ending exclamation before a closing quote does not capitalise",
-        ),
-    ),
-    # Служебный символ из приватной области Unicode попадает в результат, если
-    # дефис-тире стоит внутри цитаты.
-    pytest.param(
-        "Он писал так: «Я выехал из Москвы, - пишет он, - 13 апреля и прибыл к вечеру».",
-        'Он писал так: "Я выехал из Москвы, — пишет он, — тринадцатого апреля и прибыл к вечеру".',
-        id="private_use_sentinel_leaks_into_the_output",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="an internal private-use sentinel character leaks into the output",
         ),
     ),
 )

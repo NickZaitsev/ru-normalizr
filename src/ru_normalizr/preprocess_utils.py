@@ -127,7 +127,8 @@ YEARS_AGO_ABBREVIATION_PATTERN = compile_scan(
     re.UNICODE,
 )
 UNARY_MINUS_NUMBER_PATTERN = compile_scan(
-    r"(?P<prefix>^|[(\[{«]|(?<!\d)\s)(?P<sign>[−-])(?P<space>\s*)(?P<number>\d+(?:[.,]\d+)?)"
+    r"(?P<prefix>^|[(\[{«]|(?<!\d)\s)"
+    r"(?P<sign>[−-]\s*|[—–―])(?P<number>\d+(?:[.,]\d+)?)"
 )
 UNARY_PLUS_NUMBER_PATTERN = compile_scan(
     r"(?P<prefix>^|[(\[{«=,:;]|(?<![\d\s])\s)\+(?P<number>\d+(?:[.,]\d+)?)"
@@ -317,9 +318,22 @@ def normalize_spaced_ascii_hyphens(text: str) -> str:
 
 
 def protect_negative_numbers(text: str) -> str:
+    """Пометить унарный минус перед числом служебным символом.
+
+    Дефис, отбитый пробелом от числа после запятой, точки с запятой или
+    двоеточия, — авторское тире («, - пишет он, - 13 апреля»), а не минус.
+    Тире, приклеенное к цифре, — минус, набранный тире («к утру было —2°»);
+    диапазоны («91—92») сюда не попадают: перед знаком там цифра, а не пробел.
+    """
+
     def repl(match: re.Match[str]) -> str:
         prefix = match.group("prefix")
+        sign = match.group("sign")
         number = match.group("number")
+        if sign[-1].isspace():
+            before = text[: match.start("sign")].rstrip()
+            if before.endswith((",", ";", ":")):
+                return match.group(0)
         return f"{prefix}{NEGATIVE_NUMBER_PLACEHOLDER}{number}"
 
     return UNARY_MINUS_NUMBER_PATTERN.sub(repl, text)

@@ -352,7 +352,14 @@ def _is_redundant_unit_token(
     if not parsed:
         return False
     candidate = parsed[0]
-    return "NOUN" in candidate.tag and candidate.normal_form == expected_lemma
+    if "NOUN" not in candidate.tag or candidate.normal_form != expected_lemma:
+        return False
+    # Дублирующее слово стоит в счётной форме и со строчной буквы; заглавная
+    # открывает новое предложение: «принято 32 000 человек. Люди поступили…»
+    # — «Люди» не дубль единицы, а подлежащее следующей клаузы.
+    if tokens[token_index].lstrip(PUNCT_STRIP)[:1].isupper():
+        return False
+    return candidate.tag.case == "gent"
 
 
 @dataclass(frozen=True, slots=True)
