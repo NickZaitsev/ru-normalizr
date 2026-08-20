@@ -13,7 +13,9 @@ from .text_scan import compile_scan
 
 DEFAULT_DICTIONARIES_PATH = Path(__file__).resolve().parent / "dictionaries"
 DEFAULT_LATINIZATION_DICTIONARIES_PATH = DEFAULT_DICTIONARIES_PATH / "latinization"
-LATIN_TOKEN_PATTERN = compile_scan(r"[A-Za-z][A-Za-z'\-]*")
+# Типографский апостроф «’» входит в слово только между буквами — иначе это
+# закрывающая кавычка, и съедать её нельзя.
+LATIN_TOKEN_PATTERN = compile_scan(r"[A-Za-z][A-Za-z'\-]*(?:’[A-Za-z][A-Za-z'\-]*)*")
 ALPHANUMERIC_SUFFIX_LETTER_PATTERN = compile_scan(
     r"(?:(?<=\d)|(?<=[А-Яа-яЁё]-))(?P<letter>[A-Za-z])\b"
 )
@@ -359,7 +361,9 @@ def _apply_ipa_latinization(
     if not matches:
         return text
 
-    unique_words = tuple(dict.fromkeys(match.group(0).lower() for match in matches))
+    unique_words = tuple(
+        dict.fromkeys(match.group(0).lower().replace("’", "'") for match in matches)
+    )
     ipa_results = _ipa_convert_words(unique_words)
 
     replacements: dict[str, str] = {}
@@ -373,16 +377,32 @@ def _apply_ipa_latinization(
         )
 
     if unknown_words:
-        replacements.update(
-            _resolve_unknown_latin_fallbacks(
-                tuple(unknown_words),
+        # Апостроф в неизвестном слове — элизия («d'orge»): читаем слитно.
+        fused = {word: word.replace("'", "") for word in unknown_words}
+        retry_targets = tuple(
+            dict.fromkeys(fused[word] for word in unknown_words if "'" in word)
+        )
+        retried = _ipa_convert_words(retry_targets) if retry_targets else {}
+        dictionary_words: list[str] = []
+        for word in unknown_words:
+            ipa_text = retried.get(fused[word], "*")
+            if "*" in ipa_text:
+                dictionary_words.append(word)
+                continue
+            replacements[word] = _ipa_to_russian(
+                ipa_text, include_stress_markers=include_stress_markers
+            )
+        if dictionary_words:
+            resolved = _resolve_unknown_latin_fallbacks(
+                tuple(dict.fromkeys(fused[word] for word in dictionary_words)),
                 str(dictionaries_path),
                 filename,
             )
-        )
+            for word in dictionary_words:
+                replacements[word] = resolved[fused[word]]
 
     def replace(match: re.Match[str]) -> str:
-        word = match.group(0).lower()
+        word = match.group(0).lower().replace("’", "'")
         return replacements.get(word, match.group(0))
 
     return LATIN_TOKEN_PATTERN.sub(replace, text)

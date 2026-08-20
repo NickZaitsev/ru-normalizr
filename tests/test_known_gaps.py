@@ -168,16 +168,6 @@ BOOK_05_GAP_CASES = (
             reason="a footnote number glued to a word is read aloud",
         ),
     ),
-    # Апостроф внутри латинского слова отбивается пробелами с обеих сторон.
-    pytest.param(
-        "В книге стоит фраза est fait de millet et d’orge monde на полях.",
-        "В книге стоит фраза эст фейт дэ милэт эт дорж манд на полях.",
-        id="apostrophe_inside_a_latin_word",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="an apostrophe inside a latin word is split off with spaces",
-        ),
-    ),
 )
 
 

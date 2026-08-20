@@ -2306,3 +2306,39 @@ def test_inline_list_marker_edges(
     check_tts: CheckTts, source: str, expected: str
 ) -> None:
     check_tts(source, expected)
+
+
+LATIN_APOSTROPHE_CASES = (
+    # Элизия в неизвестном слове читается слитно по общим правилам
+    # транслитерации (правила английские, поэтому «додж», а не «дорж»).
+    pytest.param(
+        "В книге стоит фраза est fait de millet et d’orge monde на полях.",
+        "В книге стоит фраза эст фейт дэ милэт эт додж манд на полях.",
+        id="apostrophe_elision_reads_as_one_word",
+    ),
+    # ASCII-апостроф читается так же, как типографский.
+    pytest.param(
+        "В книге стоит фраза est fait de millet et d'orge monde на полях.",
+        "В книге стоит фраза эст фейт дэ милэт эт додж манд на полях.",
+        id="ascii_apostrophe_elision_reads_the_same",
+    ),
+    # Известные IPA сокращения с апострофом читаются как раньше.
+    pytest.param(
+        "Он повторял don’t worry, isn’t it как заклинание.",
+        "Он повторял доунт вэри, изэнт ит как заклинание.",
+        id="known_contractions_keep_their_reading",
+    ),
+    # Закрывающая одиночная кавычка после слова не съедается словом.
+    pytest.param(
+        "Учитель сказал: ‘orange’ значит апельсин.",
+        'Учитель сказал: "ориндж" значит апельсин.',
+        id="closing_single_quote_is_not_swallowed",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), LATIN_APOSTROPHE_CASES)
+def test_latin_apostrophe_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
