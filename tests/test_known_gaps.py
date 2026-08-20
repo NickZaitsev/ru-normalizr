@@ -77,16 +77,6 @@ HANDWRITTEN_GAP_CASES = (
 
 #: Найдено прогоном по книжному корпусу benchmarks/corpus.
 CORPUS_SWEEP_GAP_CASES = (
-    # Многоточие после восклицательного знака теряет точку.
-    pytest.param(
-        "Он больше не нашёл себе продолжателей!..",
-        "Он больше не нашёл себе продолжателей!..",
-        id="ellipsis_after_exclamation_mark",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="an ellipsis after ! or ? loses one dot",
-        ),
-    ),
     # Незнакомое сокращение с точкой принимается за конец предложения, и
     # следующее слово получает заглавную букву.
     pytest.param(

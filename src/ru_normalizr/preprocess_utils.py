@@ -35,7 +35,8 @@ NUMBER_CLEANUP_PATTERN = compile_scan(
 )
 BRACKETED_NUMERIC_PATTERN = compile_scan(r"([\[<({«])\s*([^()\[\]{}<>«»]+?)\s*([\]>)}»])")
 SPACE_BEFORE_PUNCT_PATTERN = compile_scan(r"[ \t]+([,.;:!?])")
-DOUBLE_DOT_TYPO_PATTERN = compile_scan(r"(?<!\.)\.\.(?!\.)")
+# «!..» и «?..» — законные формы многоточия после знака, а не опечатка.
+DOUBLE_DOT_TYPO_PATTERN = compile_scan(r"(?<![.!?…])\.\.(?!\.)")
 DOT_SPACE_DOT_TYPO_PATTERN = compile_scan(r"(?<!\.)\.[ \t]+\.(?!\.)")
 COMMA_DOT_TYPO_PATTERN = compile_scan(r",\.")
 # A glued bracket with a bare number inside is a footnote reference and keeps

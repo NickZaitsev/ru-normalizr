@@ -2151,3 +2151,36 @@ def test_word_internal_paren_edges(
     check_tts: CheckTts, source: str, expected: str
 ) -> None:
     check_tts(source, expected)
+
+
+SIGN_ELLIPSIS_CASES = (
+    # «!..» — законная форма многоточия после знака, точка не теряется.
+    pytest.param(
+        "Он больше не нашёл себе продолжателей!..",
+        "Он больше не нашёл себе продолжателей!..",
+        id="ellipsis_after_exclamation_keeps_both_dots",
+    ),
+    # «?..» — та же форма после вопросительного знака.
+    pytest.param(
+        "Неужели никто не откликнулся?..",
+        "Неужели никто не откликнулся?..",
+        id="ellipsis_after_question_keeps_both_dots",
+    ),
+    # Сдвоенная точка после слова — опечатка и складывается в одну.
+    pytest.param(
+        "Он ушёл домой.. Никто не заметил его ухода.",
+        "Он ушёл домой. Никто не заметил его ухода.",
+        id="double_dot_typo_still_collapses",
+    ),
+    # «!..» посреди текста тоже сохраняется целиком.
+    pytest.param(
+        "Как же так!.. Никто не пришёл на встречу.",
+        "Как же так!.. Никто не пришёл на встречу.",
+        id="mid_text_exclamation_ellipsis_is_kept",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), SIGN_ELLIPSIS_CASES)
+def test_sign_ellipsis_edges(check_tts: CheckTts, source: str, expected: str) -> None:
+    check_tts(source, expected)
