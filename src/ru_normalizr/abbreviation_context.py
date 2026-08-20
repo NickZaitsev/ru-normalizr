@@ -102,7 +102,13 @@ _ABBREVIATION_TAIL_PATTERN = re.compile(
     r"(?<![\w.])(?P<token>[A-Za-zА-Яа-яЁё]{1,10})\Z"
 )
 _ABBREVIATION_TAIL_MAX_LOOKBACK = 16
-_INITIAL_SEQUENCE_TAIL_PATTERN = re.compile(r"(?:\b[A-ZА-ЯЁ]\.\s*)+[A-ZА-ЯЁ]\Z")
+#: Цепочка точечных однобуквенных сокращений без пробела: «р.х.», «т.е.»,
+#: «н.э.», «В.Г.». Регистр не различается: «до р.х.» — такое же сокращение, как
+#: «Ю.А.». Отбитую пробелом букву («А. С.») распознаёт общий хвостовой шаблон,
+#: а здесь точка перед буквой прячет её от него.
+_DOTTED_LETTER_CHAIN_TAIL_PATTERN = re.compile(
+    r"(?<![\w.])(?:[A-Za-zА-Яа-яЁё]\.[ \t]*)+[A-Za-zА-Яа-яЁё]\Z"
+)
 
 
 def _has_dictionary_continuation(token: str) -> bool:
@@ -171,9 +177,16 @@ def is_abbreviation_fragment(token: str) -> bool:
 
 def ends_with_abbreviation(text: str, dot_index: int) -> bool:
     """Check whether the dot at ``dot_index`` closes an abbreviation or initial."""
-    if _INITIAL_SEQUENCE_TAIL_PATTERN.search(text[max(0, dot_index - 8) : dot_index]):
-        return True
     start = max(0, dot_index - _ABBREVIATION_TAIL_MAX_LOOKBACK)
+    # Цепочку ищем только когда перед буквой стоит точка: это единственный
+    # случай, который общий хвостовой шаблон пропускает, а проверка двух
+    # символов дешевле сканирования на каждой границе предложения.
+    if (
+        dot_index >= 2
+        and text[dot_index - 2] == "."
+        and _DOTTED_LETTER_CHAIN_TAIL_PATTERN.search(text, start, dot_index)
+    ):
+        return True
     match = _ABBREVIATION_TAIL_PATTERN.search(text, start, dot_index)
     if match is None:
         return False

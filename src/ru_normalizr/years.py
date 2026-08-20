@@ -214,16 +214,29 @@ def _canonicalize_year_word(word: str) -> str:
     return word.replace("+", "")
 
 
+#: Части речи служебных слов: у таких токенов есть и предметное чтение
+#: («в» — название буквы), но измеряемым веществом они быть не могут.
+_FUNCTION_WORD_POS = frozenset({"PREP", "CONJ", "PRCL", "INTJ"})
+
+
 def _genitive_mass_noun_follows(text: str, end: int) -> bool:
     """Check whether a bare genitive noun follows — «под 30 г. песка».
 
     The annalistic «под 964 г. записано» is followed by a verb, an adverb or a
     capitalized name, never by a lowercase genitive noun measuring the grams.
+
+    Служебное слово веществом не бывает: «под 1185 г. в рассказе» — предлог,
+    хотя у «в» есть и существительное-чтение (название буквы), которое иначе
+    превращает летописный год в граммы.
     """
     match = re.match(r"\s+([а-яё]+)", text[end : end + 20])
     if match is None:
         return False
-    parsed = select_parse(match.group(1), pos="NOUN")
+    token = match.group(1)
+    parses = parse_word(token)
+    if any(parse.tag.POS in _FUNCTION_WORD_POS for parse in parses):
+        return False
+    parsed = select_parse(parses, pos="NOUN")
     return (
         parsed is not None
         and parsed.tag.case == "gent"

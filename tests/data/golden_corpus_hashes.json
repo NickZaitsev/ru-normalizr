@@ -5,7 +5,7 @@
         "input_chars": 200000,
         "input_sha256": "3f2e6f2a33f4b4ded614c594ae98adfda885b458386ee551a59f690557a1b45a",
         "output_chars": 200856,
-        "output_sha256": "351f4801ce69baa4226714c1a70eede71a2dcb66b34354ee60c43a7ee81a6ad1"
+        "output_sha256": "03137ac346d9aa32d8bd77fccd641faae97e5266fc749b9eef66712394f00610"
       },
       "02_russian_army_and_navy_modern": {
         "input_chars": 200000,
