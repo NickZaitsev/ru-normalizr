@@ -11,37 +11,37 @@
         "input_chars": 200000,
         "input_sha256": "49f5d3583207cd9df7192529771c1d2d607ac8aa3c59c14c9fd3424929f4c7a7",
         "output_chars": 206353,
-        "output_sha256": "47af3ab348548e233dedd0cea8d442841593076b2ce2c6836b31488f6926c1d0"
+        "output_sha256": "f404541ae332a325c9451d92a79d9ebaf7334f13adb430813e4886920992d493"
       },
       "02b_russian_army_and_navy_pre_reform": {
         "input_chars": 200000,
         "input_sha256": "bc12ab1181324e99addb01816b3473fbc5e8207d1d6e85e921119e24aaa8eb18",
         "output_chars": 206177,
-        "output_sha256": "ec023135363e59bdf1f21416dd71ef2f4062ca5c77c5341977ddd0ac3d168496"
+        "output_sha256": "24bb9ebc4473d6e631e07eab073478ccc78301d748b5d00b68bc662a13a33ab5"
       },
       "03_karamzin_history_of_russian_state": {
         "input_chars": 200000,
         "input_sha256": "c54239da14b304e450b93334d1783417fa0b5552b22c0c7d71a8f5820c920c08",
         "output_chars": 209163,
-        "output_sha256": "8254183932933e8cee7b937c28111132592eb2f71d5abb235dfe06bd1cc75449"
+        "output_sha256": "e2233a544504b79e85b04fbf15227f349a56e54b8f4df827bda8b156143cbb60"
       },
       "04_kostomarov_russian_history_biographies": {
         "input_chars": 200000,
         "input_sha256": "3c8c620eaf8e7ff73c21423abd67ca4e93824a799d8519d2b30826eea003df27",
         "output_chars": 203104,
-        "output_sha256": "9eafbc0a9ead764b0e3afeb87f3932a725db30666e18986645c97fe0ff812f53"
+        "output_sha256": "8e355b01366583635bd2805f05a45be5a90fe4682879c07e9d0a8248e8d77b6b"
       },
       "05_nebolsin_conquest_of_siberia": {
         "input_chars": 200000,
         "input_sha256": "25a6c0ae94bdf7b961b322b51efccc319c64a78be6a8d0d40fe01f6402323e6b",
         "output_chars": 205088,
-        "output_sha256": "8b9517eba22dc9a0373777e754f020b89c935f929e836f6836d76cac80bf0f43"
+        "output_sha256": "9d6308ae3313abd6b9240fc64e4317a1cb7d7efe15face0f85e2f11b7107ec94"
       },
       "06_semenov_tyan_shansky_tien_shan_travel": {
         "input_chars": 200000,
         "input_sha256": "1e5b60e93d5b9d9b0a1383e26d7ca3e2a9d1d603483defb728ef7fbdc7456dd7",
-        "output_chars": 206519,
-        "output_sha256": "d738fa85e82d8eb8516bd972c343aae9666bbf74949df0881bd7046ac091bc21"
+        "output_chars": 206522,
+        "output_sha256": "a40e335ff47e59ae350be2ba7ed309a0695d118b9b8b617cab760bdaa6ab78bf"
       }
     },
     "mode": "tts",

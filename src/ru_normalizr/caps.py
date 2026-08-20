@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from ._morph import first_parse_required
+from ._morph import first_parse_required, parse_word
 from .abbreviation_context import ends_with_abbreviation
 from .constants import KNOWN_ABBREVIATIONS
 from .text_scan import compile_scan
@@ -15,6 +15,7 @@ _SENTENCE_START_PATTERN = compile_scan(
     r"(?P<punct>[.!?…])(?P<prefix>(?:(?=[^\r\n])\s|[\"'«»„“”()\[\]{}])*)"
     r"(?P<letter>[a-zA-Zа-яА-ЯёЁ])"
 )
+_WORD_AT_POSITION_PATTERN = compile_scan(r"[A-Za-zА-Яа-яЁё]+")
 _CAPS_CONNECTORS = {"А", "В", "И", "К", "О", "С", "У"}
 
 
@@ -37,6 +38,34 @@ def normalize_first_word_caps(text: str, enabled: bool = True) -> str:
     return _FIRST_WORD_CAPS_PATTERN.sub(normalize_line_start, text)
 
 
+def _ellipsis_precedes(text: str, punctuation_position: int) -> bool:
+    """Знак в `punctuation_position` — часть многоточия, а не точка."""
+
+    if text[punctuation_position] == "…":
+        return True
+    if text[punctuation_position] != ".":
+        return False
+    return punctuation_position > 0 and text[punctuation_position - 1] in ".…"
+
+
+def _starts_with_numeral(text: str, position: int) -> bool:
+    """Слово в позиции `position` — числительное (количественное или порядковое).
+
+    Восклицание внутри кавычек обычно не кончает предложение («Стой!» крикнул
+    он), и рамку продолжают глагол речи, союз или наречие. Числительное её
+    продолжать не может: строчным оно оказалось потому, что на его месте в
+    исходнике стояли цифры, у которых регистра нет вовсе.
+    """
+
+    word_match = _WORD_AT_POSITION_PATTERN.match(text, position)
+    if word_match is None:
+        return False
+    return any(
+        candidate.tag.POS == "NUMR" or "Anum" in candidate.tag
+        for candidate in parse_word(word_match.group(0))
+    )
+
+
 def normalize_sentence_start_caps(text: str, enabled: bool = True) -> str:
     if not enabled:
         return text
@@ -49,6 +78,18 @@ def normalize_sentence_start_caps(text: str, enabled: bool = True) -> str:
             punctuation in {"?", "!"}
             and any(quote in prefix for quote in ('"', "'", "»", "”"))
             and letter.islower()
+            and not _starts_with_numeral(text, match.start("letter"))
+        ):
+            return match.group(0)
+        # Многоточие — не конец предложения: им отмечают и пропуск внутри цитаты
+        # («писал так: «... факты»), и обрыв речи посередине фразы («Начало...
+        # конец»). Строчная буква в исходнике сама говорит, что фраза
+        # продолжается; поднимать регистр надо только там, где его не было
+        # изначально — у числа, развёрнутого в слово.
+        if (
+            _ellipsis_precedes(text, match.start("punct"))
+            and letter.islower()
+            and not _starts_with_numeral(text, match.start("letter"))
         ):
             return match.group(0)
         # The dot of an abbreviation the pipeline left alone is not a sentence

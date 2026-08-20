@@ -19,8 +19,11 @@ SPACE_INSIDE_QUOTES_PATTERN = compile_scan(
 SPACE_AFTER_OPEN_QUOTE_PATTERN = compile_scan(
     r'(^|[\s([{\-–—,;:])"([ \t]+)(?=\S)'
 )
+#: Точка после кавычки закрывает предложение, но многоточие сразу за кавычкой —
+#: знак пропуска в начале цитаты («писал так: «... факты»), и кавычка перед ним
+#: открывающая: пробел слева от неё убирать нельзя.
 SPACE_BEFORE_CLOSE_QUOTE_PATTERN = compile_scan(
-    r'(?<=\S)([ \t]+)"(?=$|[\s)\]}\-–—,.;:!?])'
+    r'(?<=\S)([ \t]+)"(?=$|[\s)\]}\-–—,;:!?]|\.(?!\.))'
 )
 OPEN_SINGLE_QUOTE_PATTERN = compile_scan(
     r"(?P<prefix>^|[\s([{\-–—,;:])(?P<quote>[‘‚‛‹])(?=\S)"

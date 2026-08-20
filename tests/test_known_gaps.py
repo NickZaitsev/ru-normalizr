@@ -79,19 +79,7 @@ CORPUS_SWEEP_GAP_CASES = (
 
 
 #: Найдено сплошным чтением книги 06 (Семёнов-Тян-Шанский).
-BOOK_06_GAP_CASES = (
-    # Многоточие внутри цитаты принимается за конец предложения, и следующее
-    # слово получает заглавную букву.
-    pytest.param(
-        "Он писал так: «.... факты, разработанные лучшими учёными нашего века, скудны».",
-        'Он писал так: ".... факты, разработанные лучшими учёными нашего века, скудны".',
-        id="caps_after_inline_ellipsis",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="an ellipsis inside a quotation capitalizes the next word",
-        ),
-    ),
-)
+BOOK_06_GAP_CASES = ()
 
 
 #: Найдено сплошным чтением книги 05 (Небольсин).
@@ -189,18 +177,6 @@ BOOK_03_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="кн. before a roman numeral is not expanded and the numeral agrees with it",
-        ),
-    ),
-    # Восклицательный знак перед закрывающей кавычкой не считается концом
-    # предложения, и следующее слово остаётся строчным.
-    pytest.param(
-        "Он воскликнул: «Спасёт вас Господь от тирана!» 15 июня царь выехал из Новагорода.",
-        'Он воскликнул: "Спасёт вас Господь от тирана!" Пятнадцатого июня '
-        "царь выехал из Новагорода.",
-        id="no_caps_after_an_exclamation_inside_quotes",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a sentence-ending exclamation before a closing quote does not capitalise",
         ),
     ),
 )
