@@ -61,6 +61,7 @@ from .preprocess_utils import (
     apply_cleanup_replacements,
     clean_numbers,
     cleanup_malformed_punctuation,
+    expand_arc_minutes,
     expand_na_prim_abbreviation,
     expand_new_style_date_abbreviation,
     expand_years_ago_abbreviation,
@@ -367,6 +368,9 @@ class PipelineNormalizer:
         if SUPERSCRIPT_DIGIT_PATTERN.search(text):
             text = text.translate(SUPERSCRIPT_DIGIT_TRANSLATION)
         text = CURRENCY_AMOUNT_PATTERN.sub(r"\2\1", text)
+        # Штрихи угловых минут раскрываются до расстановки пробела перед «°»:
+        # правило опирается на знак градуса, приклеенный к цифре.
+        text = expand_arc_minutes(text)
         text = DEGREE_SPACING_PATTERN.sub(r"\1 °", text)
         text = clean_numbers(text)
         text = fix_glued_numbers(text)

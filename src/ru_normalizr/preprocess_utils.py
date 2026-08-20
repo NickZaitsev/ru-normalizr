@@ -52,6 +52,14 @@ WRAPPED_WORD_HYPHEN_PATTERN = compile_scan(
     r"(?P<right>[a-zа-яёѣіѳѵ]+)"
 )
 
+#: Угловые минуты и секунды после градусов: «42°30'15"». Штрихи набирают и
+#: апострофом с кавычкой, и типографскими знаками. Признак — предшествующий
+#: знак градуса: без него «5'10"» — футы с дюймами, а не дуговая мера.
+ARC_MINUTE_PATTERN = compile_scan(
+    r"(?<=\d)°[ \t]*(?P<minutes>\d{1,2})['’′]"
+    r"(?:[ \t]*(?P<seconds>\d{1,2})[\"”″])?"
+)
+
 _PAREN_INNER_WORD_PATTERN = compile_scan(r"([а-яёѣіѳѵ]+)\)")
 _WORD_INTERNAL_PAREN_LETTERS = frozenset(
     "абвгдеёжзийклмнопрстуфхцчшщъыьэюя"
@@ -388,6 +396,21 @@ def normalize_unary_plus_numbers(text: str) -> str:
     return UNARY_PLUS_NUMBER_PATTERN.sub(
         lambda match: f"{match.group('prefix')}плюс {match.group('number')}", text
     )
+
+
+def expand_arc_minutes(text: str) -> str:
+    """«42°30'15"» -> «42° 30 мин 15 сек».
+
+    Штрих сам по себе для синтеза бесполезен, а сокращения единиц дальше по
+    конвейеру согласуются с падежом градусов как части одного измерения.
+    """
+
+    def repl(match: re.Match[str]) -> str:
+        seconds = match.group("seconds")
+        tail = f" {seconds} сек" if seconds else ""
+        return f"° {match.group('minutes')} мин{tail}"
+
+    return ARC_MINUTE_PATTERN.sub(repl, text)
 
 
 def join_hyphenated_line_breaks(text: str) -> str:

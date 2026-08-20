@@ -109,6 +109,13 @@ RULE_CASES = (
         id="distance_from_landmark",
     ),
     pytest.param(
+        "measurement-continuation",
+        "Между 2 ч 30 мин и 3 ч поезд стоял на станции.",
+        "Между двумя часами тридцатью минутами и тремя часами поезд стоял "
+        "на станции.",
+        id="measurement_continuation",
+    ),
+    pytest.param(
         "coordinated-first-number",
         "Он пришёл на занятие с 5 и 7 книгами в рюкзаке.",
         "Он пришёл на занятие с пятью и семью книгами в рюкзаке.",

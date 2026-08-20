@@ -25,6 +25,7 @@ from ..preprocess_utils import (
 from ..text_context import PUNCT_STRIP, normalize_context_token
 from ..text_scan import compile_scan, first_non_whitespace_index
 from ._constants import (
+    ALL_UNITS,
     ENTITY_DEFAULT_CASE,
     ENTITY_KEYWORDS,
     PREP_CASE,
@@ -1038,6 +1039,39 @@ def _rendered_numeral_case(raw: str) -> str | None:
     return None
 
 
+def _rule_measurement_continuation(ctx: NumeralContext) -> str | None:
+    """Младшая часть измерения повторяет падеж старшей: «между 2 ч 30 мин».
+
+    «42° 30 мин», «5 м 30 см», «2 ч 30 мин» — одно измерение из двух частей, и
+    заданный слева косвенный падеж распространяется на обе. Признак — единица
+    сразу после числа и измерение непосредственно слева: без правой единицы это
+    уже отдельное количество («в 1905 году 3 солдата»), а знак препинания между
+    частями разрывает измерение («ширина 5 м, длина 30 см»).
+    """
+    if ctx.idx < 2 or not is_unit_token(ctx.raw(1)):
+        return None
+    left_unit = ctx.raw(-1)
+    if not left_unit or not (left_unit[-1].isalpha() or left_unit[-1] == "°"):
+        return None
+    if not is_unit_token(left_unit):
+        # Старшая единица к этому моменту уже развёрнута в слово («часами»),
+        # поэтому годится и существительное — но только само название единицы:
+        # любое другое слово слева означает не измерение, а счётную группу
+        # («из трёх оледенений 453 миллиона лет назад»).
+        parsed = ctx.parse(-1)
+        if parsed is None or parsed.normal_form not in ALL_UNITS:
+            return None
+    leading = ctx.raw(-2)
+    case = _rendered_numeral_case(leading)
+    if case is None and is_integer_token(leading):
+        case = _case_for(ctx.at(ctx.idx - 2))
+    if case is None or case == "nomn":
+        # Именительный — то же, что решение по умолчанию: правило молчит, чтобы
+        # не заслонять правила ниже.
+        return None
+    return case
+
+
 def _rule_coordinated_first_number(ctx: NumeralContext) -> str | None:
     """Следующее число сочинения берёт падеж первого: «с 5 и 7 книгами».
 
@@ -1530,6 +1564,7 @@ CASE_RULES: tuple[CaseRule, ...] = (
     CaseRule("equality-before-degree-unit", _rule_equality_before_degree_unit),
     CaseRule("power-exponent", _rule_power_exponent),
     CaseRule("distance-from-landmark", _rule_distance_from_landmark),
+    CaseRule("measurement-continuation", _rule_measurement_continuation),
     CaseRule("coordinated-first-number", _rule_coordinated_first_number),
     CaseRule("range-right-boundary", _rule_range_right_boundary),
     CaseRule("fresh-quantity-after-dash", _rule_fresh_quantity_after_dash),
