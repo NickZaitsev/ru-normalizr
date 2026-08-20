@@ -2589,3 +2589,45 @@ ARC_MINUTE_CASES = (
 @pytest.mark.parametrize(("source", "expected"), ARC_MINUTE_CASES)
 def test_arc_minute_edges(check_tts: CheckTts, source: str, expected: str) -> None:
     check_tts(source, expected)
+
+
+#: Сокращение единицы после смешанной дроби.
+MIXED_FRACTION_UNIT_CASES = (
+    # «1 1/2» — «полтора»/«полторы» по роду единицы, а не «одна целая одна
+    # вторая»: это конвенция чтения смешанной дроби.
+    pytest.param(
+        "За прогоны платили по 1 1/2 коп. с версты и лошади на почтовом тракте.",
+        "За прогоны платили по полторы копейки с версты и лошади "
+        "на почтовом тракте.",
+        id="one_and_a_half_kopecks_after_a_preposition",
+    ),
+    pytest.param(
+        "Взяли 1 1/2 фунта хлеба на каждого в дорогу.",
+        "Взяли полтора фунта хлеба на каждого в дорогу.",
+        id="one_and_a_half_with_a_masculine_unit",
+    ),
+    # Целая часть не 1 — «с половиной».
+    pytest.param(
+        "Он заплатил 2 1/2 коп. за письмо в тот же день.",
+        "Он заплатил две с половиной копейки за письмо в тот же день.",
+        id="two_and_a_half_kopecks",
+    ),
+    pytest.param(
+        "Дорога стоила 3 1/2 руб. в оба конца по тем ценам.",
+        "Дорога стоила три с половиной рубля в оба конца по тем ценам.",
+        id="three_and_a_half_roubles",
+    ),
+    # Целое число с тем же сокращением читается как раньше.
+    pytest.param(
+        "Он заплатил 5 коп. за письмо в тот же день.",
+        "Он заплатил пять копеек за письмо в тот же день.",
+        id="whole_number_with_a_unit_abbreviation",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), MIXED_FRACTION_UNIT_CASES)
+def test_mixed_fraction_unit_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
