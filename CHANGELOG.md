@@ -4,7 +4,7 @@ All notable changes to `ru-normalizr` will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
-## Unreleased
+## [1.0.0] - 2026-08-22
 
 ### Changed
 - Диапазон лет читается одиночными порядковыми для каждой границы
