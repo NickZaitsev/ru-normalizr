@@ -469,9 +469,7 @@ def _peak_rss_bytes() -> int | None:
         import resource
     except ImportError:
         return None
-    value = int(
-        resource.getrusage(resource.RUSAGE_SELF).ru_maxrss  # pyright: ignore[reportAttributeAccessIssue]
-    )
+    value = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
     # Linux reports KiB; macOS reports bytes. Windows has no resource module.
     return value if sys.platform == "darwin" else value * 1024
 
