@@ -1,4 +1,52 @@
 {
+  "full": {
+    "books": {
+      "01_solovyov_history_of_russia": {
+        "input_chars": 22911215,
+        "input_sha256": "afe5c91490181b4ef0333644a1b1d436a45f74ce6066b366e7721861aa2a264e",
+        "output_chars": 23322663,
+        "output_sha256": "8eeaea9d9d627a9190da9159262e230e5afc0624621d7a83334a6628a122dbfa"
+      },
+      "02_russian_army_and_navy_modern": {
+        "input_chars": 614265,
+        "input_sha256": "f3abfd25b28082aff457145490e5cde516b6b505db37b92b7b353a32738df652",
+        "output_chars": 637060,
+        "output_sha256": "6282c4ff2d9144067f4dae4bbe927cf683b01f2e641b796671fb6a17ab496cbd"
+      },
+      "02b_russian_army_and_navy_pre_reform": {
+        "input_chars": 639133,
+        "input_sha256": "da60851c4ed40bdf69f146cba3498333e3b6b70675e4839eda73627ba96d6a1a",
+        "output_chars": 662076,
+        "output_sha256": "2e659c08318dedecc559cc618385ddffd694dbccaaea11cc26c12eef37f8057f"
+      },
+      "03_karamzin_history_of_russian_state": {
+        "input_chars": 4495192,
+        "input_sha256": "0a797ad3b7f2678f9d805f2e575024d01e1f84f41c2da0e9bbaf9ed97b5efc6d",
+        "output_chars": 4579332,
+        "output_sha256": "96a163079a62eac106a2e537e9bf8a0dd3a19d3980e616097f8cc24c4cb823a7"
+      },
+      "04_kostomarov_russian_history_biographies": {
+        "input_chars": 4262689,
+        "input_sha256": "9c2e36980cfc7a8e69eec5ff052985a963324b9dbb1472eff22d96c51569d856",
+        "output_chars": 4344020,
+        "output_sha256": "013578c81dc7f591ab71a792c0cdcc4819164bcb8e2a3c7fcdb089736f01de44"
+      },
+      "05_nebolsin_conquest_of_siberia": {
+        "input_chars": 449235,
+        "input_sha256": "e5f43c39bff3c8ee07f2b497a8508ba9489c6177c6179e8c3068ada97604d41f",
+        "output_chars": 471032,
+        "output_sha256": "46df383bc726741d5155cd6c168d56f6b1f1c3053212898db3d645a3e040906c"
+      },
+      "06_semenov_tyan_shansky_tien_shan_travel": {
+        "input_chars": 677478,
+        "input_sha256": "fc4154acdbe00a68780ed80122fa430b2dabc3ade23b9820ed2d8429a57a7632",
+        "output_chars": 701784,
+        "output_sha256": "445835ba39130922a0ca103627bd9dc80e5b5b3882e6692aa523c91989e0e1c0"
+      }
+    },
+    "mode": "tts",
+    "prefix_chars": null
+  },
   "prefix": {
     "books": {
       "01_solovyov_history_of_russia": {
@@ -17,7 +65,7 @@
         "input_chars": 200000,
         "input_sha256": "bc12ab1181324e99addb01816b3473fbc5e8207d1d6e85e921119e24aaa8eb18",
         "output_chars": 206169,
-        "output_sha256": "e51708fb5b9971ec160786b8940485459fb4aff0196e589594b29fe12882d42e"
+        "output_sha256": "3aec8ef75b0ea90d404e8ec9bd58bb4abc26f1331a186e7f3010247b86c18cb0"
       },
       "03_karamzin_history_of_russian_state": {
         "input_chars": 200000,
