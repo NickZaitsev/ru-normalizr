@@ -50,6 +50,13 @@ QUOTE_SHAPE_PATTERN = compile_scan(
 )
 QUOTE_VARIANT_PATTERN = compile_scan(r"[«»“”„‟〝〞＂]")
 QUOTE_CANDIDATES = frozenset('"\'`´«»‘’‚‛‹›“”„‟〝〞＂')
+ASCII_QUOTE_PATTERN = compile_scan('"')
+#: Буквы, склейка кавычки с которыми — дефект вычитки, а не разметка.
+QUOTE_GLUE_LETTERS = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
+    "абвгдеёжзийклмнопрстуфхцчшщъыьэюя"
+)
 
 
 def _tighten_quote_spacing(text: str) -> str:
@@ -59,18 +66,77 @@ def _tighten_quote_spacing(text: str) -> str:
     return SPACE_BEFORE_CLOSE_QUOTE_PATTERN.sub('"', text)
 
 
+def _insert_missing_quote_spacing(text: str) -> str:
+    """Отбить кавычку, склеенную в исходнике с соседним словом или запятой.
+
+    Склейка вида «Мысль,"как странно"» или «Слово"дом"» — дефект вычитки: для
+    синтеза она съедает паузу, а иногда и сливает два слова в одно. Открывающая
+    кавычка получает пробел слева, закрывающая — справа, а различить их можно
+    только по чётности: в строке с непарным числом кавычек буквенное правило
+    молчит. Кавычка после цифры («Экран 27"») — знак дюйма или секунды, её
+    отбивать нельзя, поэтому слева требуется буква или запятая.
+    """
+    if '"' not in text:
+        return text
+    positions = [match.start() for match in ASCII_QUOTE_PATTERN.finditer(text)]
+    # Кавычки не переносятся через строку, поэтому чётность считается построчно.
+    lines: list[list[int]] = []
+    previous = 0
+    for position in positions:
+        if not lines or text.count("\n", previous, position):
+            lines.append([])
+        lines[-1].append(position)
+        previous = position
+    inserts: list[int] = []
+    length = len(text)
+    for quotes in lines:
+        paired = len(quotes) % 2 == 0
+        for index, position in enumerate(quotes):
+            before = text[position - 1] if position else ""
+            after = text[position + 1] if position + 1 < length else ""
+            between_letters = (
+                paired
+                and before in QUOTE_GLUE_LETTERS
+                and after in QUOTE_GLUE_LETTERS
+            )
+            if paired and index % 2:
+                # Закрывающая кавычка: «дом"и ушёл» → «дом" и ушёл».
+                if between_letters:
+                    inserts.append(position + 1)
+                continue
+            # Открывающая: пробел встаёт перед кавычкой.
+            after_punctuation = bool(
+                before
+                and before in ",;:"
+                and after
+                and not after.isspace()
+                and after != '"'
+            )
+            if between_letters or after_punctuation:
+                inserts.append(position)
+    if not inserts:
+        return text
+    out: list[str] = []
+    cursor = 0
+    for position in inserts:
+        out.append(text[cursor:position])
+        out.append(" ")
+        cursor = position
+    out.append(text[cursor:])
+    return "".join(out)
+
+
 def normalize_ascii_quote_pairs(text: str) -> str:
     if QUOTE_CANDIDATES.isdisjoint(text):
         return text
     # Непрямых кавычек нет — приводить форму нечему, остаётся только отбивка.
-    if QUOTE_SHAPE_PATTERN.search(text) is None:
-        return _tighten_quote_spacing(text)
-    for old, new in QUOTE_PAIR_REPLACEMENTS:
-        text = text.replace(old, new)
-    text = QUOTE_VARIANT_PATTERN.sub('"', text)
-    text = OPEN_SINGLE_QUOTE_PATTERN.sub(r'\g<prefix>"', text)
-    text = CLOSE_SINGLE_QUOTE_PATTERN.sub('"', text)
-    return _tighten_quote_spacing(text)
+    if QUOTE_SHAPE_PATTERN.search(text) is not None:
+        for old, new in QUOTE_PAIR_REPLACEMENTS:
+            text = text.replace(old, new)
+        text = QUOTE_VARIANT_PATTERN.sub('"', text)
+        text = OPEN_SINGLE_QUOTE_PATTERN.sub(r'\g<prefix>"', text)
+        text = CLOSE_SINGLE_QUOTE_PATTERN.sub('"', text)
+    return _insert_missing_quote_spacing(_tighten_quote_spacing(text))
 
 
 #: Latin letters drawn with the same glyph as a Cyrillic one. Only these can be
