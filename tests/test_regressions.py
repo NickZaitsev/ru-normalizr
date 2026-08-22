@@ -1617,5 +1617,59 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             "один миллион двести тридцать четыре тысячи пятьсот шестьдесят семь",
         )
 
+
+class RealBookRegressionTests(unittest.TestCase):
+    """Пины, снятые сличением 0.3.0 и 1.0.0 на настоящих книгах.
+
+    Военно-техническая проза дала все четыре расхождения сразу: номера частей,
+    латинские индексы машин и марку «NeXT».
+    """
+
+    def setUp(self):
+        self.options = NormalizeOptions.tts()
+
+    def test_unit_number_agrees_with_its_head_noun(self):
+        cases = (
+            ("Штаб 4-й армии находился в городе.", "Штаб четвёртой армии находился в городе."),
+            (
+                "Солдаты 295-й дивизии заняли высоту.",
+                "Солдаты двести девяносто пятой дивизии заняли высоту.",
+            ),
+            (
+                "Наступление начала 21-я армия с севера.",
+                "Наступление начала двадцать первая армия с севера.",
+            ),
+            (
+                "Части 1-й Ударной армии подошли к реке.",
+                "Части первой Ударной армии подошли к реке.",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize(source, self.options), expected)
+
+    def test_latin_vehicle_codes_are_not_read_as_domains(self):
+        cases = (
+            ("Танк Pz.IV поехал вперёд.", "Танк пз. четыре поехал вперёд."),
+            (
+                "Танк Pz.38(t) стоял у переправы.",
+                "Танк пз. тридцать восемь (ти) стоял у переправы.",
+            ),
+            (
+                "Машина Sd.Kfz.251 везла пехоту.",
+                "Машина сд. кфз. Двести пятьдесят один везла пехоту.",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize(source, self.options), expected)
+
+    def test_stylized_brand_name_is_read_as_a_word(self):
+        self.assertEqual(
+            normalize("Компания NeXT выпустила компьютер.", self.options),
+            "Компания нэкст выпустила компьютер.",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

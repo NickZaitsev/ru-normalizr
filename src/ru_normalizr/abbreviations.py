@@ -879,8 +879,11 @@ def expand_abbreviations(text: str, options: NormalizeOptions | None = None) -> 
         # A trailing all-caps run in a CamelCase protocol or product name is a
         # real acronym (PostgreSQL, GraphQL, OpenVPN). Split only a terminal
         # run of at least two capitals; ordinary iPhone-like words stay intact.
+        # Two lowercase letters must precede the run: a single sandwiched
+        # lowercase letter marks a stylized brand name, not a prefix plus an
+        # acronym — «NeXT» reads «нэкст», not «ни икс ти».
         text = re.sub(
-            r"(?<=[a-zа-яё])(?=[A-ZА-ЯЁ]{2,}\b)",
+            r"(?<=[a-zа-яё][a-zа-яё])(?=[A-ZА-ЯЁ]{2,}\b)",
             " ",
             text,
         )

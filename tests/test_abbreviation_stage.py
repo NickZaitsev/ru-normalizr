@@ -529,6 +529,15 @@ class LetterAbbreviationTests(unittest.TestCase):
         assert "кью эл" in expand_abbreviations("GraphQL", options)
         assert "ви пи эн" in expand_abbreviations("OpenVPN", options)
 
+    def test_single_sandwiched_lowercase_letter_is_a_brand_not_an_acronym(self):
+        # «NeXT» — стилизованное имя, а не приставка с аббревиатурой: одна
+        # строчная буква слишком коротка для приставки.
+        options = NormalizeOptions.tts()
+        self.assertEqual(expand_abbreviations("NeXT", options), "NeXT")
+        for source in ("iPhone", "MacBook", "TeX", "LaTeX"):
+            with self.subTest(source=source):
+                self.assertEqual(expand_abbreviations(source, options), source)
+
     def test_lowercase_dotted_form_is_not_an_acronym(self):
         self.assertEqual(expand_letter_abbreviations("и.о."), "и.о.")
 
