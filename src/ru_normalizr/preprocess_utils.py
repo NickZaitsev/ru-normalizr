@@ -44,6 +44,12 @@ COMMA_DOT_TYPO_PATTERN = compile_scan(r",\.")
 MISSING_SPACE_BEFORE_PAREN_PATTERN = compile_scan(
     r"(?<=[А-Яа-яЁёѢѣІіѲѳѴѵ])\((?!\d+(?:[-–—]\d+)?\))"
 )
+#: Буквенный уточнитель марки, приклеенный к числу: «Pz.38(t)», «Sd.Kfz.251(D)».
+#: Ограничение в три буквы держит правило на суффиксах кода и не задевает ни
+#: сносок с числом внутри, ни арифметики со скобкой.
+MISSING_SPACE_BEFORE_LETTER_PAREN_AFTER_DIGIT_PATTERN = compile_scan(
+    r"(?<=\d)\((?=[A-Za-zА-Яа-яЁё]{1,3}\))"
+)
 #: Перенос слова по строке: дефис в конце строки склеивает части одного слова.
 #: Продолжение переноса всегда строчное, поэтому заглавная справа исключается —
 #: это разорванное составное имя («Санктъ-\nПетербургъ»), а не перенос.
@@ -77,6 +83,9 @@ def insert_missing_space_before_paren(text: str) -> str:
     («слова(пояснение)») и перед скобкой ставится пробел. Паттерн заякорен
     на «(»; буквенный фрагмент слева добирается вручную и только на
     совпадениях — линейность скана сохраняется.
+
+    Отдельным проходом отбивается буквенный уточнитель марки после числа
+    («Pz.38(t)»): слева цифра, поэтому словарная проверка к нему неприменима.
     """
 
     def repl(match: re.Match[str]) -> str:
@@ -90,7 +99,8 @@ def insert_missing_space_before_paren(text: str) -> str:
                 return match.group(0)
         return " ("
 
-    return MISSING_SPACE_BEFORE_PAREN_PATTERN.sub(repl, text)
+    text = MISSING_SPACE_BEFORE_PAREN_PATTERN.sub(repl, text)
+    return MISSING_SPACE_BEFORE_LETTER_PAREN_AFTER_DIGIT_PATTERN.sub(" (", text)
 
 
 MULTI_SPACE_PATTERN = compile_scan(r"[ \t]{2,}")
@@ -329,6 +339,26 @@ def normalize_numeric_abbreviations(text: str) -> str:
         text = pattern.sub(replacement, text)
     text = LEGAL_ARTICLE_REFERENCE_PATTERN.sub(legal_article_repl, text)
     return normalize_era_abbreviations(text)
+
+
+#: Точка, приклеенная к числу справа: «Pz.38», «кн.2», «Fig.3», «т.е.2». Слева
+#: обязателен буквенный отрезок с начала токена — так правило берёт и вторую
+#: ступень кода («Sd.Kfz.251»), перед которой тоже стоит точка, и не влезает в
+#: середину слова. Цифра слева от точки исключена самим требованием буквы,
+#: поэтому дроби («3,14»), версии («1.2.3») и разряды («1.000») целы.
+ABBREVIATION_DOT_BEFORE_DIGIT_PATTERN = compile_scan(
+    r"(?<!\w)(?P<abbr>[A-Za-zА-Яа-яЁёѢѣІіѲѳѴѵ]+)\.(?=\d)"
+)
+
+
+def space_abbreviation_dot_before_digit(text: str) -> str:
+    """Отбить пробелом число, приклеенное к точке сокращения.
+
+    Без пробела число остаётся внутри токена, и следующие стадии выдают
+    склеенное «пз.тридцать восемь». Точка сокращения не граница предложения,
+    поэтому число читается со строчной.
+    """
+    return ABBREVIATION_DOT_BEFORE_DIGIT_PATTERN.sub(r"\g<abbr>. ", text)
 
 
 def left_context(text: str, pos: int, window: int) -> str:

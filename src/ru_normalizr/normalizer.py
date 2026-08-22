@@ -83,6 +83,7 @@ from .preprocess_utils import (
     remove_numeric_footnotes,
     restore_binary_math_operators,
     restore_letter_hyphens,
+    space_abbreviation_dot_before_digit,
 )
 from .quotes import (
     collapse_letterspaced_emphasis,
@@ -343,6 +344,9 @@ class PipelineNormalizer:
         text = normalize_administrative_law_references(text)
         text = normalize_complex_legal_references(text)
         text = normalize_numeric_abbreviations(text)
+        # После правил, которые сами разбирают склейку «стр.5» и «п.1»: им
+        # нужен исходный вид, а всё, что они не забрали, расклеивается здесь.
+        text = space_abbreviation_dot_before_digit(text)
         text = normalize_number_signs(text)
         text = normalize_vehicle_registration_plates(
             text, letter_vowel_mode=self.options.letter_vowel_mode

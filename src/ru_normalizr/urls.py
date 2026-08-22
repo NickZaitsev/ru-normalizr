@@ -28,9 +28,12 @@ BARE_DOMAIN_PATTERN = compile_scan(
 #: Реестр закрытый и растёт по требованию; кириллический «рф» недостижим, пока
 #: `BARE_DOMAIN_PATTERN` держит латинский хвост.
 KNOWN_TLDS = frozenset(
-    """ru su ua by kz com net org info biz io ai app dev me co uk de fr it es
-    pl cz us tv fm edu gov mil int online site store blog news shop club pro
-    xyz""".split()
+    (
+        "ru", "su", "ua", "by", "kz", "com", "net", "org", "info", "biz",
+        "io", "ai", "app", "dev", "me", "co", "uk", "de", "fr", "it", "es",
+        "pl", "cz", "us", "tv", "fm", "edu", "gov", "mil", "int", "online",
+        "site", "store", "blog", "news", "shop", "club", "pro", "xyz",
+    )
 )
 
 

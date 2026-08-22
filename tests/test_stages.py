@@ -523,6 +523,41 @@ class RuNormalizrStageTests(unittest.TestCase):
             "статья 15, рисунок 2, таблица 3, страница 4, страница 5, страница 6",
         )
 
+    def test_preprocess_stage_unglues_a_digit_from_an_abbreviation_dot(self):
+        normalizer = Normalizer()
+        cases = (
+            ("Танк Pz.38(t) стоял.", "Танк Pz. 38 (t) стоял."),
+            ("Это глава кн.2 из серии.", "Это глава кн. 2 из серии."),
+            ("Смотри Fig.3 внизу.", "Смотри Fig. 3 внизу."),
+            ("Машина Sd.Kfz.251 ехала.", "Машина Sd. Kfz. 251 ехала."),
+            ("Смотри примеч.12 внизу.", "Смотри примеч. 12 внизу."),
+            # Слева от точки цифра — это дробь, версия или разряд, не сокращение.
+            ("Цена 3.50 евро.", "Цена 3.50 евро."),
+            ("Версия 1.2.3 вышла.", "Версия 1.2.3 вышла."),
+            ("Итого 1.000 рублей.", "Итого 1.000 рублей."),
+            ("Дата 15.03.2021 года.", "Дата 15.03.2021 года."),
+            ("С. М. Соловьёв", "С. М. Соловьёв"),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalizer.run_stage("preprocess", source), expected)
+
+    def test_preprocess_stage_keeps_urls_out_of_the_dot_digit_split(self):
+        # Адрес переписывается стадией urls раньше препроцесса, а спрятанный
+        # адрес стоит за служебным символом — буквы перед точкой там нет.
+        normalizer = Normalizer(NormalizeOptions(remove_links=False))
+        self.assertEqual(
+            normalizer.normalize("Ссылка https://sostav.ru/tech2 тут."),
+            "Ссылка https://sostav.ru/tech2 тут.",
+        )
+        self.assertEqual(
+            normalize(
+                "Ссылка sostav.ru/tech2 тут.",
+                NormalizeOptions(enable_url_normalization=True),
+            ),
+            "Ссылка sostav точка ру слэш tech два тут.",
+        )
+
     def test_preprocess_stage_expands_birth_year_and_mass_gram_abbreviations(self):
         normalizer = Normalizer()
         self.assertEqual(
