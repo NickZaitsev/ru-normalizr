@@ -210,6 +210,29 @@ class UrlBranchTests(unittest.TestCase):
         normalizer = Normalizer(NormalizeOptions(enable_url_normalization=False))
         self.assertEqual(normalizer.run_stage("urls", source), source)
 
+    def test_bare_domain_reading_requires_a_known_top_level_domain(self):
+        # Латинский код с точкой — не адрес: домен без схемы узнаётся только по
+        # реестру доменов верхнего уровня.
+        cases = (
+            ("Танк Pz.IV поехал", "Танк Pz.IV поехал"),
+            ("Машина Sd.Kfz.251 ехала", "Машина Sd.Kfz.251 ехала"),
+            ("Файл report.txt лежит рядом", "Файл report.txt лежит рядом"),
+            ("сайт sostav.ru", "сайт sostav точка ру"),
+            ("mail.ru и msn.com", "mail точка ру и msn точка com"),
+            ("direct.yandex.ru", "direct точка yandex точка ру"),
+            ("ссылка sostav.ru/tech2", "ссылка sostav точка ру слэш tech два"),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize_urls(source), expected)
+
+    def test_explicit_url_prefix_reads_any_top_level_domain(self):
+        # `www.` — явный признак адреса, реестр к нему не применяется.
+        self.assertEqual(
+            normalize_urls("www.example.foobar"),
+            "www точка example точка foobar",
+        )
+
     def test_url_stage_keeps_balanced_closers_inside_the_url(self):
         cases = (
             (

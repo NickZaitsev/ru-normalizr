@@ -23,6 +23,24 @@ BARE_DOMAIN_PATTERN = compile_scan(
     r"(?:/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]*)?)(?!\w)",
     re.IGNORECASE,
 )
+#: Домен без схемы узнаётся по домену верхнего уровня, и только по нему:
+#: «Pz.IV», «Sd.Kfz», «report.txt» — не адреса, а код, сокращение и имя файла.
+#: Реестр закрытый и растёт по требованию; кириллический «рф» недостижим, пока
+#: `BARE_DOMAIN_PATTERN` держит латинский хвост.
+KNOWN_TLDS = frozenset(
+    """ru su ua by kz com net org info biz io ai app dev me co uk de fr it es
+    pl cz us tv fm edu gov mil int online site store blog news shop club pro
+    xyz""".split()
+)
+
+
+def _bare_domain_tld(domain: str) -> str:
+    """Домен верхнего уровня из совпадения без схемы, без пути и регистра."""
+    host = domain.split("/", 1)[0]
+    _head, _dot, tld = host.rpartition(".")
+    return tld.casefold()
+
+
 SOCIAL_HANDLE_PATTERN = compile_scan(
     r"(?<![\w@])@(?P<handle>[A-Za-z][A-Za-z0-9_]*)(?!\w)",
     re.IGNORECASE,
@@ -200,8 +218,13 @@ def normalize_urls(text: str) -> str:
             return match.group(0)
         return f"{_normalize_url(url)}{suffix}"
 
+    def normalize_bare_domain(match: re.Match[str]) -> str:
+        if _bare_domain_tld(match.group("domain")) not in KNOWN_TLDS:
+            return match.group(0)
+        return normalize_bare(match)
+
     text = EMAIL_PATTERN.sub(normalize_bare, text)
-    text = BARE_DOMAIN_PATTERN.sub(normalize_bare, text)
+    text = BARE_DOMAIN_PATTERN.sub(normalize_bare_domain, text)
 
     def normalize_handle(match: re.Match[str]) -> str:
         parts = [part for part in re.split(r"(_)", match.group("handle")) if part]
