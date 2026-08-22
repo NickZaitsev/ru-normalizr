@@ -111,7 +111,12 @@ def _render_half_multiplier(
         return f"{numeral} {noun}"
     if int_val % 10 == 1 and int_val % 100 != 11:
         return None
-    numeral = inflect_numeral_string(int_part_s, case, gender=gender)
+    # Винительный совпадает с именительным у всего, что не оканчивается на 1:
+    # «собрали два с половиной триллиона», а не «двух». Спрашивать у морфологии
+    # accs здесь опасно ровно так же, как в целом числительном рядом.
+    numeral = inflect_numeral_string(
+        int_part_s, inanimate_cardinal_case(int_val, case), gender, False
+    )
     if not numeral:
         return None
     noun = render_unit_expression(

@@ -4,6 +4,15 @@ All notable changes to `ru-normalizr` will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## Unreleased
+
+### Fixed
+- «X,5» с множителем в винительном падеже больше не читается родительным:
+  «собрали 2,5 трлн рублей» → «собрали два с половиной триллиона рублей»
+  (раньше «двух с половиной»). num2words по умолчанию считает объект
+  одушевлённым, а соседнее чтение денежных сумм давно передаёт `animate=False`
+  — теперь так же делает и множитель.
+
 ## [1.0.0] - 2026-08-22
 
 ### Changed
