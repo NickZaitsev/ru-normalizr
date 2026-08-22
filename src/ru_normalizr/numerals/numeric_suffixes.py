@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from .._log_once import warn_once
-from .._morph import canonicalize_case, parse_word, select_parse
+from .._morph import MorphParse, canonicalize_case, parse_word, select_parse
 from ..ordinal_utils import render_ordinal
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_context import PUNCT_STRIP, simple_tokenize
@@ -74,8 +74,16 @@ _OB_BEFORE_CONSONANT_PATTERN = compile_scan(
     r"\bоб(?=\s+[бвгджзйклмнпрстфхцчшщ])", re.IGNORECASE
 )
 _COPULA_ORDINAL_SUFFIXES = frozenset({"м", "ом", "ем", "ым", "им"})
-_BARE_DATE_ORDINAL_SUFFIXES = frozenset({"го", "ого"})
+#: Окончания, которые без вершины читаются порядковым: «21-го», «4-е». Обе
+#: пары — и дата, и маркер перечисления — пишутся так только порядковым, а
+#: количественная форма требует считаемого слова рядом. «ю» здесь нет:
+#: «7-ю» — обиходная запись количественного «семью».
+_BARE_ORDINAL_SUFFIXES = frozenset({"го", "ого", "е", "ое"})
 _ORDINAL_ONLY_SUFFIXES = ORDINAL_SUFFIXES - {"ми"}
+#: Союзы, которые нельзя принять за вершину именной группы. Каждый из них
+#: разбирается ещё и как название буквы («и» — существительное мужского рода
+#: одушевлённое), и такой разбор навязывал числу чужие род и число.
+_CONJUNCTIONS = frozenset({"и", "или", "ни", "а", "но", "да", "либо", "же"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,9 +209,27 @@ def generate_numeric_suffix_candidates(
     return tuple(candidates.values())
 
 
+_NAME_GRAMMEMES = frozenset({"Name", "Surn", "Patr"})
+
+
+def _is_name_reading(parse: MorphParse) -> bool:
+    return any(mark in parse.tag for mark in _NAME_GRAMMEMES)
+
+
 def _noun_features(
-    tokens: list[str], *, reverse: bool = False, names_only: bool = False
+    tokens: list[str],
+    *,
+    reverse: bool = False,
+    names_only: bool = False,
+    names_excluded: bool = False,
 ) -> tuple[_NounFeatures, ...]:
+    """Именные признаки ближайшей вершины в окне из четырёх токенов.
+
+    `names_excluded` снимает с права личные имена: имя за числом — подлежащее
+    следующей клаузы, а не вершина числовой группы («в ночь на 28-е Святослав
+    ждал»), и его ошибочный разбор («Святослава» — женское имя во
+    множественном) навязывал числу множественное согласование.
+    """
     result: list[_NounFeatures] = []
     window = list(reversed(tokens[-4:])) if reverse else tokens[:4]
     for token in window:
@@ -212,16 +238,19 @@ def _noun_features(
         clean = token.strip(".,!?;:«»\"'()[]{}")
         if not clean:
             continue
-        if clean.casefold() in PREP_CASE:
+        folded = clean.casefold()
+        if folded in PREP_CASE or folded in _CONJUNCTIONS:
             continue
         parses = parse_word(clean)
         # Сказуемое обрывает поиск: краткое причастие («решено», «назначено»)
         # закрывает именную группу так же, как личная форма глагола. У слова,
         # которого нет в словаре, угаданные именные разборы не в счёт — иначе
-        # дореформенное «рѣшено» сходит за существительное.
+        # дореформенное «рѣшено» сходит за существительное. Деепричастие
+        # («ожидая») открывает обособленный оборот — его дополнение числу тоже
+        # не вершина.
         if (
             parses
-            and parses[0].tag.POS in {"VERB", "INFN", "PRTS"}
+            and parses[0].tag.POS in {"VERB", "INFN", "PRTS", "GRND"}
             and not any(
                 getattr(candidate, "is_known", False) and "NOUN" in candidate.tag
                 for candidate in parses
@@ -232,10 +261,8 @@ def _noun_features(
             candidate
             for candidate in parses
             if "NOUN" in candidate.tag
-            and (
-                not names_only
-                or any(mark in candidate.tag for mark in {"Name", "Surn", "Patr"})
-            )
+            and (not names_only or _is_name_reading(candidate))
+            and (not names_excluded or not _is_name_reading(candidate))
         ]
         for candidate in noun_parses:
             result.append(
@@ -443,6 +470,29 @@ def _kind_forced_by_coordination(
     return None
 
 
+def _plural_modifier_on_the_left(tokens_left: list[str]) -> bool:
+    """Согласованное определение во множественном перед числом: «лихие 90-е».
+
+    Хвост соседнего числа с окончанием («27-го») пропускается: токенизатор
+    отдаёт его отдельным словом, а у «го» есть и множественные разборы —
+    название игры сходило за определение.
+    """
+    for token in reversed(tokens_left[-4:]):
+        clean = token.strip(PUNCT_STRIP)
+        if (
+            not clean
+            or clean.isdigit()
+            or clean.casefold() in PREP_CASE
+            or is_numeric_suffix(clean)
+        ):
+            continue
+        return any(
+            "plur" in parse.tag and parse.tag.POS in {"ADJF", "PRTF"}
+            for parse in parse_word(clean)
+        )
+    return False
+
+
 def _candidate_sort_key(candidate: NumericSuffixCandidate) -> tuple[object, ...]:
     return (
         0 if candidate.kind == "cardinal" else 1,
@@ -507,7 +557,7 @@ def resolve_numeric_suffix(
             # preposition ambiguity is locative rather than accusative.
             context_case = "loct"
             context_explicit = True
-        right_noun_features = _noun_features(tokens_right)
+        right_noun_features = _noun_features(tokens_right, names_excluded=True)
         left_name_features = _noun_features(tokens_left, reverse=True, names_only=True)
         noun_features = right_noun_features or left_name_features
         if not right_noun_features and left_name_features:
@@ -564,12 +614,12 @@ def resolve_numeric_suffix(
         best = [candidate for candidate in best if candidate.kind == "ordinal"]
     elif (
         not noun_features
-        and suffix.casefold() in _BARE_DATE_ORDINAL_SUFFIXES
+        and suffix.casefold() in _BARE_ORDINAL_SUFFIXES
         and any(candidate.kind == "ordinal" for candidate in best)
     ):
-        # A bare «21-го» with no governing noun in sight is a date-like
-        # ordinal: the cardinal genitive is only ever written with its counted
-        # noun («21-го человека»), never on its own.
+        # A bare «21-го» or «4-е» with no governing noun in sight is an
+        # ordinal: the cardinal is only ever written this way next to its
+        # counted noun («21-го человека»), never on its own.
         best = [candidate for candidate in best if candidate.kind == "ordinal"]
     elif (
         noun_features
@@ -588,6 +638,16 @@ def resolve_numeric_suffix(
         best = [candidate for candidate in best if candidate.kind == "ordinal"]
     elif any(candidate.kind == "cardinal" for candidate in best):
         best = [candidate for candidate in best if candidate.kind == "cardinal"]
+    if (
+        not noun_features
+        and not _plural_modifier_on_the_left(tokens_left)
+        and any(not candidate.plural for candidate in best)
+    ):
+        # Порядковому во множественном не с чем согласовываться: без вершины
+        # справа «в ночь на 28-е» — «двадцать восьмое», а не «восьмые».
+        # Множественное определение слева — как раз такая вершина по смыслу
+        # («в лихие 90-е» — «девяностые»), и оно правило снимает.
+        best = [candidate for candidate in best if not candidate.plural]
     best_agreement = max(_agreement_score(candidate, noun_features) for candidate in best)
     best = [
         candidate

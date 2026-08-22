@@ -189,6 +189,27 @@ DOT_ABBREVIATION_CAPS_GAP_CASES = (
 )
 
 
+#: Найдено при вводе реестра доменов верхнего уровня (план
+#: 2026-08-22-fix-real-book-regressions): запись перестала читаться адресом и
+#: обнажила пробел в разборе латинских точечных сокращений.
+DOTTED_ROMAN_GAP_CASES = (
+    # Латинская дата римскими цифрами через точки не опознаётся как число:
+    # «M.DC.LXXX» — это 1680. Раньше запись случайно читалась доменом («эм
+    # точка ди си точка восемьдесят»), теперь точки остаются как в исходнике, и
+    # стадия заглавных поднимает регистр после каждой. Правильное чтение
+    # требует разбора римского числа с точечными разделителями.
+    pytest.param(
+        "Рукопись подписана: анно M.DC.LXXX, и переписчик её не назвал.",
+        "Рукопись подписана: анно тысяча шестьсот восемьдесят, и переписчик её не назвал.",
+        id="dotted_latin_roman_year",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a dot-separated roman numeral is not recognized as a number",
+        ),
+    ),
+)
+
+
 #: Найдено сплошным чтением книги 01 («История России с древнейших времён»).
 BOOK_01_GAP_CASES = (
 )
@@ -200,6 +221,7 @@ BOOK_01_GAP_CASES = (
 E2E_KNOWN_GAP_CASES = (
     *HANDWRITTEN_GAP_CASES,
     *DOT_ABBREVIATION_CAPS_GAP_CASES,
+    *DOTTED_ROMAN_GAP_CASES,
     *CORPUS_SWEEP_GAP_CASES,
     *BOOK_06_GAP_CASES,
     *BOOK_05_GAP_CASES,
