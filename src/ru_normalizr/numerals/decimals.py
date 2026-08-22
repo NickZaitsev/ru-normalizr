@@ -9,7 +9,7 @@ import num2words
 from .._log_once import warn_once
 from .._morph import first_parse_required, parse_word
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
-from ..text_context import PUNCT_STRIP, normalize_context_token, simple_tokenize
+from ..text_context import PUNCT_STRIP, simple_tokenize
 from ..text_scan import compile_scan, first_non_whitespace_index
 from ._constants import (
     CURRENCY_MINOR_UNITS,
@@ -155,6 +155,9 @@ def normalize_decimals(text: str) -> str:
             value = int(num_str)
         except ValueError:
             return num_str
+        # Числитель дроби считает неодушевлённые доли, поэтому одушевлённый
+        # винительный («трёх десятых») здесь появиться не может.
+        case = inanimate_cardinal_case(value, case)
         words = inflect_numeral_string(num_str, case)
         if value == 0:
             return words
@@ -235,23 +238,14 @@ def normalize_decimals(text: str) -> str:
         frac_val = int(frac_part_s)
         digits = len(frac_part_s)
         render_case = case
-        if (
-            case in {"accs", "loct"}
-            and unit_raw
-            and tokens_left
-            and normalize_context_token(tokens_left[-1]) in {"за", "на", "через"}
-            and unit_raw.casefold().strip(".")
-            not in {"тыс", "млн", "млрд", "трлн"}
-        ):
-            # Prepositional physical quantities such as "за 8,4 с" use the
-            # inanimate accusative, while a direct object or a decimal
-            # multiplier retains the long-standing decimal contract.
-            render_case = inanimate_cardinal_case(int_val, "accs")
         if int_val == 0:
             # The zero in a decimal quantity is conventionally invariant in
             # Russian speech: "при дозе ноль целых пять десятых миллилитра".
             render_case = "nomn"
-        int_words = inflect_numeral_string(int_part_s, render_case, gender="femn")
+        # Десятичное количество всегда неодушевлённое: «две целых», не «двух».
+        int_words = inflect_numeral_string(
+            int_part_s, inanimate_cardinal_case(int_val, render_case), gender="femn"
+        )
         p_cel = first_parse_required("целая")
         tags_cel = (
             {render_case, "femn", "sing"}
