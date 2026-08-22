@@ -4,7 +4,7 @@ All notable changes to `ru-normalizr` will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
-## Unreleased
+## [1.0.1] - 2026-08-22
 
 ### Fixed
 - Стилизованное имя вроде «NeXT» читается словом («нэкст»), а не по буквам
