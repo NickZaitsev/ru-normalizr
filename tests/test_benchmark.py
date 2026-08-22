@@ -8,6 +8,7 @@ from scripts.benchmark import (
     _load_manifest,
     _load_report,
     _write_report,
+    find_output_changes,
     find_regressions,
     find_throughput_shortfalls,
 )
@@ -118,17 +119,53 @@ def test_find_regressions_rejects_different_input_hash() -> None:
         )
 
 
-def test_find_regressions_rejects_different_output_hash() -> None:
-    with pytest.raises(ValueError, match="SHA-256 результата"):
-        find_regressions(
-            {
-                "scenario": _result(1.0, "a" * 64, output_chars=10, output_sha256="c" * 64)
-            },
-            {
-                "scenario": _result(1.0, "a" * 64, output_chars=10, output_sha256="d" * 64)
-            },
-            max_regression_percent=25.0,
-        )
+def test_find_regressions_compares_timings_despite_a_different_output_hash() -> None:
+    """Осознанная смена нормализации не должна ронять сравнение времени."""
+    regressions = find_regressions(
+        {
+            "scenario": _result(1.5, "a" * 64, output_chars=11, output_sha256="c" * 64)
+        },
+        {
+            "scenario": _result(1.0, "a" * 64, output_chars=10, output_sha256="d" * 64)
+        },
+        max_regression_percent=25.0,
+    )
+
+    assert [regression.scenario for regression in regressions] == ["scenario"]
+
+
+def test_find_output_changes_reports_a_different_output_hash() -> None:
+    current = {"scenario": _result(1.0, "a" * 64, output_chars=10, output_sha256="c" * 64)}
+    baseline = {"scenario": _result(1.0, "a" * 64, output_chars=10, output_sha256="d" * 64)}
+
+    assert find_output_changes(current, baseline) == ["scenario"]
+
+
+def test_find_output_changes_reports_a_different_output_size() -> None:
+    current = {"scenario": _result(1.0, "a" * 64, output_chars=11, output_sha256="c" * 64)}
+    baseline = {"scenario": _result(1.0, "a" * 64, output_chars=10, output_sha256="c" * 64)}
+
+    assert find_output_changes(current, baseline) == ["scenario"]
+
+
+def test_find_output_changes_is_silent_when_the_output_matches() -> None:
+    current = {
+        "stable": _result(1.0, "a" * 64, output_chars=10, output_sha256="c" * 64),
+        "no_output_metrics": _result(1.0, "a" * 64),
+    }
+    baseline = {
+        "stable": _result(2.0, "a" * 64, output_chars=10, output_sha256="c" * 64),
+        "no_output_metrics": _result(2.0, "a" * 64),
+    }
+
+    assert find_output_changes(current, baseline) == []
+
+
+def test_find_output_changes_skips_a_scenario_missing_from_baseline() -> None:
+    """Расхождение наборов сценариев — забота find_regressions, не этой функции."""
+    current = {"added": _result(1.0, "a" * 64, output_chars=10, output_sha256="c" * 64)}
+
+    assert find_output_changes(current, {}) == []
 
 
 def test_find_regressions_reports_peak_rss_regression() -> None:

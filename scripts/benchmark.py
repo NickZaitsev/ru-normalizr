@@ -306,6 +306,33 @@ def find_throughput_shortfalls(
     )
 
 
+def find_output_changes(
+    current: Mapping[str, BenchmarkResult],
+    baseline: Mapping[str, BenchmarkResult],
+) -> list[str]:
+    """Вернуть сценарии, результат которых отличается от baseline.
+
+    Это не ошибка: ru-normalizr — нормализатор, и почти каждое исправление
+    осознанно меняет выход. Сравнение времени остаётся честным, потому что вход
+    и его SHA-256 совпадают (это find_regressions по-прежнему требует жёстко),
+    а пропускная способность считается на символ входа. Но замолчать смену
+    выхода нельзя: если результат изменился в PR, который менять его не должен,
+    цифры рядом в отчёте — единственный шанс это заметить.
+    """
+
+    changed: list[str] = []
+    for name, current_result in current.items():
+        baseline_result = baseline.get(name)
+        if baseline_result is None:
+            continue
+        if (
+            current_result.output_chars,
+            current_result.output_sha256,
+        ) != (baseline_result.output_chars, baseline_result.output_sha256):
+            changed.append(name)
+    return sorted(changed)
+
+
 def find_regressions(
     current: Mapping[str, BenchmarkResult],
     baseline: Mapping[str, BenchmarkResult],
@@ -339,16 +366,6 @@ def find_regressions(
             or baseline_result.input_sha256 is not None
         ) and current_result.input_sha256 != baseline_result.input_sha256:
             raise ValueError(f"SHA-256 входа сценария {name!r} изменился")
-        if (
-            current_result.output_chars is not None
-            or baseline_result.output_chars is not None
-        ) and current_result.output_chars != baseline_result.output_chars:
-            raise ValueError(f"Размер результата сценария {name!r} изменился")
-        if (
-            current_result.output_sha256 is not None
-            or baseline_result.output_sha256 is not None
-        ) and current_result.output_sha256 != baseline_result.output_sha256:
-            raise ValueError(f"SHA-256 результата сценария {name!r} изменился")
         if baseline_result.median_seconds <= 0:
             raise ValueError(f"Некорректная baseline-медиана сценария {name!r}")
         change_percent = (
@@ -855,11 +872,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             if baseline is not None
             else []
         )
+        output_changes = find_output_changes(current, baseline) if baseline is not None else []
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"benchmark: {exc}", file=sys.stderr)
         return 2
 
     failed = False
+
+    if output_changes:
+        print(
+            "Результат нормализации изменился относительно baseline "
+            "(ожидаемо для изменения поведения, но проверьте намеренность):",
+            file=sys.stderr,
+        )
+        for scenario in output_changes:
+            print(f"- {scenario}", file=sys.stderr)
 
     if shortfalls:
         failed = True
