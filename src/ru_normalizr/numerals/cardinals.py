@@ -174,6 +174,32 @@ def _money_amount_precedes(tokens: list[str], index: int) -> bool:
     return j >= 0 and tokens[j].strip(PUNCT_STRIP).isdigit()
 
 
+def _last_nonempty_index(chunks: list[str]) -> int:
+    """Индекс последнего непустого куска вывода, ``-1`` если такого нет."""
+    for index in range(len(chunks) - 1, -1, -1):
+        if chunks[index]:
+            return index
+    return -1
+
+
+def _space_before_trailing_dash(out: list[str], dash_index: int) -> None:
+    """Отбить пробелом тире, которым заканчивается уже собранный кусок вывода.
+
+    Тире может лежать как внутри куска («слово—»), так и отдельным куском: в
+    первом случае пробел вставляется внутрь строки, во втором — новым элементом
+    перед ней. Пробел ставится только если слева от тире слово или число, иначе
+    отбивать нечего.
+    """
+    chunk = out[dash_index]
+    if len(chunk) > 1:
+        if chunk[-2].isalnum():
+            out[dash_index] = f"{chunk[:-1]} {chunk[-1]}"
+        return
+    previous_index = _last_nonempty_index(out[:dash_index])
+    if previous_index >= 0 and out[previous_index][-1].isalnum():
+        out.insert(dash_index, " ")
+
+
 def _splice_segments(
     text: str,
     spans: list[tuple[int, int]],
@@ -217,10 +243,17 @@ def _splice_segments(
             out.append(text[start:end])
         else:
             if replacement and not gap and out:
-                previous_chunk = next(
-                    (chunk for chunk in reversed(out) if chunk), ""
-                )
+                previous_index = _last_nonempty_index(out)
+                previous_chunk = out[previous_index] if previous_index >= 0 else ""
                 if previous_chunk and needs_space(previous_chunk[-1], replacement[0]):
+                    if previous_chunk[-1] == "—":
+                        # Тире отбивается с двух сторон или ни с одной: пробел
+                        # справа появляется только потому, что справа переписано
+                        # число, поэтому и слева его надо поставить — иначе
+                        # получается «слово— два миллиона», чего в исходнике не
+                        # было. Тире, у которого справа ничего не переписывали,
+                        # в эту ветку не попадает и остаётся как в источнике.
+                        _space_before_trailing_dash(out, previous_index)
                     out.append(" ")
             out.append(replacement)
             if (
