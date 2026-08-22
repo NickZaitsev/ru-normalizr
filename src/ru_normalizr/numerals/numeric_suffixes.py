@@ -12,8 +12,8 @@ from ..ordinal_utils import render_ordinal
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_context import PUNCT_STRIP, simple_tokenize
 from ..text_scan import compile_scan
-from ._constants import PREP_CASE
-from ._helpers import get_numeral_case, inflect_numeral_string
+from ._constants import PREP_CASE, is_unit_token
+from ._helpers import get_numeral_case_ex, inflect_numeral_string
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +95,7 @@ class _NounFeatures:
     gender: str | None
     plural: bool
     animate: bool | None
+    lemma: str = ""
 
 
 def _last_word(reading: str) -> str:
@@ -247,6 +248,7 @@ def _noun_features(
                         if candidate.tag.animacy == "anim"
                         else (False if candidate.tag.animacy == "inan" else None)
                     ),
+                    lemma=candidate.normal_form,
                 )
             )
         if noun_parses:
@@ -287,20 +289,30 @@ def _cardinal_government_score(
     return 4 if compatible else -4
 
 
+#: Вес совпадения с падежом контекста. Именительный по умолчанию — не сигнал,
+#: а признание, что контекст молчит, поэтому он слабее согласования с
+#: существительным справа (5 за падеж плюс бонусы согласования).
+_CONTEXT_CASE_WEIGHT = 8
+_DEFAULTED_CONTEXT_CASE_WEIGHT = 2
+
+
 def _candidate_score(
     candidate: NumericSuffixCandidate,
     *,
     number: int,
     context_case: str,
+    context_explicit: bool = True,
     noun_features: tuple[_NounFeatures, ...],
 ) -> int:
-    score = 8 if candidate.case == context_case else 0
+    weight = _CONTEXT_CASE_WEIGHT if context_explicit else _DEFAULTED_CONTEXT_CASE_WEIGHT
+    score = weight if candidate.case == context_case else 0
     best_noun_score = 0
     for noun in noun_features:
         noun_score = 0
         if candidate.case == noun.case:
             noun_score += 5
         noun_score += _cardinal_government_score(number, candidate, noun)
+        noun_score += _ordinal_disagreement_penalty(candidate, noun)
         if (
             candidate.case == "accs"
             and noun.animate is not None
@@ -309,6 +321,31 @@ def _candidate_score(
             noun_score += 1
         best_noun_score = max(best_noun_score, noun_score)
     return score + best_noun_score
+
+
+def _ordinal_disagreement_penalty(
+    candidate: NumericSuffixCandidate, noun: _NounFeatures
+) -> int:
+    """Штраф порядковому, чей род или число расходятся с существительным.
+
+    Падежное совпадение само по себе обманчиво: «армии» разбирается и как
+    родительный единственного, и как именительный множественного, поэтому
+    «четвёртый» набирал столько же, сколько «четвёртой». Порядковое —
+    согласованное определение, и расхождение в числе или роде означает, что
+    падеж совпал случайно.
+    """
+    if candidate.kind != "ordinal":
+        return 0
+    if candidate.plural != noun.plural:
+        return -3
+    if (
+        not candidate.plural
+        and candidate.gender is not None
+        and noun.gender is not None
+        and candidate.gender != noun.gender
+    ):
+        return -2
+    return 0
 
 
 def _agreement_score(
@@ -448,7 +485,7 @@ def resolve_numeric_suffix(
 
     try:
         context_tokens = [*tokens_left, number_text, *tokens_right]
-        context_case = get_numeral_case(context_tokens, len(tokens_left))
+        context_case, context_explicit = get_numeral_case_ex(context_tokens, len(tokens_left))
         if (
             suffix.casefold() in _COPULA_ORDINAL_SUFFIXES
             and _has_copula_before(tokens_left)
@@ -457,6 +494,7 @@ def resolve_numeric_suffix(
             # "он был 2-м после лидера".  This is a grammatical predicate
             # context, not a special case for the particular verb form.
             context_case = "ablt"
+            context_explicit = True
         if (
             suffix.casefold() in _ORDINAL_ONLY_SUFFIXES
             and context_case == "accs"
@@ -468,11 +506,13 @@ def resolve_numeric_suffix(
             # standard ``-м`` spelling is still ordinal, and this residual
             # preposition ambiguity is locative rather than accusative.
             context_case = "loct"
+            context_explicit = True
         right_noun_features = _noun_features(tokens_right)
         left_name_features = _noun_features(tokens_left, reverse=True, names_only=True)
         noun_features = right_noun_features or left_name_features
         if not right_noun_features and left_name_features:
             context_case = left_name_features[0].case
+            context_explicit = True
         exact = [
             candidate
             for candidate in generate_numeric_suffix_candidates(number, suffix)
@@ -500,6 +540,7 @@ def resolve_numeric_suffix(
                 candidate,
                 number=number,
                 context_case=context_case,
+                context_explicit=context_explicit,
                 noun_features=noun_features,
             ),
             candidate,
@@ -529,6 +570,21 @@ def resolve_numeric_suffix(
         # A bare «21-го» with no governing noun in sight is a date-like
         # ordinal: the cardinal genitive is only ever written with its counted
         # noun («21-го человека»), never on its own.
+        best = [candidate for candidate in best if candidate.kind == "ordinal"]
+    elif (
+        noun_features
+        and not any(is_unit_token(noun.lemma) for noun in noun_features)
+        and suffix.casefold() in _ORDINAL_ONLY_SUFFIXES
+        and any(candidate.kind == "ordinal" for candidate in best)
+    ):
+        # При вершине справа окончания «й», «го», «м» читаются порядковым:
+        # «1-й главе» — «первой», а не «одной». Количественное выигрывало
+        # ничью лишь потому, что его формы («одной», «одного») случайно
+        # оканчиваются так же. Без вершины определять нечего, и голое «7-ю»
+        # остаётся количественным, как и суффиксы количественного реестра
+        # («х», «ти», «ух») — они уходят в ветку ниже. Единица измерения
+        # справа — счётное слово, а не нумеруемый объект: «до 101-го рубля»
+        # отмеряет сумму, поэтому остаётся количественным.
         best = [candidate for candidate in best if candidate.kind == "ordinal"]
     elif any(candidate.kind == "cardinal" for candidate in best):
         best = [candidate for candidate in best if candidate.kind == "cardinal"]
@@ -579,7 +635,7 @@ def _spread_ordinal_over_enumeration(text: str) -> str:
             context_left = simple_tokenize(text[max(0, match.start() - 60) : match.start()])
             context_right = simple_tokenize(text[match.end("noun") : match.end("noun") + 60])
             body = simple_tokenize(match.group(0))
-            case = get_numeral_case(
+            case, _explicit = get_numeral_case_ex(
                 [*context_left, *body, *context_right], len(context_left)
             )
         gender = p_noun.tag.gender

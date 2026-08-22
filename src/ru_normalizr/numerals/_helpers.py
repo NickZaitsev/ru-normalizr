@@ -1599,6 +1599,17 @@ def _case_for(ctx: NumeralContext) -> str:
     return run_rules(_CASE_DECIDERS, ctx) or "nomn"
 
 
+def _case_for_ex(ctx: NumeralContext) -> tuple[str, bool]:
+    """То же плюс признак «падеж назвало правило, а не решение по умолчанию».
+
+    Именительный по умолчанию — не свидетельство, а признание, что контекст
+    молчит. Потребителю бывает важно отличить его от именительного, который
+    правило действительно вывело.
+    """
+    decision = run_rules(_CASE_DECIDERS, ctx)
+    return (decision or "nomn"), decision is not None
+
+
 def get_numeral_case(
     tokens: list[str],
     idx: int,
@@ -1610,3 +1621,17 @@ def get_numeral_case(
         _context = _build_numeral_token_context(tokens)
     visible_length = len(tokens) if _visible_length is None else min(_visible_length, len(tokens))
     return _case_for(NumeralContext(tokens, idx, visible_length, _context.left_scan_starts))
+
+
+def get_numeral_case_ex(
+    tokens: list[str],
+    idx: int,
+    *,
+    _context: _NumeralTokenContext | None = None,
+    _visible_length: int | None = None,
+) -> tuple[str, bool]:
+    """`get_numeral_case` плюс признак явного сигнала в контексте."""
+    if _context is None:
+        _context = _build_numeral_token_context(tokens)
+    visible_length = len(tokens) if _visible_length is None else min(_visible_length, len(tokens))
+    return _case_for_ex(NumeralContext(tokens, idx, visible_length, _context.left_scan_starts))
