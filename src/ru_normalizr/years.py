@@ -642,7 +642,9 @@ def normalize_years(text: str) -> str:
                 case = PREPOSITIONS_TO_CASE.get(prep.lower(), case)
             word_norm = "годы" if word_lower.startswith("год") else word
 
-        parts = re.split(r"(\s*,\s*|\s+и\s+)", years_text)
+        # IGNORECASE — как и в самом паттерне: «1812 И 1813 годы» иначе не
+        # разбивалось, и первый год оставался ненормализованным.
+        parts = re.split(r"(\s*,\s*|\s+и\s+)", years_text, flags=re.IGNORECASE)
         rendered_parts: list[str] = []
         for part in parts:
             stripped = part.strip()

@@ -287,15 +287,20 @@ def normalize_text_dates(text: str) -> str:
 
     def list_repl(match: re.Match[str]) -> str:
         month = _month_output(match.group("month"))
-        parts = re.split(r"(\s*(?:,|и)\s*)", match.group("days"))
+        # Сам паттерн собран с IGNORECASE, поэтому разделитель тоже разбираем
+        # без учёта регистра: «29 И 30 августа» из заголовка иначе целиком
+        # уезжало в int().
+        parts = re.split(r"(\s*(?:,|и)\s*)", match.group("days"), flags=re.IGNORECASE)
         rendered_parts: list[str] = []
         for part in parts:
             stripped = part.strip()
             if not stripped:
                 continue
-            if stripped in {",", "и"}:
+            if stripped.lower() in {",", "и"}:
                 rendered_parts.append(part)
                 continue
+            if not stripped.isdigit():
+                return match.group(0)
             day_word = _day_to_ordinal_genitive(int(stripped))
             if day_word is None:
                 return match.group(0)

@@ -4,6 +4,16 @@ All notable changes to `ru-normalizr` will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## Unreleased
+
+### Fixed
+- Список дат или годов с союзом «И» в верхнем регистре больше не ломает
+  нормализацию: «29 И 30 августа» → «двадцать девятого И тридцатого августа»
+  (раньше `ValueError` на `int()`), «1812 И 1813 годы» → «тысяча восемьсот
+  двенадцатый И тысяча восемьсот тринадцатый годы» (раньше первый год
+  оставался цифрами). Сами паттерны и так собраны с `IGNORECASE` — регистр
+  теперь не учитывается и при разборе списка.
+
 ## [1.0.1] - 2026-08-22
 
 ### Fixed
