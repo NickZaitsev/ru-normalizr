@@ -1617,6 +1617,27 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
             "один миллион двести тридцать четыре тысячи пятьсот шестьдесят семь",
         )
 
+    def test_foreign_digits_in_url_do_not_crash_normalization(self):
+        """Персидская ссылка из книги роняла нормализацию целиком.
+
+        `str.isdigit()` верен по Unicode и пропускал арабо-индийскую цифру в
+        таблицу DIGIT_WORDS, собранную только под ASCII, — KeyError убивал
+        обработку всей книги. Чужая письменность должна доезжать до вывода.
+        """
+        source = "Ссылка: https://www.mehrnews.com/news/٥٩٧ на материал."
+        result = normalize(source, NormalizeOptions.tts())
+        self.assertIn("пять девять семь", result)
+        self.assertTrue(result.startswith("Ссылка: хтпс двоеточие слэш слэш"))
+
+    def test_url_keeps_chunks_written_in_other_scripts(self):
+        # Кусок адреса чужой письменностью раньше выпадал из вывода целиком.
+        result = normalize(
+            "Смотри https://example.com/گزارش сегодня.",
+            NormalizeOptions.tts(),
+        )
+        for char in "گزارش":
+            self.assertIn(char, result)
+
     def test_uppercase_conjunction_in_date_and_year_lists(self):
         """Списки дат и годов пишутся и капсом — заголовки, шапки документов.
 

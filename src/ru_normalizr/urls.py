@@ -53,7 +53,9 @@ HASHTAG_PATTERN = compile_scan(
     re.IGNORECASE,
 )
 ALNUM_CHUNK_PATTERN = compile_scan(r"[A-Za-z0-9]+|[^A-Za-z0-9]")
-MIXED_CHUNK_PATTERN = compile_scan(r"\d+|[A-Za-z]+")
+# Только ASCII-цифры: таблица DIGIT_WORDS собрана под них, а «\d» в Python
+# ловит и арабо-индийские цифры из персидских ссылок.
+MIXED_CHUNK_PATTERN = compile_scan(r"[0-9]+|[A-Za-z]+")
 TAG_CHUNK_PATTERN = compile_scan(r"[A-Za-zА-Яа-яЁё]+|\d+|_")
 
 URL_SEPARATOR_WORDS: dict[str, str] = {
@@ -153,23 +155,32 @@ def protect_urls(text: str) -> ProtectedUrls:
     return ProtectedUrls(protected_text, allocator)
 
 
+def _is_ascii_digits(chunk: str) -> bool:
+    """`str.isdigit()` верен по Unicode, а DIGIT_WORDS — только по ASCII."""
+    return chunk.isascii() and chunk.isdigit()
+
+
 def _read_digit_run(chunk: str) -> str:
-    return " ".join(DIGIT_WORDS[digit] for digit in chunk)
+    # Цифра вне таблицы остаётся собой: пропустить незнакомый символ лучше,
+    # чем уронить нормализацию всей книги из-за одной ссылки.
+    return " ".join(DIGIT_WORDS.get(digit, digit) for digit in chunk)
 
 
 def _normalize_alnum_chunk(chunk: str) -> str:
-    if chunk.isdigit():
+    if _is_ascii_digits(chunk):
         return _read_digit_run(chunk)
     if chunk.isalpha():
         return chunk
 
     pieces: list[str] = []
     for part in MIXED_CHUNK_PATTERN.findall(chunk):
-        if part.isdigit():
+        if _is_ascii_digits(part):
             pieces.append(_read_digit_run(part))
         else:
             pieces.append(part)
-    return " ".join(piece for piece in pieces if piece)
+    # Чужая письменность (персидские цифры и буквы в ссылке) не даёт ни одного
+    # куска — возвращаем как есть, чтобы не потерять кусок адреса молча.
+    return " ".join(piece for piece in pieces if piece) or chunk
 
 
 def _normalize_url(url: str) -> str:
