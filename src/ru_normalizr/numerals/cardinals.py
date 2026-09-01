@@ -23,6 +23,7 @@ from ._constants import (
     DAY_PART_LEMMAS,
     DIGIT_PATTERN,
     MAX_CLOCK_HOUR,
+    NUMBER_LABEL_LEMMAS,
     NUMERIC_UNIT_RANGE_PATTERN,
     POST_NUMERAL_ABBREVIATION_PATTERN,
     POST_NUMERAL_ABBREVIATION_REPLACEMENTS,
@@ -827,7 +828,12 @@ def _paucal_group_is_genitive(site: _NumberSite, alias: str) -> bool:
     left = site.tokens[site.idx - 1].lower().strip(PUNCT_STRIP)
     if not left or not left.isalpha():
         return False
-    return is_case_reliable_noun(first_parse_required(left))
+    p_left = first_parse_required(left)
+    # «Бронепоезд номер 73 войск НКВД»: слева не вершина счётной группы, а
+    # слово-ярлык, и число при нём — имя, а не количество.
+    if p_left.normal_form in NUMBER_LABEL_LEMMAS:
+        return False
+    return is_case_reliable_noun(p_left)
 
 
 def _handle_counted_noun(site: _NumberSite, unit: _UnitAtSite) -> Outcome | None:

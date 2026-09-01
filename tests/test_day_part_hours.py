@@ -79,3 +79,23 @@ def test_counted_group_without_a_governor_stays_nominative(
     source: str, expected: str, tts_options: NormalizeOptions
 ) -> None:
     assert normalize(source, tts_options) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (
+            "Бронепоезд № 73 войск НКВД охранял дороги.",
+            "Бронепоезд номер семьдесят три войск эн ка вэ дэ охранял дороги.",
+        ),
+        (
+            "Бронепоезд номер 73 войск НКВД охранял дороги.",
+            "Бронепоезд номер семьдесят три войск эн ка вэ дэ охранял дороги.",
+        ),
+        ("Пункт 22 правил нарушен.", "Пункт двадцать два правил нарушен."),
+    ],
+)
+def test_number_after_a_label_word_is_a_name_not_a_counted_group(
+    source: str, expected: str, tts_options: NormalizeOptions
+) -> None:
+    assert normalize(source, tts_options) == expected
