@@ -8,9 +8,11 @@ the stage must stay quiet.
 
 from __future__ import annotations
 
+from unittest import mock
+
 import pytest
 
-from ru_normalizr import NormalizeOptions, normalize
+from ru_normalizr import NormalizeOptions, address, normalize
 from ru_normalizr.address import expand_address_abbreviations
 from ru_normalizr.normalizer import PipelineNormalizer
 
@@ -373,3 +375,51 @@ def test_address_expansion_is_idempotent():
 )
 def test_degenerate_input_is_returned_unchanged(source: str) -> None:
     assert expand_address_abbreviations(source) == source
+
+
+def test_preceding_word_lookback_is_bounded() -> None:
+    """Падеж задаёт слово вплотную слева, а не весь текст до него.
+
+    Шаблон предлога прибит к концу диапазона, поэтому поиск от нуля перечитывал
+    книгу целиком на каждую адресную цепочку: 578 цепочек Слёзкина стоили 1,2
+    млрд просканированных символов. Здесь фиксируется само окно — замер времени
+    на CI ненадёжен, а верхняя граница диапазона проверяется точно.
+    """
+    spans: list[int] = []
+    real = address._PRECEDING_WORD_PATTERN
+
+    class Recorder:
+        def search(self, text: str, pos: int, endpos: int):
+            spans.append(endpos - pos)
+            return real.search(text, pos, endpos)
+
+    prefix = "Обычная проза без адресов. " * 4000
+    source = f"{prefix}Дом стоит по адресу ул. Полевая, д. 10."
+    with mock.patch.object(address, "_PRECEDING_WORD_PATTERN", Recorder()):
+        expanded = expand_address_abbreviations(source)
+
+    assert spans, "стадия не спросила слово слева"
+    assert max(spans) <= address._PRECEDING_WORD_MAX_LOOKBACK
+    assert len(prefix) > address._PRECEDING_WORD_MAX_LOOKBACK * 10
+    assert "улица Полевая, дом 10." in expanded
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param(
+            "Свидание у ул. Полевая, д. 10.",
+            "Свидание у улицы Полевая, дом десять.",
+            id="preposition_next_to_chain",
+        ),
+        pytest.param(
+            # Слово длиннее окна предлогом быть не может, и хвост «…до» не имеет
+            # права сойти за предлог «до»: падеж берётся только у целого слова.
+            "Птичьегнездогнездогнездогнездогнездо ул. Полевая, д. 10.",
+            "Птичьегнездогнездогнездогнездогнездо улица Полевая, дом десять.",
+            id="overlong_word_is_not_a_preposition",
+        ),
+    ],
+)
+def test_case_comes_from_the_whole_word_on_the_left(source: str, expected: str) -> None:
+    assert normalize(source, TTS) == expected

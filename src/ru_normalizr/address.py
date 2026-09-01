@@ -113,6 +113,13 @@ _ADDRESS_ELEMENT_PATTERN = compile_scan(
 _ADDRESS_HINT_PATTERN = compile_scan(rf"(?i:{_ABBREVIATION_ALTERNATION})")
 _CHAIN_GAP_PATTERN = compile_scan(r"[ \t]*[,;]?[ \t]*")
 _PRECEDING_WORD_PATTERN = compile_scan(r"(?P<word>[А-Яа-яЁё]+(?:-[А-Яа-яЁё]+)*)[ \t]*\Z")
+#: Окно, в котором ищется слово слева. Шаблон прибит к концу диапазона, а
+#: движок умеет искать только вперёд: поиск от нуля перебирает все позиции
+#: префикса, то есть перечитывает текст от начала книги на каждую адресную
+#: цепочку. Самый длинный предлог здесь — «напротив», так что окна хватает с
+#: запасом, а слово, которое в него не уложилось, предлогом быть не может.
+_PRECEDING_WORD_MAX_LOOKBACK = 32
+_PRECEDING_WORD_CHAR_PATTERN = compile_scan(r"[А-Яа-яЁё-]")
 _NOUN_POS = frozenset({"NOUN"})
 _SUBSTANTIVE_POS = {"NOUN", "ADJF"}
 
@@ -126,8 +133,17 @@ def _specification(match: re.Match[str]) -> AddressAbbreviation | None:
 
 
 def _preposition_cases(text: str, chain_start: int) -> tuple[str, ...]:
-    preceding = _PRECEDING_WORD_PATTERN.search(text, 0, chain_start)
+    window_start = max(0, chain_start - _PRECEDING_WORD_MAX_LOOKBACK)
+    preceding = _PRECEDING_WORD_PATTERN.search(text, window_start, chain_start)
     if preceding is None:
+        return ()
+    if (
+        preceding.start() == window_start
+        and window_start > 0
+        and _PRECEDING_WORD_CHAR_PATTERN.match(text, window_start - 1) is not None
+    ):
+        # Слово упёрлось в границу окна, значит оно длиннее любого предлога,
+        # и его хвост не имеет права сойти за предлог.
         return ()
     return ADDRESS_PREPOSITION_CASES.get(preceding.group("word").lower(), ())
 
