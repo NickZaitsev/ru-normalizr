@@ -7,6 +7,10 @@ on:
 
 jobs:
   publish:
+    # Приватный форк на PyPI не выпускается: там живёт публичный ru-normalizr,
+    # и пуш тега `v*` отсюда перезаписал бы чужой пакет. Условие оставляет
+    # workflow рабочим в апстриме и глушит его в форке.
+    if: github.repository != 'NickZaitsev/ru-normalizrPRO'
     runs-on: ubuntu-latest
     permissions:
       contents: read

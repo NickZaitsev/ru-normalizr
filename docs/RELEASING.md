@@ -62,6 +62,14 @@ uv run python scripts/dev.py typecheck
 
 ## Публикация
 
+> В приватном форке `NickZaitsev/ru-normalizrPRO` публикации нет. На PyPI живёт
+> публичный `ru-normalizr`, и пуш тега `v*` отсюда перезаписал бы чужой пакет,
+> поэтому job в `.github/workflows/release.yml` заглушён условием по имени
+> репозитория, а `scripts/dev.py publish` в форке запускать не следует: он как
+> раз создаёт и отправляет тег `v*`. Версия здесь поднимается обычным коммитом,
+> а потребитель берёт пакет прямо с ветки `main`.
+
+
 ```bash
 uv run python scripts/dev.py publish
 ```
