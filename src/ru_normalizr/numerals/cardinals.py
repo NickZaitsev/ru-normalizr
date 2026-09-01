@@ -20,7 +20,9 @@ from ..text_context import (
 from ..text_scan import compile_scan, first_non_whitespace_index
 from ._constants import (
     CURRENCY_SYMBOLS,
+    DAY_PART_LEMMAS,
     DIGIT_PATTERN,
+    MAX_CLOCK_HOUR,
     NUMERIC_UNIT_RANGE_PATTERN,
     POST_NUMERAL_ABBREVIATION_PATTERN,
     POST_NUMERAL_ABBREVIATION_REPLACEMENTS,
@@ -713,6 +715,21 @@ def _handle_unit(
     return [(i, i + step, f"{num_words} {full_unit}")], step
 
 
+def _dependent_genitive_follows(tokens: list[str], index: int) -> bool:
+    """Справа от слова стоит зависимый родительный: «до 5 дня болезни».
+
+    Такая группа делает существительное вершиной именной группы, а не частью
+    суток при часе, и число в ней читается порядковым.
+    """
+    if index >= len(tokens):
+        return False
+    candidate = tokens[index].lower().strip(PUNCT_STRIP)
+    if not candidate or not candidate.isalpha():
+        return False
+    parse = first_parse_required(candidate)
+    return "NOUN" in parse.tag and parse.tag.case == "gent"
+
+
 def _ordinal_for_mismatched_noun(
     site: _NumberSite, alias: str, p_noun
 ) -> Outcome | None:
@@ -739,6 +756,16 @@ def _ordinal_for_mismatched_noun(
     if tag.case in {"gent", "accs"} and noun_number_form(site.value) == "few":
         # Счётная форма паукальных совпадает с родительным единственного:
         # «три числа», «вижу двух человек» — количественное чтение верно.
+        return None
+    if (
+        tag.case == "gent"
+        and p_noun.normal_form in DAY_PART_LEMMAS
+        and 0 < site.value <= MAX_CLOCK_HOUR
+        and not _dependent_genitive_follows(site.tokens, i + 2)
+    ):
+        # «в 10 утра», «около 11 вечера» — час, а не число месяца: часть суток
+        # управляет родительным сама, а «десятого утра» — не время суток.
+        # Только родительный: «на 3 день пути» — винительный, там порядковое.
         return None
     if tag.case == "gent" and site.value > 31:
         # Родительный единственного после большого числа — счётный эллипсис
@@ -772,6 +799,35 @@ def _ordinal_for_mismatched_noun(
     prefix = site.token[: len(site.token) - len(site.token.lstrip(PUNCT_STRIP))]
     suffix = site.token[len(site.token.rstrip(PUNCT_STRIP)) :]
     return [(i, i + 1, f"{prefix}{ordinal}{suffix}"), (i + 1, i + 2, None)], 2
+
+
+def _paucal_group_is_genitive(site: _NumberSite, alias: str) -> bool:
+    """Существительное во множественном там, где счётная форма единственная.
+
+    Число на 2—4 требует родительного ЕДИНСТВЕННОГО: «девяносто четыре
+    женщины». Множественное («локоны волос 94 женщин») счётной формой быть не
+    может — вся группа стоит в родительном при существительном слева, и
+    числительное склоняется вместе с ней.
+    """
+    if noun_number_form(site.value) != "few" or site.case == "gent":
+        return False
+    if not word_is_known(alias):
+        return False
+    parses = parse_word(alias)
+    if any("NOUN" in p.tag and p.tag.case == "gent" and "sing" in p.tag for p in parses):
+        return False
+    if not any(
+        "NOUN" in p.tag and p.tag.case == "gent" and "plur" in p.tag for p in parses
+    ):
+        return False
+    # Вершина слева и делает группу несогласованным определением: без неё
+    # («прошло 22 суток») родительный числительного взяться неоткуда.
+    if site.idx == 0:
+        return False
+    left = site.tokens[site.idx - 1].lower().strip(PUNCT_STRIP)
+    if not left or not left.isalpha():
+        return False
+    return is_case_reliable_noun(first_parse_required(left))
 
 
 def _handle_counted_noun(site: _NumberSite, unit: _UnitAtSite) -> Outcome | None:
@@ -817,8 +873,9 @@ def _handle_counted_noun(site: _NumberSite, unit: _UnitAtSite) -> Outcome | None
             and apposition.tag.number == "plur"
         ):
             is_anim = False
+    counted_case = "gent" if _paucal_group_is_genitive(site, unit.alias) else site.case
     num_words = site.rendered(
-        paucal_accusative_case(site.value, site.case, animate=is_anim),
+        paucal_accusative_case(site.value, counted_case, animate=is_anim),
         TIME_WORDS.get(unit.alias, p_noun.tag.gender),
         is_anim,
     )
