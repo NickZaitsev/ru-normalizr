@@ -66,12 +66,17 @@ NUMERAL_TOKENS = PlaceholderRange("numeral-tokens", 0xF0000, 0xFFFFD)
 WINDOWS_PATHS = PlaceholderRange("windows-paths", 0x100000, 0x1007FF)
 URLS = PlaceholderRange("urls", 0x100800, 0x100FFF)
 
+#: Цифровые простыни, спрятанные от правил числительных на весь прогон:
+#: их в тексте единицы, даже у документа-выброса.
+OVERLONG_NUMBERS = PlaceholderRange("overlong-numbers", 0x101000, 0x1017FF)
+
 RESERVED_RANGES: tuple[PlaceholderRange, ...] = (
     PREPROCESS_SENTINELS,
     GLUED_CODES,
     NUMERAL_TOKENS,
     WINDOWS_PATHS,
     URLS,
+    OVERLONG_NUMBERS,
 )
 
 #: Один класс символов на все зарезервированные диапазоны: по нему идёт

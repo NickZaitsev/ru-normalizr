@@ -50,6 +50,7 @@ from .numerals.ordinals import (
     normalize_thousands_abbreviated_attributes,
 )
 from .options import NormalizeOptions
+from .overlong_numbers import protect_overlong_numbers
 from .placeholders import (
     NUMERAL_TOKENS,
     WINDOWS_PATHS,
@@ -189,6 +190,10 @@ Stage = Literal[
 ]
 
 
+#: Стадии, которые разбирают числа и потому не переживают цифровую простыню.
+_NUMERIC_STAGES: frozenset[str] = frozenset({"years", "dates_time", "numerals"})
+
+
 class PipelineNormalizer:
     """Fixed-order Russian normalization pipeline with toggleable stages."""
 
@@ -222,7 +227,12 @@ class PipelineNormalizer:
             available = ", ".join(sorted(self._STAGE_HANDLERS))
             raise ValueError(f"Unknown stage '{stage}'. Available stages: {available}")
         handler: Callable[[str], str] = getattr(self, method)
-        return handler(text)
+        if stage not in _NUMERIC_STAGES:
+            return handler(text)
+        # Одиночная стадия — такая же точка входа, как весь пайплайн, и
+        # цифровая простыня роняет её точно так же.
+        protected = protect_overlong_numbers(text)
+        return protected.restore(handler(protected.text))
 
     def normalize_text(self, text: str) -> str:
         try:
@@ -240,6 +250,10 @@ class PipelineNormalizer:
         text = self.run_urls(text)
         protected_paths = protect_windows_paths(text)
         text = protected_paths.text
+        # Числительные не умеют произносить простыни цифр и падают на них ещё
+        # в `int()`, поэтому такие пробеги едут через пайплайн спрятанными.
+        protected_overlong = protect_overlong_numbers(text)
+        text = protected_overlong.text
         text = self._run_preprocess_steps(
             text,
             apply_caps_normalization=False,
@@ -268,6 +282,7 @@ class PipelineNormalizer:
         text = self.run_dictionary(text)
         text = self.run_latinization(text)
         text = self.run_finalize(text)
+        text = protected_overlong.restore(text)
         text = protected_paths.restore(text)
         return protected_urls.restore(text)
 
