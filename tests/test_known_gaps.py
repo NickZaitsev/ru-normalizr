@@ -747,6 +747,54 @@ REVIEW_2026_09_GAP_CASES = (
             reason="«около N.NN» is read as a dotted time even before a currency word",
         ),
     ),
+    # --- Найдено пробами corner cases при закрытии дефектов «-м» (3 сентября) --
+    #
+    # Наращение «-м» у неглагольного порядкового вне года читается
+    # количественным: «на 41-м километре» — «на сорока одном», хотя рядом
+    # «на 5-м этаже» и «на 100-м километре» разбираются верно. Отличается
+    # только число: 41 попадает в диапазон правдоподобных лет.
+    pytest.param(
+        "На 41-м километре трассы произошла авария.",
+        "На сорок первом километре трассы произошла авария.",
+        id="ordinal_suffix_before_unit_read_as_cardinal",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="«41-м» before a unit is read as the cardinal «сорока одном»",
+        ),
+    ),
+    # Порядковое с наращением без существительного справа: «а брат на 3-м»
+    # теряет порядковость и читается дательным количественного «трём».
+    pytest.param(
+        "Он на 5-м месте, а брат на 3-м.",
+        "Он на пятом месте, а брат на третьем.",
+        id="bare_ordinal_suffix_read_as_cardinal",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a bare «3-м» without a head noun is read as the cardinal «трём»",
+        ),
+    ),
+    # Дата «8-м марта» получает творительный вместо винительного: предлог «на»
+    # с датой требует «на восьмое марта».
+    pytest.param(
+        "На 8-м марта подарили цветы.",
+        "На восьмое марта подарили цветы.",
+        id="dated_ordinal_after_na_gets_instrumental",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="«на 8-м марта» keeps the instrumental instead of the accusative date",
+        ),
+    ),
+    # Диапазон страниц раскрывается в местном падеже независимо от управления:
+    # «Смотри страницах с пятой по шестую» вместо «страницы с пятой по шестую».
+    pytest.param(
+        "Смотри стр. 5—6 в сноске.",
+        "Смотри страницы с пятой по шестую в сноске.",
+        id="page_range_ignores_verb_government",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the expanded «стр.» of a page range is always locative",
+        ),
+    ),
 )
 
 

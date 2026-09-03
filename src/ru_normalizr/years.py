@@ -501,20 +501,22 @@ def normalize_years(text: str) -> str:
             return default_case
         left_context = text[max(0, match.start() - 30) : match.start()]
         prep_match = re.search(
-            r"(?:^|[\s«\"'(])(?P<prep>в|во|о|об|к|ко|с|со|до|от|из|по)\s*$",
+            r"(?:^|[\s«\"'(])(?P<prep>в|во|о|об|на|к|ко|с|со|до|от|из|по)\s*$",
             left_context,
             re.IGNORECASE | re.UNICODE,
         )
         if not prep_match:
             return default_case
         prep = prep_match.group("prep").lower()
+        # «на» задаёт местный падеж так же, как «в»: «на 81-м году жизни» —
+        # «на восемьдесят первом году», а не «первым».
         if suffix == "х":
-            if prep in {"в", "во", "о", "об"}:
+            if prep in {"в", "во", "о", "об", "на"}:
                 return "loct"
             if prep in {"с", "со", "до", "от", "из"}:
                 return "gent"
         if suffix == "м":
-            if prep in {"в", "во", "о", "об"}:
+            if prep in {"в", "во", "о", "об", "на"}:
                 return "loct"
             if prep in {"к", "ко", "по"}:
                 return "datv"
