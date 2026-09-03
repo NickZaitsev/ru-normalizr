@@ -326,7 +326,8 @@ REVIEW_2026_09_GAP_CASES = (
         id="glued_latin_sentence_boundary_read_as_domain",
         marks=pytest.mark.xfail(
             strict=True,
-            reason="a capitalized TLD-like word after a dot is read as a bare domain",
+            reason="a glued English sentence boundary is read as a bare domain; "
+            "case does not separate it from Mail.Ru, see docs/ISSUES.md",
         ),
     ),
     # protect_negative_numbers идёт раньше, чем « - » превращается в тире (это
