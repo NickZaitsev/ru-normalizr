@@ -4,6 +4,14 @@ All notable changes to `ru-normalizr` will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## Unreleased
+
+### Added
+- `docs/ISSUES.md` — подробный разбор дефектов, найденных ревью 1.1.0 на
+  современной прозе: причина в коде, предлагаемая правка и ссылка на
+  `xfail`-кейс. Сами дефекты закреплены в `tests/test_known_gaps.py`
+  (`REVIEW_2026_09_GAP_CASES`), поведение нормализации не менялось.
+
 ## [1.1.0] - 2026-09-01
 
 ### Fixed
