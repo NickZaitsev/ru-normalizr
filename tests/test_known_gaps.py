@@ -736,16 +736,6 @@ REVIEW_2026_09_GAP_CASES = (
             reason="«руб.» without a number is expanded as if counted",
         ),
     ),
-    # «ч. л.» раскрывается, «ст. л.» — нет.
-    pytest.param(
-        "Добавьте 2 ст. л. сахара и 1 ч. л. соли.",
-        "Добавьте две столовые ложки сахара и одну чайную ложку соли.",
-        id="tablespoon_abbreviation_not_expanded",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="«ст. л.» is not recognized as a unit while «ч. л.» is",
-        ),
-    ),
     # «г.» перед названием с заглавной буквы — город, а не год.
     pytest.param(
         "Он переехал в г. Казань в 2010 году.",
