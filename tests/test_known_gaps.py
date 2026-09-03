@@ -778,17 +778,6 @@ REVIEW_2026_09_GAP_CASES = (
             reason="«около N.NN» is read as a dotted time even before a currency word",
         ),
     ),
-    # Список «не ставить точку в конце строки» не знает «—»: строка стихов,
-    # оборванная тире, получает «—.».
-    pytest.param(
-        "Он замолчал —\nИ вышел, не оглянувшись.",
-        "Он замолчал —\nИ вышел, не оглянувшись.",
-        id="dash_at_line_end_gets_terminal_dot",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a line ending in a dash receives a paragraph-closing dot",
-        ),
-    ),
 )
 
 

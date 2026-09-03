@@ -535,6 +535,13 @@ def apply_cleanup_replacements(text: str) -> str:
     return text
 
 
+#: После этих символов точка в конце строки не ставится: терминаторы, запятая,
+#: разделители, кавычка — и тире любого начертания. Строка, оборванная тире,
+#: закончена автором, «—.» неграмматично. Стадия идёт до нормализации тире
+#: в `apply_cleanup_replacements`, поэтому здесь нужны все варианты знака.
+LINE_END_KEEPS_NO_DOT = frozenset("\n.!?…,:;\"'") | frozenset("-–—―‐‑−")
+
+
 def _insert_boundary_dot(match: re.Match[str]) -> str:
     return f"{match.group('prev')}.{match.group('break')}"
 
@@ -555,7 +562,7 @@ def normalize_linebreaks(text: str) -> str:
         next_is_legacy_start = bool(LEGACY_LINE_START_PATTERN.match(text, match.end()))
         if (
             previous
-            and previous not in '\n.!?…,:;–-"\''
+            and previous not in LINE_END_KEEPS_NO_DOT
             and next_is_legacy_start
         ):
             return f".{linebreak}"

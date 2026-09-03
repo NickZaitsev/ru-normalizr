@@ -2900,3 +2900,41 @@ def test_cardinal_th_suffix_edges(
     check_tts: CheckTts, source: str, expected: str
 ) -> None:
     check_tts(source, expected)
+#: Точка в конце строки: тире любого начертания её не получает, закрывающая
+#: скобка и кавычка — получают, предложение перед ними закончено.
+LINE_END_DASH_CASES = (
+    pytest.param(
+        "Он замолчал —\nИ вышел, не оглянувшись.",
+        "Он замолчал —\nИ вышел, не оглянувшись.",
+        id="em_dash_at_line_end_keeps_no_dot",
+    ),
+    # Стадия переносов идёт до нормализации тире, поэтому в списке нужны все
+    # начертания знака, а не только «—».
+    pytest.param(
+        "Он замолчал –\nИ вышел, не оглянувшись.",
+        "Он замолчал —\nИ вышел, не оглянувшись.",
+        id="en_dash_at_line_end_keeps_no_dot",
+    ),
+    pytest.param(
+        "Он замолчал ―\nИ вышел, не оглянувшись.",
+        "Он замолчал —\nИ вышел, не оглянувшись.",
+        id="horizontal_bar_at_line_end_keeps_no_dot",
+    ),
+    pytest.param(
+        "Так писал (Пушкин)\nИ был прав.",
+        "Так писал (Пушкин).\nИ был прав.",
+        id="closing_paren_at_line_end_gets_dot",
+    ),
+    pytest.param(
+        "Он сказал «да»\nИ ушёл.",
+        'Он сказал "да".\nИ ушёл.',
+        id="closing_quote_at_line_end_gets_dot",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), LINE_END_DASH_CASES)
+def test_line_end_dash_keeps_no_dot(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
