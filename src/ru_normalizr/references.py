@@ -18,7 +18,7 @@ from .text_scan import compile_scan
 
 NUMBER_SIGN_PATTERN = compile_scan(r"(?<!\w)№\s*(?=\d)")
 NUMBER_SIGN_WITH_PREPOSITION_PATTERN = compile_scan(
-    r"(?P<prep>под|с|со|к|ко|по|у|из|от|до)\s+№\s*(?=\d)",
+    r"(?<!\w)(?P<prep>под|с|со|к|ко|по|у|из|от|до)\s+№\s*(?=\d)",
     re.IGNORECASE,
 )
 #: Предлог задаёт падеж раскрытого «№». Огласованные «со»/«ко» существуют только

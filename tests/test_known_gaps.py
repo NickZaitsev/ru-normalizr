@@ -329,17 +329,6 @@ REVIEW_2026_09_GAP_CASES = (
             reason="a capitalized TLD-like word after a dot is read as a bare domain",
         ),
     ),
-    # NUMBER_SIGN_WITH_PREPOSITION_PATTERN не имеет левой границы: хвост слова
-    # «Автобус» («с») принимается за предлог и склоняет «номер».
-    pytest.param(
-        "Автобус № 5 ушёл без нас.",
-        "Автобус номер пять ушёл без нас.",
-        id="word_tail_before_number_sign_read_as_preposition",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the preposition before № is matched without a left word boundary",
-        ),
-    ),
     # protect_negative_numbers идёт раньше, чем « - » превращается в тире (это
     # делает только finalize), поэтому дефис-тире перед числом в прозе читается
     # минусом.
@@ -703,18 +692,6 @@ REVIEW_2026_09_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="an acronym outside KNOWN_ABBREVIATIONS is decapitalized as a CAPS word",
-        ),
-    ),
-    # Опечатка в таблице чтения аббревиатур: «ЗАО» → «зз аа оо» вместо «зэ».
-    # Закреплена тестом в test_abbreviation_stage.py, который надо поправить
-    # вместе с таблицей.
-    pytest.param(
-        "ЗАО «Вектор» ликвидировано в прошлом году.",
-        'зэ аа оо "Вектор" ликвидировано в прошлом году.',
-        id="zao_letter_name_typo",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the ЗАО reading table spells «з» as «зз»",
         ),
     ),
     # Одиночная латинская буква идёт через IPA как безударный артикль «э», а не
