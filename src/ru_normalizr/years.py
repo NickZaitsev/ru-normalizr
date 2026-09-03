@@ -608,7 +608,15 @@ def normalize_years(text: str) -> str:
             # A decade needs at least two digits: rounding a single digit down
             # turned "5-х годах" into "нулевых годах". The "-х" suffix is still a
             # plural ordinal, so render it as one instead of rounding.
-            if year >= 10:
+            #
+            # «-м» омонимичен: дательный множественного («к 1990-м годам») и
+            # творительный единственного («с 2023-м годом»). Десятилетием может
+            # быть только круглый год, иначе округление молча меняет год:
+            # «с 2023-м» читалось «двадцатым». Формы при этом совпадают —
+            # у порядковых мужского рода дательный множественного и
+            # творительный единственного равны («двадцать третьим»), поэтому
+            # падеж остаётся выведенным по суффиксу.
+            if year >= 10 and not (suffix == "м" and year % 10):
                 year = (year // 10) * 10
         elif not word and not is_plausible_year(year):
             return m.group(0)

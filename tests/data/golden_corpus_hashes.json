@@ -88,8 +88,8 @@
       "06_semenov_tyan_shansky_tien_shan_travel": {
         "input_chars": 200000,
         "input_sha256": "1e5b60e93d5b9d9b0a1383e26d7ca3e2a9d1d603483defb728ef7fbdc7456dd7",
-        "output_chars": 206522,
-        "output_sha256": "6c2e8bf35dd681ab3bab8dfb9243c7180c9e8bfdccf983a67a73f283318439e2"
+        "output_chars": 206527,
+        "output_sha256": "1ea7bfac8cbf374e25cf082f182bedbeb98b635e2df083f64e5c23ae4aabbb48"
       }
     },
     "mode": "tts",

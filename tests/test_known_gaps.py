@@ -222,28 +222,6 @@ BOOK_01_GAP_CASES = (
 REVIEW_2026_09_GAP_CASES = (
     # --- Дефекты, меняющие смысл: число теряет цифру или значение -------------
     #
-    # Суффикс «-м» в стадии годов входит в PLURAL_SUFFIXES (как в «к 1990-м
-    # годам»), и творительный падеж после «с» делает год множественным, а
-    # множественное округляется до десятилетия: 2023 → 2020. В творительном
-    # единственного числа «с 2023-м годом» год должен остаться целым.
-    pytest.param(
-        "По сравнению с 2023-м годом выручка выросла вдвое.",
-        "По сравнению с две тысячи двадцать третьим годом выручка выросла вдвое.",
-        id="year_instrumental_suffix_rounded_to_decade",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="-м suffix after «с» is treated as plural and the year is rounded to a decade",
-        ),
-    ),
-    pytest.param(
-        "Урожай этого года он сравнивал с 1913-м годом.",
-        "Урожай этого года он сравнивал с тысяча девятьсот тринадцатым годом.",
-        id="year_instrumental_suffix_rounded_to_decade_1913",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="-м suffix after «с» is treated as plural and the year is rounded to a decade",
-        ),
-    ),
     # Эвристика сноски в fix_glued_numbers считает цифру, приклеенную к слову,
     # номером примечания и удаляет её: «Формула1» и «Ковид19» теряют число.
     # Имя собственное с заглавной буквы сноской быть не должно.
