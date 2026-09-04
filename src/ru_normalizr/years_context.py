@@ -72,6 +72,10 @@ def _is_non_year_following_token(token: str) -> bool:
     parsed = parse_word(token)
     if not parsed:
         return False
+    # Компаратив справа сравнивает количество, а не датирует («на 1000 больше»),
+    # и «лет» — счётное слово при числе, а не название года («за 1500 лет»).
+    if token.lower() == "лет" or any(candidate.tag.POS == "COMP" for candidate in parsed):
+        return True
     for candidate in parsed:
         if candidate.normal_form in _NON_YEAR_EXCEPTION_LEMMAS:
             return True

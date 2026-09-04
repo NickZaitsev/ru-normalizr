@@ -125,6 +125,23 @@ def _pick_range_preposition(first_ordinal: str) -> str:
     return "с" if head[1].upper() in RU_VOWELS else "со"
 
 
+def _heading_gender(head: str) -> str:
+    """Род вершины рубрикации, когда её падеж по контексту не определился.
+
+    У «главы», «части», «книги» род стабилен, а неоднозначен только падеж:
+    «главы 8-9» без предлога слева `_heading_parse` разобрать не может, но
+    женский род известен и там. Одушевлённый омоним («глава» как начальник)
+    для рубрики невозможен, поэтому предпочитается неодушевлённый разбор —
+    тот же, который `_heading_parse` уже отбирает для выбора падежа.
+    """
+    nouns = [candidate for candidate in parse_word(head.lower()) if "NOUN" in candidate.tag]
+    inanimate = [candidate for candidate in nouns if "inan" in candidate.tag]
+    for candidate in inanimate or nouns:
+        if candidate.tag.gender:
+            return candidate.tag.gender
+    return "masc"
+
+
 def _heading_parse(text: str, match_start: int, head: str):
     parsed = [candidate for candidate in parse_word(head.lower()) if "NOUN" in candidate.tag]
     if not parsed:
@@ -165,7 +182,9 @@ def _heading_parse(text: str, match_start: int, head: str):
 
 def normalize_heading_ranges(text: str) -> str:
     def render_range(head: str, noun_parse, left: int, right: int) -> str:
-        gender = noun_parse.tag.gender if noun_parse and noun_parse.tag.gender else "masc"
+        gender = (
+            noun_parse.tag.gender if noun_parse and noun_parse.tag.gender else None
+        ) or _heading_gender(head)
         left_ordinal = _ordinal_words(left, "gent", gender)
         right_case = "accs" if gender == "femn" else "nomn"
         right_ordinal = _ordinal_words(right, right_case, gender)

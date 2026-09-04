@@ -531,6 +531,22 @@ def _resolve_unit_at(site: _NumberSite) -> _UnitAtSite:
     return _UnitAtSite(alias, noun_token, unit_token_span, unit_raw, unit_info)
 
 
+def _landmark_follows_unit(site: _NumberSite, unit: _UnitAtSite) -> bool:
+    """«в 1500 м от реки»: за единицей стоит ориентир, число — расстояние.
+
+    Тот же признак, по которому работает правило distance-from-landmark в
+    `numerals/_helpers.py`; здесь он нужен, чтобы «годовой» override не
+    перебивал уже выбранный этим правилом предложный падеж.
+    """
+    after = site.idx + 1 + unit.token_span
+    if after < len(site.tokens) and site.tokens[after] == ".":
+        after += 1
+    return (
+        after < len(site.tokens)
+        and normalize_context_token(site.tokens[after]) in {"от", "до"}
+    )
+
+
 def _unit_case_at_site(site: _NumberSite, unit: _UnitAtSite, info: UnitDescriptor) -> str:
     """Падеж числа перед единицей: год после «в» и несклоняемая единица особые."""
     case = site.case
@@ -538,6 +554,7 @@ def _unit_case_at_site(site: _NumberSite, unit: _UnitAtSite, info: UnitDescripto
         1000 <= site.value <= 2100
         and site.idx > 0
         and normalize_context_token(site.tokens[site.idx - 1]) == "в"
+        and not _landmark_follows_unit(site, unit)
     ):
         case = "accs"
     if info.morphology.indeclinable and unit.alias.strip(".") == info.lemma:

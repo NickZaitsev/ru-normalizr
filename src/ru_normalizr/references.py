@@ -99,9 +99,11 @@ ADMINISTRATIVE_LAW_REFERENCE_PATTERN = compile_scan(
     re.IGNORECASE,
 )
 
+# Номер параграфа читается и без точки: «§ 3» — такая же ссылка, как «§ 3.1»,
+# и знак сам по себе для синтеза бесполезен.
 SECTION_REFERENCE_PATTERN = compile_scan(
-    r"(?<!\w)§\s*(?P<first>\d+(?:\.\d+)+)"
-    r"(?:\s+и\s+§\s*(?P<second>\d+(?:\.\d+)+))?"
+    r"(?<!\w)§\s*(?P<first>\d+(?:\.\d+)*)(?!\d)"
+    r"(?:\s+и\s+§\s*(?P<second>\d+(?:\.\d+)*)(?!\d))?"
 )
 
 ISBN_PATTERN = compile_scan(
@@ -146,7 +148,11 @@ def normalize_page_references(text: str) -> str:
             right = render_ordinal(
                 right_number, case="accs", gender="femn", inanimate=True
             )
-            return f"страницах с {left} по {right}"
+            # «Смотри страницы…» — винительный от глагола, «на страницах…» —
+            # предложный от предлога: диапазон подчиняется тому же управлению,
+            # что и одиночный номер страницы ниже.
+            noun = "страницы" if directive in {"см", "смотри"} else "страницах"
+            return f"{noun} с {left} по {right}"
         number_value = _page_number(match.group("number"))
         if number_value is None:
             return match.group(0)
@@ -250,7 +256,16 @@ def normalize_section_references(text: str) -> str:
         if first is None or (second_raw is not None and second is None):
             return match.group(0)
         context = left_context(text, match.start(), 24)
-        noun = "параграфах" if re.search(r"\bв\s*$", context) else "параграф"
+        # Предлог «в» ставит существительное в предложный падеж, а число
+        # параграфов задаёт его число: «в параграфе три», «в параграфах три и
+        # четыре». Знак пишут и с заглавной строки, поэтому регистр «В» тоже
+        # управляет.
+        if re.search(r"\bв\s*$", context, re.IGNORECASE):
+            noun = "параграфах" if second else "параграфе"
+        else:
+            noun = "параграф"
+        if not context.strip() or context.rstrip().endswith((".", "!", "?", "…")):
+            noun = noun.capitalize()
         return f"{noun} {first}" + (f" и {second}" if second else "")
 
     return SECTION_REFERENCE_PATTERN.sub(repl, text)

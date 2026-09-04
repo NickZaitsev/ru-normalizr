@@ -19,6 +19,18 @@ _WORD_AT_POSITION_PATTERN = compile_scan(r"[A-Za-zА-Яа-яЁё]+")
 _CAPS_CONNECTORS = {"А", "В", "И", "К", "О", "С", "У"}
 
 
+def _is_dictionary_abbreviation(word: str) -> bool:
+    """Словарь знает слово только как аббревиатуру («МГИМО», «ГИБДД»).
+
+    Заглавная строка-заголовок опускается в обычный регистр, но акроним
+    заглавным написан по существу, а не потому, что попал в заголовок. Признак
+    берётся из морфологии: у слова-заголовка («СТОЛ», «ЗАГОЛОВОК») есть
+    обычные разборы, у акронима все разборы помечены `Abbr`.
+    """
+    parses = parse_word(word.lower())
+    return bool(parses) and all("Abbr" in candidate.tag for candidate in parses)
+
+
 def normalize_first_word_caps(text: str, enabled: bool = True) -> str:
     if not enabled:
         return text
@@ -30,6 +42,7 @@ def normalize_first_word_caps(text: str, enabled: bool = True) -> str:
         if (
             word not in KNOWN_ABBREVIATIONS
             and len(word) > 3
+            and not _is_dictionary_abbreviation(word)
             and any(char.isalpha() or char.isdigit() for char in rest)
         ):
             return match.group(1) + word.capitalize()

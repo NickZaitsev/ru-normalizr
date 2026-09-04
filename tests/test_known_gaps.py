@@ -267,18 +267,6 @@ REVIEW_2026_09_GAP_CASES = (
             "case does not separate it from Mail.Ru, see docs/ISSUES.md",
         ),
     ),
-    # protect_negative_numbers идёт раньше, чем « - » превращается в тире (это
-    # делает только finalize), поэтому дефис-тире перед числом в прозе читается
-    # минусом.
-    pytest.param(
-        "Он сказал - 5 человек ушли раньше срока.",
-        "Он сказал — пять человек ушли раньше срока.",
-        id="spaced_hyphen_before_number_read_as_minus",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a spaced hyphen used as a dash is protected as a unary minus",
-        ),
-    ),
     # Идентификаторы читаются как числа: ИНН — как «семь миллиардов…», код
     # ГОСТа — как десятичная дробь, номер ISO — с двоеточием внутри. Слово-
     # метка слева (ИНН, ОГРН, ГОСТ, ISO) должно переключать чтение на цифры
@@ -332,29 +320,8 @@ REVIEW_2026_09_GAP_CASES = (
             reason="the k thousands suffix is recognized only after punctuation",
         ),
     ),
-    # --- Ложные срабатывания контекста -----------------------------------------
+    # --- Ложные срабатывания контекста ---------------------------------------
     #
-    # Голое «в» без точки после латинского слова или римского числа принимается
-    # за сокращение «век»: «mix в» → «тысяча девятого века», «II в переводе» →
-    # «второго века переводе». Для «в»/«вв» нужна точка, как у «стол».
-    pytest.param(
-        "Слово mix в русском языке означает смесь.",
-        "Слово микс в русском языке означает смесь.",
-        id="bare_v_after_latin_word_read_as_century",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a bare «в» after a roman-looking Latin word is read as «век»",
-        ),
-    ),
-    pytest.param(
-        "Часть II в переводе Пастернака вышла позже.",
-        "Часть вторая в переводе Пастернака вышла позже.",
-        id="bare_v_after_roman_numeral_read_as_century",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a bare «в» after a roman numeral is read as «век»",
-        ),
-    ),
     # Граммы принимаются за годы: allows_short_abbreviated_year разрешает «г»
     # после любого предлога, а проверка на вещество в родительном справа есть
     # только для «под».
@@ -365,37 +332,6 @@ REVIEW_2026_09_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="«г» after a preposition is read as a year abbreviation before a mass noun",
-        ),
-    ),
-    # Неявный год после предлога: «на 1000 больше» и «за 1500 лет» читаются
-    # порядковыми, хотя справа компаратив или счётное слово «лет».
-    pytest.param(
-        "Сегодня пришло на 1000 больше, чем вчера.",
-        "Сегодня пришло на тысячу больше, чем вчера.",
-        id="implicit_year_before_comparative",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a round number after «на» before a comparative is read as an implicit year",
-        ),
-    ),
-    pytest.param(
-        "За 1500 лет многое изменилось.",
-        "За тысячу пятьсот лет многое изменилось.",
-        id="implicit_year_before_let",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a number after «за» before «лет» is read as an implicit year",
-        ),
-    ),
-    # TEXT_DATE_PATTERN знает только предлоги «перед» и «на»; «к 5 мая» получает
-    # родительный вместо дательного.
-    pytest.param(
-        "Отчёт нужно сдать к 5 мая.",
-        "Отчёт нужно сдать к пятому мая.",
-        id="date_after_k_preposition_gets_genitive",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="text dates know only «перед» and «на» as case-governing prepositions",
         ),
     ),
     # NUMERIC_DATE_PATTERN принимает год из двух цифр без «г.» и не смотрит на
@@ -449,19 +385,8 @@ REVIEW_2026_09_GAP_CASES = (
             reason="«обл.» expands to the nominative after a locative adjective",
         ),
     ),
-    # --- Падеж и род числительных ---------------------------------------------
+    # --- Падеж и род числительных --------------------------------------------
     #
-    # «Годовой» override в _unit_case_at_site (1000 ≤ n ≤ 2100 после «в» → accs)
-    # срабатывает на единицах длины и перебивает правило distance-from-landmark.
-    pytest.param(
-        "Лагерь стоял в 1500 м от реки.",
-        "Лагерь стоял в тысяче пятистах метрах от реки.",
-        id="distance_from_landmark_lost_to_year_override",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the year-range accusative override wins over distance-from-landmark",
-        ),
-    ),
     # distance-from-landmark не видит диапазон: единица и «от» стоят после
     # правой границы, а правило смотрит только на соседей левой.
     pytest.param(
@@ -473,17 +398,6 @@ REVIEW_2026_09_GAP_CASES = (
             reason="distance-from-landmark does not look past a range to the unit",
         ),
     ),
-    # Диапазон глав: «со» ставится перед любым в/ф/с/з/ш/ж, а род при
-    # неоднозначной вершине падает в мужской.
-    pytest.param(
-        "Прочитайте главы 8-9 к понедельнику.",
-        "Прочитайте главы с восьмой по девятую к понедельнику.",
-        id="chapter_range_preposition_and_gender",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="range rendering uses «со» before any в/ф/с/з and defaults to masculine",
-        ),
-    ),
     # Падеж каждого члена сочинённого ряда должен идти от существительного
     # справа: «3, 5 и 7 участникам» — дательный.
     pytest.param(
@@ -493,26 +407,6 @@ REVIEW_2026_09_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="coordinated numbers before a dative head stay nominative",
-        ),
-    ),
-    # Счёт матча: «3:2» склоняется по «со счётом» в родительный, а «4:1» вовсе
-    # не читается. Оба — именительный с паузой-тире, как уже делает «2:0».
-    pytest.param(
-        "Матч закончился со счётом 3:2 в пользу гостей.",
-        "Матч закончился со счётом три — два в пользу гостей.",
-        id="score_read_in_genitive",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a match score after «со счётом» inherits the genitive",
-        ),
-    ),
-    pytest.param(
-        "Серия закончилась 4:1 в пользу хозяев.",
-        "Серия закончилась четыре — один в пользу хозяев.",
-        id="score_colon_not_read",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a match score without a score word keeps the colon",
         ),
     ),
     # --- Единицы измерения ------------------------------------------------------
@@ -577,29 +471,8 @@ REVIEW_2026_09_GAP_CASES = (
             reason="a decimal range is rendered with a comma instead of a dash",
         ),
     ),
-    # Знак параграфа без точки после номера не читается.
-    pytest.param(
-        "§ 3 настоящих правил обязателен для всех.",
-        "Параграф три настоящих правил обязателен для всех.",
-        id="section_sign_without_dotted_number_not_read",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="«§ N» without a dotted number keeps the section sign",
-        ),
-    ),
-    # --- Регистр, аббревиатуры и латиница ----------------------------------------
+    # --- Регистр, аббревиатуры и латиница ------------------------------------
     #
-    # normalize_first_word_caps опускает любой акроним длиннее трёх букв, если
-    # его нет в KNOWN_ABBREVIATIONS.
-    pytest.param(
-        "МГИМО объявил дополнительный набор.",
-        "МГИМО объявил дополнительный набор.",
-        id="unknown_acronym_decapitalized_at_sentence_start",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="an acronym outside KNOWN_ABBREVIATIONS is decapitalized as a CAPS word",
-        ),
-    ),
     # Одиночная латинская буква идёт через IPA как безударный артикль «э», а не
     # по имени буквы «эй».
     pytest.param(
@@ -609,27 +482,6 @@ REVIEW_2026_09_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a standalone Latin letter goes through IPA as the article «a»",
-        ),
-    ),
-    # _resolve_explicit_year_word_case знает дательный только для «к/ко».
-    pytest.param(
-        "По 2020 году данных пока нет.",
-        "По две тысячи двадцатому году данных пока нет.",
-        id="year_after_po_preposition_gets_locative",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="«по» before a year is not mapped to the dative",
-        ),
-    ),
-    # Кириллическое «ХХ» перед «веке» отбрасывается как двойник, хотя контекст
-    # однозначно требует римского числа.
-    pytest.param(
-        "В ХХ веке наука изменила мир.",
-        "В двадцатом веке наука изменила мир.",
-        id="cyrillic_roman_lookalike_before_century",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a Cyrillic look-alike roman numeral is spelled out even before «веке»",
         ),
     ),
     # «руб.» раскрывается в родительный множественного без числа слева.
@@ -664,30 +516,6 @@ REVIEW_2026_09_GAP_CASES = (
     ),
     # --- Найдено пробами corner cases при закрытии дефектов «-м» (3 сентября) --
     #
-    # Наращение «-м» у неглагольного порядкового вне года читается
-    # количественным: «на 41-м километре» — «на сорока одном», хотя рядом
-    # «на 5-м этаже» и «на 100-м километре» разбираются верно. Отличается
-    # только число: 41 попадает в диапазон правдоподобных лет.
-    pytest.param(
-        "На 41-м километре трассы произошла авария.",
-        "На сорок первом километре трассы произошла авария.",
-        id="ordinal_suffix_before_unit_read_as_cardinal",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="«41-м» before a unit is read as the cardinal «сорока одном»",
-        ),
-    ),
-    # Порядковое с наращением без существительного справа: «а брат на 3-м»
-    # теряет порядковость и читается дательным количественного «трём».
-    pytest.param(
-        "Он на 5-м месте, а брат на 3-м.",
-        "Он на пятом месте, а брат на третьем.",
-        id="bare_ordinal_suffix_read_as_cardinal",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a bare «3-м» without a head noun is read as the cardinal «трём»",
-        ),
-    ),
     # Дата «8-м марта» получает творительный вместо винительного: предлог «на»
     # с датой требует «на восьмое марта».
     pytest.param(
@@ -699,15 +527,33 @@ REVIEW_2026_09_GAP_CASES = (
             reason="«на 8-м марта» keeps the instrumental instead of the accusative date",
         ),
     ),
-    # Диапазон страниц раскрывается в местном падеже независимо от управления:
-    # «Смотри страницах с пятой по шестую» вместо «страницы с пятой по шестую».
+    # --- Найдено пробами при закрытии правок ревью (4 сентября) --------------
+    #
+    # Голое «в» после римского числа перестало читаться веком только там, где
+    # слева стоит неодушевлённая вершина заголовка. «Глава» разбирается и как
+    # одушевлённое («глава города»), проверка на неодушевлённость не проходит,
+    # и предлог снова съедается: «Глава четвёртый век этом издании».
     pytest.param(
-        "Смотри стр. 5—6 в сноске.",
-        "Смотри страницы с пятой по шестую в сноске.",
-        id="page_range_ignores_verb_government",
+        "Глава IV в этом издании отсутствует.",
+        "Глава четвёртая в этом издании отсутствует.",
+        id="bare_v_after_animate_ambiguous_heading_head_read_as_century",
         marks=pytest.mark.xfail(
             strict=True,
-            reason="the expanded «стр.» of a page range is always locative",
+            reason="the heading head «глава» also parses as animate, so the "
+            "inanimate check fails and the bare «в» is eaten as «век»",
+        ),
+    ),
+    # Заглавная аббревиатура в начале предложения сохраняет регистр только если
+    # морфология знает её как `Abbr`. «НАСА» и «ЮНЕСКО» словарю неизвестны и
+    # опускаются в строчные, хотя «МГИМО» уже читается верно.
+    pytest.param(
+        "НАСА объявило дополнительный набор.",
+        "НАСА объявило дополнительный набор.",
+        id="acronym_outside_the_dictionary_decapitalized_at_sentence_start",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="an acronym that morphology does not know as Abbr is still "
+            "decapitalized as a CAPS word at sentence start",
         ),
     ),
 )

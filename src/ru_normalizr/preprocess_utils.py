@@ -402,6 +402,11 @@ def protect_negative_numbers(text: str) -> str:
     Тире, приклеенное к цифре, — минус, набранный тире («к утру было —2°»);
     после знака корня — тоже минус («√–1» — мнимая единица, а не «корень из — один»);
     диапазоны («91—92») сюда не попадают: перед знаком там цифра, а не пробел.
+
+    Отбитый пробелами с двух сторон дефис в прозе — тире («он сказал - 5
+    человек ушли»). Минус так набирают только там, где слева стоит открывающая
+    скобка, знак равенства или начало строки: в остальных позициях знак
+    отделён от числа авторским пробелом, а не относится к нему.
     """
 
     def repl(match: re.Match[str]) -> str:
@@ -411,6 +416,8 @@ def protect_negative_numbers(text: str) -> str:
         if sign[-1].isspace():
             before = text[: match.start("sign")].rstrip()
             if before.endswith((",", ";", ":")):
+                return match.group(0)
+            if prefix.isspace() and before and before[-1] not in "(=[{«":
                 return match.group(0)
         return f"{prefix}{NEGATIVE_NUMBER_PLACEHOLDER}{number}"
 

@@ -85,8 +85,13 @@ SCIENTIFIC_EXPONENT_PATTERN = compile_scan(
 RATIO_CONTEXT_PATTERN = compile_scan(
     r"\b(?:пропорци\w*|масштаб\w*|соотношени\w*)\s*$", re.IGNORECASE
 )
+# Глаголы завершения матча ставят счёт так же, как «выиграли» и слово «счёт»:
+# «серия закончилась 4:1». Без них двоеточие оставалось в выводе, потому что
+# отношение читается только в опознанном контексте — иначе «4:15» в записи
+# времени превратилось бы в счёт.
 SCORE_CONTEXT_PATTERN = compile_scan(
-    r"\b(?:выиграл\w*|победил\w*|сч[её]т\w*)\s*$", re.IGNORECASE
+    r"\b(?:выиграл\w*|победил\w*|сч[её]т\w*|закончил\w*|завершил\w*|сыграл\w*)\s*$",
+    re.IGNORECASE,
 )
 _EQUATION_OPERAND = r"\(*(?:\d+(?:[.,]\d+)?|[^\W\d_]\w*)\)*"
 EQUATION_PATTERN = compile_scan(

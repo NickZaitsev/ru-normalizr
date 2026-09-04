@@ -176,15 +176,26 @@ class HeadingRangeTests(unittest.TestCase):
             "см. главы с третьей по пятую",
         )
 
-    def test_unresolvable_head_is_left_as_written_and_defaults_to_masculine(self):
+    def test_unresolvable_head_is_left_as_written_but_keeps_its_gender(self):
+        # Падеж вершины по контексту не разбирается, и она остаётся как в
+        # исходнике, но род у «главы» стабилен и берётся из её разбора: номера
+        # согласуются женским родом, а не мужским по умолчанию.
         self.assertEqual(
             normalize_heading_ranges("главы 3-5"),
-            "главы с третьего по пятый",
+            "главы с третьей по пятую",
         )
         self.assertEqual(
             normalize_heading_ranges("к главы 3-5"),
-            "к главы с третьего по пятый",
+            "к главы с третьей по пятую",
         )
+
+    def test_heading_gender_comes_from_the_inanimate_parse(self):
+        # У «главы» есть и одушевлённый разбор (начальник) общего рода, но
+        # рубрика одушевлённой не бывает, поэтому род берётся из
+        # неодушевлённого разбора. Слово без разбора вовсе — мужской род.
+        self.assertEqual(ordinals._heading_gender("главы"), "femn")
+        self.assertEqual(ordinals._heading_gender("тома"), "masc")
+        self.assertEqual(ordinals._heading_gender("щщщы"), "masc")
 
     def test_head_that_cannot_be_pluralized_is_left_as_written(self):
         stub = SimpleNamespace(
@@ -206,7 +217,7 @@ class HeadingRangeTests(unittest.TestCase):
             ("тома 6-8", "тома с шестого по восьмой"),
             ("тома 8-9", "тома с восьмого по девятый"),
             ("тома 40-41", "тома с сорокового по сорок первый"),
-            ("Книги 1-2", "Книги с первого по второй"),
+            ("Книги 1-2", "Книги с первой по вторую"),
         )
         for source, expected in cases:
             with self.subTest(source=source):

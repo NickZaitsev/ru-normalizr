@@ -3190,15 +3190,16 @@ def test_ninety_compound_adjective_uses_the_nominative_stem(
 
 HEADING_RANGE_PREPOSITION_CASES = (
     # «Со» нужно перед стечением согласных, а не перед любой шипящей или
-    # свистящей: раньше правило смотрело только на первую букву.
+    # свистящей: раньше правило смотрело только на первую букву. Номера
+    # согласованы с родом вершины: «главы» — женский, «тома» — мужской.
     pytest.param(
         "Прочитайте главы 8-9 к понедельнику.",
-        "Прочитайте главы с восьмого по девятый к понедельнику.",
+        "Прочитайте главы с восьмой по девятую к понедельнику.",
         id="chapter_range_uses_plain_s_before_a_vowel",
     ),
     pytest.param(
         "Прочитайте главы 6-8 к понедельнику.",
-        "Прочитайте главы с шестого по восьмой к понедельнику.",
+        "Прочитайте главы с шестой по восьмую к понедельнику.",
         id="chapter_range_uses_plain_s_before_shestogo",
     ),
     pytest.param(
@@ -3214,7 +3215,7 @@ HEADING_RANGE_PREPOSITION_CASES = (
     # Стечение согласных «вт» по-прежнему требует «со».
     pytest.param(
         "Прочитайте главы 2-3 к понедельнику.",
-        "Прочитайте главы со второго по третий к понедельнику.",
+        "Прочитайте главы со второй по третью к понедельнику.",
         id="chapter_range_keeps_so_before_a_consonant_cluster",
     ),
 )
@@ -3414,4 +3415,394 @@ DOTTED_TIME_VERSUS_PRICE_CASES = (
 def test_dotted_number_tells_a_price_from_a_time(
     check_tts: CheckTts, source: str, expected: str
 ) -> None:
+    check_tts(source, expected)
+
+
+# --- Ревью 1.1.0 (4 сентября 2026): семнадцать закрытых дефектов -------------
+#
+# Каждая группа — один снятый пробел из `REVIEW_2026_09_GAP_CASES`. Рядом с
+# рабочим примером стоит граничный вход, на котором правило срабатывать не
+# должно: именно он ловит откат правки в обратную сторону. Семнадцатый кейс,
+# род диапазона рубрик, лежит выше в `HEADING_RANGE_PREPOSITION_CASES` — там
+# уже стояли его граничные случаи.
+
+
+YEAR_PREPOSITION_CASE_CASES = (
+    # «по» перед годом управляет дательным так же, как «к»: раньше дательный
+    # знали только «к»/«ко», а «по» получало предложный.
+    pytest.param(
+        "По 2020 году данных пока нет.",
+        "По две тысячи двадцатому году данных пока нет.",
+        id="year_after_po_is_dative",
+    ),
+    pytest.param(
+        "К 2020 году данных пока нет.",
+        "К две тысячи двадцатому году данных пока нет.",
+        id="year_after_k_stays_dative",
+    ),
+    # «в» по-прежнему предложный: список дательных предлогов закрытый.
+    pytest.param(
+        "В 2020 году данных пока нет.",
+        "В две тысячи двадцатом году данных пока нет.",
+        id="year_after_v_stays_locative",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), YEAR_PREPOSITION_CASE_CASES)
+def test_year_word_case_follows_the_preposition(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+TEXT_DATE_PREPOSITION_CASES = (
+    # «к 5 мая» — дательный: раньше шаблон текстовых дат знал управляющими
+    # только «перед» и «на», и день получал родительный «пятого».
+    pytest.param(
+        "Отчёт нужно сдать к 5 мая.",
+        "Отчёт нужно сдать к пятому мая.",
+        id="text_date_after_k_is_dative",
+    ),
+    pytest.param(
+        "Ко 2 мая мы закончим.",
+        "Ко второму мая мы закончим.",
+        id="text_date_after_vocalized_ko_is_dative",
+    ),
+    # Прежние предлоги сохраняют свои падежи: «перед» — творительный,
+    # «на» — винительный.
+    pytest.param(
+        "Отчёт нужно сдать перед 5 мая.",
+        "Отчёт нужно сдать перед пятым мая.",
+        id="text_date_after_pered_stays_instrumental",
+    ),
+    pytest.param(
+        "На 3 июля назначен приём в клинике.",
+        "На третье июля назначен приём в клинике.",
+        id="text_date_after_na_stays_accusative",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), TEXT_DATE_PREPOSITION_CASES)
+def test_text_date_day_case_follows_the_preposition(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+SECTION_SIGN_CASES = (
+    # Знак параграфа читается и без точки в номере; падеж и число берутся из
+    # левого контекста, а в начале предложения слово идёт с заглавной.
+    pytest.param(
+        "§ 3 настоящих правил обязателен для всех.",
+        "Параграф три настоящих правил обязателен для всех.",
+        id="section_sign_at_sentence_start_is_nominative",
+    ),
+    pytest.param(
+        "В § 3 сказано иное.",
+        "В параграфе три сказано иное.",
+        id="section_sign_after_v_is_locative_singular",
+    ),
+    # Два номера подряд дают множественное «параграфах».
+    pytest.param(
+        "В § 3 и § 4 сказано иное.",
+        "В параграфах три и четыре сказано иное.",
+        id="two_section_signs_after_v_are_locative_plural",
+    ),
+    # Номер с точками по-прежнему читается тем же правилом.
+    pytest.param(
+        "Подробные требования приведены в § 4.2 и § 4.3 документа.",
+        "Подробные требования приведены в параграфах четыре точка два "
+        "и четыре точка три документа.",
+        id="dotted_section_numbers_still_read",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), SECTION_SIGN_CASES)
+def test_section_sign_edges(check_tts: CheckTts, source: str, expected: str) -> None:
+    check_tts(source, expected)
+
+
+MATCH_SCORE_CASES = (
+    # Счёт матча — именительный с паузой-тире, а не родительный от «со счётом»
+    # и не двоеточие в выводе.
+    pytest.param(
+        "Матч закончился со счётом 3:2 в пользу гостей.",
+        "Матч закончился со счётом три — два в пользу гостей.",
+        id="score_after_score_word_is_nominative",
+    ),
+    pytest.param(
+        "Серия закончилась 4:1 в пользу хозяев.",
+        "Серия закончилась четыре — один в пользу хозяев.",
+        id="score_after_finish_verb_is_read",
+    ),
+    pytest.param(
+        "Мы сыграли 1:1.",
+        "Мы сыграли один — один.",
+        id="score_after_play_verb_is_nominative",
+    ),
+    # Время не страдает: стадия дат и времени забирает двоеточие раньше, чем
+    # числовая стадия видит контекст счёта.
+    pytest.param(
+        "Совещание закончилось 18:30 по местному времени.",
+        "Совещание закончилось восемнадцать, тридцать по местному времени.",
+        id="time_after_finish_verb_stays_a_time",
+    ),
+    # «Сыграть» с обычным дополнением по-прежнему им управляет.
+    pytest.param(
+        "Мы сыграли 5 матчей за неделю.",
+        "Мы сыграли пять матчей за неделю.",
+        id="play_verb_still_governs_a_plain_object",
+    ),
+    pytest.param(
+        "Она сыграла 2 партии из 3.",
+        "Она сыграла две партии из трёх.",
+        id="play_verb_still_governs_a_paucal_object",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), MATCH_SCORE_CASES)
+def test_match_score_edges(check_tts: CheckTts, source: str, expected: str) -> None:
+    check_tts(source, expected)
+
+
+DISTANCE_VERSUS_YEAR_OVERRIDE_CASES = (
+    # Число из диапазона правдоподобных лет после «в» получало винительный как
+    # неявный год и перебивало расстояние до ориентира. Ориентир справа сильнее.
+    pytest.param(
+        "Лагерь стоял в 1500 м от реки.",
+        "Лагерь стоял в одной тысяче пятистах метрах от реки.",
+        id="year_shaped_distance_from_landmark_is_locative",
+    ),
+    pytest.param(
+        "Лагерь стоял в 500 м от реки.",
+        "Лагерь стоял в пятистах метрах от реки.",
+        id="plain_distance_from_landmark_stays_locative",
+    ),
+    # Без ориентира винительное чтение сохраняется: это не расстояние.
+    pytest.param(
+        "Лагерь стоял в 1500 м и не двигался.",
+        "Лагерь стоял в одну тысячу пятьсот метров и не двигался.",
+        id="year_shaped_quantity_without_landmark_stays_accusative",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), DISTANCE_VERSUS_YEAR_OVERRIDE_CASES)
+def test_distance_beats_the_year_override(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+PAGE_RANGE_GOVERNMENT_CASES = (
+    # Раскрытое «стр.» больше не всегда предложное: «Смотри» требует
+    # винительного, а предлог «на» — предложного.
+    pytest.param(
+        "Смотри стр. 5—6 в сноске.",
+        "Смотри страницы с пятой по шестую в сноске.",
+        id="page_range_after_see_is_accusative",
+    ),
+    pytest.param(
+        "На стр. 5—6 в сноске.",
+        "На страницах с пятой по шестую в сноске.",
+        id="page_range_after_na_stays_locative",
+    ),
+    pytest.param(
+        "Таблица приведена на стр. 12–15, а схема — на стр. 21.",
+        "Таблица приведена на страницах с двенадцатой по пятнадцатую, "
+        "а схема — на странице двадцать первой.",
+        id="page_range_and_single_page_after_na",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), PAGE_RANGE_GOVERNMENT_CASES)
+def test_page_range_follows_its_government(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+SPACED_DASH_BEFORE_NUMBER_CASES = (
+    # Дефис, отбитый пробелами с двух сторон, — тире прозы, а не унарный минус:
+    # защиту отрицательных чисел он больше не включает.
+    pytest.param(
+        "Он сказал - 5 человек ушли раньше срока.",
+        "Он сказал — пять человек ушли раньше срока.",
+        id="spaced_hyphen_between_words_is_a_dash",
+    ),
+    # Минус, приклеенный к числу, по-прежнему минус.
+    pytest.param(
+        "Температура была -5 градусов.",
+        "Температура была минус пять градусов.",
+        id="glued_minus_still_reads_as_minus",
+    ),
+    # После знака равенства пробел вокруг минуса ничего не меняет: слева
+    # открывающий контекст, а не слово.
+    pytest.param(
+        "Уравнение x = - 5 решено верно.",
+        "Уравнение экс = минус пять решено верно.",
+        id="spaced_minus_after_equals_still_reads_as_minus",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), SPACED_DASH_BEFORE_NUMBER_CASES)
+def test_spaced_hyphen_before_a_number_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+BARE_V_CENTURY_CASES = (
+    # Голое «в» без точки после латинского слова или неоднозначного римского
+    # числа — предлог, а не сокращение «век».
+    pytest.param(
+        "Слово mix в русском языке означает смесь.",
+        "Слово микс в русском языке означает смесь.",
+        id="bare_v_after_a_latin_word_is_a_preposition",
+    ),
+    pytest.param(
+        "Часть II в переводе Пастернака вышла позже.",
+        "Часть вторая в переводе Пастернака вышла позже.",
+        id="bare_v_after_a_heading_roman_is_a_preposition",
+    ),
+    # Настоящий век без точки сохраняется: слева нет вершины-заголовка,
+    # а римское число написано заглавными.
+    pytest.param(
+        "В XIV в русские земли объединялись.",
+        "В четырнадцатом веке русские земли объединялись.",
+        id="bare_v_after_an_uppercase_roman_stays_a_century",
+    ),
+    # «середина века» — часть века, а не вершина заголовка.
+    pytest.param(
+        "До середины XIX в у нас не было дорог.",
+        "До середины девятнадцатого века у нас не было дорог.",
+        id="bare_v_after_a_century_part_word_stays_a_century",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), BARE_V_CENTURY_CASES)
+def test_bare_v_tells_a_preposition_from_a_century(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+CYRILLIC_ROMAN_LOOKALIKE_CASES = (
+    # Кириллическое «ХХ» перед словом «век» — римское число: контекст снимает
+    # неоднозначность двойника.
+    pytest.param(
+        "В ХХ веке наука изменила мир.",
+        "В двадцатом веке наука изменила мир.",
+        id="cyrillic_lookalike_before_century_is_roman",
+    ),
+    # Без слова «век» справа те же буквы остаются буквами.
+    pytest.param(
+        "Буквы ХХ выглядят одинаково в двух алфавитах.",
+        "Буквы ха ха выглядят одинаково в двух алфавитах.",
+        id="cyrillic_lookalike_without_century_stays_letters",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), CYRILLIC_ROMAN_LOOKALIKE_CASES)
+def test_cyrillic_roman_lookalike_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+DICTIONARY_ACRONYM_CAPS_CASES = (
+    # Аббревиатура, известная морфологии как `Abbr`, не опускается в строчные
+    # в начале предложения, даже если её нет в списке известных сокращений.
+    pytest.param(
+        "МГИМО объявил дополнительный набор.",
+        "МГИМО объявил дополнительный набор.",
+        id="dictionary_acronym_keeps_caps_at_sentence_start",
+    ),
+    pytest.param(
+        "Он поступил в МГИМО после школы.",
+        "Он поступил в МГИМО после школы.",
+        id="dictionary_acronym_keeps_caps_inside_a_sentence",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), DICTIONARY_ACRONYM_CAPS_CASES)
+def test_dictionary_acronym_keeps_its_caps(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+IMPLICIT_YEAR_CONTEXT_CASES = (
+    # Компаратив и счётное «лет» справа снимают чтение «неявный год»: число
+    # остаётся количественным. «Одна тысяча» и «тысяча» читаются одинаково.
+    pytest.param(
+        "Сегодня пришло на 1000 больше, чем вчера.",
+        "Сегодня пришло на одну тысячу больше, чем вчера.",
+        id="round_number_before_a_comparative_is_a_cardinal",
+    ),
+    pytest.param(
+        "За 1500 лет многое изменилось.",
+        "За одну тысячу пятьсот лет многое изменилось.",
+        id="number_before_let_is_a_cardinal",
+    ),
+    # Неявный год без такого соседа справа по-прежнему порядковый.
+    pytest.param(
+        "В 1812 неожиданно началась война.",
+        "В тысяча восемьсот двенадцатом неожиданно началась война.",
+        id="implicit_year_without_a_blocking_neighbour_stays_ordinal",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), IMPLICIT_YEAR_CONTEXT_CASES)
+def test_implicit_year_context_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+M_SUFFIX_ORDINAL_CASES = (
+    # Наращение «-м» после «на» — предложный порядкового, а не количественное:
+    # раньше числа из диапазона правдоподобных лет уходили в «сорока одном».
+    pytest.param(
+        "На 41-м километре трассы произошла авария.",
+        "На сорок первом километре трассы произошла авария.",
+        id="year_shaped_m_suffix_before_a_unit_is_ordinal",
+    ),
+    pytest.param(
+        "На 42-м километре трассы произошла авария.",
+        "На сорок втором километре трассы произошла авария.",
+        id="plain_m_suffix_before_a_unit_stays_ordinal",
+    ),
+    # Без существительного справа наращение всё равно порядковое.
+    pytest.param(
+        "Он на 5-м месте, а брат на 3-м.",
+        "Он на пятом месте, а брат на третьем.",
+        id="bare_m_suffix_is_ordinal",
+    ),
+    # Другие наращения не задеты: «-го» и «-м» без «на» работают как прежде.
+    pytest.param(
+        "До 101-го рубля не хватило.",
+        "До ста одного рубля не хватило.",
+        id="go_suffix_before_a_currency_noun_unchanged",
+    ),
+    pytest.param(
+        "Выдали премию 3-м сотрудникам.",
+        "Выдали премию третьим сотрудникам.",
+        id="m_suffix_before_a_dative_head_unchanged",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), M_SUFFIX_ORDINAL_CASES)
+def test_m_suffix_ordinal_edges(check_tts: CheckTts, source: str, expected: str) -> None:
     check_tts(source, expected)

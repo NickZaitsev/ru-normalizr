@@ -110,6 +110,16 @@ _ROMAN_CENTURY_HEAD_PATTERN = (
     r"середин[аыуе]|серединой|половин[аыуе]|половиной|"
     r"треть|трети|третью|четверть|четверти|четвертью)"
 )
+#: Слово-«часть века» вплотную слева: «до середины XIX в у нас» — здесь «в»
+#: всё-таки сокращение века, потому что «середины» требует номера века справа.
+_CENTURY_HEAD_BEFORE_PATTERN = re.compile(
+    rf"\b{_ROMAN_CENTURY_HEAD_PATTERN}\s+$", re.IGNORECASE
+)
+#: Контекстное слово «век» справа: оно делает кириллические двойники римским
+#: числом, даже если сами по себе они читались бы буквами.
+_CENTURY_WORD_AFTER_PATTERN = re.compile(
+    r"\s+(?:вв?\.|век(?:а|е|у|ом|ов|и|ам|ами|ах)?|столети[еяюи]\w*)(?!\w)", re.IGNORECASE
+)
 _ROMAN_SHARED_CENTURY_RANGE_PATTERN = compile_scan(
     rf"\b(?P<left_head>{_ROMAN_CENTURY_HEAD_PATTERN})\s+"
     r"(?P<left>[IVXLCDM]+)"
@@ -595,6 +605,26 @@ def convert_roman_words(text: str) -> str:
             return match.group(0)
         if not match.group("spacing") and normalize_context_token(match.group("word")) != "в":
             return match.group(0)
+        # Сокращение «в»/«вв» без точки читается веком только там, где предлогом
+        # оно быть не может. Строчная запись римского числа — вообще не число, а
+        # латинское слово («Слово mix в русском языке»), а существительное-
+        # управитель слева делает номер своим определением, и «в» после него —
+        # предлог («Часть II в переводе»). Исключение — слово-«часть века»:
+        # «до середины XIX в у нас» требует именно века.
+        if (
+            match.group("spacing")
+            and match.group("word").lower() in {"в", "вв"}
+            and (
+                not match.group("roman").isupper()
+                or (
+                    _governing_noun_precedes(text, match.start())
+                    and not _CENTURY_HEAD_BEFORE_PATTERN.search(
+                        text[max(0, match.start() - 40) : match.start()]
+                    )
+                )
+            )
+        ):
+            return match.group(0)
         # «Петра I в Москву»: после имени римская цифра — номер монарха, а
         # голое «в» — предлог, не сокращение века.
         if match.group("word") in {"в", "В"} and _animate_name_precedes(
@@ -958,9 +988,13 @@ def normalize_cyrillic_roman(text: str) -> str:
                 return word
         if not any(char in "ХхСсІіМм" for char in word):
             return word
-        if not any(char in _ROMAN_LATIN_CHARS for char in word) and all(
-            char in _ROMAN_CYRILLIC_LOOKALIKE_CHARS for char in word
+        if (
+            not any(char in _ROMAN_LATIN_CHARS for char in word)
+            and all(char in _ROMAN_CYRILLIC_LOOKALIKE_CHARS for char in word)
+            and not _CENTURY_WORD_AFTER_PATTERN.match(text, match.end())
         ):
+            # Целиком кириллическая запись сама за себя не говорит («ХХ» — это
+            # и две буквы), но слово «век» справа снимает неоднозначность.
             return word
         latin_word = "".join(cyrillic_to_latin.get(char, char) for char in word).upper()
         try:

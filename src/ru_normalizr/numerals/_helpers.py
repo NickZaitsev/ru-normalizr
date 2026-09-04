@@ -874,8 +874,13 @@ _EQUALITY_PREDICATES = frozenset({"равен", "равна", "равно"})
 _ERA_MARKER_WORDS = frozenset({"нашей", "н", "нэ", "р", "рождества"})
 #: Ориентир, от которого отмеряют расстояние: «в 200 м от дома».
 _LANDMARK_MARKERS = frozenset({"от", "до"})
-#: Спортивный счёт: «выиграли 3-1» — оба числа именительные.
-_SCORE_VERBS = frozenset({"выиграть", "победить"})
+#: Спортивный счёт: «выиграли 3-1» — оба числа именительные. «Сыграть» ведёт
+#: себя так же («сыграли 1:1»), и без него запись читалась «одного — одного»:
+#: у числа 1 форма винительного одушевлённого совпадает с родительным.
+_SCORE_VERBS = frozenset({"выиграть", "победить", "сыграть"})
+#: Слово «счёт» перед числами тоже называет счёт, а не считает их: «со счётом
+#: 3:2» — «три — два», и падеж предлога при «счётом» к числам не переходит.
+_SCORE_NOUNS = frozenset({"счёт", "счет"})
 #: Предлоги, требующие предложного падежа независимо от разбора вершины.
 _LOCATIVE_PREPOSITIONS = frozenset({"в", "во", "о", "об", "при"})
 #: Обозначения-ярлыки перед числом: «ISO 100», «f/2.8».
@@ -1140,6 +1145,8 @@ def _rule_range_start_governed_by_left(ctx: NumeralContext) -> str | None:
         return None
     p_prev = first_parse_required(prev_token)
     if p_prev.tag.POS == "VERB" and p_prev.normal_form in _SCORE_VERBS:
+        return "nomn"
+    if p_prev.tag.POS == "NOUN" and p_prev.normal_form in _SCORE_NOUNS:
         return "nomn"
     prev_case = "loct" if "loc2" in p_prev.tag else p_prev.tag.case
     if not prev_case:

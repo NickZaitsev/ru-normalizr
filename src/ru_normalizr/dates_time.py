@@ -87,7 +87,7 @@ TEXT_DATE_LIST_PATTERN = compile_scan(
     re.IGNORECASE,
 )
 TEXT_DATE_PATTERN = compile_scan(
-    r"\b(?:(?P<prep>перед|на)\s+)?(?P<day>\d{1,2})\s+(?P<month>"
+    r"\b(?:(?P<prep>перед|на|к|ко)\s+)?(?P<day>\d{1,2})\s+(?P<month>"
     + MONTH_NAME_FRAGMENT
     + r")"
     + YEAR_TAIL_FRAGMENT,
@@ -332,11 +332,14 @@ def normalize_text_dates(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
         prep = match.group("prep")
         # «перед 5 мая» согласует день творительным, «на 3 июля» — винительным
-        # среднего рода («на третье»), без предлога дата читается родительным.
+        # среднего рода («на третье»), «к 5 мая» — дательным, без предлога дата
+        # читается родительным.
         if prep is None:
             day_case = "genitive"
         elif prep.lower() == "на":
             day_case = "accusative"
+        elif prep.lower() in ("к", "ко"):
+            day_case = "dative"
         else:
             day_case = "instrumental"
         day_word = _day_to_ordinal(int(match.group("day")), case=day_case)

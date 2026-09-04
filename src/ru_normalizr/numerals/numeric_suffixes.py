@@ -73,7 +73,12 @@ _TEXT_START_PREFIX_CHARS = " \t\r\n\"'«„“([{"
 _OB_BEFORE_CONSONANT_PATTERN = compile_scan(
     r"\bоб(?=\s+[бвгджзйклмнпрстфхцчшщ])", re.IGNORECASE
 )
-_COPULA_ORDINAL_SUFFIXES = frozenset({"м", "ом", "ем", "ым", "им"})
+#: Семья окончаний на «-м». Она отвечает сразу за два решения: творительный
+#: при копуле («он был 2-м») и предложный после предлога («на 3-м»). У формы
+#: количественного числительного с таким окончанием («трём», «одном») из
+#: косвенных падежей возможен только дательный, поэтому там, где дательного
+#: требовать некому, запись читается порядковым.
+_M_ENDING_SUFFIXES = frozenset({"м", "ом", "ем", "ым", "им"})
 #: Окончания, которые без вершины читаются порядковым: «21-го», «4-е». Обе
 #: пары — и дата, и маркер перечисления — пишутся так только порядковым, а
 #: количественная форма требует считаемого слова рядом. «ю» здесь нет:
@@ -537,7 +542,7 @@ def resolve_numeric_suffix(
         context_tokens = [*tokens_left, number_text, *tokens_right]
         context_case, context_explicit = get_numeral_case_ex(context_tokens, len(tokens_left))
         if (
-            suffix.casefold() in _COPULA_ORDINAL_SUFFIXES
+            suffix.casefold() in _M_ENDING_SUFFIXES
             and _has_copula_before(tokens_left)
         ):
             # A copular predicate with a written ordinal is instrumental:
@@ -549,12 +554,23 @@ def resolve_numeric_suffix(
             suffix.casefold() in _ORDINAL_ONLY_SUFFIXES
             and context_case == "accs"
             and tokens_left
-            and tokens_left[-1].casefold().strip(PUNCT_STRIP) in {"в", "во"}
             and not _noun_features(tokens_right)
+            and (
+                tokens_left[-1].casefold().strip(PUNCT_STRIP) in {"в", "во"}
+                or (
+                    tokens_left[-1].casefold().strip(PUNCT_STRIP) == "на"
+                    and suffix.casefold() in _M_ENDING_SUFFIXES
+                )
+            )
         ):
             # ``в 3-м`` can end a clause without an overt head noun.  The
             # standard ``-м`` spelling is still ordinal, and this residual
             # preposition ambiguity is locative rather than accusative.
+            # «на» дательного не требует вовсе, поэтому голое «на 3-м» — тоже
+            # предложный; но только у окончаний «-м», где форма количественного
+            # («трём») грамматична лишь в дательном. У остальных окончаний
+            # неоднозначность иная: у «1-й» совпадают женские формы, и падеж
+            # там выбирает вершина, а не предлог.
             context_case = "loct"
             context_explicit = True
         right_noun_features = _noun_features(tokens_right, names_excluded=True)
@@ -623,7 +639,11 @@ def resolve_numeric_suffix(
         best = [candidate for candidate in best if candidate.kind == "ordinal"]
     elif (
         noun_features
-        and not any(is_unit_token(noun.lemma) for noun in noun_features)
+        and not any(
+            is_unit_token(noun.lemma)
+            and (noun.plural or suffix.casefold() not in _M_ENDING_SUFFIXES)
+            for noun in noun_features
+        )
         and suffix.casefold() in _ORDINAL_ONLY_SUFFIXES
         and any(candidate.kind == "ordinal" for candidate in best)
     ):
@@ -634,7 +654,10 @@ def resolve_numeric_suffix(
         # остаётся количественным, как и суффиксы количественного реестра
         # («х», «ти», «ух») — они уходят в ветку ниже. Единица измерения
         # справа — счётное слово, а не нумеруемый объект: «до 101-го рубля»
-        # отмеряет сумму, поэтому остаётся количественным.
+        # отмеряет сумму, поэтому остаётся количественным. Исключение —
+        # единица в единственном числе при окончании «-м»: считать её так
+        # нельзя ни при каком числе («на 41-м километре» — не «сорока одном
+        # километре»), и запись нумерует, а не измеряет.
         best = [candidate for candidate in best if candidate.kind == "ordinal"]
     elif any(candidate.kind == "cardinal" for candidate in best):
         best = [candidate for candidate in best if candidate.kind == "cardinal"]

@@ -162,7 +162,7 @@ def _should_keep_era_terminal_dot(source_text: str, match: re.Match[str]) -> boo
 def _resolve_explicit_year_word_case(prep: str | None, word: str) -> str:
     word_lower = word.replace("+", "").lower()
     if word_lower == "году" and prep:
-        return "datv" if prep.lower() in ("к", "ко") else "loct"
+        return "datv" if prep.lower() in ("к", "ко", "по") else "loct"
     return YEAR_WORD_TO_CASE.get(word_lower, "nomn")
 
 
