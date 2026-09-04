@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from ..ordinal_utils import render_ordinal
+from ..placeholders import NEGATIVE_NUMBER_PLACEHOLDER
 from ..text_scan import compile_scan
 from ._constants import (
     CURRENCY_STANDALONE,
@@ -15,7 +16,9 @@ from ._constants import (
 from .unit_rendering import render_unit_expression
 
 MATH_EXPRESSION_CHAR_PATTERN = compile_scan(r"[0-9A-Za-zА-Яа-яЁё_,.%()+\-/*^°№]")
-APPROXIMATE_NUMBER_PATTERN = compile_scan(r"(?<!\w)~\s*(?=(?:\ue001)?\d)")
+APPROXIMATE_NUMBER_PATTERN = compile_scan(
+    rf"(?<!\w)~\s*(?=(?:{re.escape(NEGATIVE_NUMBER_PLACEHOLDER)})?\d)"
+)
 BINARY_MATH_OPERATOR_PATTERN = compile_scan(
     r"(?<=\d)\s*(?P<operator>[+−^*])\s*(?=\d)"
 )

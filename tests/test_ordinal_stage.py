@@ -196,23 +196,21 @@ class HeadingRangeTests(unittest.TestCase):
 
         self.assertEqual(result, "главы с третьей по пятую")
 
-    def test_preposition_becomes_so_before_a_sibilant_ordinal(self):
-        self.assertEqual(
-            normalize_heading_ranges("тома 2-3"),
-            "тома со второго по третий",
+    def test_preposition_becomes_so_only_before_a_consonant_cluster(self):
+        # «Со» наращивается перед стечением согласных, а не перед любой
+        # шипящей или свистящей: «со второго», «со ста», но «с седьмого».
+        cases = (
+            ("тома 2-3", "тома со второго по третий"),
+            ("тома 100-101", "тома с сотого по сто первый"),
+            ("тома 7-9", "тома с седьмого по девятый"),
+            ("тома 6-8", "тома с шестого по восьмой"),
+            ("тома 8-9", "тома с восьмого по девятый"),
+            ("тома 40-41", "тома с сорокового по сорок первый"),
+            ("Книги 1-2", "Книги с первого по второй"),
         )
-        self.assertEqual(
-            normalize_heading_ranges("тома 7-9"),
-            "тома со седьмого по девятый",
-        )
-        self.assertEqual(
-            normalize_heading_ranges("тома 6-8"),
-            "тома со шестого по восьмой",
-        )
-        self.assertEqual(
-            normalize_heading_ranges("Книги 1-2"),
-            "Книги с первого по второй",
-        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize_heading_ranges(source), expected)
 
     def test_abbreviated_range_expands_the_head_and_follows_context(self):
         self.assertEqual(
@@ -301,7 +299,7 @@ class CompoundAdjectiveTests(unittest.TestCase):
             ("100 кратный", "стократный"),
             ("2 дневный", "двухдневный"),
             ("7 часовой", "семичасовой"),
-            ("90 летний", "девяносталетний"),
+            ("90 летний", "девяностолетний"),
         )
         for source, expected in cases:
             with self.subTest(source=source):
@@ -377,7 +375,7 @@ class CompoundAdjectiveTests(unittest.TestCase):
 
     def test_ninety_keeps_its_nominative_stem_inside_a_compound(self):
         # The genitive "девяноста" is wrong as a prefix; "девяносто" is the stem.
-        self.assertEqual(normalize_compound_numeric_adjectives("90 летний"), "девяносталетний")
+        self.assertEqual(normalize_compound_numeric_adjectives("90 летний"), "девяностолетний")
         self.assertEqual(
             normalize_compound_numeric_adjectives("95 летний"),
             "девяностопятилетний",

@@ -112,12 +112,6 @@ EXCESSIVE_LINEBREAKS_PATTERN = compile_scan(r"\n{2,}")
 DECORATIVE_SEPARATOR_PATTERN = compile_scan(
     r"(?:(?<=^)|(?<=\n))[ \t]*(?:[*=_~+#\-\xad\u2010-\u2015][ \t]*){3,}(?:(?=$)|(?=\n))"
 )
-LEGACY_PARAGRAPH_BREAK_DOT_PATTERN = compile_scan(
-    r"(?P<prev>[^\n.!?…,:;–\-\"'])(?P<break>\n{2,})(?=(?:[\"«„“]\s*)?[А-ЯЁA-Z0-9])"
-)
-LEGACY_LINEBREAK_DOT_PATTERN = compile_scan(
-    r"(?P<prev>[^\n.!?…,:;–\-\"'])(?P<break>\n)(?=(?:[\"«„“]\s*)?[А-ЯЁA-Z0-9])"
-)
 INLINE_LINEBREAK_SPACE_PATTERN = compile_scan(
     r"(?<=[^\n])\n(?!(?:[\"«„“]\s*)?[А-ЯЁA-Z0-9])(?=[^\n])"
 )
@@ -243,8 +237,10 @@ LEGAL_CODE_GENITIVE_EXPANSIONS = {
     "ук": "уголовного кодекса российской федерации",
     "ак": "арбитражного кодекса российской федерации",
 }
+#: Граница справа обязательна: без неё безточечное «нэ» ловит начало обычного
+#: слова — «Нэнси» читалось «нашей эрынси», а «нэпа» — «нашей эрыпа».
 ERA_ABBREVIATION_PATTERN = compile_scan(
-    r"(?<!\w)(?P<abbr>до\s+н\.?\s*э\.?|н\.?\s*э\.?)(?P<tail>\s*)",
+    r"(?<!\w)(?P<abbr>до\s+н\.?\s*э\.?|н\.?\s*э\.?)(?![^\W\d_])(?P<tail>\s*)",
     re.IGNORECASE,
 )
 def normalize_punctuation_spacing(text: str) -> str:

@@ -183,7 +183,17 @@ def normalize_fractions(text: str) -> str:
                 if inflected_first is not None:
                     words[0] = inflected_first.word
         is_sing_1 = num % 10 == 1 and num % 100 != 11
-        if denom == 3 and case in {"nomn", "accs"}:
+        # Существительное «треть» согласуется с числителем как счётное слово,
+        # и его формы есть только для числителей на 1—4: «одна треть», «две
+        # трети». От пяти русский переходит на адъективную парадигму — «пять
+        # третьих», — поэтому такие числители идут общим путём ниже.
+        noun_third_numerator = num % 10 in {1, 2, 3, 4} and num % 100 not in {
+            11,
+            12,
+            13,
+            14,
+        }
+        if denom == 3 and case in {"nomn", "accs"} and noun_third_numerator:
             # In the nominative/accusative Russian uses the noun fraction
             # "треть": "две трети". Oblique cases retain the adjectival
             # paradigm already used by the public fraction contract.

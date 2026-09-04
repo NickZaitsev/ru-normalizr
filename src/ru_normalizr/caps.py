@@ -193,6 +193,12 @@ def _restore_known_abbreviations(original: str, lowered: str) -> str:
         letters = _letters_only(orig_tok)
         if not letters or not letters.isupper():
             continue
+        # Однобуквенные предлоги и союзы в капс-строке — слова, а не
+        # аббревиатуры: «СТОЛ СТОЯЛ У ОКНА» читается «стол стоял у окна».
+        # Точка рядом («ПУНКТ А.») делает из буквы маркер рубрикации, и его
+        # регистр восстанавливается по общему правилу ниже.
+        if letters in _CAPS_CONNECTORS and "." not in orig_tok:
+            continue
         upper_letters = letters.upper()
         is_known = upper_letters in KNOWN_ABBREVIATIONS
         is_short_abbrev = len(letters) <= 3

@@ -255,47 +255,6 @@ REVIEW_2026_09_GAP_CASES = (
             reason="a year at line start is read as a cardinal list number",
         ),
     ),
-    # Шаблон маркера эры «н. э.» без правой границы и с IGNORECASE съедает
-    # любое слово на «нэ…». Дефект живёт в двух местах: ERA_ABBREVIATION_PATTERN
-    # в preprocess_utils и ERA_REGEX в years.
-    pytest.param(
-        "Нэнси пришла домой поздно вечером.",
-        "Нэнси пришла домой поздно вечером.",
-        id="era_marker_without_right_boundary_eats_name",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="era marker regex has no right boundary and matches the start of a word",
-        ),
-    ),
-    pytest.param(
-        "Времена нэпа давно прошли, а привычки остались.",
-        "Времена нэпа давно прошли, а привычки остались.",
-        id="era_marker_without_right_boundary_eats_lowercase_word",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="era marker regex has no right boundary and matches the start of a word",
-        ),
-    ),
-    pytest.param(
-        "В 1990 году Нэнси уехала в Париж.",
-        "В тысяча девятьсот девяностом году Нэнси уехала в Париж.",
-        id="era_marker_after_year_eats_following_word",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="years-stage era regex has no right boundary and eats the word after a year",
-        ),
-    ),
-    # «и т. д.» ищется с IGNORECASE, поэтому инициалы «Т. Д.» перед фамилией
-    # раскрываются в «так далее». Заглавные буквы и фамилия справа — инициалы.
-    pytest.param(
-        "На сессии выступил Т. Д. Лысенко с докладом.",
-        "На сессии выступил тэ дэ Лысенко с докладом.",
-        id="initials_read_as_etc_abbreviation",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="«Т. Д.» initials are matched by the case-insensitive «и т. д.» pattern",
-        ),
-    ),
     # Голый домен ловится по реестру TLD без учёта регистра: «Sorry.It» —
     # склейка двух предложений, а не адрес. Настоящий домен пишут строчными.
     pytest.param(
@@ -525,27 +484,6 @@ REVIEW_2026_09_GAP_CASES = (
             reason="range rendering uses «со» before any в/ф/с/з and defaults to masculine",
         ),
     ),
-    # Знаменатель 3 даёт «трети» при любом числителе, кроме единицы.
-    pytest.param(
-        "Добавьте 5/3 стакана муки.",
-        "Добавьте пять третьих стакана муки.",
-        id="fraction_third_denominator_plural_form",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="denominator 3 renders as «трети» for any numerator other than one",
-        ),
-    ),
-    # Замена «девяноста» → «девяносто» в составном прилагательном делается
-    # только для 91–99.
-    pytest.param(
-        "На 90-летний юбилей собрались все родственники.",
-        "На девяностолетний юбилей собрались все родственники.",
-        id="compound_adjective_ninety_prefix",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the ninety prefix of a compound adjective keeps the genitive form",
-        ),
-    ),
     # Падеж каждого члена сочинённого ряда должен идти от существительного
     # справа: «3, 5 и 7 участникам» — дательный.
     pytest.param(
@@ -651,17 +589,6 @@ REVIEW_2026_09_GAP_CASES = (
     ),
     # --- Регистр, аббревиатуры и латиница ----------------------------------------
     #
-    # _restore_known_abbreviations возвращает верхний регистр однобуквенным
-    # токенам капс-строки: предлоги «У» и «В» остаются заглавными.
-    pytest.param(
-        "СТОЛ СТОЯЛ У ОКНА В КОМНАТЕ\nОн вошёл и сел.",
-        "Стол стоял у окна в комнате.\nОн вошёл и сел.",
-        id="caps_line_keeps_single_letter_prepositions_upper",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="single-letter words in a CAPS line are restored to upper case as abbreviations",
-        ),
-    ),
     # normalize_first_word_caps опускает любой акроним длиннее трёх букв, если
     # его нет в KNOWN_ABBREVIATIONS.
     pytest.param(
@@ -733,18 +660,6 @@ REVIEW_2026_09_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="«Св.» before a name in the genitive is left as is",
-        ),
-    ),
-    # «около 3.50 долларов» читается временем: DOTTED_TIME_LEFT_CONTEXT содержит
-    # «около» и не проверяет правый контекст. Через запятую та же сумма читается
-    # верно.
-    pytest.param(
-        "Билет стоил около 3.50 долларов.",
-        "Билет стоил около трёх долларов пятидесяти центов.",
-        id="dotted_price_after_okolo_read_as_time",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="«около N.NN» is read as a dotted time even before a currency word",
         ),
     ),
     # --- Найдено пробами corner cases при закрытии дефектов «-м» (3 сентября) --

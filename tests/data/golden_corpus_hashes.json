@@ -59,7 +59,7 @@
         "input_chars": 200000,
         "input_sha256": "49f5d3583207cd9df7192529771c1d2d607ac8aa3c59c14c9fd3424929f4c7a7",
         "output_chars": 206353,
-        "output_sha256": "4759f5db142c29dee14065461407ec93840c861ee42f062400cb2b7a78011d68"
+        "output_sha256": "04a85da24fcdc8593015c9b724a5a5f3278d47a7d7fd13d70cadd5709b31e548"
       },
       "02b_russian_army_and_navy_pre_reform": {
         "input_chars": 200000,
@@ -83,7 +83,7 @@
         "input_chars": 200000,
         "input_sha256": "25a6c0ae94bdf7b961b322b51efccc319c64a78be6a8d0d40fe01f6402323e6b",
         "output_chars": 205099,
-        "output_sha256": "43b65070bc90ee5e8e06b939e036468b51a0dc5e0bb0d2912ba0e95455bb4a63"
+        "output_sha256": "656307d27b6d7eef9712e9ab3a0db4fb708c8210a6bfdfffc77454c37dffbb64"
       },
       "06_semenov_tyan_shansky_tien_shan_travel": {
         "input_chars": 200000,

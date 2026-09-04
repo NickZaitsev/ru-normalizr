@@ -4,6 +4,7 @@ import logging
 import re
 
 from .._morph import canonicalize_case, parse_word, word_is_known
+from ..constants import RU_VOWELS
 from ..ordinal_utils import (
     render_ordinal,
 )
@@ -109,8 +110,19 @@ def _ordinal_words(num: int, case: str, gender: str | None) -> str:
     return render_ordinal(num, case=case, gender=gender)
 
 
+#: Согласные, после которых «с» наращивается до «со», — но только если за
+#: ними идёт ещё одна согласная: стечение «ст», «вт» произнести без гласной
+#: нельзя, а «во», «ше», «се» — можно.
+_RANGE_PREPOSITION_CLUSTER_HEADS = frozenset("вфсзшж")
+
+
 def _pick_range_preposition(first_ordinal: str) -> str:
-    return "со" if first_ordinal.startswith(("в", "ф", "с", "з", "ш", "ж")) else "с"
+    """«со второго», «со стотысячного», но «с восьмого», «с сотого»."""
+
+    head = first_ordinal[:2].lower()
+    if len(head) < 2 or head[0] not in _RANGE_PREPOSITION_CLUSTER_HEADS:
+        return "с"
+    return "с" if head[1].upper() in RU_VOWELS else "со"
 
 
 def _heading_parse(text: str, match_start: int, head: str):
@@ -276,11 +288,14 @@ def _compound_numeral_prefix(num_str: str) -> str:
     if value == 4:
         return "четырёх"
     words = inflect_numeral_string(num_str, "gent").split()
-    if 90 < value < 100 and words[:1] == ["девяноста"]:
-        words[0] = "девяносто"
-    elif value == 100:
+    # «девяносто» — единственная основа, которая в сложном прилагательном не
+    # переходит в родительный: «девяностолетний», не «девяносталетний». В
+    # составном числе она стоит не обязательно первой, поэтому правится в
+    # любой позиции: «стодевяностолетний», «тысячедевяностолетний».
+    words = ["девяносто" if word == "девяноста" else word for word in words]
+    if value == 100:
         return "сто"
-    elif 100 < value < 200 and words[:1] == ["ста"]:
+    if 100 < value < 200 and words[:1] == ["ста"]:
         words[0] = "сто"
     if value % 10 == 1 and value % 100 != 11 and words[-1:] == ["одного"]:
         words[-1] = "одно"

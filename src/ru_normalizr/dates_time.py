@@ -6,6 +6,7 @@ import re
 import num2words
 
 from .abbreviation_context import should_keep_terminal_abbreviation_dot
+from .numerals._constants import resolve_unit_form
 from .options import NormalizeOptions
 from .text_scan import compile_scan
 from .years import _counted_noun_follows, year_to_ordinal_words
@@ -186,6 +187,24 @@ DOTTED_TIME_RIGHT_CONTEXT_PATTERN = compile_scan(
     r"^\s*(?:утр(?:ом|а)?|вечер(?:ом|а)?|ноч(?:ью|и)?|дн(?:ём|ем)?|час(?:ов|а)?\b)",
     re.IGNORECASE,
 )
+#: Первое слово или знак валюты справа от «N.NN». «Около» одинаково часто
+#: стоит и перед временем, и перед ценой, поэтому левый контекст сам по себе
+#: не решает: «около 3.50 долларов» — цена, где точка отделяет центы.
+DOTTED_TIME_NEXT_TOKEN_PATTERN = compile_scan(r"^\s*([А-Яа-яЁёA-Za-z]+|[^\s\w])")
+
+
+def _currency_word_follows(right_context: str) -> bool:
+    """Справа от «N.NN» стоит валюта, значит точка отделяет копейки, не минуты.
+
+    Категорию слова даёт реестр единиц, поэтому новая валюта в реестре
+    начинает работать здесь сама, без второго списка.
+    """
+
+    token_match = DOTTED_TIME_NEXT_TOKEN_PATTERN.match(right_context)
+    if token_match is None:
+        return False
+    descriptor = resolve_unit_form(token_match.group(1))
+    return descriptor is not None and descriptor.category == "money"
 
 
 def _day_to_ordinal_genitive(day: int) -> str | None:
@@ -548,6 +567,8 @@ def normalize_time(text: str) -> str:
             DOTTED_TIME_LEFT_CONTEXT_PATTERN.search(left_context)
             or DOTTED_TIME_RIGHT_CONTEXT_PATTERN.search(right_context)
         ):
+            return match.group(0)
+        if _currency_word_follows(right_context):
             return match.group(0)
         return render_time(match)
 

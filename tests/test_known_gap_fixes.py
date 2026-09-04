@@ -3080,3 +3080,338 @@ def test_line_end_dash_keeps_no_dot(
     check_tts: CheckTts, source: str, expected: str
 ) -> None:
     check_tts(source, expected)
+
+
+ERA_MARKER_BOUNDARY_CASES = (
+    # Сокращение «н. э.» без точки после «э» — это две буквы, с которых
+    # начинается множество обычных слов. Без границы справа шаблон съедал
+    # начало слова: «Нэнси» читалось «нашей эрынси».
+    pytest.param(
+        "Нэнси пришла домой поздно вечером.",
+        "Нэнси пришла домой поздно вечером.",
+        id="era_marker_does_not_eat_a_name",
+    ),
+    pytest.param(
+        "Времена нэпа давно прошли, а привычки остались.",
+        "Времена нэпа давно прошли, а привычки остались.",
+        id="era_marker_does_not_eat_a_lowercase_word",
+    ),
+    pytest.param(
+        "Нэпман скупал заводы в те годы.",
+        "Нэпман скупал заводы в те годы.",
+        id="era_marker_does_not_eat_a_word_at_sentence_start",
+    ),
+    # Тот же дефект жил во втором месте — ERA_REGEX стадии годов, — и всплывал
+    # только когда слева от слова стоял год.
+    pytest.param(
+        "В 1990 году Нэнси уехала в Париж.",
+        "В тысяча девятьсот девяностом году Нэнси уехала в Париж.",
+        id="era_marker_after_a_year_does_not_eat_the_next_word",
+    ),
+    # Настоящий маркер эры продолжает раскрываться во всех написаниях: с
+    # пробелом и без, перед запятой, в конце предложения и приклеенным к
+    # следующему предложению.
+    pytest.param(
+        "Цезарь погиб в 44 г. до н. э. в Риме.",
+        "Цезарь погиб в сорок четвёртом году до нашей эры в Риме.",
+        id="era_marker_with_spaces_still_expands",
+    ),
+    pytest.param(
+        "Он жил в 250 г. до н.э., точнее неизвестно.",
+        "Он жил в двести пятидесятом году до нашей эры, точнее неизвестно.",
+        id="era_marker_without_spaces_before_comma_still_expands",
+    ),
+    pytest.param(
+        "Храм построили в 300 г. до н. э.",
+        "Храм построили в трёхсотом году до нашей эры.",
+        id="era_marker_at_sentence_end_still_expands",
+    ),
+    pytest.param(
+        "Рим пал в 476 г. н.э.Затем началось средневековье.",
+        "Рим пал в четыреста семьдесят шестом году нашей эры. Затем началось средневековье.",
+        id="era_marker_glued_to_next_sentence_still_expands",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), ERA_MARKER_BOUNDARY_CASES)
+def test_era_marker_keeps_its_right_boundary(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+NINETY_COMPOUND_ADJECTIVE_CASES = (
+    # «Девяносто» — единственная основа, которая в сложном прилагательном не
+    # уходит в родительный. Раньше замена делалась только для 91—99 и только
+    # в первом слове, поэтому ровно 90 и составные числа её не получали.
+    pytest.param(
+        "На 90-летний юбилей собрались все родственники.",
+        "На девяностолетний юбилей собрались все родственники.",
+        id="ninety_year_compound_uses_the_nominative_stem",
+    ),
+    pytest.param(
+        "На 190-летний юбилей собрались все родственники.",
+        "На стодевяностолетний юбилей собрались все родственники.",
+        id="ninety_inside_a_compound_uses_the_nominative_stem",
+    ),
+    pytest.param(
+        "Отметили 990-летний юбилей города.",
+        "Отметили девятисотдевяностолетний юбилей города.",
+        id="ninety_after_hundreds_uses_the_nominative_stem",
+    ),
+    # Основа не зависит от существительного справа: правится числительное, а
+    # не пара «число + слово».
+    pytest.param(
+        "Он сделал 90-градусный поворот и остановился.",
+        "Он сделал девяностоградусный поворот и остановился.",
+        id="ninety_degree_compound_uses_the_nominative_stem",
+    ),
+    # 91—99 работали и раньше, остальные основы родительный сохраняют.
+    pytest.param(
+        "На 95-летний юбилей собрались все родственники.",
+        "На девяностопятилетний юбилей собрались все родственники.",
+        id="ninety_five_compound_stays_correct",
+    ),
+    pytest.param(
+        "Купили 40-летний дуб и 100-летний клён.",
+        "Купили сорокалетний дуб и столетний клён.",
+        id="other_stems_keep_their_own_compound_form",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), NINETY_COMPOUND_ADJECTIVE_CASES)
+def test_ninety_compound_adjective_uses_the_nominative_stem(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+HEADING_RANGE_PREPOSITION_CASES = (
+    # «Со» нужно перед стечением согласных, а не перед любой шипящей или
+    # свистящей: раньше правило смотрело только на первую букву.
+    pytest.param(
+        "Прочитайте главы 8-9 к понедельнику.",
+        "Прочитайте главы с восьмого по девятый к понедельнику.",
+        id="chapter_range_uses_plain_s_before_a_vowel",
+    ),
+    pytest.param(
+        "Прочитайте главы 6-8 к понедельнику.",
+        "Прочитайте главы с шестого по восьмой к понедельнику.",
+        id="chapter_range_uses_plain_s_before_shestogo",
+    ),
+    pytest.param(
+        "Возьмите тома 40-41 из шкафа.",
+        "Возьмите тома с сорокового по сорок первый из шкафа.",
+        id="volume_range_uses_plain_s_before_sorokovogo",
+    ),
+    pytest.param(
+        "Возьмите тома 100-101 из шкафа.",
+        "Возьмите тома с сотого по сто первый из шкафа.",
+        id="volume_range_uses_plain_s_before_sotogo",
+    ),
+    # Стечение согласных «вт» по-прежнему требует «со».
+    pytest.param(
+        "Прочитайте главы 2-3 к понедельнику.",
+        "Прочитайте главы со второго по третий к понедельнику.",
+        id="chapter_range_keeps_so_before_a_consonant_cluster",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), HEADING_RANGE_PREPOSITION_CASES)
+def test_heading_range_preposition_matches_the_consonant_cluster(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+THIRD_DENOMINATOR_CASES = (
+    # Существительное «треть» согласуется с числителем как счётное слово и
+    # имеет формы только для 1—4. От пяти дробь читается адъективно.
+    pytest.param(
+        "Добавьте 5/3 стакана муки.",
+        "Добавьте пять третьих стакана муки.",
+        id="fifth_thirds_use_the_adjectival_paradigm",
+    ),
+    pytest.param(
+        "Прошло 7/3 часа с начала смены.",
+        "Прошло семь третьих часа с начала смены.",
+        id="seven_thirds_use_the_adjectival_paradigm",
+    ),
+    # 12 и 13 оканчиваются на 2 и 3, но счётную форму не получают: решает
+    # остаток по сотне, а не по десятку.
+    pytest.param(
+        "Отмерили 12/3 стакана воды.",
+        "Отмерили двенадцать третьих стакана воды.",
+        id="twelve_thirds_use_the_adjectival_paradigm",
+    ),
+    pytest.param(
+        "Отмерили 13/3 стакана воды.",
+        "Отмерили тринадцать третьих стакана воды.",
+        id="thirteen_thirds_use_the_adjectival_paradigm",
+    ),
+    # Числители на 1—4 сохраняют счётное существительное, включая составные.
+    pytest.param(
+        "Осталось 1/3 пути до дома.",
+        "Осталось одна треть пути до дома.",
+        id="one_third_keeps_the_noun_form",
+    ),
+    pytest.param(
+        "Добавьте 2/3 стакана муки.",
+        "Добавьте две трети стакана муки.",
+        id="two_thirds_keep_the_noun_form",
+    ),
+    pytest.param(
+        "Отмерили 21/3 стакана воды.",
+        "Отмерили двадцать одну треть стакана воды.",
+        id="twenty_one_thirds_keep_the_noun_form",
+    ),
+    pytest.param(
+        "Отмерили 22/3 стакана воды.",
+        "Отмерили двадцать две трети стакана воды.",
+        id="twenty_two_thirds_keep_the_noun_form",
+    ),
+    # Косвенный падеж и раньше шёл адъективной парадигмой.
+    pytest.param(
+        "Задача сведена к 2/3 объёма.",
+        "Задача сведена к двум третьим объёма.",
+        id="oblique_thirds_keep_the_adjectival_paradigm",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), THIRD_DENOMINATOR_CASES)
+def test_third_denominator_agrees_with_the_numerator(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+CAPS_LINE_CONNECTOR_CASES = (
+    # Восстановление аббревиатур в капс-строке поднимало регистр любому
+    # однобуквенному токену, и предлоги оставались заглавными.
+    pytest.param(
+        "СТОЛ СТОЯЛ У ОКНА В КОМНАТЕ\nОн вошёл и сел.",
+        "Стол стоял у окна в комнате.\nОн вошёл и сел.",
+        id="caps_line_lowercases_single_letter_prepositions",
+    ),
+    pytest.param(
+        "Я И ТЫ ПОШЛИ В ЛЕС ГУЛЯТЬ\nОн вошёл.",
+        "Я и ты пошли в лес гулять.\nОн вошёл.",
+        id="caps_line_lowercases_the_conjunction_i",
+    ),
+    # Буква, которая предлогом не бывает, остаётся заглавной: в «ПУНКТ Б» это
+    # обозначение пункта.
+    pytest.param(
+        "ПУНКТ Б ДОГОВОРА НЕ ДЕЙСТВУЕТ\nОн вошёл.",
+        "Пункт Б договора не действует.\nОн вошёл.",
+        id="caps_line_keeps_a_clause_letter_marker_upper",
+    ),
+    # Настоящая аббревиатура в капс-строке по-прежнему восстанавливается и
+    # читается по буквам.
+    pytest.param(
+        "ДОГОВОР С ООО РОМАШКА ПОДПИСАН СЕГОДНЯ\nОн вошёл.",
+        "Договор с оо оо оо ромашка подписан сегодня.\nОн вошёл.",
+        id="caps_line_still_restores_a_known_abbreviation",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), CAPS_LINE_CONNECTOR_CASES)
+def test_caps_line_lowercases_single_letter_words(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+ETC_ABBREVIATION_VERSUS_INITIALS_CASES = (
+    # «Т. Д.» с заглавной второй буквой — инициалы, а не «и так далее». Раньше
+    # шаблон искался без учёта регистра и съедал их вместе с точкой.
+    pytest.param(
+        "На сессии выступил Т. Д. Лысенко с докладом.",
+        "На сессии выступил тэ дэ Лысенко с докладом.",
+        id="initials_before_a_surname_are_read_as_letters",
+    ),
+    pytest.param(
+        "На съезде выступил Т. П. Иванов с речью.",
+        "На съезде выступил тэ пэ Иванов с речью.",
+        id="initials_with_p_before_a_surname_are_read_as_letters",
+    ),
+    # Идиома пишется с заглавными только в капс-строке, и там при ней остаётся
+    # союз «и» — он и отличает её от инициалов.
+    pytest.param(
+        "КНИГИ И Т. Д. ЛЕЖАЛИ НА СТОЛЕ ОЧЕНЬ ДОЛГО\nПотом их убрали.",
+        "Книги и так далее лежали на столе очень долго.\nПотом их убрали.",
+        id="caps_line_etc_abbreviation_still_expands",
+    ),
+    # Строчные написания раскрываются как раньше, с пробелом и без.
+    pytest.param(
+        "Книги, тетради и т. д. лежали на столе.",
+        "Книги, тетради и так далее лежали на столе.",
+        id="spaced_etc_abbreviation_still_expands",
+    ),
+    pytest.param(
+        "Купили хлеб, молоко и т.п. в магазине у дома.",
+        "Купили хлеб, молоко и тому подобное в магазине у дома.",
+        id="unspaced_etc_abbreviation_still_expands",
+    ),
+    pytest.param(
+        "Взяли ручки, карандаши и т. д.",
+        "Взяли ручки, карандаши и так далее.",
+        id="etc_abbreviation_at_sentence_end_still_expands",
+    ),
+    # Заглавная только у первой буквы — начало предложения, а не инициалы.
+    pytest.param(
+        "Т. п. — это сокращение, знакомое всем.",
+        "тому подобное — это сокращение, знакомое всем.",
+        id="sentence_initial_etc_abbreviation_still_expands",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), ETC_ABBREVIATION_VERSUS_INITIALS_CASES)
+def test_etc_abbreviation_is_told_apart_from_initials(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+DOTTED_TIME_VERSUS_PRICE_CASES = (
+    # «Около» стоит и перед временем, и перед ценой, поэтому левый контекст
+    # сам по себе не решает: валюта справа означает копейки, не минуты.
+    pytest.param(
+        "Билет стоил около 3.50 долларов.",
+        "Билет стоил около трёх долларов пятидесяти центов.",
+        id="dotted_price_before_a_currency_word_is_a_price",
+    ),
+    pytest.param(
+        "Цена в 3.50 рубля не изменилась.",
+        "Цена в три рубля пятьдесят копеек не изменилась.",
+        id="dotted_price_after_v_before_a_currency_word_is_a_price",
+    ),
+    # Без валюты справа «около» по-прежнему вводит приблизительное время.
+    pytest.param(
+        "Около 3.50 он уже спал.",
+        "Около три, пятьдесят он уже спал.",
+        id="dotted_time_after_okolo_without_a_currency_word_is_a_time",
+    ),
+    pytest.param(
+        "Приходи около 3.50 утра, не позже.",
+        "Приходи около три, пятьдесят утра, не позже.",
+        id="dotted_time_after_okolo_before_a_daypart_is_a_time",
+    ),
+    pytest.param(
+        "Встреча в 3.50 началась без него.",
+        "Встреча в три, пятьдесят началась без него.",
+        id="dotted_time_after_v_is_a_time",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), DOTTED_TIME_VERSUS_PRICE_CASES)
+def test_dotted_number_tells_a_price_from_a_time(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)

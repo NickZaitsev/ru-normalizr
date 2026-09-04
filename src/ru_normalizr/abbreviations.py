@@ -127,12 +127,28 @@ def _has_non_one_cardinal_before_abbreviation(left_context: str) -> bool:
     return any(candidate.tag.POS == "NUMR" for candidate in parse_word(preceding))
 
 
+def _etc_conjunction_precedes(left_context: str) -> bool:
+    """Перед «и т. д.» стоит союз «и»: он входит в саму идиому."""
+
+    tokens = _LEFT_CONTEXT_TOKEN_PATTERN.findall(left_context[-40:])
+    return bool(tokens) and tokens[-1].casefold() == "и"
+
+
 def _expand_contextual_etc_abbreviations(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
         raw_abbr = match.group("abbr")
         tail = match.group("tail")
         normalized_abbr = re.sub(r"\s+", "", raw_abbr).lower()
         expansion = "так далее" if "д" in normalized_abbr else "тому подобное"
+
+        # Заглавная вторая буква — это инициалы перед фамилией («Т. Д.
+        # Лысенко») либо после неё («Лысенко Т. Д.»), а не сокращение.
+        # Идиома пишется с заглавными только там, где заглавная вся строка,
+        # и тогда при ней остаётся союз: «КНИГИ И Т. Д. ЛЕЖАЛИ НА СТОЛЕ».
+        if raw_abbr[-2].isupper() and not _etc_conjunction_precedes(
+            text[: match.start()]
+        ):
+            return match.group(0)
 
         next_char = text[match.end()] if match.end() < len(text) else ""
         next_index, saw_newline = first_non_whitespace_index(text, match.end())
