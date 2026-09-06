@@ -3,7 +3,13 @@ from __future__ import annotations
 import math
 import re
 
-from ._morph import MorphParse, canonicalize_case, first_parse_required, parse_word
+from ._morph import (
+    MorphParse,
+    canonicalize_case,
+    first_parse_required,
+    parse_word,
+    word_is_known,
+)
 from .abbreviation_rules import (
     ABBREVIATION_LITERAL_HINTS,
     ABBREVIATION_PATTERNS,
@@ -723,10 +729,17 @@ def expand_letter_abbreviations(
             return custom_reading + "." if tail_dot else custom_reading
 
         if all(char in RU_LETTER_NAMES for char in letters_upper):
+            has_vowel = any(char in RU_VOWELS for char in letters_upper)
             if not is_dotted:
-                parsed = first_parse_required(joined_key.lower())
-                if parsed.tag.POS in REAL_WORD_POS and "Abbr" not in parsed.tag:
-                    return token
+                lowered_key = joined_key.lower()
+                # Словом читается только то, что произносимо и знакомо словарю
+                # по-настоящему. Оба условия нужны: «ШКПС» pymorphy разбирает как
+                # существительное по догадке, «гдр» лежит в словаре настоящей
+                # статьёй, и обе аббревиатуры уезжали в синтез нечитаемой кашей.
+                if has_vowel and word_is_known(lowered_key):
+                    parsed = first_parse_required(lowered_key)
+                    if parsed.tag.POS in REAL_WORD_POS and "Abbr" not in parsed.tag:
+                        return token
             if not is_dotted:
                 if len(letters_upper) > ABBREV_MAX_LEN_RU:
                     return token

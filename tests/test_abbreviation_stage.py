@@ -386,6 +386,33 @@ class LetterAbbreviationTests(unittest.TestCase):
             with self.subTest(source=source):
                 self.assertEqual(expand_letter_abbreviations(source), expected)
 
+    def test_vowelless_acronym_is_spelled_even_when_the_dictionary_knows_it(self):
+        # pymorphy holds "гдр" as an ordinary noun and predicts a noun for "шкпс";
+        # neither can be pronounced, so morphology does not get a say.
+        for source, expected in (
+            ("ГДР", "гэ дэ эр"),
+            ("ШКПС", "шэ ка пэ эс"),
+            ("ВЧК", "вэ чэ ка"),
+            ("ЖКХ", "же кэ ха"),
+        ):
+            with self.subTest(source=source):
+                self.assertEqual(expand_letter_abbreviations(source), expected)
+
+    def test_ordinary_capitalised_words_are_left_to_the_caps_stage(self):
+        for source in ("ОТВЕТ", "КСТАТИ", "ГЛАВА"):
+            with self.subTest(source=source):
+                self.assertEqual(expand_letter_abbreviations(source), source)
+
+    def test_acronyms_read_as_words_keep_their_curated_reading(self):
+        for source, expected in (("СПИД", "спид"), ("ЗАГС", "загс"), ("ГОСТ", "гост")):
+            with self.subTest(source=source):
+                self.assertEqual(expand_letter_abbreviations(source), expected)
+
+    def test_known_reading_wins_over_the_vowel_rule(self):
+        # Two vowels would keep it a "word"; the curated reading spells it out.
+        self.assertEqual(expand_letter_abbreviations("ОГПУ"), "о гэ пэ у")
+        self.assertEqual(expand_letter_abbreviations("МГУ"), "эм гэ у")
+
     def test_letter_by_letter_reading_for_latin_acronyms(self):
         self.assertEqual(expand_letter_abbreviations("ABC"), "эй би си")
         self.assertEqual(expand_letter_abbreviations("FBI"), "эф би ай")

@@ -407,4 +407,4 @@ def test_latinization_stress_marks_toggle_keeps_surrounding_numerals_stable() ->
     )
 
     assert disabled == "энджэнирин включает два раздела."
-    assert enabled == "+энджэн+ирин включает два раздела."
+    assert enabled == "+энджэнирин включает два раздела."

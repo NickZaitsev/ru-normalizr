@@ -302,7 +302,28 @@ def _ipa_to_russian(ipa_text: str, include_stress_markers: bool = False) -> str:
         ipa_text = ipa_text.replace(ipa_char, ru_char)
     ipa_text = ipa_text.replace("ː", "")
     ipa_text = move_stress_marker_ru(ipa_text)
-    return ipa_text.replace("ˈ", "+" if include_stress_markers else "")
+    if not include_stress_markers:
+        return ipa_text.replace("ˈ", "")
+    # Один знак на слово. IPA составных названий несёт по главному ударению на
+    # каждую часть («microsoft» → м+айкроус+офт), а синтез читает второй знак как
+    # отдельное ударение и ломает слово.
+    return _single_stress_per_word(ipa_text)
+
+
+_WORD_WITH_STRESS_RE = re.compile(r"[^\W\d_]+(?:[ˈ][^\W\d_]+)*", re.UNICODE)
+
+
+def _single_stress_per_word(text: str) -> str:
+    """Заменить ``ˈ`` на ``+``, оставив в каждом слове только первый знак."""
+
+    def one_word(match: re.Match[str]) -> str:
+        word = match.group(0)
+        head, marker, tail = word.partition("ˈ")
+        if not marker:
+            return word
+        return head + "+" + tail.replace("ˈ", "")
+
+    return _WORD_WITH_STRESS_RE.sub(one_word, text).replace("ˈ", "+")
 
 
 def _apply_dictionary_latinization(

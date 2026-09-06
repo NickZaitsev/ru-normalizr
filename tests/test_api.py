@@ -1288,7 +1288,7 @@ class RuNormalizrApiTests(unittest.TestCase):
                     enable_latinization_stress_marks=True,
                 ),
             ),
-            "+энджэн+ирин",
+            "+энджэнирин",
         )
 
     def test_run_stage_supports_targeted_stage_access(self):

@@ -222,7 +222,16 @@ def _restore_known_abbreviations(original: str, lowered: str) -> str:
         is_consonant_heavy = (
             len(letters) == 4 and sum(1 for c in upper_letters if c in vowels) <= 1
         )
-        if is_known or (is_short_abbrev and not is_real_short_word) or is_consonant_heavy:
+        # Слово без единой гласной аббревиатура по существу, какой бы длины оно
+        # ни было («ВЛКСМ», «ШКПС»): опустив его в нижний регистр, мы прячем его
+        # от стадии аббревиатур, и в синтез уезжает нечитаемая буквенная каша.
+        has_no_vowels = not any(char in vowels for char in upper_letters)
+        if (
+            is_known
+            or (is_short_abbrev and not is_real_short_word)
+            or is_consonant_heavy
+            or has_no_vowels
+        ):
             low_tokens[i] = orig_tok
     return "".join(low_tokens)
 
