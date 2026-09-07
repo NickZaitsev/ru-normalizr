@@ -519,6 +519,39 @@ def _expand_language_origin_abbreviations(text: str) -> str:
     return _LANGUAGE_ORIGIN_PATTERN.sub(repl, text)
 
 
+def _starts_a_sentence(source: str, start: int) -> bool:
+    """Начинается ли предложение с позиции `start`.
+
+    Кавычки и скобки перед словом предложение не открывают, а пропускают: за
+    ними стоит либо конец предыдущего предложения, либо начало абзаца.
+    """
+    prefix_index = start - 1
+    while prefix_index >= 0 and source[prefix_index] in _SENTENCE_OPENING_CHARS:
+        prefix_index -= 1
+    if prefix_index < 0:
+        return True
+    return source[prefix_index] in _SENTENCE_END_CHARS or source[prefix_index] == "\n"
+
+
+def _sentence_continues_after(source: str, end: int) -> bool:
+    """Продолжается ли предложение после позиции `end` ещё одним словом.
+
+    Предложение состоит не из одного слова: за первым словом идёт пробел и
+    второе слово. Если сразу за токеном стоит дефис или цифра, это часть той
+    же записи («STG-44»), а не следующее слово, и предложения тут нет вовсе.
+    """
+    if end >= len(source):
+        return False
+    if source[end] == ".":
+        end += 1
+    if end >= len(source) or not source[end].isspace():
+        return False
+    index, _ = first_non_whitespace_index(source, end)
+    return index < len(source) and (
+        source[index].isalpha() or source[index].isdigit()
+    )
+
+
 def _expand_rule_preserving_sentence_case(
     match: re.Match[str], replacement: str, source: str
 ) -> str:
@@ -530,14 +563,7 @@ def _expand_rule_preserving_sentence_case(
     if not first_source_letter.isupper():
         return expanded
 
-    prefix_index = match.start() - 1
-    while prefix_index >= 0 and source[prefix_index] in _SENTENCE_OPENING_CHARS:
-        prefix_index -= 1
-    if (
-        prefix_index >= 0
-        and source[prefix_index] not in _SENTENCE_END_CHARS
-        and source[prefix_index] != "\n"
-    ):
+    if not _starts_a_sentence(source, match.start()):
         return expanded
 
     first_expansion_letter = next(
@@ -761,8 +787,31 @@ def expand_letter_abbreviations(
             return next_index >= len(text) or text[next_index].isupper()
         return next_char.isupper()
 
+    def restore_sentence_case(token: str, reading: str, start: int) -> str:
+        """Вернуть заглавную, если аббревиатура начинала предложение.
+
+        Само чтение записано строчными нарочно: заглавные буквы аббревиатуры —
+        не начало предложения, и синтезатор прочёл бы их по буквам. Но когда
+        аббревиатура и правда стоит в начале предложения, её заглавная
+        относится к предложению, а не к записи, и терять её нельзя: из
+        «НАСА объявило» получалось «наса объявило».
+        """
+        letters = "".join(char for char in token if char.isalpha())
+        if not letters[:1].isupper() or not _starts_a_sentence(text, start):
+            return reading
+        if not _sentence_continues_after(text, start + len(token)):
+            # Аббревиатура сама по себе — не предложение: у отдельной метки
+            # («STG-44», токен целиком) заглавной начала предложения нет.
+            return reading
+        first = next(
+            (index for index, char in enumerate(reading) if char.isalpha()), None
+        )
+        if first is None:
+            return reading
+        return reading[:first] + reading[first].upper() + reading[first + 1 :]
+
     def expand_token(
-        token: str, is_dotted: bool, *, keep_terminal_dot: bool = True
+        token: str, is_dotted: bool, *, start: int, keep_terminal_dot: bool = True
     ) -> str:
         tail_dot = token.endswith(".") and keep_terminal_dot
         letters = [char for char in token if char.isalpha()]
@@ -775,6 +824,7 @@ def expand_letter_abbreviations(
             custom_reading = KNOWN_ABBREVIATIONS[joined_key]
             if joined_key not in {"UTC", "ISO"}:
                 custom_reading = apply_letter_vowel_mode(custom_reading, vowel_mode)
+            custom_reading = restore_sentence_case(token, custom_reading, start)
             return custom_reading + "." if tail_dot else custom_reading
 
         if all(char in RU_LETTER_NAMES for char in letters_upper):
@@ -802,16 +852,21 @@ def expand_letter_abbreviations(
         else:
             return token
 
-        expanded = " ".join(names)
+        expanded = restore_sentence_case(token, " ".join(names), start)
         return expanded + "." if tail_dot else expanded
 
     text = ABBREV_DOTTED_PATTERN.sub(
         lambda m: expand_token(
-            m.group(0), True, keep_terminal_dot=keep_dotted_tail_dot(m)
+            m.group(0),
+            True,
+            start=m.start(),
+            keep_terminal_dot=keep_dotted_tail_dot(m),
         ),
         text,
     )
-    return ABBREV_SOLID_PATTERN.sub(lambda m: expand_token(m.group(0), False), text)
+    return ABBREV_SOLID_PATTERN.sub(
+        lambda m: expand_token(m.group(0), False, start=m.start()), text
+    )
 
 
 def _normalize_contextual_ampersands(

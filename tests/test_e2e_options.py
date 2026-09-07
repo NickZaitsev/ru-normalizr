@@ -350,7 +350,7 @@ def test_letter_abbreviation_toggle_keeps_numeral_stage_active() -> None:
         NormalizeOptions.tts(enable_letter_abbreviation_expansion=False, **common),
     )
 
-    assert enabled == "ги бэ дэ дэ проверила две машины."
+    assert enabled == "Ги бэ дэ дэ проверила две машины."
     assert disabled == "ГИБДД проверила две машины."
 
 

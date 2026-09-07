@@ -337,25 +337,6 @@ REVIEW_2026_09_GAP_CASES = (
             reason="distributive «по» before a price is read as an ordinary dative",
         ),
     ),
-    # --- Регистр, аббревиатуры и латиница ------------------------------------
-    #
-    # --- Найдено пробами corner cases при закрытии дефектов «-м» (3 сентября) --
-    #
-        # --- Найдено пробами при закрытии правок ревью (4 сентября) --------------
-    #
-        # Заглавная аббревиатура в начале предложения сохраняет регистр только если
-    # морфология знает её как `Abbr`. «НАСА» и «ЮНЕСКО» словарю неизвестны и
-    # опускаются в строчные, хотя «МГИМО» уже читается верно.
-    pytest.param(
-        "НАСА объявило дополнительный набор.",
-        "НАСА объявило дополнительный набор.",
-        id="acronym_outside_the_dictionary_decapitalized_at_sentence_start",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="an acronym that morphology does not know as Abbr is still "
-            "decapitalized as a CAPS word at sentence start",
-        ),
-    ),
 )
 
 

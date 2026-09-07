@@ -1326,3 +1326,17 @@ uv run python scripts/benchmark.py --real-only --mode tts --samples 1 --warmups 
 ```
 
 Гейт 180 000 пройден; первый прогон — выброс от фоновой нагрузки.
+
+## 7 сентября 2026 — фаза 6 плана качества: заглавная у аббревиатуры
+
+Восстановление заглавной идёт внутри уже существующего прохода
+`expand_letter_abbreviations`, на совпадении и без просмотра текста дальше
+первого непробельного знака справа. Новых проходов нет.
+
+```
+uv run python scripts/benchmark.py --real-only --mode tts --samples 1 --warmups 1   --prefix-chars 250000 --book benchmarks/corpus/03_karamzin_history_of_russian_state.txt
+180 924 / 186 037 / 175 000 символов/с (медиана 180 924)
+```
+
+Гейт 180 000 пройден; разброс 175 000—186 000 — фоновая нагрузка, дрейфа по
+корпусу нет.

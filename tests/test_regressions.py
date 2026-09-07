@@ -1492,7 +1492,7 @@ class RuNormalizrReportedRegressionTests(unittest.TestCase):
         )
         self.assertEqual(
             normalize("GLM-5.2", NormalizeOptions.tts()),
-            "джи эл эм пять точка два",
+            "Джи эл эм пять точка два",
         )
         # A real unary minus is still recognised in every position that
         # protect_negative_numbers accepts.

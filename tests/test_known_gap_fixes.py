@@ -3997,14 +3997,14 @@ LABELLED_IDENTIFIER_CASES = (
     ),
     pytest.param(
         "КПП 770101001 совпадает с прошлым.",
-        "ка пэ пэ семь семь ноль один ноль один ноль ноль один совпадает с прошлым.",
+        "Ка пэ пэ семь семь ноль один ноль один ноль ноль один совпадает с прошлым.",
         id="another_registration_label_is_read_digit_by_digit",
     ),
     # Обозначение стандарта читается группами: точка произносится, дефис и
     # двоеточие дают паузу.
     pytest.param(
         "ГОСТ 2.105-95 устанавливает общие требования к текстовым документам.",
-        "гост два точка сто пять девяносто пять устанавливает общие требования "
+        "Гост два точка сто пять девяносто пять устанавливает общие требования "
         "к текстовым документам.",
         id="standard_code_is_read_in_groups",
     ),
@@ -4016,7 +4016,7 @@ LABELLED_IDENTIFIER_CASES = (
     ),
     pytest.param(
         "ГОСТ 34.10-2012 описывает электронную подпись.",
-        "гост тридцать четыре точка десять две тысячи двенадцать описывает "
+        "Гост тридцать четыре точка десять две тысячи двенадцать описывает "
         "электронную подпись.",
         id="standard_code_with_two_separators",
     ),
@@ -5074,6 +5074,46 @@ DOTTED_ROMAN_CASES = (
 
 @pytest.mark.parametrize(("source", "expected"), DOTTED_ROMAN_CASES)
 def test_dotted_roman_edges(check_tts: CheckTts, source: str, expected: str) -> None:
+    check_tts(source, expected)
+
+
+# Чтение аббревиатуры записано строчными нарочно — иначе синтезатор читает
+# заглавные по буквам. Но заглавная начала предложения принадлежит предложению,
+# а не записи, и сохраняется.
+ACRONYM_SENTENCE_CASE_CASES = (
+    pytest.param(
+        "НАСА объявило дополнительный набор.",
+        "Наса объявило дополнительный набор.",
+        id="acronym_read_as_a_word_keeps_the_sentence_capital",
+    ),
+    pytest.param(
+        "СССР подписал договор в тот же год.",
+        "Эс эс эс эр подписал договор в тот же год.",
+        id="letter_by_letter_acronym_keeps_the_sentence_capital",
+    ),
+    pytest.param(
+        "Об этом сообщило НАСА, и новость подхватили все.",
+        "Об этом сообщило наса, и новость подхватили все.",
+        id="acronym_inside_a_sentence_stays_lowercase",
+    ),
+    pytest.param(
+        "Работа шла давно. ЮНЕСКО включило объект в список.",
+        "Работа шла давно. Юнеско включило объект в список.",
+        id="acronym_after_a_sentence_end_keeps_the_capital",
+    ),
+    # Отдельная метка — не предложение: заглавной начала предложения у неё нет.
+    pytest.param(
+        "STG-44",
+        "эс ти джи-сорок четыре",
+        id="standalone_label_has_no_sentence_capital",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), ACRONYM_SENTENCE_CASE_CASES)
+def test_acronym_sentence_case_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
     check_tts(source, expected)
 
 
