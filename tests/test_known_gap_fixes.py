@@ -4292,3 +4292,134 @@ def test_line_numbering_chronology_edges(
     check_tts: CheckTts, source: str, expected: str
 ) -> None:
     check_tts(source, expected)
+
+
+HEADING_HEAD_BEFORE_ROMAN_CASES = (
+    # «глава» разбирается и одушевлённым («глава города»), и морфология ставит
+    # такой разбор первым — из-за этого голое «в» съедалось как «век».
+    pytest.param(
+        "Глава IV в этом издании отсутствует.",
+        "Глава четвёртая в этом издании отсутствует.",
+        id="heading_head_with_an_animate_homonym_keeps_the_preposition",
+    ),
+    pytest.param(
+        "Глава IV в переводе утрачена.",
+        "Глава четвёртая в переводе утрачена.",
+        id="heading_head_before_another_preposition_phrase",
+    ),
+    pytest.param(
+        "Часть II в переводе утрачена.",
+        "Часть вторая в переводе утрачена.",
+        id="unambiguous_heading_head_unchanged",
+    ),
+    # Отрицательные примеры: требование одушевлённости не ослаблено глобально.
+    pytest.param(
+        "Петра I в Москву не пустили.",
+        "Петра первого в Москву не пустили.",
+        id="regnal_number_after_a_name_unchanged",
+    ),
+    pytest.param(
+        "Иван IV в Москве правил долго.",
+        "Иван четвёртый в Москве правил долго.",
+        id="regnal_number_after_a_first_name_unchanged",
+    ),
+    pytest.param(
+        "К середине XIX в. торговля выросла.",
+        "К середине девятнадцатого века торговля выросла.",
+        id="century_after_a_century_part_word_unchanged",
+    ),
+    pytest.param(
+        "IV век был неспокойным.",
+        "четвёртый век был неспокойным.",
+        id="explicit_century_word_unchanged",
+    ),
+    pytest.param(
+        "События XIV—XVI вв. описаны подробно.",
+        "События четырнадцатого — шестнадцатого веков описаны подробно.",
+        id="century_range_unchanged",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), HEADING_HEAD_BEFORE_ROMAN_CASES)
+def test_heading_head_before_roman_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+NON_NORMATIVE_DAY_SUFFIX_CASES = (
+    # «-м» — окончание предложного и творительного, а дата в них не стоит:
+    # запись ненормативна в исходнике и восстанавливается до «8 марта».
+    pytest.param(
+        "На 8-м марта подарили цветы.",
+        "На восьмое марта подарили цветы.",
+        id="na_with_a_non_normative_day_suffix",
+    ),
+    pytest.param(
+        "На 8-м мая ничего не было.",
+        "На восьмое мая ничего не было.",
+        id="non_normative_day_suffix_before_another_month",
+    ),
+    # Нормативные наращения дат не задеты.
+    pytest.param(
+        "К 8-му марта подарили цветы.",
+        "К восьмому марта подарили цветы.",
+        id="normative_dative_day_suffix_unchanged",
+    ),
+    pytest.param(
+        "С 8-го марта отпуск продолжился.",
+        "С восьмого марта отпуск продолжился.",
+        id="normative_genitive_day_suffix_unchanged",
+    ),
+    pytest.param(
+        "8-е марта прошло тихо.",
+        "Восьмое марта прошло тихо.",
+        id="normative_nominative_day_suffix_unchanged",
+    ),
+    pytest.param(
+        "1-го октября начались занятия.",
+        "Первого октября начались занятия.",
+        id="normative_day_suffix_before_october_unchanged",
+    ),
+    # Даты без наращения читались верно и раньше.
+    pytest.param(
+        "На 8 марта подарили цветы.",
+        "На восьмое марта подарили цветы.",
+        id="bare_day_after_na_unchanged",
+    ),
+    pytest.param(
+        "К 8 марта подарили цветы.",
+        "К восьмому марта подарили цветы.",
+        id="bare_day_after_k_unchanged",
+    ),
+    pytest.param(
+        "С 8 марта начался отпуск.",
+        "С восьмого марта начался отпуск.",
+        id="bare_day_after_s_unchanged",
+    ),
+    # Отрицательные примеры: без имени месяца «-м» — порядковое в предложном,
+    # и снимать его нельзя.
+    pytest.param(
+        "На 8-м этаже живёт сосед.",
+        "На восьмом этаже живёт сосед.",
+        id="m_suffix_before_a_noun_is_not_a_date",
+    ),
+    pytest.param(
+        "На 41-м километре трассы произошла авария.",
+        "На сорок первом километре трассы произошла авария.",
+        id="m_suffix_before_a_unit_is_not_a_date",
+    ),
+    pytest.param(
+        "В 8-м классе учат химию.",
+        "В восьмом классе учат химию.",
+        id="m_suffix_after_v_is_not_a_date",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), NON_NORMATIVE_DAY_SUFFIX_CASES)
+def test_non_normative_day_suffix_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)

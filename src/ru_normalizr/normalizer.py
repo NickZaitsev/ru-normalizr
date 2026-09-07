@@ -13,7 +13,7 @@ from .caps import (
     normalize_first_word_caps,
     normalize_sentence_start_caps,
 )
-from .dates_time import normalize_dates_and_time
+from .dates_time import normalize_dates_and_time, restore_non_normative_day_suffix
 from .dictionary import apply_dictionary_rules
 from .identifiers import (
     STRUCTURED_NUMERIC_SUFFIX_PATTERN,
@@ -371,6 +371,7 @@ class PipelineNormalizer:
             text = expand_years_ago_abbreviation(text)
         text = expand_na_prim_abbreviation(text)
         text = expand_new_style_date_abbreviation(text)
+        text = restore_non_normative_day_suffix(text)
         text = normalize_page_references(text)
         text = normalize_section_references(text)
         text = normalize_administrative_law_references(text)

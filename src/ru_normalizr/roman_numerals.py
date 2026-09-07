@@ -218,6 +218,14 @@ def _governing_noun_precedes(text: str, start: int) -> bool:
     пробел: знак препинания между ними разрывает управление. Слова с разбором
     имени или фамилии (в том числе угаданные вне словаря, как «Шафарик»)
     не управляют: после них номер — не родительное определение.
+
+    Лучший разбор бывает одушевлённым у слова, которое здесь заведомо рубрика:
+    «глава» — и заголовок книги, и глава города, и морфология ставит
+    одушевлённое чтение первым, из-за чего «Глава IV в этом издании» теряло
+    предлог. Поэтому у вершин рубрикации (`_ROMAN_HEADING_LEMMAS`) берётся
+    подходящий неодушевлённый разбор, если он есть. Общего ослабления тут нет:
+    слово вне этого списка по-прежнему обязано быть неодушевлённым в лучшем
+    разборе, иначе «Петра I в Москву» снова потеряет предлог.
     """
     left = text[max(0, start - 40) : start]
     trimmed = left.rstrip()
@@ -227,8 +235,22 @@ def _governing_noun_precedes(text: str, start: int) -> bool:
     if word_match is None:
         return False
     parses = parse_word(word_match.group(0).lower())
-    if not parses or "NOUN" not in parses[0].tag or "inan" not in parses[0].tag:
+    if not parses:
         return False
+    best = parses[0]
+    if "NOUN" not in best.tag or "inan" not in best.tag:
+        heading = next(
+            (
+                candidate
+                for candidate in parses
+                if "NOUN" in candidate.tag
+                and "inan" in candidate.tag
+                and candidate.normal_form in _ROMAN_HEADING_LEMMAS
+            ),
+            None,
+        )
+        if heading is None:
+            return False
     return not any(
         marker in candidate.tag
         for candidate in parses
