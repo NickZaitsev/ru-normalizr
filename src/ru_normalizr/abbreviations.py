@@ -444,7 +444,13 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
         # Определение стоит непосредственно перед своей группой, поэтому
         # служебное слово справа означает, что группы здесь нет: «гл. без
         # номера» — это существительное, а не прилагательное.
-        if first_parse_required(phrase.split()[0].lower()).tag.POS in _FUNCTION_WORD_POS:
+        first_word_parse = first_parse_required(phrase.split()[0].lower())
+        if first_word_parse.tag.POS in _FUNCTION_WORD_POS:
+            return match.group(0)
+        # Порядковое числительное справа — тот же номер рубрики, только словом:
+        # римскую цифру в «Гл. VIII» стадия римских чисел уже прочитала как
+        # «восьмая», и определения здесь нет так же, как перед цифрой.
+        if "Anum" in first_word_parse.tag:
             return match.group(0)
         # The pattern is built from this dictionary's keys, so the lookup always
         # hits: a KeyError here would mean the two have drifted apart.
