@@ -4198,12 +4198,12 @@ CLAUSE_REFERENCE_CASES = (
         "В подпункте два точка один указан порядок оплаты.",
         id="dotted_subclause_number",
     ),
-    # Отрицательные примеры: одиночный номер остаётся прежнему владельцу,
-    # настоящая цифровая дата — датой, а составные ссылки на закон не задеты.
+    # Одиночный номер тоже раскрывается: этим владеет правило нумерованных
+    # ссылок, и падеж у него берётся так же, от управления слева.
     pytest.param(
         "Согласно п. 2 договора аванс не возвращается.",
-        "Согласно п. два договора аванс не возвращается.",
-        id="single_clause_number_keeps_its_owner",
+        "Согласно пункту два договора аванс не возвращается.",
+        id="single_clause_number_is_expanded_too",
     ),
     pytest.param(
         "Дата 01.02.34 указана в акте.",
@@ -4774,6 +4774,155 @@ RANGE_RENDERING_CASES = (
 
 @pytest.mark.parametrize(("source", "expected"), RANGE_RENDERING_CASES)
 def test_range_rendering_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+# Сокращённое существительное согласуется с контекстом, а не подставляется
+# одной формой: нумерованная ссылка берёт падеж от управления слева, а
+# сокращение без номера — от предлога через согласованное определение.
+CONTEXTUAL_ABBREVIATION_CASES = (
+    pytest.param(
+        "Данные приведены в табл. 3 и в прил. 2.",
+        "Данные приведены в таблице три и в приложении два.",
+        id="numbered_reference_after_a_locative_preposition",
+    ),
+    pytest.param(
+        "Согласно ст. 5 п. 2 закона штраф удвоен.",
+        "Согласно статье пять пункту два закона штраф удвоен.",
+        id="reference_chain_after_soglasno",
+    ),
+    pytest.param(
+        "К ст. 12 приложен комментарий.",
+        "К статье двенадцать приложен комментарий.",
+        id="numbered_reference_after_a_dative_preposition",
+    ),
+    pytest.param(
+        "От ст. 12 отказались.",
+        "От статьи двенадцать отказались.",
+        id="numbered_reference_after_a_genitive_preposition",
+    ),
+    pytest.param(
+        "О п. 3 говорили отдельно.",
+        "О пункте три говорили отдельно.",
+        id="clause_reference_after_a_locative_preposition",
+    ),
+    # Без управления слева ссылка именительная, а заглавная у маркера
+    # сохраняется: стадия регистра в начале текста её не восстановит.
+    pytest.param(
+        "Ст. 5 определяет порядок.",
+        "Статья пять определяет порядок.",
+        id="numbered_reference_without_government",
+    ),
+    pytest.param(
+        "П. 2 отменён.",
+        "Пункт два отменён.",
+        id="clause_reference_at_sentence_start",
+    ),
+    pytest.param(
+        "Табл. 3 приведена ниже.",
+        "Таблица три приведена ниже.",
+        id="table_reference_at_sentence_start",
+    ),
+    # Директива «см.»/«смотри» управляет всем перечислением и даёт винительный.
+    pytest.param(
+        "смотри рис. 2 и табл. 3, стр. 4",
+        "смотри рисунок два и таблицу три, страницу четыре",
+        id="see_directive_governs_the_whole_enumeration",
+    ),
+    pytest.param(
+        "Смотри табл. 3.",
+        "Смотри таблицу три.",
+        id="spelled_out_see_directive_governs_a_reference",
+    ),
+    pytest.param(
+        "(смотри табл. 3)",
+        "(смотри таблицу три)",
+        id="see_directive_inside_brackets",
+    ),
+    # Номер при ссылке остаётся меткой в любом падеже существительного.
+    pytest.param(
+        "В ст. 21 сказано иное.",
+        "В статье двадцать один сказано иное.",
+        id="reference_number_stays_a_label",
+    ),
+    # Сокращение без номера: падеж от предлога через определение.
+    pytest.param(
+        "Он жил в Московской обл. до войны.",
+        "Он жил в Московской области до войны.",
+        id="oblast_agrees_with_its_adjective",
+    ),
+    pytest.param(
+        "В табл. приведены данные.",
+        "В таблице приведены данные.",
+        id="table_without_a_number_agrees_with_the_preposition",
+    ),
+    pytest.param(
+        "Московская обл. славится лесами.",
+        "Московская область славится лесами.",
+        id="nominative_abbreviation_unchanged",
+    ),
+    # «руб.»/«долл.» без количества слева — сама валюта в падеже контекста.
+    pytest.param(
+        "Цена в руб. указана без НДС.",
+        "Цена в рублях указана без эн дэ эс.",
+        id="currency_without_a_number_takes_the_context_case",
+    ),
+    pytest.param(
+        "Оплата в долл. невозможна.",
+        "Оплата в долларах невозможна.",
+        id="dollars_without_a_number_take_the_context_case",
+    ),
+    # Количество слева оставляет прежнее счётное чтение.
+    pytest.param(
+        "Стоимость 500 руб.",
+        "Стоимость пятисот рублей.",
+        id="counted_currency_unchanged",
+    ),
+    pytest.param(
+        "Цена 5 долл.",
+        "Цена пяти долларов.",
+        id="counted_dollars_unchanged",
+    ),
+    pytest.param(
+        "Десятки тыс. человек пришли.",
+        "Десятки тысяч человек пришли.",
+        id="multiplier_after_a_counting_noun_unchanged",
+    ),
+    # Классификатор перед именем собственным берёт падеж от цепочки слева.
+    pytest.param(
+        "Республика вошла в состав Респ. Крым.",
+        "Республика вошла в состав Республики Крым.",
+        id="republic_classifier_in_a_genitive_chain",
+    ),
+    pytest.param(
+        "В Респ. Крым тепло.",
+        "В Республике Крым тепло.",
+        id="republic_classifier_after_a_preposition",
+    ),
+    # Отрицательные примеры: «на прим.» — своя конструкция, а предлог с точкой
+    # не путается с сокращением страницы.
+    pytest.param(
+        "Ссылка дана на прим. 5 в конце главы.",
+        "Ссылка дана на примечание пять в конце главы.",
+        id="na_prim_reference_unchanged",
+    ),
+    pytest.param(
+        "Мы шли с 5 товарищами.",
+        "Мы шли с пятью товарищами.",
+        id="preposition_s_is_not_a_page_marker",
+    ),
+    pytest.param(
+        "P. 5, С. 6",
+        "страница пять, страница шесть",
+        id="bibliographic_page_markers_stay_lowercase",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), CONTEXTUAL_ABBREVIATION_CASES)
+def test_contextual_abbreviation_edges(
     check_tts: CheckTts, source: str, expected: str
 ) -> None:
     check_tts(source, expected)

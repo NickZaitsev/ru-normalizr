@@ -1210,6 +1210,54 @@ def normalize_numeric_unit_ranges(text: str) -> str:
     return _NUMERIC_NOUN_RANGE_PATTERN.sub(normalize_noun_range, normalized)
 
 
+#: Валюты, у которых замена стоит в родительном множественном: такая форма
+#: возможна только при количестве слева («5 руб.»). Без количества речь идёт о
+#: самой валюте, падеж ей задаёт контекст, и сокращение остаётся стадии
+#: сокращений. Множители («млн.», «тыс.») другого чтения не имеют и остаются
+#: здесь: у них родительный множественного — единственная разумная форма.
+_COUNTED_POST_NUMERAL_ABBREVIATIONS = frozenset({"руб.", "долл.", "дол."})
+#: Окно левого контекста: количество стоит непосредственно перед сокращением.
+_COUNTED_QUANTITY_LOOKBACK = 32
+
+
+def _counted_quantity_precedes(text: str, start: int) -> bool:
+    """Слева стоит количество: число, числительное или счётная величина.
+
+    К этому месту числа уже развёрнуты в слова, поэтому признаком служит разбор
+    («пять», «десятки»), а не цифра; цифра остаётся возможной, когда стадия
+    числительных до неё ещё не дошла.
+    """
+    tokens = simple_tokenize(text[max(0, start - _COUNTED_QUANTITY_LOOKBACK) : start])
+    for token in reversed(tokens):
+        word = token.lower().strip(PUNCT_STRIP)
+        if not word:
+            continue
+        if word.isdigit():
+            return True
+        best = first_parse_required(word)
+        if best.tag.POS in {"PREP", "CONJ", "PRCL"}:
+            # Служебное слово количеством не бывает, а у «в» и «с» есть
+            # существительные разборы («вольт», «секунда»), которые иначе
+            # прошли бы проверку.
+            return False
+        parses = parse_word(word) or [best]
+        if any(
+            parse.tag.POS == "NUMR" or parse.normal_form in _MULTIPLIER_LEMMAS
+            for parse in parses
+        ):
+            return True
+        # «десятки тыс.», «сотни млн.» — счётная величина тоже количество.
+        # Разбор берётся не лучший, а любой подходящий: у «десятки» первым
+        # стоит родительный единственного от «десятка».
+        return any(
+            "NOUN" in parse.tag
+            and parse.tag.number == "plur"
+            and parse.tag.case in {"nomn", "accs", "gent"}
+            for parse in parses
+        )
+    return False
+
+
 def normalize_remaining_post_numeral_abbreviations(text: str) -> str:
     def preserve_sentence_boundary(
         match: re.Match[str], replacement: str, source_text: str
@@ -1224,6 +1272,10 @@ def normalize_remaining_post_numeral_abbreviations(text: str) -> str:
 
     def replace_abbreviation(match: re.Match[str]) -> str:
         key = " ".join(match.group(0).casefold().split())
+        if key in _COUNTED_POST_NUMERAL_ABBREVIATIONS and not _counted_quantity_precedes(
+            text, match.start()
+        ):
+            return match.group(0)
         replacement = POST_NUMERAL_ABBREVIATION_REPLACEMENTS[key]
         return preserve_sentence_boundary(match, replacement, text)
 

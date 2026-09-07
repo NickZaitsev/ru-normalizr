@@ -7,11 +7,13 @@
 
 from __future__ import annotations
 
+import functools
 import re
 
 import num2words
 import roman
 
+from ._morph import parse_word
 from .ordinal_utils import render_ordinal
 from .preprocess_utils import left_context
 from .text_scan import compile_scan
@@ -169,6 +171,126 @@ def normalize_clause_references(text: str) -> str:
         return f"{noun} {number}"
 
     return CLAUSE_REFERENCE_PATTERN.sub(repl, text)
+
+
+#: Ссылочные существительные с простым номером. Список лемм закрыт: маркер
+#: раскрывается только там, где его значение однозначно. «стр.»/«с.» остаются
+#: правилу страниц, а «гл.», «кн.» и «т.» — конвенции сокращённых маркеров
+#: рубрикации. Однобуквенные «с.» и «p.» — страница: предлог «с» точки не
+#: несёт, а ссылку с управлением слева забирает `PAGE_REFERENCE_PATTERN` выше.
+NUMBERED_REFERENCE_MARKERS = {
+    "ст": "статья",
+    "п": "пункт",
+    "подп": "подпункт",
+    "пп": "подпункт",
+    "табл": "таблица",
+    "прил": "приложение",
+    "рис": "рисунок",
+    "стр": "страница",
+    "с": "страница",
+    "p": "страница",
+}
+#: Номер обязателен и должен быть простым: составной номер («п. 1.2») уже
+#: разобран `CLAUSE_REFERENCE_PATTERN` выше, а маркер без номера ссылкой не
+#: является и остаётся общим правилам сокращений.
+NUMBERED_REFERENCE_PATTERN = compile_scan(
+    r"(?<!\w)(?P<marker>подп|пп|табл|прил|рис|стр|ст|п|с|p)\.\s*"
+    r"(?P<number>\d+)(?!\w|\.\d)",
+    re.IGNORECASE,
+)
+
+
+#: Директива «см.»/«смотри» управляет всем перечислением ссылок: по принятой
+#: конвенции ссылочное существительное при ней стоит в винительном.
+_REFERENCE_DIRECTIVE_PATTERN = re.compile(
+    r"""(?:^|[\s(\[«„“])(?:см\.|смотри)\s*\Z""", re.IGNORECASE
+)
+#: Хвост перечисления: разделитель («, », « и ») или один уже перечисленный
+#: элемент («рис. 2 », «таблицу три, »). Снимается с конца левого контекста,
+#: чтобы дойти до слова, управляющего перечислением.
+_REFERENCE_ENUMERATION_ITEM_PATTERN = re.compile(
+    r"(?:[\s,]*(?:и|или)[\s,]*|[\s,]+"
+    r"|\s*[А-Яа-яЁёA-Za-z]+\.?\s*(?:\d+|[а-яё]+))\Z",
+    re.IGNORECASE,
+)
+#: Сколько хвостов снимать: один элемент перечисления — это два хвоста
+#: (разделитель и сам элемент), поэтому шести хватает на три ссылки. Просмотр
+#: ограничен и этим числом, и окном левого контекста.
+_REFERENCE_ENUMERATION_DEPTH = 6
+
+
+def _see_directive_governs(text: str, start: int) -> bool:
+    """Ссылка стоит в перечислении, которым управляет «см.»/«смотри»."""
+    context = left_context(text, start, 96)
+    for _ in range(_REFERENCE_ENUMERATION_DEPTH):
+        if _REFERENCE_DIRECTIVE_PATTERN.search(context):
+            return True
+        trimmed = _REFERENCE_ENUMERATION_ITEM_PATTERN.sub("", context)
+        if trimmed == context:
+            return False
+        context = trimmed
+    return bool(_REFERENCE_DIRECTIVE_PATTERN.search(context))
+
+
+@functools.lru_cache(maxsize=64)
+def _reference_noun_form(lemma: str, case: str) -> str:
+    """Форма ссылочного существительного; при отказе морфологии — лемма."""
+    parsed = next(
+        (
+            candidate
+            for candidate in parse_word(lemma)
+            if "NOUN" in candidate.tag and candidate.tag.case == "nomn"
+        ),
+        None,
+    )
+    if parsed is None:
+        return lemma
+    inflected = parsed.inflect({case, "sing"})
+    return inflected.word if inflected is not None else lemma
+
+
+def normalize_numbered_references(text: str) -> str:
+    """«Согласно ст. 5 п. 2 закона» — «Согласно статье пять пункту два закона».
+
+    Падеж ссылочному существительному сообщает предлог слева, а номер остаётся
+    меткой. Второй маркер цепочки продолжает первую ссылку и повторяет её
+    падеж: предлог перед ним не стоит, но управление то же.
+    """
+    pieces: list[str] = []
+    position = 0
+    chain_case: str | None = None
+    chain_end = -1
+    for match in NUMBERED_REFERENCE_PATTERN.finditer(text):
+        if match.start() < position:
+            continue
+        lemma = NUMBERED_REFERENCE_MARKERS[match.group("marker").casefold()]
+        continues_chain = (
+            chain_case is not None
+            and chain_end >= 0
+            and not text[chain_end : match.start()].strip()
+        )
+        if continues_chain:
+            case = chain_case or "nomn"
+        elif _see_directive_governs(text, match.start()):
+            case = "accs"
+        else:
+            case = reference_case_from_left(text, match.start())
+        noun = _reference_noun_form(lemma, case)
+        if match.group("marker")[:1].isupper() and lemma != "страница":
+            # Заглавная у маркера означает начало предложения, и стадия caps
+            # её сама не восстановит: в начале текста она заглавных не ставит.
+            # Исключение — страница: «С. 6», «P. 5» и «Стр. 4» пишутся с
+            # заглавной по библиографической традиции, а не потому, что
+            # начинают предложение (та же неоднозначность, из-за которой
+            # `PAGE_REFERENCE_PATTERN` не берёт заглавную «С.» без управления).
+            noun = noun[:1].upper() + noun[1:]
+        pieces.append(text[position : match.start()])
+        pieces.append(f"{noun} {match.group('number')}")
+        position = match.end()
+        chain_case = case
+        chain_end = match.end()
+    pieces.append(text[position:])
+    return "".join(pieces)
 
 
 LEGAL_COMPLEX_REFERENCE_PATTERN = compile_scan(

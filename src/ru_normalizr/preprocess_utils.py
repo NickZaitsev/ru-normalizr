@@ -157,6 +157,8 @@ def restore_binary_math_operators(text: str) -> str:
     ):
         return text
     return text.translate(BINARY_MATH_OPERATOR_TRANSLATION)
+
+
 # Дореформенное раздельное «на прим.» — это «например»; но «на прим. 5» —
 # ссылка на примечание, а «на прим. пер./ред./авт.» — на редакторскую сноску.
 # Правило живёт в препроцессинге: на этом этапе цифры ещё не развёрнуты в
@@ -208,16 +210,6 @@ SENTENCE_SPACE_AFTER_PATTERN = compile_scan(
 )
 LINEBREAK_RUN_PATTERN = compile_scan(r"\n(?:[ \t]*\n)*[ \t]*")
 LEGACY_LINE_START_PATTERN = compile_scan(r'(?:["«„“]\s*)?[А-ЯЁA-Z0-9]')
-PAGE_ABBREVIATION_PATTERN = compile_scan(r"\b[сp]\.\s*(?=\d)", re.IGNORECASE)
-PAGE_FULL_ABBREVIATION_PATTERN = compile_scan(r"\bстр\.\s*(?=\d)", re.IGNORECASE)
-ARTICLE_ABBREVIATION_PATTERN = compile_scan(r"\bст\.\s*(?=\d)", re.IGNORECASE)
-FIGURE_ABBREVIATION_PATTERN = compile_scan(r"\bрис\.\s*(?=\d)", re.IGNORECASE)
-TABLE_ABBREVIATION_PATTERN = compile_scan(r"\bтабл\.\s*(?=\d)", re.IGNORECASE)
-REFERENCE_DIRECTIVE_PATTERN = compile_scan(
-    r"\bсм\.(?P<body>\s*(?:рис\.|табл\.|стр\.)\s*\d+"
-    r"(?:\s*(?:,|и)\s*(?:рис\.|табл\.|стр\.)\s*\d+)*)",
-    re.IGNORECASE,
-)
 APPROXIMATE_ABBREVIATION_PATTERN = compile_scan(r"\bок\.\s*(?=\d)", re.IGNORECASE)
 BIBLIOGRAPHIC_NUMBER_ABBREVIATIONS = (
     (compile_scan(r"(?<!\w)Т\.\s*(?=\d)"), "том "),
@@ -304,32 +296,12 @@ def normalize_era_abbreviations(text: str) -> str:
 
 
 def normalize_numeric_abbreviations(text: str) -> str:
-    def reference_directive_repl(match: re.Match[str]) -> str:
-        noun_forms = {
-            "рис.": "рисунок",
-            "табл.": "таблицу",
-            "стр.": "страницу",
-        }
-        body = re.sub(
-            r"\b(?:рис\.|табл\.|стр\.)",
-            lambda noun_match: noun_forms[noun_match.group(0).lower()],
-            match.group("body"),
-            flags=re.IGNORECASE,
-        )
-        return f"см.{body}"
-
     def legal_article_repl(match: re.Match[str]) -> str:
         expansion = LEGAL_CODE_GENITIVE_EXPANSIONS[match.group("code").lower()]
         return f"статья {match.group('number')} {expansion}"
 
     text = normalize_birth_year_abbreviations(text)
     text = normalize_mass_gram_abbreviations(text)
-    text = REFERENCE_DIRECTIVE_PATTERN.sub(reference_directive_repl, text)
-    text = PAGE_ABBREVIATION_PATTERN.sub("страница ", text)
-    text = PAGE_FULL_ABBREVIATION_PATTERN.sub("страница ", text)
-    text = ARTICLE_ABBREVIATION_PATTERN.sub("статья ", text)
-    text = FIGURE_ABBREVIATION_PATTERN.sub("рисунок ", text)
-    text = TABLE_ABBREVIATION_PATTERN.sub("таблица ", text)
     text = APPROXIMATE_ABBREVIATION_PATTERN.sub("около ", text)
     for pattern, replacement in BIBLIOGRAPHIC_NUMBER_ABBREVIATIONS:
         text = pattern.sub(replacement, text)

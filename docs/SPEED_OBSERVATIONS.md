@@ -1246,3 +1246,24 @@ uv run python scripts/benchmark.py --real-only --mode tts --samples 3 --warmups 
 границы диапазона идёт внутри `clean_numbers` (уже существующий проход),
 единица за множителем ищется только внутри уже найденного диапазона, а
 `UNIT_TOKEN_FRAGMENT` изменён в теле шаблона, не в числе проходов.
+
+## 7 сентября 2026 — фаза 6 плана качества: контекстные сокращения
+
+Одно правило нумерованных ссылок в `references.py` вместо шести литеральных
+подстановок в `preprocess_utils.py`, склонятор существительных-сокращений в
+`abbreviations.py`, требование количества слева у счётной формы валюты в
+`cardinals.py`.
+
+```
+uv run python scripts/benchmark.py --real-only --mode tts --samples 3 --warmups 1 \
+  --prefix-chars 250000 --book benchmarks/corpus/03_karamzin_history_of_russian_state.txt
+book_prefix_250000_tts    1349.90 мс    185 199 символов/с    peak RSS 86.6 МБ
+```
+
+Гейт 180 000 пройден. Число полнотекстовых проходов уменьшилось: шесть
+подстановок (`PAGE`, `PAGE_FULL`, `ARTICLE`, `FIGURE`, `TABLE`,
+`REFERENCE_DIRECTIVE`) заменены одним `NUMBERED_REFERENCE_PATTERN`. Новый
+проход по сокращениям существительных один и с литеральным guard'ом из
+альтернативы меток. Просмотр левого контекста у обоих правил ограничен окном
+(48 и 96 знаков) и числом снимаемых хвостов, поэтому остаётся постоянным на
+совпадение.

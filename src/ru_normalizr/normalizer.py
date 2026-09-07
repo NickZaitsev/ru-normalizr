@@ -102,6 +102,7 @@ from .references import (
     normalize_complex_legal_references,
     normalize_isbn_identifiers,
     normalize_number_signs,
+    normalize_numbered_references,
     normalize_page_references,
     normalize_section_references,
 )
@@ -379,6 +380,7 @@ class PipelineNormalizer:
         # Составной номер пункта забирается здесь: ниже dates_time прочитает
         # «1.2.34» датой, а числительные — десятичной дробью.
         text = normalize_clause_references(text)
+        text = normalize_numbered_references(text)
         text = normalize_numeric_abbreviations(text)
         # После правил, которые сами разбирают склейку «стр.5» и «п.1»: им
         # нужен исходный вид, а всё, что они не забрали, расклеивается здесь.

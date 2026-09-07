@@ -71,7 +71,7 @@
         "input_chars": 200000,
         "input_sha256": "c54239da14b304e450b93334d1783417fa0b5552b22c0c7d71a8f5820c920c08",
         "output_chars": 209171,
-        "output_sha256": "97abb5b591f0134d3b4fc765619a256954f06c92b355448f769e6e6dc8bb68bd"
+        "output_sha256": "298f28aee698c0dd17c003cb2a5439620618bbd0c4191974a5b7ed6ba9f7536e"
       },
       "04_kostomarov_russian_history_biographies": {
         "input_chars": 200000,

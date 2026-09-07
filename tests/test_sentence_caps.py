@@ -33,7 +33,7 @@ ABBREVIATION_DOT_CASES = (
     ),
     pytest.param(
         "Условие описано в п. 3 подписанного договора.",
-        "Условие описано в п. три подписанного договора.",
+        "Условие описано в пункте три подписанного договора.",
         id="single_letter_abbreviation_clause",
     ),
     pytest.param(

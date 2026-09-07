@@ -10,10 +10,12 @@ from ._morph import (
     parse_word,
     word_is_known,
 )
+from .abbreviation_context import should_keep_terminal_abbreviation_dot
 from .abbreviation_rules import (
     ABBREVIATION_LITERAL_HINTS,
     ABBREVIATION_PATTERNS,
     ADJECTIVE_ABBREVIATION_EXPANSIONS,
+    DECLINABLE_NOUN_ABBREVIATIONS,
     GEO_CLASSIFIER_ABBREVIATIONS,
 )
 from .constants import (
@@ -874,11 +876,98 @@ def _expand_geo_classifier_abbreviations(text: str) -> str:
     return _GEO_CLASSIFIER_PATTERN.sub(repl, text)
 
 
+#: Сокращение существительного без номера. Номер справа означает ссылку, и её
+#: забирает `normalize_numbered_references` в препроцессе; здесь остаются
+#: употребления, у которых падеж задаёт только левый контекст.
+_DECLINABLE_NOUN_ABBREVIATION_PATTERN = compile_scan(
+    rf"(?<!\w)(?P<abbr>{'|'.join(sorted(DECLINABLE_NOUN_ABBREVIATIONS, key=len, reverse=True))})"
+    r"\.(?!\s*\d)(?!\w)",
+    re.IGNORECASE,
+)
+#: «в»/«на»/«за» перед предметом речи читаются локативно: «в таблице»,
+#: «в рублях», «в области» — предмет, а не направление.
+_NOUN_ABBREVIATION_STATIC_CASE = {
+    "в": "loct",
+    "во": "loct",
+    "на": "loct",
+    "о": "loct",
+    "об": "loct",
+    "при": "loct",
+    "за": "ablt",
+    "под": "ablt",
+    "над": "ablt",
+    "перед": "ablt",
+}
+#: Сколько слов слева просматривать в поисках предлога: между предлогом и
+#: сокращением стоит согласованное определение («в Московской обл.»), и больше
+#: двух определений подряд в этой конструкции не бывает.
+_NOUN_ABBREVIATION_PREPOSITION_SCAN = 3
+
+
+def _noun_abbreviation_case(text: str, start: int) -> str:
+    """Падеж сокращённого существительного по левому контексту.
+
+    Предлог ищется через согласованные определения: «в Московской обл.» —
+    предложный от «в», а «Московской» уже стоит в нём же. Без предлога
+    сокращение — подлежащее или дополнение при глаголе, и остаётся
+    именительным: угадывать управление глагола здесь нечем.
+    """
+    tokens = simple_tokenize(text[max(0, start - 48) : start])
+    for token in reversed(tokens[-_NOUN_ABBREVIATION_PREPOSITION_SCAN:]):
+        word = token.lower().strip(PUNCT_STRIP)
+        if not word:
+            continue
+        if word in _NOUN_ABBREVIATION_STATIC_CASE:
+            return _NOUN_ABBREVIATION_STATIC_CASE[word]
+        if word in PREP_CASE:
+            return PREP_CASE[word]
+        parsed = first_parse_required(word)
+        if parsed.tag.POS not in {"ADJF", "PRTF"}:
+            break
+    return "nomn"
+
+
+def _expand_declinable_noun_abbreviations(text: str) -> str:
+    """«Цена в руб.» → «в рублях», «в Московской обл.» → «в области».
+
+    Раньше эти существительные подставлялись одной формой независимо от
+    контекста, и получалось «в Московской область», «в рублей», «в таблица».
+    """
+
+    def repl(match: re.Match[str]) -> str:
+        abbr = match.group("abbr")
+        lemma, number = DECLINABLE_NOUN_ABBREVIATIONS[abbr.casefold()]
+        case = _noun_abbreviation_case(text, match.start())
+        if case == "nomn" and number == "sing":
+            # Именительный единственного — это сама лемма, и подстановка ничем
+            # не отличается от литерального правила: пусть его и применяет.
+            return match.group(0)
+        parsed = next(
+            (
+                candidate
+                for candidate in parse_word(lemma)
+                if "NOUN" in candidate.tag and candidate.tag.case == "nomn"
+            ),
+            None,
+        )
+        if parsed is None:
+            return match.group(0)
+        expanded = safe_inflect(parsed, {case, number}, fallback_word=lemma)
+        if abbr[:1].isupper():
+            expanded = expanded[:1].upper() + expanded[1:]
+        if should_keep_terminal_abbreviation_dot(text, match.end()):
+            expanded += "."
+        return expanded
+
+    return _DECLINABLE_NOUN_ABBREVIATION_PATTERN.sub(repl, text)
+
+
 def expand_abbreviations(text: str, options: NormalizeOptions | None = None) -> str:
     active = options or NormalizeOptions()
     text = _expand_language_origin_abbreviations(text)
     if active.enable_contextual_abbreviation_expansion:
         text = _expand_geo_classifier_abbreviations(text)
+        text = _expand_declinable_noun_abbreviations(text)
         text = _expand_contextual_etc_abbreviations(text)
         text = _expand_contextual_adjective_abbreviations(text)
         folded_text = text.casefold()

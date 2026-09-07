@@ -252,9 +252,8 @@ REVIEW_2026_09_GAP_CASES = (
     ),
     # --- Ложные срабатывания контекста ---------------------------------------
     #
-    # Литеральные правила сокращений раскрывают только в именительном и без
-    # оглядки на соседа: «Гл. редактор» — «главный», «в табл.» — «в таблице»,
-    # «ст. 5» после «согласно» — «статье», «в обл.» — «в области».
+    # «Гл.» перед существительным без числа раскрывается как глава книги, а
+    # это сокращение прилагательного «главный».
     pytest.param(
         "Гл. редактор ушёл в отставку.",
         "Главный редактор ушёл в отставку.",
@@ -262,33 +261,6 @@ REVIEW_2026_09_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="«гл.» is always expanded to «глава» regardless of the word after it",
-        ),
-    ),
-    pytest.param(
-        "Данные приведены в табл. 3 и в прил. 2.",
-        "Данные приведены в таблице три и в приложении два.",
-        id="literal_abbreviation_expansion_ignores_case",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="literal abbreviation rules expand to the nominative only",
-        ),
-    ),
-    pytest.param(
-        "Согласно ст. 5 п. 2 закона штраф удвоен.",
-        "Согласно статье пять пункту два закона штраф удвоен.",
-        id="article_abbreviation_ignores_case_and_point_stays",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="«ст.» expands to the nominative and «п.» is not expanded at all",
-        ),
-    ),
-    pytest.param(
-        "Он жил в Московской обл. до войны.",
-        "Он жил в Московской области до войны.",
-        id="oblast_abbreviation_ignores_case",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="«обл.» expands to the nominative after a locative adjective",
         ),
     ),
     # --- Падеж и род числительных --------------------------------------------
@@ -355,15 +327,6 @@ REVIEW_2026_09_GAP_CASES = (
         ),
     ),
     # «руб.» раскрывается в родительный множественного без числа слева.
-    pytest.param(
-        "Цена в руб. указана без НДС.",
-        "Цена в рублях указана без эн дэ эс.",
-        id="rub_abbreviation_without_number",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="«руб.» without a number is expanded as if counted",
-        ),
-    ),
     # «г.» перед названием с заглавной буквы — город, а не год.
     pytest.param(
         "Он переехал в г. Казань в 2010 году.",
