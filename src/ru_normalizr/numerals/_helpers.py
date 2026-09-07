@@ -1172,6 +1172,13 @@ def _rule_coordinated_series_head(ctx: NumeralContext) -> str | None:
             # разбор «посол» в предложном, и без этого порядка предлог стал бы
             # вершиной ряда.
             break
+        if best.tag.POS != "NOUN":
+            # Вершиной ряда становится только слово, которое существительным и
+            # читается: у наречия «уже» есть разбор «уж» в предложном, и по
+            # нему годы жизни «Гретри, 1742, 1813,» получали предложный падеж.
+            # Согласованное определение вершину не отменяет, поэтому просмотр
+            # продолжается — его обрывают знаки и глагол выше.
+            continue
         p_noun = select_parse(parse_word(token), pos="NOUN")
         if p_noun is not None and is_case_reliable_noun(p_noun):
             head_case = "loct" if "loc2" in p_noun.tag else p_noun.tag.case
