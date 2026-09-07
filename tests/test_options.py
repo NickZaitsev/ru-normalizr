@@ -25,6 +25,7 @@ SAFE_PROFILE: dict[str, Any] = {
     "remove_links_ignore_interval": (1000, 2200),
     "enable_year_normalization": True,
     "enable_roman_normalization": True,
+    "enable_math_normalization": False,
     "enable_dates_time_normalization": True,
     "enable_numeral_normalization": True,
     "enable_abbreviation_expansion": True,
@@ -59,6 +60,7 @@ TTS_PROFILE: dict[str, Any] = {
     "initials_pause_mode": "comma",
     "enable_letter_abbreviation_expansion": True,
     "enable_latinization": True,
+    "enable_math_normalization": True,
     "mode": "tts",
 }
 

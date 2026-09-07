@@ -23,6 +23,7 @@ from .identifiers import (
     normalize_vehicle_registration_plates,
 )
 from .latinization import DEFAULT_DICTIONARIES_PATH, apply_latinization
+from .math_formulas import normalize_math
 from .numbering import (
     convert_bracketed_numbers,
     convert_inline_list_markers,
@@ -178,6 +179,7 @@ def protect_windows_paths(text: str) -> ProtectedWindowsPaths:
 Stage = Literal[
     "urls",
     "preprocess",
+    "math",
     "roman",
     "address",
     "years",
@@ -210,6 +212,7 @@ class PipelineNormalizer:
     _STAGE_HANDLERS: ClassVar[dict[Stage, str]] = {
         "urls": "run_urls",
         "preprocess": "run_preprocess",
+        "math": "run_math",
         "roman": "run_roman",
         "address": "run_address",
         "years": "run_years",
@@ -254,6 +257,11 @@ class PipelineNormalizer:
         # в `int()`, поэтому такие пробеги едут через пайплайн спрятанными.
         protected_overlong = protect_overlong_numbers(text)
         text = protected_overlong.text
+        # Формулы разбираются раньше препроцесса: тот чистит парную пунктуацию
+        # и съедает вторую группу скобок у rac, оставляя дробь без знаменателя.
+        # Раньше римских цифр он нужен по той же причине: «X» в $2400 - 60X$ —
+        # переменная, а римская стадия прочитала бы её как десять.
+        text = self.run_math(text)
         text = self._run_preprocess_steps(
             text,
             apply_caps_normalization=False,
@@ -402,6 +410,11 @@ class PipelineNormalizer:
         return normalize_first_word_caps(
             text, enabled=self.options.enable_first_word_decap
         )
+
+    def run_math(self, text: str) -> str:
+        if not self.options.enable_math_normalization:
+            return text
+        return normalize_math(text)
 
     def run_roman(self, text: str) -> str:
         if not self.options.enable_roman_normalization:

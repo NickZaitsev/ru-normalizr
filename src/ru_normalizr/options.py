@@ -25,6 +25,7 @@ _MODE_DEFAULTS: dict[str, tuple[object, object]] = {
     "enable_url_normalization": (False, True),
     "enable_year_normalization": (True, True),
     "enable_roman_normalization": (True, True),
+    "enable_math_normalization": (False, True),
     "enable_dates_time_normalization": (True, True),
     "enable_numeral_normalization": (True, True),
     "enable_abbreviation_expansion": (True, True),
@@ -70,6 +71,7 @@ class NormalizeOptions:
     remove_links_ignore_interval: tuple[int, int]
     enable_year_normalization: bool
     enable_roman_normalization: bool
+    enable_math_normalization: bool
     enable_dates_time_normalization: bool
     enable_numeral_normalization: bool
     enable_abbreviation_expansion: bool
@@ -101,6 +103,7 @@ class NormalizeOptions:
         remove_links_ignore_interval: tuple[int, int] = (1000, 2200),
         enable_year_normalization: bool | None = None,
         enable_roman_normalization: bool | None = None,
+        enable_math_normalization: bool | None = None,
         enable_dates_time_normalization: bool | None = None,
         enable_numeral_normalization: bool | None = None,
         enable_abbreviation_expansion: bool | None = None,
@@ -143,6 +146,7 @@ class NormalizeOptions:
             "enable_url_normalization": enable_url_normalization,
             "enable_year_normalization": enable_year_normalization,
             "enable_roman_normalization": enable_roman_normalization,
+            "enable_math_normalization": enable_math_normalization,
             "enable_dates_time_normalization": enable_dates_time_normalization,
             "enable_numeral_normalization": enable_numeral_normalization,
             "enable_abbreviation_expansion": enable_abbreviation_expansion,
