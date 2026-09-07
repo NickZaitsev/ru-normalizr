@@ -4243,6 +4243,107 @@ CLAUSE_REFERENCE_CASES = (
 )
 
 
+# Вершиной сочинённого ряда становится только слово, которое существительным
+# и читается: иначе именной омоним наречия навязывал падеж годам жизни.
+SERIES_HEAD_HOMONYM_CASES = (
+    pytest.param(
+        "Михаил Глинка, 1804, 1857, первым написал национальную оперу.",
+        "Михаил Глинка, одна тысяча восемьсот четыре, одна тысяча восемьсот "
+        "пятьдесят семь, первым написал национальную оперу.",
+        id="dates_before_an_adjective_and_a_verb_stay_nominative",
+    ),
+    pytest.param(
+        "Композитор Гретри, 1742, 1813, уже касался этого вопроса подробно.",
+        "Композитор Гретри, одну тысячу семьсот сорок двух, одну тысячу "
+        "восемьсот тринадцать, уже касался этого вопроса подробно.",
+        id="dates_before_the_adverb_uzhe_take_no_case_from_it",
+    ),
+    # Настоящая вершина ряда падеж по-прежнему сообщает.
+    pytest.param(
+        "Премии присудили 3, 5 и 7 участникам конкурса.",
+        "Премии присудили трём, пяти и семи участникам конкурса.",
+        id="real_noun_head_still_governs_the_series",
+    ),
+    pytest.param(
+        "Управление 3 и 5 заводами передали министерству.",
+        "Управление тремя и пятью заводами передали министерству.",
+        id="coordinated_pair_head_still_governs_the_series",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), SERIES_HEAD_HOMONYM_CASES)
+def test_series_head_homonym_edges(check_tts: CheckTts, source: str, expected: str) -> None:
+    check_tts(source, expected)
+
+
+# Ведущий дефис у краткой формулы не отменяет метку слева: без этого «H»
+# в «-C3H5» уходила в единицу индуктивности и формула читалась «генри».
+LEADING_HYPHEN_FORMULA_CASES = (
+    pytest.param(
+        "Краткая формула глицерина -C3H5, OH, 3 знакома биохимикам.",
+        "Краткая формула глицерина -си три-эйч пять, оу эйч, три знакома биохимикам.",
+        id="formula_with_a_leading_hyphen_keeps_the_letter",
+    ),
+    pytest.param(
+        "Краткая формула глицерина C3H5, OH, 3 знакома биохимикам.",
+        "Краткая формула глицерина си три-эйч пять, оу эйч, три знакома биохимикам.",
+        id="formula_without_a_leading_hyphen_reads_the_same",
+    ),
+    # Настоящая индуктивность остаётся единицей: у неё нет метки-буквы слева.
+    pytest.param(
+        "Индуктивность катушки составила 3 Гн в этом опыте.",
+        "Индуктивность катушки составила три генри в этом опыте.",
+        id="henry_after_a_bare_number_stays_a_unit",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), LEADING_HYPHEN_FORMULA_CASES)
+def test_leading_hyphen_formula_edges(check_tts: CheckTts, source: str, expected: str) -> None:
+    check_tts(source, expected)
+
+
+# Номер рубрики бывает составным и с буквенным индексом. Обе записи —
+# метка, а не измерение: без этого «рис. 1.5А» читался дробью с амперами,
+# а сам маркер оставался сокращением и давал ложную заглавную дальше.
+REFERENCE_NUMBER_INDEX_CASES = (
+    pytest.param(
+        "Связи показаны в рис. 1.5, и они строго чередуются.",
+        "Связи показаны в рисунке один точка пять, и они строго чередуются.",
+        id="dotted_figure_number_after_a_locative_preposition",
+    ),
+    pytest.param(
+        "Атомы соединены двойными связями, смотри рис. 1.5А, связи чередуются.",
+        "Атомы соединены двойными связями, смотри рисунок один точка пять А, "
+        "связи чередуются.",
+        id="dotted_figure_number_with_a_letter_index",
+    ),
+    pytest.param(
+        "Данные собраны в табл. 2б и повторены в тексте.",
+        "Данные собраны в таблице два б и повторены в тексте.",
+        id="integer_table_number_with_a_letter_index",
+    ),
+    pytest.param(
+        "Порядок описан в п. 1.5А устава организации.",
+        "Порядок описан в пункте один точка пять А устава организации.",
+        id="dotted_clause_number_with_a_letter_index",
+    ),
+    # Настоящая единица измерения остаётся единицей: у неё пробел перед
+    # символом и нет маркера рубрики слева.
+    pytest.param(
+        "Ток составил 1,5 А в момент замыкания цепи.",
+        "Ток составил одну целую пять десятых ампера в момент замыкания цепи.",
+        id="decimal_with_a_spaced_unit_symbol_stays_a_measurement",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), REFERENCE_NUMBER_INDEX_CASES)
+def test_reference_number_index_edges(check_tts: CheckTts, source: str, expected: str) -> None:
+    check_tts(source, expected)
+
+
 @pytest.mark.parametrize(("source", "expected"), CLAUSE_REFERENCE_CASES)
 def test_clause_reference_edges(
     check_tts: CheckTts, source: str, expected: str

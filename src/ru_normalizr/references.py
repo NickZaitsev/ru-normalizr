@@ -190,12 +190,15 @@ NUMBERED_REFERENCE_MARKERS = {
     "с": "страница",
     "p": "страница",
 }
-#: Номер обязателен и должен быть простым: составной номер («п. 1.2») уже
-#: разобран `CLAUSE_REFERENCE_PATTERN` выше, а маркер без номера ссылкой не
-#: является и остаётся общим правилам сокращений.
+#: Номер обязателен, а маркер без номера ссылкой не является и остаётся общим
+#: правилам сокращений. Номер бывает составным («рис. 1.5») и с буквенным
+#: индексом («рис. 1.5А», «табл. 2б»): и то и другое — метка рубрики, поэтому
+#: их забирает ссылка. Иначе составной номер уходил числительным в дробь,
+#: буква индекса — в единицу измерения («пять десятых ампера»), а сам маркер
+#: оставался сокращением и давал ложную заглавную в следующем слове.
 NUMBERED_REFERENCE_PATTERN = compile_scan(
     r"(?<!\w)(?P<marker>подп|пп|табл|прил|рис|стр|ст|п|с|p)\.\s*"
-    r"(?P<number>\d+)(?!\w|\.\d)",
+    r"(?P<number>\d+(?:\.\d+)*)(?P<index>[A-Za-zА-Яа-яЁё])?(?!\w)",
     re.IGNORECASE,
 )
 
@@ -249,6 +252,28 @@ def _reference_noun_form(lemma: str, case: str) -> str:
     return inflected.word if inflected is not None else lemma
 
 
+def _reference_label(number: str, index: str | None) -> str | None:
+    """Номер ссылки: цифры, составной номер и буквенный индекс рубрики.
+
+    Простой номер без индекса остаётся цифрами: его читают числительные, и
+    падеж метки они выбирают сами. Составной номер читается по частям через
+    «точка», как номер пункта. Индекс отделяется от номера словами, а не
+    цифрами: рядом с цифрой одиночная буква ушла бы в единицу измерения.
+    """
+    if index is None and "." not in number:
+        return number
+    if "." in number:
+        rendered = _render_dotted_number(number)
+        if rendered is None:
+            return None
+    else:
+        try:
+            rendered = num2words.num2words(int(number), lang="ru")
+        except (ValueError, OverflowError, NotImplementedError):
+            return None
+    return rendered if index is None else f"{rendered} {index}"
+
+
 def normalize_numbered_references(text: str) -> str:
     """«Согласно ст. 5 п. 2 закона» — «Согласно статье пять пункту два закона».
 
@@ -284,8 +309,11 @@ def normalize_numbered_references(text: str) -> str:
             # начинают предложение (та же неоднозначность, из-за которой
             # `PAGE_REFERENCE_PATTERN` не берёт заглавную «С.» без управления).
             noun = noun[:1].upper() + noun[1:]
+        label = _reference_label(match.group("number"), match.group("index"))
+        if label is None:
+            continue
         pieces.append(text[position : match.start()])
-        pieces.append(f"{noun} {match.group('number')}")
+        pieces.append(f"{noun} {label}")
         position = match.end()
         chain_case = case
         chain_end = match.end()

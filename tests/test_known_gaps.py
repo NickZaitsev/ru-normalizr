@@ -89,6 +89,45 @@ CORPUS_SWEEP_GAP_CASES = (
             reason="a three-digit year is not recognized before the noun «года»",
         ),
     ),
+    # «на» перед ссылкой не даёт падежа: у него есть и местное чтение
+    # («показано на рисунке»), и целевое («ссылка на рисунок»), поэтому ссылка
+    # остаётся именительной и в местном контексте выходит несогласованной.
+    pytest.param(
+        "Связи в кольце показаны на рис. 1.5, и они строго чередуются.",
+        "Связи в кольце показаны на рисунке один точка пять, и они строго "
+        "чередуются.",
+        id="reference_after_na_stays_nominative",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="«на» governs both the locative and the accusative reading",
+        ),
+    ),
+    # Единица без пробела после дроби с точкой остаётся при числе дефисом:
+    # «1.5А» читается «одну целую пять десятых-А». Пробел («1,5 А») читается
+    # верно, и ссылка с маркером слева тоже.
+    pytest.param(
+        "Ток в цепи составил 1.5А в момент замыкания цепи.",
+        "Ток в цепи составил одну целую пять десятых ампера в момент "
+        "замыкания цепи.",
+        id="glued_unit_after_a_dotted_decimal_keeps_the_hyphen",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a unit symbol glued to a dot-separated decimal is not expanded",
+        ),
+    ),
+    # Годы жизни при имени — перечисление без вершины, и падеж у членов ряда
+    # получается разным: «одну тысячу семьсот сорок двух» вместо
+    # именительного. Вершина ряда тут не нужна: это не количество.
+    pytest.param(
+        "Композитор Гретри, 1742, 1813, уже касался этого вопроса подробно.",
+        "Композитор Гретри, одна тысяча семьсот сорок два, одна тысяча "
+        "восемьсот тринадцать, уже касался этого вопроса подробно.",
+        id="lifespan_years_after_a_name_get_an_oblique_case",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a comma-separated pair of years after a name is not read as a date range",
+        ),
+    ),
 )
 
 
