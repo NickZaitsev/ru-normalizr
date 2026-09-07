@@ -129,11 +129,11 @@ RULE_CASES = (
         id="coordinated_first_number",
     ),
     pytest.param(
-        # То же предложение: «5» управляется существительным справа от «и».
-        "coordinated-second-noun",
-        "Он пришёл на занятие с 5 и 7 книгами в рюкзаке.",
-        "Он пришёл на занятие с пятью и семью книгами в рюкзаке.",
-        id="coordinated_second_noun",
+        # Общая вершина справа: падеж ряда задаёт «участникам», а не сосед слева.
+        "coordinated-series-head",
+        "Премии присудили 3, 5 и 7 участникам.",
+        "Премии присудили трём, пяти и семи участникам.",
+        id="coordinated_series_head",
     ),
     pytest.param(
         "range-right-boundary",

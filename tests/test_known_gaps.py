@@ -293,26 +293,38 @@ REVIEW_2026_09_GAP_CASES = (
     ),
     # --- Падеж и род числительных --------------------------------------------
     #
-    # distance-from-landmark не видит диапазон: единица и «от» стоят после
-    # правой границы, а правило смотрит только на соседей левой.
+    # Число в начале предложения теряет заглавную букву: развёртывание идёт
+    # после разбора границ, и первое слово результата остаётся строчным.
     pytest.param(
-        "Деревня лежит в 10-20 км от города.",
-        "Деревня лежит в десяти — двадцати километрах от города.",
-        id="distance_range_from_landmark_not_inflected",
+        "3 участника пришли на встречу и остались до вечера.",
+        "Три участника пришли на встречу и остались до вечера.",
+        id="sentence_initial_number_loses_its_capital",
         marks=pytest.mark.xfail(
             strict=True,
-            reason="distance-from-landmark does not look past a range to the unit",
+            reason="an expanded numeral at sentence start is not capitalized",
         ),
     ),
-    # Падеж каждого члена сочинённого ряда должен идти от существительного
-    # справа: «3, 5 и 7 участникам» — дательный.
+    # Управление глагола протягивается на первый член счётной группы как
+    # одушевлённый винительный: «присудили двух и три премии» вместо
+    # «присудили три и пять премий».
     pytest.param(
-        "Премии присудили 3, 5 и 7 участникам.",
-        "Премии присудили трём, пяти и семи участникам.",
-        id="coordinated_numbers_ignore_head_case",
+        "Присудили 3 и 5 премий лучшим работникам завода.",
+        "Присудили три и пять премий лучшим работникам завода.",
+        id="verb_government_leaks_into_a_counted_group",
         marks=pytest.mark.xfail(
             strict=True,
-            reason="coordinated numbers before a dative head stay nominative",
+            reason="verb government puts the first member into the animate accusative",
+        ),
+    ),
+    # Тире вместо повторённого глагола: вершина ряда справа стоит в дательном,
+    # но «свежее количество после тире» объявляет ряд именительным.
+    pytest.param(
+        "Премии присудили 3 и 5 участникам, а грамоты — 2 и 4 школам.",
+        "Премии присудили трём и пяти участникам, а грамоты — двум и четырём школам.",
+        id="series_after_a_verb_ellipsis_dash_ignores_its_head",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="fresh-quantity-after-dash shadows the coordinated series head",
         ),
     ),
     # --- Единицы измерения ------------------------------------------------------

@@ -1010,33 +1010,163 @@ def _rule_power_exponent(ctx: NumeralContext) -> str | None:
     return None
 
 
+def _numeric_group_offsets(ctx: NumeralContext) -> tuple[int, int]:
+    """Смещения краёв числовой группы: одиночного числа или диапазона «10-20».
+
+    Управление относится ко всей группе, а не к тому её члену, о котором сейчас
+    спрашивают: у «в 10-20 км от города» и предлог, и единица с ориентиром
+    стоят по краям диапазона, а не рядом с каждой границей.
+    """
+    if (
+        ctx.idx + 2 < ctx.visible_length
+        and ctx.raw(1) in DASH_TOKENS
+        and is_integer_token(ctx.raw(2))
+    ):
+        return 0, 2
+    if ctx.idx >= 2 and ctx.raw(-1) in DASH_TOKENS and is_integer_token(ctx.raw(-2)):
+        return -2, 0
+    return 0, 0
+
+
 def _rule_distance_from_landmark(ctx: NumeralContext) -> str | None:
     """«в 200 м от дома» → «в двухстах метрах от дома».
 
     Символ единицы не имеет своего падежа, поэтому управление в фразе никто не
     сообщает и «в» иначе прочиталось бы винительным.
+
+    Диапазон разбирается той же конструкцией: «в 10-20 км от города» — это одно
+    расстояние до ориентира, и предложный получают обе границы. Раньше правило
+    искало единицу вплотную за числом и до правой границы не доставало.
     """
-    if not (ctx.idx > 0 and ctx.word(-1) == "в" and ctx.idx + 2 < ctx.visible_length):
+    left, right = _numeric_group_offsets(ctx)
+    if ctx.idx + left <= 0 or ctx.word(left - 1) != "в":
         return None
-    unit_word = ctx.raw(1).lower().strip(PUNCT_STRIP)
-    unit_offset = 2
+    unit_offset = right + 1
+    if ctx.idx + unit_offset >= ctx.visible_length:
+        return None
+    unit_word = ctx.raw(unit_offset).lower().strip(PUNCT_STRIP)
+    landmark_offset = unit_offset + 1
     is_unit = is_unit_token(unit_word)
-    if not is_unit and ctx.raw(unit_offset) == ".":
+    if not is_unit and ctx.raw(landmark_offset) == ".":
         # Точка сокращения — отдельный токен: «в 75 в. от Казани».
         is_unit = is_unit_token(f"{unit_word}.")
-        unit_offset += 1
+        landmark_offset += 1
     if not (
         is_unit
-        and ctx.idx + unit_offset < ctx.visible_length
-        and ctx.word(unit_offset) in _LANDMARK_MARKERS
+        and ctx.idx + landmark_offset < ctx.visible_length
+        and ctx.word(landmark_offset) in _LANDMARK_MARKERS
     ):
         return None
     era_follows = (
-        ctx.idx + unit_offset + 1 < ctx.visible_length
-        and ctx.word(unit_offset + 1) in _ERA_MARKER_WORDS
+        ctx.idx + landmark_offset + 1 < ctx.visible_length
+        and ctx.word(landmark_offset + 1) in _ERA_MARKER_WORDS
     )
     if not era_follows:
         return "loct"
+    return None
+
+
+#: Падежи, которые вершина справа действительно навязывает сочинённому ряду.
+#: Родительного здесь нет намеренно: он у существительного при числительном
+#: обычный счётный («три участника»), и падежа числу не сообщает.
+_SERIES_HEAD_CASES = frozenset({"datv", "ablt", "loct"})
+#: Соединители сочинённого ряда чисел.
+_SERIES_COORDINATORS = frozenset({"и", "или"})
+#: Предел длины ряда при поиске вершины. Просмотр делается один раз на ряд, но
+#: у документа-выброса и один проход должен быть ограничен.
+_SERIES_SCAN_LIMIT = 512
+#: Сколько токенов за последним членом смотреть на вершину: между рядом и
+#: вершиной стоит согласованное определение («3 и 5 крупными заводами»).
+_SERIES_HEAD_SCAN_WIDTH = 6
+#: Знаки, обрывающие поиск вершины ряда. Закрывающая скобка здесь потому,
+#: что за ней идёт уже другая синтагма — в корпусе это библиографическая
+#: сноска, за которой начинается новое предложение.
+_SERIES_HEAD_BARRIER_CHARS = ".!?;:)]}»"
+
+
+def _is_series_continuation(ctx: NumeralContext) -> bool:
+    """Число — не первый член ряда: слева уже стоит его сосед.
+
+    Проверка постоянная по времени и нужна, чтобы просмотр вправо делался один
+    раз на ряд: остальные члены получают падеж от первого через памятку.
+    """
+    if ctx.idx < 2:
+        return False
+    previous = ctx.raw(-1)
+    if previous.endswith(",") and is_integer_token(previous.rstrip(",")):
+        return True
+    word = ctx.word(-1)
+    if previous == "," or word in _SERIES_COORDINATORS:
+        neighbour = ctx.raw(-2).rstrip(",")
+        return is_integer_token(neighbour) or _rendered_numeral_case(neighbour) is not None
+    return False
+
+
+def _series_head_offset(ctx: NumeralContext) -> int | None:
+    """Смещение слова сразу за последним членом ряда; `None` — ряда нет."""
+    offset = 0
+    members = 1
+    while members < _SERIES_SCAN_LIMIT:
+        member = ctx.raw(offset)
+        if not member:
+            return None
+        if member.endswith(","):
+            next_offset = offset + 1
+        elif ctx.word(offset + 1) in _SERIES_COORDINATORS or ctx.raw(offset + 1) == ",":
+            next_offset = offset + 2
+        else:
+            break
+        if not is_integer_token(ctx.raw(next_offset).rstrip(",")):
+            break
+        offset = next_offset
+        members += 1
+    if members < 2:
+        return None
+    return offset + 1
+
+
+def _rule_coordinated_series_head(ctx: NumeralContext) -> str | None:
+    """Общая вершина справа задаёт падеж всему сочинённому ряду.
+
+    «Премии присудили 3, 5 и 7 участникам» — дательный у всех членов, а не
+    именительный: вершина у ряда одна, и падеж она сообщает всему ряду. Раньше
+    её не видел никто: первый член решался без взгляда за ряд, а остальные
+    наследовали его падеж.
+
+    Просмотр вправо делается один раз на ряд — для первого его члена; остальные
+    получают тот же падеж через `coordinated-first-number` и памятку решений,
+    поэтому разрешение ряда остаётся линейным.
+    """
+    if _is_series_continuation(ctx):
+        return None
+    head_offset = _series_head_offset(ctx)
+    if head_offset is None:
+        return None
+    limit = min(ctx.visible_length - ctx.idx, head_offset + _SERIES_HEAD_SCAN_WIDTH)
+    for offset in range(head_offset, limit):
+        raw = ctx.raw(offset)
+        if any(char in raw for char in _SERIES_HEAD_BARRIER_CHARS):
+            # Точка, двоеточие, точка с запятой и закрывающая скобка обрывают
+            # группу: за ними вершина этого ряда не стоит. Проверка идёт по
+            # исходному токену, потому что «)» после снятия пунктуации пуст и
+            # иначе просмотр уходил бы в следующее предложение.
+            break
+        token = raw.strip(PUNCT_STRIP)
+        if not token:
+            continue
+        best = first_parse_required(token)
+        if best.tag.POS in {"VERB", "INFN", "PREP", "CONJ"} and ctx.word(offset) != "и":
+            # Предлог вводит свою группу: существительное за ним принадлежит
+            # ему, а не ряду («… 441). Вопреки Нестору …»). Союз «и» —
+            # исключение: он соединяет последние члены самого ряда.
+            # Основное чтение решает раньше именного омонима: у «после» есть
+            # разбор «посол» в предложном, и без этого порядка предлог стал бы
+            # вершиной ряда.
+            break
+        p_noun = select_parse(parse_word(token), pos="NOUN")
+        if p_noun is not None and is_case_reliable_noun(p_noun):
+            head_case = "loct" if "loc2" in p_noun.tag else p_noun.tag.case
+            return head_case if head_case in _SERIES_HEAD_CASES else None
     return None
 
 
@@ -1322,34 +1452,6 @@ def _rule_oblique_noun_before_bare_number(ctx: NumeralContext) -> str | None:
     return None
 
 
-def _rule_coordinated_second_noun(ctx: NumeralContext) -> str | None:
-    """В сочинённом количестве второе существительное управляет обоими числами.
-
-    «управление 3 и 5 заводами». Родительное существительное здесь не годится:
-    это обычная счётная группа («три и пять книг»), а не управление.
-    """
-    if not (ctx.idx + 2 < ctx.visible_length and ctx.word(1) == "и"):
-        return None
-    for offset in range(2, min(ctx.visible_length - ctx.idx, 6)):
-        raw = ctx.raw(offset)
-        token = raw.strip(".,!?;:()[]{}")
-        if not token:
-            continue
-        if any(char in raw for char in ".!?;:"):
-            break
-        parsed = parse_word(token)
-        p_noun = select_parse(parsed, pos="NOUN")
-        if p_noun is not None and is_case_reliable_noun(p_noun):
-            noun_case = "loct" if "loc2" in p_noun.tag else p_noun.tag.case
-            if noun_case in {"datv", "ablt", "loct"}:
-                return noun_case
-            break
-        p = first_parse_required(token)
-        if p.tag.POS in {"VERB", "INFN"}:
-            break
-    return None
-
-
 def _rule_preposition_before_number(ctx: NumeralContext) -> str | None:
     """Предлог перед числом: «с 5 по 10», «в 1995 году», «по 5 рублей».
 
@@ -1595,7 +1697,7 @@ CASE_RULES: tuple[CaseRule, ...] = (
     CaseRule("locative-quantity-head", _rule_locative_quantity_head),
     CaseRule("measure-parameter-head", _rule_measure_parameter_head),
     CaseRule("oblique-noun-before-bare-number", _rule_oblique_noun_before_bare_number),
-    CaseRule("coordinated-second-noun", _rule_coordinated_second_noun),
+    CaseRule("coordinated-series-head", _rule_coordinated_series_head),
     CaseRule("preposition-before-number", _rule_preposition_before_number),
     CaseRule("passive-participle-predicate", _rule_passive_participle_predicate),
     CaseRule("adjective-agreement", _rule_adjective_agreement),

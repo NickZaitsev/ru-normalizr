@@ -4423,3 +4423,160 @@ def test_non_normative_day_suffix_edges(
     check_tts: CheckTts, source: str, expected: str
 ) -> None:
     check_tts(source, expected)
+
+
+# Общая вершина справа задаёт падеж всему сочинённому ряду чисел, а не только
+# последнему его члену: правило `coordinated-series-head`.
+COORDINATED_SERIES_HEAD_CASES = (
+    pytest.param(
+        "Премии присудили 3, 5 и 7 участникам.",
+        "Премии присудили трём, пяти и семи участникам.",
+        id="series_head_dative_with_comma_and_conjunction",
+    ),
+    pytest.param(
+        "Премии присудили 3, 5, 7 участникам.",
+        "Премии присудили трём, пяти, семи участникам.",
+        id="series_head_dative_with_commas_only",
+    ),
+    pytest.param(
+        "Премии присудили 1 и 2 участникам.",
+        "Премии присудили одному и двум участникам.",
+        id="series_head_dative_one_and_two",
+    ),
+    pytest.param(
+        "Премии присудили 1, 2 и 21 участникам.",
+        "Премии присудили одному, двум и двадцати одному участникам.",
+        id="series_head_dative_one_two_twenty_one",
+    ),
+    pytest.param(
+        "Доклад посвящён 21 и 25 заводам.",
+        "Доклад посвящён двадцати одному и двадцати пяти заводам.",
+        id="series_head_dative_after_participle",
+    ),
+    pytest.param(
+        "К 2 и 5 участникам добавили ещё одного.",
+        "К двум и пяти участникам добавили ещё одного.",
+        id="series_head_dative_with_preposition",
+    ),
+    pytest.param(
+        "Работа велась 2 и 5 бригадами.",
+        "Работа велась двумя и пятью бригадами.",
+        id="series_head_instrumental",
+    ),
+    pytest.param(
+        "Работа велась 1 и 21 бригадами.",
+        "Работа велась одним и двадцатью одним бригадами.",
+        id="series_head_instrumental_one_and_twenty_one",
+    ),
+    pytest.param(
+        "О 3 и 5 участниках говорили долго.",
+        "О трёх и пяти участниках говорили долго.",
+        id="series_head_locative",
+    ),
+    pytest.param(
+        "О 21 и 25 участниках говорили долго.",
+        "О двадцати одном и двадцати пяти участниках говорили долго.",
+        id="series_head_locative_twenty_one",
+    ),
+    # Две независимые числовые группы в одном предложении решаются каждая по
+    # своей вершине, а не наследуют падеж друг у друга.
+    pytest.param(
+        "Премии присудили 3 и 5 участникам, а грамоты вручили 2 и 4 школам.",
+        "Премии присудили трём и пяти участникам, а грамоты вручили двум и четырём школам.",
+        id="two_independent_series_keep_their_own_heads",
+    ),
+    # Отрицательные примеры: именительное значение вершину ряду не сообщает.
+    pytest.param(
+        "Пришли 3 и 5 участников.",
+        "Пришли три и пять участников.",
+        id="series_before_a_counted_genitive_stays_nominative",
+    ),
+    pytest.param(
+        "Не хватило 3 и 5 участников.",
+        "Не хватило три и пять участников.",
+        id="series_under_genitive_government_stays_nominative",
+    ),
+    pytest.param(
+        "Цена — 3 и 5 рублей.",
+        "Цена — три и пять рублей.",
+        id="series_after_dash_stays_nominative",
+    ),
+    pytest.param(
+        "Таблица 3 и 5",
+        "Таблица три и пять",
+        id="series_of_labels_stays_nominative",
+    ),
+    pytest.param(
+        "Глава 3",
+        "Глава третья",
+        id="bare_chapter_label_unchanged",
+    ),
+    pytest.param(
+        "Смотри страницы 132, 133 и 140.",
+        "Смотри страницы сто тридцать два, сто тридцать три и сто сорок.",
+        id="page_reference_series_stays_nominative",
+    ),
+    pytest.param(
+        "В 1905 году 3 солдата дежурили у входа.",
+        "В тысяча девятьсот пятом году три солдата дежурили у входа.",
+        id="year_before_a_quantity_is_not_a_series",
+    ),
+    # Группы телефонного номера разделены запятыми, но рядом не являются:
+    # предлог справа вводит свою группу и вершиной ряду не становится.
+    pytest.param(
+        "Позвоните по номеру +7 (495) 123-45-67 после 18:30.",
+        "Позвоните по номеру плюс семь, четыреста девяносто пять, "
+        "сто двадцать три, сорок пять, шестьдесят семь "
+        "после восемнадцати часов тридцати минут.",
+        id="phone_groups_are_not_a_coordinated_series",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), COORDINATED_SERIES_HEAD_CASES)
+def test_coordinated_series_head_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+# Расстояние до ориентира, заданное диапазоном: единица и ориентир стоят за
+# правой границей, и обе границы получают предложный падеж.
+DISTANCE_RANGE_CASES = (
+    pytest.param(
+        "Деревня лежит в 10-20 км от города.",
+        "Деревня лежит в десяти — двадцати километрах от города.",
+        id="distance_range_from_landmark_inflected",
+    ),
+    pytest.param(
+        "Дом стоит в 10-20 м от дороги.",
+        "Дом стоит в десяти — двадцати метрах от дороги.",
+        id="distance_range_in_metres_inflected",
+    ),
+    pytest.param(
+        "В 10-20 км от города стоит деревня.",
+        "В десяти — двадцати километрах от города стоит деревня.",
+        id="distance_range_at_sentence_start_inflected",
+    ),
+    pytest.param(
+        "Деревня лежит в 200 м от реки.",
+        "Деревня лежит в двухстах метрах от реки.",
+        id="single_distance_from_landmark_unchanged",
+    ),
+    # Измерение-приложение остаётся именительным по действующим конвенциям.
+    pytest.param(
+        "Поезд шёл со скоростью 10-20 км/ч.",
+        "Поезд шёл со скоростью десять — двадцать километров в час.",
+        id="speed_range_apposition_stays_nominative",
+    ),
+    pytest.param(
+        "Отряд прошёл 10-20 км за сутки.",
+        "Отряд прошёл десять — двадцать километров за сутки.",
+        id="range_without_landmark_stays_nominative",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), DISTANCE_RANGE_CASES)
+def test_distance_range_edges(check_tts: CheckTts, source: str, expected: str) -> None:
+    check_tts(source, expected)
