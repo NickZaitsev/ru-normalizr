@@ -57,6 +57,37 @@ def normalize_mass_gram_abbreviations(text: str) -> str:
     return MASS_GRAM_ABBREVIATION_PATTERN.sub(repl, text)
 
 
+#: Окно левого контекста для поиска повелительного наклонения. Инструкция
+#: («Добавьте в 250 г муки…») ставит глагол в начало клаузы, поэтому дальше
+#: смотреть не нужно, а фиксированное окно держит проверку линейной.
+_MEASURING_INSTRUCTION_LOOKBACK = 60
+
+
+def measuring_instruction_precedes(source_text: str, match_start: int) -> bool:
+    """Слева в клаузе стоит глагол в повелительном наклонении.
+
+    Это признак не словарный, а грамматический: рецепт и инструкция пишутся
+    повелительным («Добавьте», «Отмерьте», «Возьмите»), а летописная запись —
+    нет («Под 964 г. записано», «В 1867 г. Семёнов поместил»). Он и отличает
+    массу от датировки там, где справа одинаково стоит родительный падеж.
+    """
+    from .text_context import normalize_context_token, simple_tokenize
+
+    window_start = max(0, match_start - _MEASURING_INSTRUCTION_LOOKBACK)
+    window = source_text[window_start:match_start]
+    # Граница клаузы: глагол из предыдущего предложения этой конструкцией
+    # не управляет.
+    for boundary in ".!?;:":
+        window = window.rpartition(boundary)[2]
+    for token in simple_tokenize(window):
+        word = normalize_context_token(token)
+        if not word:
+            continue
+        if any("impr" in parse.tag for parse in parse_word(word)):
+            return True
+    return False
+
+
 def allows_short_abbreviated_year(
     source_text: str,
     end: int,

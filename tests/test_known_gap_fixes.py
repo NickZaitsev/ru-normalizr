@@ -4072,3 +4072,97 @@ def test_labelled_identifier_edges(
     check_tts: CheckTts, source: str, expected: str
 ) -> None:
     check_tts(source, expected)
+
+
+MASS_AGAINST_YEAR_CASES = (
+    # Инструкция ставит глагол в повелительное наклонение: это масса, а не год.
+    # Счётная форма «грамм» — принятая в проекте (см. test_e2e_corpus.py).
+    pytest.param(
+        "Добавьте в 250 г муки щепотку соли.",
+        "Добавьте в двести пятьдесят грамм муки щепотку соли.",
+        id="grams_after_a_preposition_in_an_instruction",
+    ),
+    pytest.param(
+        "Добавьте в 250 г. муки щепотку соли.",
+        "Добавьте в двести пятьдесят грамм муки щепотку соли.",
+        id="grams_with_a_dot_after_a_preposition",
+    ),
+    pytest.param(
+        "Всыпьте в 1 г белка ложку сахара.",
+        "Всыпьте в один грамм белка ложку сахара.",
+        id="one_gram_after_a_preposition",
+    ),
+    pytest.param(
+        "Всыпьте в 2 г соли немного воды.",
+        "Всыпьте в два грамма соли немного воды.",
+        id="two_grams_after_a_preposition",
+    ),
+    pytest.param(
+        "Всыпьте в 5 г сахара немного воды.",
+        "Всыпьте в пять грамм сахара немного воды.",
+        id="five_grams_after_a_preposition",
+    ),
+    # Без предлога и с веществом справа масса читалась и раньше.
+    pytest.param(
+        "Отмерьте 1 г белка и 2 г соли.",
+        "Отмерьте один грамм белка и два грамма соли.",
+        id="grams_without_a_preposition_unchanged",
+    ),
+    pytest.param(
+        "Вес 250 г устроил всех.",
+        "Вес двести пятьдесят грамм устроил всех.",
+        id="mass_noun_context_unchanged",
+    ),
+    pytest.param(
+        "Насыпали под 30 г. песка в каждую форму для пробы.",
+        "Насыпали под тридцать грамм песка в каждую форму для пробы.",
+        id="grams_after_pod_unchanged",
+    ),
+    # Отрицательные примеры: настоящий год с родительным справа остаётся годом,
+    # потому что признака массы слева нет.
+    pytest.param(
+        "В 250 г. до н. э. был заключён мир.",
+        "В двести пятидесятом году до нашей эры был заключён мир.",
+        id="era_marker_keeps_the_year",
+    ),
+    pytest.param(
+        "В 988 г. крещения Руси было много споров.",
+        "В девятьсот восемьдесят восьмом году крещения Руси было много споров.",
+        id="annalistic_year_before_a_genitive_noun",
+    ),
+    pytest.param(
+        "В 1223 г. битвы на Калке погибло войско.",
+        "В тысяча двести двадцать третьем году битвы на Калке погибло войско.",
+        id="four_digit_year_before_a_genitive_noun",
+    ),
+    pytest.param(
+        "Под 964 г. записано о походе.",
+        "Под девятьсот шестьдесят четвёртым годом записано о походе.",
+        id="annalistic_year_before_a_verb",
+    ),
+    pytest.param(
+        "В 1867 г. Семёнов поместил отчёт.",
+        "В тысяча восемьсот шестьдесят седьмом году Семёнов поместил отчёт.",
+        id="year_before_a_surname",
+    ),
+    pytest.param(
+        "Он 1980 г. рождения.",
+        "Он тысяча девятьсот восьмидесятого года рождения.",
+        id="birth_year_unchanged",
+    ),
+    # Повелительное наклонение из предыдущей клаузы этой конструкцией не
+    # управляет: границу клаузы проверка соблюдает.
+    pytest.param(
+        "Прочитайте главу. В 988 г. крещения Руси было много споров.",
+        "Прочитайте главу. В девятьсот восемьдесят восьмом году крещения Руси "
+        "было много споров.",
+        id="imperative_across_a_sentence_boundary_does_not_count",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), MASS_AGAINST_YEAR_CASES)
+def test_mass_against_year_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)

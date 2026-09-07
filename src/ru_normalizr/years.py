@@ -10,6 +10,7 @@ from ._morph import canonicalize_case, parse_word, select_parse
 from .abbreviation_context import (
     allows_short_abbreviated_year,
     has_mass_measurement_context,
+    measuring_instruction_precedes,
     should_keep_terminal_abbreviation_dot,
 )
 from .numerals._num2words import resolve_num2words_case, resolve_primary_case
@@ -244,6 +245,29 @@ def _genitive_mass_noun_follows(text: str, end: int) -> bool:
         and parsed.tag.case == "gent"
         and "anim" not in parsed.tag
     )
+
+
+def _mass_construction_wins(
+    text: str, start: int, end: int, prep: str | None
+) -> bool:
+    """Вся локальная конструкция читается массой, а не датировкой.
+
+    Родительный падеж справа сам ничего не решает: он есть и у массы («под
+    30 г. песка», «в 250 г муки»), и у летописной записи («в 988 г. крещения
+    Руси»). Поэтому нужен положительный признак массы слева — предлог «под»,
+    который датировку вводит только с годом-словом, либо повелительное
+    наклонение инструкции. Проверка веса и массы («вес 250 г») стоит выше и
+    родительного справа не требует вовсе.
+
+    Прежнее условие разрешало массу только после «под», и «в 250 г муки»
+    читалось годом: `allows_short_abbreviated_year` при любом предлоге сразу
+    отвечала «год возможен».
+    """
+    if not _genitive_mass_noun_follows(text, end):
+        return False
+    if prep and prep.lower() == "под":
+        return True
+    return measuring_instruction_precedes(text, start)
 
 
 _SURNAME_SUBJECT_PATTERN = re.compile(r"\s+([А-ЯЁ][а-яё]+)")
@@ -842,14 +866,7 @@ def normalize_years(text: str) -> str:
             return m.group(0)
         if is_abbrev and has_mass_measurement_context(text, m.start()):
             return m.group(0)
-        if (
-            is_abbrev
-            and prep
-            and prep.lower() == "под"
-            and _genitive_mass_noun_follows(text, m.end())
-        ):
-            # «под 30 г. песка» measures grams; the annalistic «под 964 г.
-            # записано» is never followed by a bare genitive noun.
+        if is_abbrev and _mass_construction_wins(text, m.start(), m.end(), prep):
             return m.group(0)
         if is_abbrev and year < 1000 and not allows_short_abbreviated_year(
             text,
