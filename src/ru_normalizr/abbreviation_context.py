@@ -63,6 +63,11 @@ def normalize_mass_gram_abbreviations(text: str) -> str:
 _MEASURING_INSTRUCTION_LOOKBACK = 60
 
 
+def _is_word_character(char: str) -> bool:
+    """Знак, который может стоять внутри слова, а не разделять слова."""
+    return char.isalnum() or char in "-'’"
+
+
 def measuring_instruction_precedes(source_text: str, match_start: int) -> bool:
     """Слева в клаузе стоит глагол в повелительном наклонении.
 
@@ -75,6 +80,14 @@ def measuring_instruction_precedes(source_text: str, match_start: int) -> bool:
 
     window_start = max(0, match_start - _MEASURING_INSTRUCTION_LOOKBACK)
     window = source_text[window_start:match_start]
+    # Окно фиксированной длины начинается посреди слова, а обрывок морфология
+    # разбирает как настоящее слово: «ырей» от «монастырей» — повелительное
+    # наклонение. Первое слово окна отбрасывается, если оно оборвано слева.
+    if window_start > 0 and _is_word_character(source_text[window_start - 1]):
+        index = 0
+        while index < len(window) and _is_word_character(window[index]):
+            index += 1
+        window = window[index:]
     # Граница клаузы: глагол из предыдущего предложения этой конструкцией
     # не управляет.
     for boundary in ".!?;:":
