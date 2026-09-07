@@ -5042,6 +5042,41 @@ def test_standalone_latin_letter_edges(
     check_tts(source, expected)
 
 
+# Римское число с точечными разделителями («M.DC.LXXX» — 1680): так писали даты
+# в старых изданиях. Признак — каноничность склейки, поэтому двухгрупповые
+# записи и неканоничные последовательности остаются как были.
+DOTTED_ROMAN_CASES = (
+    pytest.param(
+        "Рукопись подписана: анно M.DC.LXXX, и переписчик её не назвал.",
+        "Рукопись подписана: анно одна тысяча шестьсот восемьдесят, и "
+        "переписчик её не назвал.",
+        id="dotted_roman_year_reads_as_a_number",
+    ),
+    pytest.param(
+        "Дата M.CM.XLIV стоит на титуле этого издания.",
+        "Дата одна тысяча девятьсот сорок четыре стоит на титуле этого издания.",
+        id="dotted_roman_with_a_subtractive_group",
+    ),
+    # Отрицательные примеры: две группы — это сокращение или конец предложения,
+    # а неканоничная склейка числом не является.
+    pytest.param(
+        "Он жил в Washington D.C. долго и не жалел об этом.",
+        "Он жил в вошинтэн ди си долго и не жалел об этом.",
+        id="two_group_dotted_latin_is_not_a_roman_number",
+    ),
+    pytest.param(
+        "Пункты I. II. III. перечислены выше.",
+        "Пункты ай. Два. Три. Перечислены выше.",
+        id="non_canonical_dotted_roman_sequence_unchanged",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), DOTTED_ROMAN_CASES)
+def test_dotted_roman_edges(check_tts: CheckTts, source: str, expected: str) -> None:
+    check_tts(source, expected)
+
+
 @pytest.mark.parametrize(("source", "expected"), CONTEXTUAL_ABBREVIATION_CASES)
 def test_contextual_abbreviation_edges(
     check_tts: CheckTts, source: str, expected: str

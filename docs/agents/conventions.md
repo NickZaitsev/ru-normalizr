@@ -76,6 +76,8 @@
 - TTS initial settings double isolated vowel names (`Е. → ее`) and surround a
   non-final surname-first initial with comma pauses (`Рихтер Ч. разработал →
   Рихтер, чэ, разработал`); both settings can be overridden independently.
+- Римское число с точечными разделителями (`M.DC.LXXX`) читается как одно
+  число, если склейка групп каноничная; групп должно быть не меньше трёх.
 - Latin `A` is read as `эй`.
 - Одиночная латинская буква между русскими словами читается именем буквы
   (`вариант A` → «вариант эй», `уравнение x` → «уравнение икс»). Латинский

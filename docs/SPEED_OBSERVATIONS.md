@@ -1313,3 +1313,16 @@ uv run python scripts/benchmark.py --real-only --mode tts --samples 1 --warmups 
 ```
 
 Гейт 180 000 пройден.
+
+## 7 сентября 2026 — фаза 6 плана качества: точечное римское число
+
+Разделительные точки разобраны внутри существующего прохода
+`normalize_cyrillic_roman`: его шаблон получил вторую ветвь альтернативы, а
+проверка каноничности выполняется только на совпадении. Новых проходов нет.
+
+```
+uv run python scripts/benchmark.py --real-only --mode tts --samples 1 --warmups 1   --prefix-chars 250000 --book benchmarks/corpus/03_karamzin_history_of_russian_state.txt
+173 279 / 183 682 / 182 977 символов/с (медиана 182 977)
+```
+
+Гейт 180 000 пройден; первый прогон — выброс от фоновой нагрузки.

@@ -985,6 +985,26 @@ def convert_other_roman_numerals(text: str) -> str:
     return re.sub(pattern, repl, text)
 
 
+def _join_dotted_roman(word: str, cyrillic_to_latin: dict[str, str]) -> str:
+    """«M.DC.LXXX» → «MDCLXXX»: точки внутри римского числа — разделители.
+
+    Так записывали даты в старых изданиях. Признак того, что это одно число,
+    а не три сокращения и не адрес, — каноничность: склейка групп должна
+    записываться этим же числом обратно. Двухгрупповые записи («D.C.», «I. II»)
+    правило не берёт: там точка чаще конец сокращения или предложения.
+    """
+    joined = "".join(
+        cyrillic_to_latin.get(char, char) for char in word if char != "."
+    ).upper()
+    try:
+        value = roman.fromRoman(joined)
+    except roman.InvalidRomanNumeralError:
+        return word
+    if roman.toRoman(value) != joined:
+        return word
+    return joined
+
+
 def normalize_cyrillic_roman(text: str) -> str:
     cyrillic_to_latin = {
         "Х": "X",
@@ -996,7 +1016,10 @@ def normalize_cyrillic_roman(text: str) -> str:
         "М": "M",
         "м": "M",
     }
-    pattern = compile_scan(r"\b([IVXLCDMХхСсІіМм]{2,})\b")
+    pattern = compile_scan(
+        r"\b([IVXLCDMХхСсІіМм]{2,}|"
+        r"[IVXLCDMХхСсІіМм]+(?:\.[IVXLCDMХхСсІіМм]+){2,})\b"
+    )
 
     def repl(match: re.Match[str]) -> str:
         word = match.group(1)
@@ -1004,6 +1027,8 @@ def normalize_cyrillic_roman(text: str) -> str:
             return word
         if word != word.upper():
             return word
+        if "." in word:
+            return _join_dotted_roman(word, cyrillic_to_latin)
         if is_safe_numeric_hyphen_unit(word):
             left_context = text[max(0, match.start() - 32) : match.start()]
             if re.search(r"\d+(?:[.,]\d+)?\s*[-–—]?\s*$", left_context):
