@@ -4,8 +4,8 @@
       "01_solovyov_history_of_russia": {
         "input_chars": 22911215,
         "input_sha256": "afe5c91490181b4ef0333644a1b1d436a45f74ce6066b366e7721861aa2a264e",
-        "output_chars": 23324534,
-        "output_sha256": "e5d83912439ae5ae0164a51b07cd042416eb7cd29676fda17df89809d8e4830b"
+        "output_chars": 23324514,
+        "output_sha256": "adf9574d4cb5a7e49851adfcbde2200bd5056fe8bd5cbaa3f6d5a5b9bde59f6e"
       },
       "02_russian_army_and_navy_modern": {
         "input_chars": 614265,
