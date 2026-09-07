@@ -1,8 +1,46 @@
-"""Passing E2E-корпус плотных реалистичных фраз для TTS-нормализации."""
+"""Passing E2E-корпус плотных реалистичных фраз для TTS-нормализации.
+
+Кроме таблицы `E2E_CASES`, написанной прямо в коде, здесь прогоняется
+современный корпус из `tests/data/modern_normalization.json`: короткие абзацы
+делового, новостного, бытового и технического языка, у которых ожидание
+вычитано вручную и снабжено объяснением.
+"""
+
+import json
+from pathlib import Path
 
 import pytest
 
+from ru_normalizr import NormalizeOptions, Normalizer, normalize
+
 from .conftest import CheckTts
+
+#: Профили нормализации, допустимые в JSON-корпусе.
+MODERN_CORPUS_PROFILES = {
+    "tts": NormalizeOptions.tts,
+    "safe": NormalizeOptions.safe,
+}
+MODERN_CORPUS_PATH = Path(__file__).parent / "data" / "modern_normalization.json"
+
+
+def _modern_corpus_data() -> list[dict[str, str]]:
+    """Кейсы современного корпуса как они записаны в JSON."""
+    data = json.loads(MODERN_CORPUS_PATH.read_text(encoding="utf-8"))
+    return list(data["cases"])
+
+
+MODERN_CORPUS_DATA = _modern_corpus_data()
+#: Случаи современного корпуса: идентификатор, профиль, вход, ожидание.
+MODERN_CORPUS_CASES = tuple(
+    (case["id"], case["profile"], case["source"], case["expected"])
+    for case in MODERN_CORPUS_DATA
+)
+#: Репрезентативная выборка того же корпуса с ожиданием профиля safe.
+MODERN_CORPUS_SAFE_CASES = tuple(
+    (case["id"], "safe", case["source"], case["expected_safe"])
+    for case in MODERN_CORPUS_DATA
+    if "expected_safe" in case
+)
 
 E2E_CASES = (
     (
@@ -116,3 +154,67 @@ def test_tts_e2e_normalization_corpus(
     check_tts: CheckTts, _name: str, source: str, expected: str
 ) -> None:
     check_tts(source, expected)
+
+
+def _fail_modern_corpus(source: str, expected: str, actual: str) -> None:
+    """Расхождение современного корпуса — вместе с входом и обоими чтениями."""
+    pytest.fail(
+        "Чтение современного корпуса разошлось с ожиданием.\n"
+        f"  вход:      {source}\n"
+        f"  ожидалось: {expected}\n"
+        f"  получено:  {actual}",
+        pytrace=False,
+    )
+
+
+@pytest.mark.parametrize(
+    ("_case_id", "profile", "source", "expected"),
+    MODERN_CORPUS_CASES,
+    ids=[case[0] for case in MODERN_CORPUS_CASES],
+)
+def test_tts_modern_corpus(
+    _case_id: str, profile: str, source: str, expected: str
+) -> None:
+    actual = normalize(source, MODERN_CORPUS_PROFILES[profile]())
+    if actual != expected:
+        _fail_modern_corpus(source, expected, actual)
+
+
+@pytest.mark.parametrize(
+    ("_case_id", "profile", "source", "expected"),
+    MODERN_CORPUS_SAFE_CASES,
+    ids=[case[0] for case in MODERN_CORPUS_SAFE_CASES],
+)
+def test_safe_modern_corpus(
+    _case_id: str, profile: str, source: str, expected: str
+) -> None:
+    actual = normalize(source, MODERN_CORPUS_PROFILES[profile]())
+    if actual != expected:
+        _fail_modern_corpus(source, expected, actual)
+
+
+def test_modern_corpus_does_not_depend_on_call_order() -> None:
+    """Один Normalizer на весь корпус: кеши не должны зависеть от порядка входов.
+
+    Кеши числительных и единиц живут в экземпляре, поэтому неверный ключ
+    проявляется только при повторных вызовах — и именно на второй перестановке
+    входов, а не на отдельной фразе.
+    """
+    for profile, options in MODERN_CORPUS_PROFILES.items():
+        cases = [
+            (case_id, source, expected)
+            for case_id, case_profile, source, expected in (
+                *MODERN_CORPUS_CASES,
+                *MODERN_CORPUS_SAFE_CASES,
+            )
+            if case_profile == profile
+        ]
+        normalizer = Normalizer(options())
+        for order in (cases, list(reversed(cases)), cases):
+            for case_id, source, expected in order:
+                actual = normalizer.normalize(source)
+                assert actual == expected, (
+                    f"{case_id}: чтение изменилось при повторном вызове\n"
+                    f"  ожидалось: {expected}\n"
+                    f"  получено:  {actual}"
+                )

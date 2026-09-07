@@ -295,6 +295,12 @@ jobs:
               --json "$RUNNER_TEMP/$corpus.json"
           done
 
+      # Хэши книг целиком ловят расхождение, на которое никто не написал теста.
+      # Чтение всего корпуса занимает минуты, поэтому шаг живёт только в nightly
+      # и идёт после бенчмарков, чтобы не мешать их измерениям.
+      - name: Check golden corpus hashes on full books
+        run: uv run python scripts/golden_corpus.py --check --full
+
       - name: Upload nightly corpus metrics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

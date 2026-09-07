@@ -340,6 +340,171 @@ REVIEW_2026_09_GAP_CASES = (
 )
 
 
+#: Пробелы, найденные сплошной проверкой современного корпуса
+#: `tests/data/modern_normalization.json` (фаза 7 плана нормализации).
+MODERN_CORPUS_GAP_CASES = (
+    # --- Даты -------------------------------------------------------------------
+    #
+    # В диапазоне «с 15 на 22 сентября» название месяца относится к обеим
+    # датам, но первое число разбирается без месяца и читается количественным.
+    pytest.param(
+        "Заседание перенесли с 15 на 22 сентября по просьбе защиты.",
+        "Заседание перенесли с пятнадцатого на двадцать второе сентября по просьбе "
+        "защиты.",
+        id="day_range_before_a_month_reads_the_first_day_as_a_cardinal",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the first day of a day-to-day range does not inherit the month",
+        ),
+    ),
+    # --- Управление числом ------------------------------------------------------
+    #
+    # «Принять участие» — устойчивое сочетание с уже занятым винительным
+    # («участие»), поэтому подлежащее при нём остаётся в именительном, а
+    # числительное получает винительный от глагола.
+    pytest.param(
+        "В голосовании приняли участие 1 458 депутатов из 1 500.",
+        "В голосовании приняли участие одна тысяча четыреста пятьдесят восемь "
+        "депутатов из одной тысячи пятисот.",
+        id="subject_after_prinyat_uchastie_takes_the_accusative",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="«принять участие» already fills its accusative slot",
+        ),
+    ),
+    # Предлог «на» при показателе работы требует предложного («работает на ста
+    # мегагерцах»), а число с единицей читается в именительном.
+    pytest.param(
+        "Частота процессора 3,6 ГГц, а шина работает на 100 МГц.",
+        "Частота процессора три целых шесть десятых гигагерца, а шина работает на "
+        "ста мегагерцах.",
+        id="na_before_a_rate_unit_keeps_the_nominative",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="«на» before a measured rate is read as an accusative direction",
+        ),
+    ),
+    # Однородное «и 2 цифры» продолжает группу «не менее 12 символов»:
+    # числительное получает родительный, а существительное остаётся в
+    # исходной форме, и согласование рвётся.
+    pytest.param(
+        "Пароль должен содержать не менее 12 символов и 2 цифры.",
+        "Пароль должен содержать не менее двенадцати символов и двух цифр.",
+        id="coordinated_quantity_after_ne_menee_breaks_noun_agreement",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the coordinated noun keeps its surface form while the numeral inflects",
+        ),
+    ),
+    # --- Единицы измерения ------------------------------------------------------
+    #
+    # «20 с» перед союзом не раскрывается: символ секунды совпадает с
+    # предлогом «с», и признак единицы теряется.
+    pytest.param(
+        "Сборка заняла 4 мин 20 с и потребовала 8 ГБ памяти.",
+        "Сборка заняла четыре минуты двадцать секунд и потребовала восемь "
+        "гигабайтов памяти.",
+        id="second_symbol_before_a_conjunction_stays_unexpanded",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="bare «с» before a conjunction is not resolved as the second symbol",
+        ),
+    ),
+    # --- Ссылочные существительные ----------------------------------------------
+    #
+    # Номер страницы — метка в именительном (см. conventions.md), но после
+    # «на» он читается порядковым и согласуется с существительным.
+    pytest.param(
+        "См. табл. 4 и рис. 7 на стр. 218.",
+        "Смотри таблицу четыре и рисунок семь на странице двести восемнадцать.",
+        id="page_number_after_na_reads_as_an_ordinal",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a label number after «на стр.» is inflected as an ordinal",
+        ),
+    ),
+    # «На рис. 7» требует предложного: «на рисунке семь». Ссылочное
+    # существительное получает от «на» винительный.
+    pytest.param(
+        "Схема показана на рис. 7.",
+        "Схема показана на рисунке семь.",
+        id="reference_noun_after_na_takes_the_accusative",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="«на» before a reference noun is read as an accusative direction",
+        ),
+    ),
+    # Второе однородное ссылочное существительное теряет управление глагола и
+    # остаётся в именительном.
+    pytest.param(
+        "Сравните рис. 7 и табл. 4 в конце главы.",
+        "Сравните рисунок семь и таблицу четыре в конце главы.",
+        id="coordinated_reference_noun_loses_the_governing_case",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the second reference noun of a pair falls back to the nominative",
+        ),
+    ),
+    # Иерархический номер после полнословной метки читается десятичной дробью,
+    # хотя после сокращения («п. 4.2») он верно читается по компонентам.
+    pytest.param(
+        "В разделе 3.2 приведены 2 примера расчёта.",
+        "В разделе три точка два приведены два примера расчёта.",
+        id="hierarchical_number_after_a_full_word_label_reads_as_a_decimal",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a full-word label does not mark the following number as hierarchical",
+        ),
+    ),
+    # --- Сокращения -------------------------------------------------------------
+    #
+    # «Т.» перед номером тома не раскрывается: сокращение неоднозначно
+    # («том», «тонна», «товарищ»), но номер рядом задаёт рубрику.
+    pytest.param(
+        "Материалы дела на 128 листах хранятся в т. 2.",
+        "Материалы дела на ста двадцати восьми листах хранятся в томе два.",
+        id="volume_abbreviation_before_a_number_stays_unexpanded",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="«т.» before a rubric number is not resolved as «том»",
+        ),
+    ),
+    # «Каб.» отсутствует в реестре ссылочных сокращений и уходит в озвучку как есть.
+    pytest.param(
+        "Приём заявлений идёт в каб. 305 с 9:00 до 18:00.",
+        "Приём заявлений идёт в кабинете триста пять с девяти часов ноля минут до "
+        "восемнадцати часов ноля минут.",
+        id="room_abbreviation_before_a_number_stays_unexpanded",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="«каб.» is missing from the reference-noun registry",
+        ),
+    ),
+    # «Наб.» не раскрывается, а следующее слово получает заглавную от точки
+    # сокращения, как будто началось новое предложение.
+    pytest.param(
+        "Адрес: наб. реки Фонтанки, д. 7, кв. 41.",
+        "Адрес: набережная реки Фонтанки, дом семь, квартира сорок один.",
+        id="embankment_abbreviation_capitalizes_the_next_word",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="«наб.» is unexpanded and its dot is treated as a sentence end",
+        ),
+    ),
+    # Раскрытие сокращения в начале предложения теряет заглавную: «См.»
+    # читается как «смотри».
+    pytest.param(
+        "См. приложение к договору перед подписанием.",
+        "Смотри приложение к договору перед подписанием.",
+        id="word_abbreviation_at_sentence_start_loses_its_capital",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="expanded word abbreviations do not restore the sentence-initial capital",
+        ),
+    ),
+)
+
+
 #: Полный список: разбит по происхождению, потому что пробелы одной книги
 #: правятся и снимаются пачкой, а плоская таблица на сотню записей
 #: не даёт увидеть, что именно принесло каждое сплошное чтение.
@@ -356,6 +521,7 @@ E2E_KNOWN_GAP_CASES = (
     *BOOK_03_GAP_CASES,
     *BOOK_01_GAP_CASES,
     *REVIEW_2026_09_GAP_CASES,
+    *MODERN_CORPUS_GAP_CASES,
 )
 
 
