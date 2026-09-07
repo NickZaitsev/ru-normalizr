@@ -128,6 +128,20 @@ CORPUS_SWEEP_GAP_CASES = (
             reason="a comma-separated pair of years after a name is not read as a date range",
         ),
     ),
+    # Химический локант перед названием вещества читается десятичной дробью:
+    # «2,6-диаминопурин» — «две целых шесть десятых-диаминопурин». Дробь тут
+    # невозможна: справа от запятой стоит номер положения в кольце, а не
+    # десятые доли. Найдено на контрольной выборке неизменившихся мест A/B.
+    pytest.param(
+        "Ни 2,6-диаминопурин, ни 6,8-диаминопурин не встречаются в земных живых организмах.",
+        "Ни два, шесть-диаминопурин, ни шесть, восемь-диаминопурин не "
+        "встречаются в земных живых организмах.",
+        id="chemical_locant_before_a_compound_name_reads_as_a_decimal",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a locant pair before a compound name is read as a decimal fraction",
+        ),
+    ),
 )
 
 
