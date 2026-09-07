@@ -9,7 +9,7 @@
 
 import pytest
 
-from .conftest import CheckTts, Tts
+from .conftest import CheckTts
 
 #: Пробелы, найденные точечными проверками, а не сплошным чтением книги.
 HANDWRITTEN_GAP_CASES = (
@@ -583,21 +583,3 @@ def test_tts_e2e_normalization_known_gaps(
     check_tts: CheckTts, source: str, expected: str
 ) -> None:
     check_tts(source, expected)
-
-
-#: Длина сочинённого ряда чисел, на которой падеж первого члена уже не
-#: вычисляется: `_rule_coordinated_first_number` рекурсивно спрашивает падеж у
-#: предыдущего члена без памятки, глубина рекурсии растёт с длиной ряда, а
-#: время — квадратично. На 300 членах прогон ещё живёт, на 500 — падает.
-LONG_COORDINATED_LIST_LENGTH = 500
-
-
-@pytest.mark.xfail(
-    strict=True,
-    raises=RecursionError,
-    reason="coordinated-number case resolution recurses once per list member",
-)
-def test_long_coordinated_number_list_does_not_overflow(tts: Tts) -> None:
-    numbers = ", ".join(str(i) for i in range(1, LONG_COORDINATED_LIST_LENGTH + 1))
-    result = tts(f"В приложении перечислены статьи {numbers} кодекса.")
-    assert not any(char.isdecimal() for char in result)

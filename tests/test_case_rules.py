@@ -15,11 +15,12 @@ from __future__ import annotations
 import pytest
 
 from ru_normalizr.numerals._helpers import (
+    _CASE_DECIDERS,
     CASE_RULES,
     _build_numeral_token_context,
     is_integer_token,
 )
-from ru_normalizr.numerals._rules import NumeralContext
+from ru_normalizr.numerals._rules import NumeralContext, resolve_case
 from ru_normalizr.text_context import tokenize_with_spans
 
 from .conftest import CheckTts
@@ -33,7 +34,13 @@ def _deciding_rules(source: str) -> set[str]:
     for idx, token in enumerate(tokens):
         if not is_integer_token(token):
             continue
-        ctx = NumeralContext(tokens, idx, len(tokens), context.left_scan_starts)
+        ctx = NumeralContext(
+            tokens, idx, len(tokens), context.left_scan_starts, decisions=context.decisions
+        )
+        # Правило, которому нужен падеж числа слева, отвечает только по готовой
+        # памятке: цепочку разрешает `resolve_case`. Без этого прогрева такое
+        # правило уступило бы нижестоящему, и проба показала бы не того решателя.
+        resolve_case(_CASE_DECIDERS, ctx)
         for rule in CASE_RULES:
             if rule.decide(ctx) is not None:
                 decided.add(rule.name)

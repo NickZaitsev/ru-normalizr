@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from ru_normalizr import NormalizeOptions, normalize
+from ru_normalizr.numerals import _rules
 from ru_normalizr.text_scan import GuardedPattern, guarded_patterns, required_guards
 
 # Тексты подобраны так, чтобы задеть каждый защищённый паттерн: знак номера,
@@ -92,6 +93,46 @@ class RequiredGuardsTests(unittest.TestCase):
         self.assertEqual(required_guards(r"\d+(?:кг)?"), ())
         self.assertEqual(required_guards(r"[а-я]+\d+"), ())
         self.assertEqual(required_guards(r"(?:абв|\d)"), ())
+
+
+class CoordinatedListScalingTests(unittest.TestCase):
+    """Разрешение падежа в сочинённом ряде линейно по длине ряда.
+
+    Прежнее наследование падежа спрашивало предыдущий член рекурсивно и без
+    памятки: глубина рекурсии равнялась длине ряда, а число разборов росло
+    квадратично. Проверяется не время (в общем прогоне оно зависит от машины),
+    а число разрешений контекста — величина детерминированная.
+    """
+
+    def _resolutions(self, length: int) -> int:
+        numbers = ", ".join(str(i) for i in range(1, length + 1))
+        text = f"В приложении перечислены статьи {numbers} кодекса."
+        calls = 0
+        original = _rules.run_rules
+
+        def counting(rules, ctx):
+            nonlocal calls
+            calls += 1
+            return original(rules, ctx)
+
+        with patch.object(_rules, "run_rules", counting):
+            result = normalize(text, NormalizeOptions.tts())
+        self.assertFalse(any(char.isdecimal() for char in result))
+        return calls
+
+    def test_each_list_member_is_resolved_once(self):
+        for length in (10, 40, 160):
+            with self.subTest(length=length):
+                # Запас вдвое: точное число зависит от того, какие ещё стадии
+                # спрашивают падеж, но на член ряда его должно хватать одного.
+                self.assertLessEqual(self._resolutions(length), 2 * length)
+
+    def test_resolution_count_does_not_grow_quadratically(self):
+        short = self._resolutions(40)
+        long = self._resolutions(160)
+        # Ряд вырос вчетверо: линейному разрешению нужно вчетверо больше работы,
+        # квадратичному — в шестнадцать раз.
+        self.assertLessEqual(long, 5 * short)
 
 
 class GuardEquivalenceTests(unittest.TestCase):

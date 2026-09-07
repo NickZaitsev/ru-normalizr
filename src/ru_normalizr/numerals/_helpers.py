@@ -5,7 +5,7 @@ import logging
 import math
 import unicodedata
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import num2words
@@ -40,7 +40,14 @@ from ._num2words import (
     resolve_num2words_case,
     resolve_primary_case,
 )
-from ._rules import DASH_TOKENS, CaseRule, NumeralContext, deciders, run_rules
+from ._rules import (
+    DASH_TOKENS,
+    CaseRule,
+    NumeralContext,
+    deciders,
+    dependency_case,
+    resolve_case,
+)
 
 _TIME_CONTEXT_LEMMAS = frozenset(
     {
@@ -191,6 +198,11 @@ MAGNITUDE_SCALES = {
 @dataclass(frozen=True, slots=True)
 class _NumeralTokenContext:
     left_scan_starts: tuple[int, ...]
+    #: Памятка решений на весь поток токенов: члены одного ряда спрашивают
+    #: падеж друг у друга, и без общей памятки каждый внешний вызов считал бы
+    #: всю цепочку заново. Контекст строится по конкретному списку токенов и
+    #: живёт, пока живёт он: список на стадии числительных не меняется.
+    decisions: dict[tuple[int, int], str | None] = field(default_factory=dict, repr=False)
 
 
 def _build_numeral_token_context(tokens: list[str]) -> _NumeralTokenContext:
@@ -1069,7 +1081,7 @@ def _rule_measurement_continuation(ctx: NumeralContext) -> str | None:
     leading = ctx.raw(-2)
     case = _rendered_numeral_case(leading)
     if case is None and is_integer_token(leading):
-        case = _case_for(ctx.at(ctx.idx - 2))
+        case = dependency_case(ctx, ctx.idx - 2)
     if case is None or case == "nomn":
         # Именительный — то же, что решение по умолчанию: правило молчит, чтобы
         # не заслонять правила ниже.
@@ -1095,20 +1107,20 @@ def _rule_coordinated_first_number(ctx: NumeralContext) -> str | None:
             if any(char in raw for char in ".!?;:"):
                 break
             if is_integer_token(raw.rstrip(",")):
-                return _case_for(ctx.at(ctx.idx + back))
+                return dependency_case(ctx, ctx.idx + back)
             rendered = _rendered_numeral_case(raw)
             if rendered is not None:
                 return rendered
         return None
     if prev == "," and is_integer_token(ctx.raw(-2)):
-        return _case_for(ctx.at(ctx.idx - 2))
+        return dependency_case(ctx, ctx.idx - 2)
     if prev.endswith(",") and is_integer_token(prev.rstrip(",")):
-        return _case_for(ctx.at(ctx.idx - 1))
+        return dependency_case(ctx, ctx.idx - 1)
     if prev.endswith(","):
         for back in range(-1, max(-4, -ctx.idx - 1), -1):
             raw = ctx.raw(back).rstrip(",")
             if is_integer_token(raw):
-                return _case_for(ctx.at(ctx.idx + back))
+                return dependency_case(ctx, ctx.idx + back)
             rendered = _rendered_numeral_case(raw)
             if rendered is not None:
                 return rendered
@@ -1121,7 +1133,7 @@ def _rule_coordinated_first_number(ctx: NumeralContext) -> str | None:
 def _rule_range_right_boundary(ctx: NumeralContext) -> str | None:
     """Правая граница диапазона повторяет падеж левой: «с 5-7 книгами»."""
     if ctx.idx > 1 and ctx.raw(-1) in DASH_TOKENS and is_integer_token(ctx.raw(-2)):
-        return _case_for(ctx.at(ctx.idx - 2))
+        return dependency_case(ctx, ctx.idx - 2)
     return None
 
 
@@ -1603,7 +1615,7 @@ def _case_for(ctx: NumeralContext) -> str:
     Ничего не сработало — голое число стоит предикатом и остаётся именительным.
     Дательный слева («Мне уже 40.») его за собой не тянет.
     """
-    return run_rules(_CASE_DECIDERS, ctx) or "nomn"
+    return resolve_case(_CASE_DECIDERS, ctx) or "nomn"
 
 
 def _case_for_ex(ctx: NumeralContext) -> tuple[str, bool]:
@@ -1613,7 +1625,7 @@ def _case_for_ex(ctx: NumeralContext) -> tuple[str, bool]:
     молчит. Потребителю бывает важно отличить его от именительного, который
     правило действительно вывело.
     """
-    decision = run_rules(_CASE_DECIDERS, ctx)
+    decision = resolve_case(_CASE_DECIDERS, ctx)
     return (decision or "nomn"), decision is not None
 
 
@@ -1627,7 +1639,11 @@ def get_numeral_case(
     if _context is None:
         _context = _build_numeral_token_context(tokens)
     visible_length = len(tokens) if _visible_length is None else min(_visible_length, len(tokens))
-    return _case_for(NumeralContext(tokens, idx, visible_length, _context.left_scan_starts))
+    return _case_for(
+        NumeralContext(
+            tokens, idx, visible_length, _context.left_scan_starts, decisions=_context.decisions
+        )
+    )
 
 
 def get_numeral_case_ex(
@@ -1641,4 +1657,8 @@ def get_numeral_case_ex(
     if _context is None:
         _context = _build_numeral_token_context(tokens)
     visible_length = len(tokens) if _visible_length is None else min(_visible_length, len(tokens))
-    return _case_for_ex(NumeralContext(tokens, idx, visible_length, _context.left_scan_starts))
+    return _case_for_ex(
+        NumeralContext(
+            tokens, idx, visible_length, _context.left_scan_starts, decisions=_context.decisions
+        )
+    )

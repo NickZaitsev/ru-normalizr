@@ -44,6 +44,16 @@ class NumeralContext:
     #: контекстом, полученным из `at`.
     _words: dict[int, str] = field(default_factory=dict, repr=False)
     _parses: dict[int, MorphParse] = field(default_factory=dict, repr=False)
+    #: Решения правил по уже разобранным числам того же потока токенов.
+    #: Ключ — позиция и `visible_length`: то же число при спрятанном хвосте
+    #: решается иначе, поэтому один ключ на позицию был бы неверен. Значение —
+    #: ответ правила, где `None` означает «ни одно правило не сработало», и это
+    #: не то же самое, что явно выведенный именительный.
+    decisions: dict[tuple[int, int], str | None] = field(default_factory=dict, repr=False)
+    #: Позиции чисел, падеж которых понадобился правилу, но ещё не посчитан.
+    #: Правило не считает его само: цепочку членов ряда разрешает итеративный
+    #: цикл снаружи, иначе глубина рекурсии росла бы с длиной перечисления.
+    pending: list[int] = field(default_factory=list, repr=False)
 
     @property
     def token(self) -> str:
@@ -129,3 +139,57 @@ def run_rules(
         if decision is not None:
             return decision
     return None
+
+
+def dependency_case(ctx: NumeralContext, target_idx: int) -> str | None:
+    """Падеж уже решённого числа слева; `None` — решение ещё не готово.
+
+    Правило не считает падеж соседа само. Раньше оно запускало для соседа весь
+    список правил заново, и на сочинённом ряде глубина рекурсии равнялась длине
+    ряда: на пятистах членах прогон падал с `RecursionError`, а время росло
+    квадратично. Теперь неготовую зависимость правило только отмечает и
+    уступает; цепочку разрешает `resolve_case` одним проходом слева направо.
+    """
+    key = (target_idx, ctx.visible_length)
+    if key in ctx.decisions:
+        return ctx.decisions[key] or "nomn"
+    ctx.pending.append(target_idx)
+    return None
+
+
+def resolve_case(
+    rules: Sequence[Callable[[NumeralContext], str | None]], ctx: NumeralContext
+) -> str | None:
+    """Решение правил для `ctx.idx`, разрешая зависимости слева итеративно.
+
+    Правило, которому нужен падеж числа слева, отмечает его через
+    `dependency_case` и уступает. Такая позиция кладётся на стек и считается
+    первой, после чего попытка повторяется: к этому моменту зависимость уже в
+    памятке, и правило отвечает по своему приоритету, а не уступает
+    нижестоящему. Зависимости всегда указывают строго влево, поэтому цикл
+    сходится, а каждое число решается один раз на весь поток токенов.
+    """
+    memo = ctx.decisions
+    visible_length = ctx.visible_length
+    pending = ctx.pending
+    target_key = (ctx.idx, visible_length)
+    stack = [ctx.idx]
+    while stack:
+        position = stack[-1]
+        key = (position, visible_length)
+        if key in memo:
+            stack.pop()
+            continue
+        pending.clear()
+        decision = run_rules(rules, ctx if position == ctx.idx else ctx.at(position))
+        if pending:
+            wanted = pending[0]
+            pending.clear()
+            if wanted < position:
+                # Зависимость слева ещё не решена: считаем её первой и
+                # повторяем попытку. Спрашивать её здесь рекурсивно нельзя.
+                stack.append(wanted)
+                continue
+        memo[key] = decision
+        stack.pop()
+    return memo[target_key]

@@ -6,7 +6,7 @@ import pytest
 
 from ru_normalizr import NormalizeOptions, normalize
 
-from .conftest import CheckTts
+from .conftest import CheckTts, Tts
 
 
 @pytest.mark.parametrize(
@@ -3806,3 +3806,33 @@ M_SUFFIX_ORDINAL_CASES = (
 @pytest.mark.parametrize(("source", "expected"), M_SUFFIX_ORDINAL_CASES)
 def test_m_suffix_ordinal_edges(check_tts: CheckTts, source: str, expected: str) -> None:
     check_tts(source, expected)
+
+
+#: Длины сочинённых рядов: 1 и 2 — краевые, дальше — те, на которых прежнее
+#: рекурсивное наследование падежа кончалось `RecursionError` (500) либо
+#: квадратичным временем (100 и больше).
+COORDINATED_LIST_LENGTHS = (1, 2, 100, 500, 1000)
+
+
+@pytest.mark.parametrize("length", COORDINATED_LIST_LENGTHS)
+def test_long_coordinated_number_list_is_read_in_full(tts: Tts, length: int) -> None:
+    """Длинный ряд читается целиком: раньше падеж наследовался рекурсивно.
+
+    Отсутствия цифр в выводе недостаточно: обрыв ряда или потеря членов её тоже
+    даёт. Поэтому проверяются все члены, их порядок и рамка предложения.
+    """
+    numbers = ", ".join(str(i) for i in range(1, length + 1))
+    result = tts(f"В приложении перечислены статьи {numbers} кодекса.")
+
+    assert not any(char.isdecimal() for char in result)
+    assert result.startswith("В приложении перечислены статьи ")
+    assert result.endswith(" кодекса.")
+    # Каждый член ряда на своём месте: ищем их слева направо одним проходом,
+    # поэтому пропуск и перестановка отличаются от простого «слово встречается».
+    position = 0
+    for value in range(1, length + 1):
+        word = normalize(str(value), NormalizeOptions.tts())
+        found = result.find(word, position)
+        assert found >= 0, f"член ряда {value} ({word!r}) потерян или стоит не по порядку"
+        position = found + len(word)
+    assert result.count(",") == length - 1
