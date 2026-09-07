@@ -17,6 +17,7 @@ from .dates_time import normalize_dates_and_time
 from .dictionary import apply_dictionary_rules
 from .identifiers import (
     STRUCTURED_NUMERIC_SUFFIX_PATTERN,
+    drop_superscript_footnote_markers,
     fix_glued_numbers,
     normalize_identifier_letter_suffixes,
     normalize_phone_numbers,
@@ -393,6 +394,9 @@ class PipelineNormalizer:
         text = apply_cleanup_replacements(text)
         text = normalize_unicode_fractions(text)
         if SUPERSCRIPT_DIGIT_PATTERN.search(text):
+            # Сноску снимаем до перевода: надстрочность — единственный надёжный
+            # признак маркера, и обычная цифра его уже не несёт.
+            text = drop_superscript_footnote_markers(text)
             text = text.translate(SUPERSCRIPT_DIGIT_TRANSLATION)
         text = CURRENCY_AMOUNT_PATTERN.sub(r"\2\1", text)
         # Штрихи угловых минут раскрываются до расстановки пробела перед «°»:

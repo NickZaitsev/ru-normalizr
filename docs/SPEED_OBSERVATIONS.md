@@ -1135,3 +1135,22 @@ uv run python scripts/benchmark.py --real-only --mode tts --samples 1 --warmups 
 Число разрешений контекста теперь ровно одно на член ряда (проверяется
 `CoordinatedListScalingTests` в `tests/test_performance_guards.py`), а прежний
 квадратичный рост исчез: 1000 чисел читаются за 0,19 с против падения на 500.
+
+## 7 сентября 2026 — сноски, имена с номером и суффикс тысяч
+
+Коммит: правки `identifiers.py` (`_FOOTNOTE_HOST_WORD_PATTERN`,
+`_CAPITALIZED_FOOTNOTE_HOST_PATTERN`, `_standalone_letter_precedes`,
+`drop_superscript_footnote_markers`) и вызов последней в `normalizer.py`.
+
+```
+uv run python scripts/benchmark.py --real-only --mode tts --samples 1 --warmups 1 \
+  --prefix-chars 250000 --book benchmarks/corpus/03_karamzin_history_of_russian_state.txt
+book_prefix_250000_tts    1239.40 мс    201 711 символов/с    peak RSS 86.3 МБ
+```
+
+Гейт 180 000 пройден с запасом. Уровень выше 184 859 от предыдущего замера,
+потому что фоновая нагрузка к этому моменту спала: сравнивать эти два числа
+между собой нельзя, машина была в разном состоянии. Новой работы в общем случае
+правки не добавляют: снятие надстрочной сноски стоит за существующей проверкой
+`SUPERSCRIPT_DIGIT_PATTERN.search`, а `_standalone_letter_precedes` — короткий
+проход назад по пробелам вместо двух обращений по индексу.

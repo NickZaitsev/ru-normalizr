@@ -222,25 +222,20 @@ BOOK_01_GAP_CASES = (
 REVIEW_2026_09_GAP_CASES = (
     # --- Дефекты, меняющие смысл: число теряет цифру или значение -------------
     #
-    # Эвристика сноски в fix_glued_numbers считает цифру, приклеенную к слову,
-    # номером примечания и удаляет её: «Формула1» и «Ковид19» теряют число.
-    # Имя собственное с заглавной буквы сноской быть не должно.
+    # Имя собственное с номером перед знаком конца клаузы всё ещё теряет цифру:
+    # «Обдориею2.» и «Ковид19,» устроены одинаково, а положение числа —
+    # единственный признак, отличающий имя с номером от маркера сноски. Здесь
+    # он говорит против имени, и цифра снимается. НЕ РЕШАЕТСЯ без сведений об
+    # исходной вёрстке: надёжный признак сноски — надстрочная цифра, а её
+    # распознавание книги уже потеряло.
     pytest.param(
-        "Формула1 стартовала в Сочи в октябре.",
-        "Формула один стартовала в Сочи в октябре.",
-        id="glued_digit_after_proper_name_dropped_as_footnote",
+        "Ковид19, изменивший привычки миллионов, постепенно отступил.",
+        "Ковид девятнадцать, изменивший привычки миллионов, постепенно отступил.",
+        id="glued_digits_before_a_clause_edge_dropped_as_footnote",
         marks=pytest.mark.xfail(
             strict=True,
-            reason="a digit glued to a capitalized word is dropped as a footnote marker",
-        ),
-    ),
-    pytest.param(
-        "Ковид19 изменил привычки миллионов людей.",
-        "Ковид девятнадцать изменил привычки миллионов людей.",
-        id="glued_digits_after_proper_name_dropped_as_footnote",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="digits glued to a capitalized word are dropped as a footnote marker",
+            reason="a number glued to a capitalized name at a clause edge is "
+            "indistinguishable from a footnote marker once superscripts are lost",
         ),
     ),
     # LINE_NUMBERING_PATTERN принимает год в начале строки за номер пункта и
@@ -307,17 +302,6 @@ REVIEW_2026_09_GAP_CASES = (
         marks=pytest.mark.xfail(
             strict=True,
             reason="a letter inside an alphanumeric code is resolved as an SI unit",
-        ),
-    ),
-    # Ветка thousand_suffix срабатывает только после знака препинания; после
-    # слова «100k» уходит в правило «код вида А 1Б» и читается «сто-кей».
-    pytest.param(
-        "Заработал 100k за месяц и уволился.",
-        "Заработал сто тысяч за месяц и уволился.",
-        id="thousands_suffix_after_word_read_as_code",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the k thousands suffix is recognized only after punctuation",
         ),
     ),
     # --- Ложные срабатывания контекста ---------------------------------------

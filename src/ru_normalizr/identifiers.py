@@ -100,6 +100,13 @@ STRUCTURED_NUMERIC_SUFFIX_PATTERN = compile_scan(
     re.IGNORECASE | re.UNICODE,
 )
 PHONE_CONTEXT_PATTERN = re.compile(r"\b(?:номер|телефон|позвон\w*)\b", re.IGNORECASE)
+#: Надстрочная цифра, приклеенная к слову, — типографский маркер сноски.
+#: Подстрочных цифр здесь нет намеренно: сноску ими не набирают, зато ими
+#: набирают химические индексы. Слово от трёх букв отсекает и степень после
+#: односимвольной переменной, и квадратные единицы («м²», «км²»).
+SUPERSCRIPT_FOOTNOTE_PATTERN = compile_scan(
+    r"(?P<host>[а-яА-ЯёЁa-zA-Z]{3,})(?P<marker>[⁰¹²³⁴⁵⁶⁷⁸⁹]+)(?!\w)"
+)
 
 
 def classify_glued_numeric_rhs(word: str) -> str:
@@ -179,8 +186,38 @@ def normalize_phone_numbers(text: str) -> str:
 
 
 #: Слово, к которому мог приклеиться номер сноски: строчная кириллица без
-#: смешения алфавитов, достаточно длинное, чтобы не быть предлогом или кодом.
-_FOOTNOTE_HOST_WORD_PATTERN = compile_scan(r"[а-яё]{3,}\Z")
+#: смешения алфавитов и без заглавной буквы, достаточно длинное, чтобы не быть
+#: предлогом или кодом. Границы нужны с двух сторон: без `\A` условию отвечала и
+#: заглавная форма, потому что поиск начинался со второй буквы.
+_FOOTNOTE_HOST_WORD_PATTERN = compile_scan(r"\A[а-яё]{3,}\Z")
+#: Имя собственное с заглавной буквы. Сноску за ним не отвергаем: в книгах
+#: корпуса она стоит именно так («Обдориею2», «Кольцом65»). Но и цифру за ним
+#: не отбрасываем без положительного признака: «Формула1», «Ковид19»,
+#: «Аполлон11» — номенклатурное имя, где число часть названия.
+_CAPITALIZED_FOOTNOTE_HOST_PATTERN = compile_scan(r"\A[А-ЯЁ][а-яё]{2,}\Z")
+#: Знаки, на которых кончается клауза. Имя с номером — член предложения, и за
+#: ним идёт продолжение клаузы; маркер сноски стоит на её краю и своей
+#: синтаксической роли не имеет. Это и различает два чтения при заглавном имени.
+_FOOTNOTE_CLAUSE_EDGE_CHARS = frozenset(".,;:!?…")
+
+
+def _standalone_letter_precedes(text: str, start: int) -> bool:
+    """Слева через пробел стоит отдельная буква-метка, а не конец слова.
+
+    «A 100K» — буквенно-цифровой код, в котором число принадлежит метке слева;
+    «Заработал 100k» — обычное слово и суффикс тысяч. Раньше проверялся
+    последний символ предыдущего токена, поэтому режим кода включало любое
+    слово слева и «100k» читалось «сто-кей».
+    """
+    position = start
+    while position > 0 and text[position - 1].isspace():
+        position -= 1
+    if position == start or position == 0:
+        return False
+    if not text[position - 1].isalpha():
+        return False
+    before = position - 2
+    return before < 0 or not (text[before].isalnum() or text[before] in "-'’")
 
 
 def _next_word_after(text: str, pos: int) -> str:
@@ -201,13 +238,21 @@ def _glued_digits_are_footnote(
     сноски правым контекстом: за количеством идёт считаемое существительное
     в родительном падеже или единица измерения — такие случаи по-прежнему
     расклеиваются пробелом.
+
+    У слова с заглавной буквы одного положения цифры недостаточно: «Формула1» и
+    «Обдориею2» устроены одинаково. Различает их роль числа в клаузе — имя с
+    номером её продолжает, маркер сноски стоит на её краю, — поэтому за
+    заглавным именем сноска признаётся только перед знаком конца клаузы.
     """
     if len(number) > 2 or number.startswith("0"):
         return False
     if end < len(text) and (text[end].isalnum() or text[end] in "-–—%°"):
         return False
     if _FOOTNOTE_HOST_WORD_PATTERN.search(letters) is None:
-        return False
+        if _CAPITALIZED_FOOTNOTE_HOST_PATTERN.search(letters) is None:
+            return False
+        if end < len(text) and text[end] not in _FOOTNOTE_CLAUSE_EDGE_CHARS:
+            return False
     host_parses = parse_word(letters)
     if any(
         candidate.normal_form in LABEL_NOUN_LEMMAS for candidate in host_parses
@@ -235,6 +280,28 @@ def _glued_digits_are_footnote(
     return True
 
 
+def drop_superscript_footnote_markers(text: str) -> str:
+    """Убрать надстрочный номер сноски, приклеенный к слову.
+
+    Надстрочная запись однозначна: это маркер сноски, а не часть числа, —
+    поэтому регистр слова здесь роли не играет, и «Государство¹» теряет маркер
+    так же, как «пинежане⁸». Обычную цифру так решать нельзя: «Формула1» и
+    «Ковид19» формально не отличаются от сноски, и там цифра сохраняется.
+
+    Вызывается до перевода надстрочных цифр в обычные: после него признак
+    надстрочности потерян и остаётся только неоднозначная запись.
+    """
+
+    def drop(match: re.Match[str]) -> str:
+        host = match.group("host")
+        if is_unit_token(host) or resolve_unit_info(host) is not None:
+            # Единица с надстрочным показателем — степень, а не сноска.
+            return match.group(0)
+        return host
+
+    return SUPERSCRIPT_FOOTNOTE_PATTERN.sub(drop, text)
+
+
 def fix_glued_numbers(text: str) -> str:
     codes = PlaceholderAllocator(GLUED_CODES, text)
 
@@ -246,9 +313,7 @@ def fix_glued_numbers(text: str) -> str:
         num, word = match.group(1), match.group(2)
         start = match.start()
         previous_is_letter = start > 0 and text[start - 1].isalpha()
-        previous_is_spaced_letter = (
-            start > 1 and text[start - 1].isspace() and text[start - 2].isalpha()
-        )
+        previous_is_spaced_letter = _standalone_letter_precedes(text, start)
         embedded_in_alphanumeric_code = (
             previous_is_letter or previous_is_spaced_letter
         ) and len(word) == 1

@@ -3836,3 +3836,146 @@ def test_long_coordinated_number_list_is_read_in_full(tts: Tts, length: int) -> 
         assert found >= 0, f"член ряда {value} ({word!r}) потерян или стоит не по порядку"
         position = found + len(word)
     assert result.count(",") == length - 1
+
+
+GLUED_PROPER_NAME_NUMBER_CASES = (
+    # Номенклатурное имя с числом: цифру сноской не считаем, потому что число
+    # продолжает клаузу — за ним идёт сказуемое, а не знак её конца.
+    pytest.param(
+        "Формула1 стартовала в Сочи в октябре.",
+        "Формула один стартовала в Сочи в октябре.",
+        id="one_digit_after_a_proper_name_is_kept",
+    ),
+    pytest.param(
+        "Ковид19 изменил привычки миллионов людей.",
+        "Ковид девятнадцать изменил привычки миллионов людей.",
+        id="two_digits_after_a_proper_name_are_kept",
+    ),
+    pytest.param(
+        "Аполлон11 сел на Луну в июле того года.",
+        "Аполлон одиннадцать сел на Луну в июле того года.",
+        id="two_digits_after_a_long_proper_name_are_kept",
+    ),
+    # Имя не в начале предложения — тот же разбор: дело в заглавной букве,
+    # а не в положении слова.
+    pytest.param(
+        "Тем летом Формула1 приехала в Сочи.",
+        "Тем летом Формула один приехала в Сочи.",
+        id="proper_name_number_mid_sentence_is_kept",
+    ),
+    # Отрицательные примеры: строчное слово по-прежнему отдаёт номер сноски.
+    pytest.param(
+        "Так пинежане8 и мезенцы ходили на промысел за Камень каждое лето.",
+        "Так пинежане и мезенцы ходили на промысел за Камень каждое лето.",
+        id="lowercase_host_still_drops_the_footnote_digit",
+    ),
+    pytest.param(
+        "Об этом писали многие исследователи2. Позднее споры утихли.",
+        "Об этом писали многие исследователи. Позднее споры утихли.",
+        id="lowercase_host_before_a_full_stop_still_drops_the_digit",
+    ),
+    # Сноска за именем собственным на краю клаузы — так набраны книги корпуса.
+    pytest.param(
+        "Вся эта приобская сторона называется Обдориею2. Тут жили вогуличи.",
+        "Вся эта приобская сторона называется Обдориею. Тут жили вогуличи.",
+        id="capitalized_host_before_a_full_stop_drops_the_footnote",
+    ),
+    pytest.param(
+        "Страна лежала между Карою и Печорою19, включая земли к востоку.",
+        "Страна лежала между Карою и Печорою, включая земли к востоку.",
+        id="capitalized_host_before_a_comma_drops_the_footnote",
+    ),
+    pytest.param(
+        "Ермаку объявили повеление о высылке Махмет-Кула64: рать уже шла.",
+        "Ермаку объявили повеление о высылке Махмет-Кула: рать уже шла.",
+        id="capitalized_host_before_a_colon_drops_the_footnote",
+    ),
+    # Надстрочный маркер однозначен: он снимается и за заглавным именем,
+    # и там, где обычная цифра сохранилась бы.
+    pytest.param(
+        "Государство¹ сложилось позже, чем принято считать.",
+        "Государство сложилось позже, чем принято считать.",
+        id="superscript_marker_after_a_capitalized_host_is_dropped",
+    ),
+    pytest.param(
+        "Формула¹ стартовала в Сочи в октябре.",
+        "Формула стартовала в Сочи в октябре.",
+        id="superscript_marker_beats_the_proper_name_signal",
+    ),
+    # Надстрочный показатель у единицы — степень, а не сноска.
+    pytest.param(
+        "Площадь участка 5 м² и объём 3 м³.",
+        "Площадь участка пять квадратных метров и объём три кубических метра.",
+        id="superscript_exponent_of_a_unit_is_not_a_footnote",
+    ),
+    # Три цифры сноской не бывают ни при каком регистре.
+    pytest.param(
+        "Проект использовал шрифт гарнитуры123 без изменений.",
+        "Проект использовал шрифт гарнитуры сто двадцать три без изменений.",
+        id="three_digits_are_not_a_footnote_after_any_host",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), GLUED_PROPER_NAME_NUMBER_CASES)
+def test_glued_proper_name_number_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+THOUSANDS_SUFFIX_CASES = (
+    # Суффикс тысяч после обычного слова: раньше последняя буква слова слева
+    # включала режим буквенно-цифрового кода и «100k» читалось «сто-кей».
+    pytest.param(
+        "Заработал 100k за месяц и уволился.",
+        "Заработал сто тысяч за месяц и уволился.",
+        id="thousands_suffix_after_a_word",
+    ),
+    pytest.param(
+        "Заработал 5k за вечер и ушёл.",
+        "Заработал пять тысяч за вечер и ушёл.",
+        id="thousands_suffix_with_one_digit",
+    ),
+    pytest.param(
+        "Заработал 250k за квартал и уволился.",
+        "Заработал двести пятьдесят тысяч за квартал и уволился.",
+        id="thousands_suffix_with_three_digits",
+    ),
+    # После знака препинания ветка работала и раньше — проверяем, что не сломана.
+    pytest.param(
+        "Итого: 100k за месяц.",
+        "Итого: сто тысяч за месяц.",
+        id="thousands_suffix_after_punctuation",
+    ),
+    # Отделённая буква — самостоятельный токен, а не суффикс: её читают именем
+    # буквы, как и голое «K» после числа (см. latin_kelvin_symbol_after_number).
+    # Правка касается только склеенной записи и этой границы не двигает.
+    pytest.param(
+        "Заработал 100 k за месяц и уволился.",
+        "Заработал сто кей за месяц и уволился.",
+        id="separated_k_after_a_nbsp_is_a_letter_name",
+    ),
+    pytest.param(
+        "Заработал 100 k за месяц и уволился.",
+        "Заработал сто кей за месяц и уволился.",
+        id="separated_k_after_a_space_is_a_letter_name",
+    ),
+    # Отрицательные примеры: отдельная буква-метка слева по-прежнему включает
+    # режим кода, а заглавная K не угадывается ни тысячами, ни кельвинами.
+    pytest.param(
+        "Вариант A 100K оказался дороже.",
+        "Вариант э сто-кей оказался дороже.",
+        id="standalone_letter_label_still_reads_as_a_code",
+    ),
+    pytest.param(
+        "Дом 7Б стоит во дворе.",
+        "Дом семь бэ стоит во дворе.",
+        id="house_letter_suffix_unchanged",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), THOUSANDS_SUFFIX_CASES)
+def test_thousands_suffix_edges(check_tts: CheckTts, source: str, expected: str) -> None:
+    check_tts(source, expected)
