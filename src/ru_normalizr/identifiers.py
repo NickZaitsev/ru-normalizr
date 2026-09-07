@@ -256,7 +256,16 @@ def _standalone_letter_precedes(text: str, start: int) -> bool:
     if not text[position - 1].isalpha():
         return False
     before = position - 2
-    return before < 0 or not (text[before].isalnum() or text[before] in "-'’")
+    if before < 0:
+        return True
+    if text[before] in "-'’":
+        # Ведущий дефис формулы («-C3H5») не делает букву частью слова: частью
+        # слова дефис был бы, если бы слева от него стояла буква или цифра.
+        # Иначе метка «C» переставала быть отдельной и «H» уходила в единицу
+        # измерения — «C три генри пять» вместо «C три-H пять».
+        earlier = before - 1
+        return earlier < 0 or not text[earlier].isalnum()
+    return not text[before].isalnum()
 
 
 def _next_word_after(text: str, pos: int) -> str:
