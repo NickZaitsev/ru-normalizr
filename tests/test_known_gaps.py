@@ -76,6 +76,19 @@ CORPUS_SWEEP_GAP_CASES = (
             reason="an adverb between the year and its verb drops the year reading",
         ),
     ),
+    # Трёхзначный год перед словом «года» читается количественным, хотя
+    # четырёхзначный на том же месте читается порядковым («раньше тысяча
+    # девятьсот семнадцатого года»). Одинаково для «до», «после» и «ранее».
+    pytest.param(
+        "Летописец ошибся, и Рюрик пришёл ранее 862 года, чем принято считать.",
+        "Летописец ошибся, и Рюрик пришёл ранее восемьсот шестьдесят второго "
+        "года, чем принято считать.",
+        id="three_digit_year_before_the_word_year_reads_as_a_cardinal",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="a three-digit year is not recognized before the noun «года»",
+        ),
+    ),
 )
 
 
