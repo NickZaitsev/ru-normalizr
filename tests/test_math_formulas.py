@@ -121,3 +121,13 @@ def test_math_block_count_separates_simple_from_complex() -> None:
 def test_math_block_count_ignores_money() -> None:
     assert math_block_count("с $100 до $200") == (0, 0)
     assert math_block_count("без знака доллара") == (0, 0)
+
+
+def test_nested_fraction_keeps_the_outer_division() -> None:
+    """Внешняя дробь пропадала: обёртка \text внутри мешала правилу совпасть."""
+    body = r"\frac{\frac{3}{4} - \text{ шеф.}}{\frac{5}{6}}"
+    assert speak_formula(body) == "3 дробь 4 минус шеф. дробь 5 дробь 6"
+
+
+def test_root_of_a_fraction() -> None:
+    assert speak_formula(r"\sqrt{\frac{1}{2}}") == "корень из 1 дробь 2"

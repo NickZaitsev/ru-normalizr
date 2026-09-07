@@ -294,8 +294,16 @@ def _expand_nested(pattern: re.Pattern[str], replace, text: str) -> str:
     return text
 
 
+#: Команды со своей структурой: их разбирают отдельные правила, и общий
+#: обработчик обёрток обязан пройти мимо, иначе у ``\frac{a}{b}`` он съест
+#: первую группу и дробь останется без знаменателя.
+_STRUCTURAL: frozenset[str] = frozenset({"frac", "dfrac", "tfrac", "sqrt"})
+
+
 def _replace_transparent(match: re.Match[str]) -> str:
     name, inner = match.group(1), match.group(2)
+    if name in _STRUCTURAL:
+        return match.group(0)
     if name in _TRANSPARENT:
         return f" {inner} "
     if name in _GREEK or name in _OPERATORS:
@@ -321,14 +329,19 @@ def _replace_command(match: re.Match[str]) -> str:
 def speak_formula(body: str) -> str:
     """Перевести тело формулы в слова, оставив числа цифрами для стадии числительных."""
     text = body
-    text = _expand_nested(_FRAC_RE, lambda m: f" {m.group(1)} дробь {m.group(2)} ", text)
-    text = _expand_nested(
-        _ROOT_DEGREE_RE,
-        lambda m: f" корень степени {m.group(1)} из {m.group(2)} ",
-        text,
-    )
-    text = _expand_nested(_ROOT_RE, lambda m: f" корень из {m.group(1)} ", text)
-    text = _expand_nested(_TRANSPARENT_RE, _replace_transparent, text)
+    # Структурные правила и обёртки раскрываются одним циклом: у вложенной
+    # дроби внешние скобки чисты только после того, как \text внутри неё уже
+    # раскрыт, а внутренняя дробь — только после раскрытия внешней обёртки.
+    for _ in range(10):
+        before = text
+        text = _TRANSPARENT_RE.sub(_replace_transparent, text)
+        text = _FRAC_RE.sub(lambda m: f" {m.group(1)} дробь {m.group(2)} ", text)
+        text = _ROOT_DEGREE_RE.sub(
+            lambda m: f" корень степени {m.group(1)} из {m.group(2)} ", text
+        )
+        text = _ROOT_RE.sub(lambda m: f" корень из {m.group(1)} ", text)
+        if text == before:
+            break
     text = _DEGREE_RE.sub(" градусов ", text)
     text = _SCRIPT_COMMAND_RE.sub(lambda m: f"{m.group(1)}{{{m.group(2)}}}", text)
     text = _expand_nested(_POWER_BRACED_RE, lambda m: f" в степени {m.group(1)} ", text)
