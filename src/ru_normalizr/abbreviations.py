@@ -17,6 +17,9 @@ from .abbreviation_rules import (
     ADJECTIVE_ABBREVIATION_EXPANSIONS,
     DECLINABLE_NOUN_ABBREVIATIONS,
     GEO_CLASSIFIER_ABBREVIATIONS,
+    GEO_NAME_REQUIRED_ABBREVIATIONS,
+    MOTION_VERB_ROOT_SUFFIXES,
+    RELIEF_CONTEXT_LEMMAS,
 )
 from .constants import (
     ABBREV_DOTTED_PATTERN,
@@ -451,6 +454,15 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
         noun_parse = choose_head_noun(phrase, expected_case)
         if noun_parse is None:
             return match.group(0)
+        if not word_is_known(noun_parse.word) or not word_is_known(
+            phrase.split()[0].lower()
+        ):
+            # Форму незнакомого слова словарь угадывает, и согласовываться с
+            # догадкой нельзя: у дореформенного «Александръ» она даёт
+            # родительный неодушевлённого, а у «Владиміра» — краткое
+            # прилагательное женского рода, из-за которого вершиной группы
+            # становится слово из соседнего однородного члена.
+            return match.group(0)
         if abbr.lower() in _HEADING_NOUN_ABBREVIATIONS and _governs_genitive_whole(
             noun_parse
         ):
@@ -852,10 +864,13 @@ def _normalize_contextual_ampersands(
 
 
 _GEO_CLASSIFIER_PATTERN = compile_scan(
-    rf"(?<!\w)(?P<abbr>{'|'.join(GEO_CLASSIFIER_ABBREVIATIONS)})\.\s+"
-    rf"(?=[А-ЯЁ][а-яё-])",
+    rf"(?<!\w)(?P<abbr>{'|'.join(sorted(GEO_CLASSIFIER_ABBREVIATIONS, key=len, reverse=True))})\.\s+"
+    rf"(?=(?P<name>[А-ЯЁ][а-яё-]+))",
     re.IGNORECASE,
 )
+#: Сколько слов слева просматривать в поисках формы рельефа: она стоит вершиной
+#: родительной цепочки прямо перед классификатором («у подножия г. Эльбрус»).
+_RELIEF_CONTEXT_SCAN = 2
 #: «в»/«на»/«за» перед географическим классификатором читаются локативно:
 #: повествование описывает положение («на оз. Байкал»), а не направление.
 _GEO_STATIC_PREPOSITION_CASE = {
@@ -867,6 +882,48 @@ _GEO_STATIC_PREPOSITION_CASE = {
     "над": "ablt",
     "перед": "ablt",
 }
+#: Сколько слов слева от предлога просматривать в поисках глагола движения:
+#: между ними стоят обстоятельства («переехал вместе с семьёй в г. Казань»).
+_MOTION_VERB_SCAN = 4
+
+
+def _motion_verb_precedes(tokens: list[str]) -> bool:
+    """Есть ли слева глагол движения: тогда «в»/«на» — направление.
+
+    Проверяется корень нормальной формы: приставка и вид дают десятки форм
+    одного глагола, и перечислять их поштучно значило бы завести список слов
+    вместо правила.
+    """
+    for token in reversed(tokens[-_MOTION_VERB_SCAN:]):
+        word = token.lower().strip(PUNCT_STRIP)
+        if not word:
+            continue
+        parsed = first_parse_required(word)
+        if parsed.tag.POS not in {"VERB", "INFN", "GRND", "PRTF", "PRTS"}:
+            continue
+        if parsed.normal_form.endswith(MOTION_VERB_ROOT_SUFFIXES):
+            return True
+    return False
+
+
+def _reads_as_place_name(name: str, classifier_case: str) -> bool:
+    """Стоит ли справа от классификатора имя населённого пункта.
+
+    Помета `Geox` у угаданного слова ничего не значит: словарь метит так и
+    «Хан-Тенгри», и незнакомую фамилию на согласный. У знакомого слова форма
+    должна укладываться в конструкцию: имя либо повторяет падеж классификатора
+    («близ города Ялуторовска»), либо остаётся несклоняемым в исходной форме
+    («в городе Казань»). «Г. Буле» проверку не проходит: у «Буле» есть только
+    дательный и предложный, а классификатор здесь именительный — значит это
+    «господин», а не «город».
+    """
+    if not word_is_known(name):
+        return False
+    allowed = {classifier_case, "nomn", "accs"}
+    return any(
+        "Geox" in candidate.tag and candidate.tag.case in allowed
+        for candidate in parse_word(name)
+    )
 
 
 def _expand_geo_classifier_abbreviations(text: str) -> str:
@@ -886,12 +943,29 @@ def _expand_geo_classifier_abbreviations(text: str) -> str:
         if prev:
             if prev in _GEO_STATIC_PREPOSITION_CASE:
                 case = _GEO_STATIC_PREPOSITION_CASE[prev]
+                if prev in {"в", "во", "на"} and _motion_verb_precedes(
+                    left_tokens[:-1]
+                ):
+                    case = "accs"
             elif prev in PREP_CASE:
                 case = PREP_CASE[prev]
             else:
                 p_prev = first_parse_required(prev)
                 if "NOUN" in p_prev.tag and "Fixd" not in p_prev.tag:
                     case = "gent"
+        if abbr.lower() in GEO_NAME_REQUIRED_ABBREVIATIONS and not _reads_as_place_name(
+            match.group("name"), case
+        ):
+            return match.group(0)
+        if abbr.lower() in GEO_NAME_REQUIRED_ABBREVIATIONS and any(
+            first_parse_required(token.lower().strip(PUNCT_STRIP)).normal_form
+            in RELIEF_CONTEXT_LEMMAS
+            for token in left_tokens[-_RELIEF_CONTEXT_SCAN:]
+            if token.strip(PUNCT_STRIP)
+        ):
+            # «У подножия г. Эльбрус» — гора: подставить «город» нельзя,
+            # а раскрывать «гору» этому правилу не поручено.
+            return match.group(0)
         expanded = lemma
         if case != "nomn":
             p_lemma = next(

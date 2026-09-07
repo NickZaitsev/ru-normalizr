@@ -4921,6 +4921,82 @@ CONTEXTUAL_ABBREVIATION_CASES = (
 )
 
 
+# «г.» перед именем населённого пункта и «Св.» перед именем святого: падеж
+# берётся из контекста, а род и число — из разбора самого имени.
+GEO_AND_SAINT_ABBREVIATION_CASES = (
+    pytest.param(
+        "Он переехал в г. Казань в 2010 году.",
+        "Он переехал в город Казань в две тысячи десятом году.",
+        id="city_abbreviation_before_a_place_name",
+    ),
+    pytest.param(
+        "Он жил в г. Казань долгие годы и не думал уезжать.",
+        "Он жил в городе Казань долгие годы и не думал уезжать.",
+        id="city_abbreviation_without_a_motion_verb_is_locative",
+    ),
+    pytest.param(
+        "Тобол, через который мы переправились близ г. Ялуторовска, был широк.",
+        "Тобол, через который мы переправились близ города Ялуторовска, был широк.",
+        id="city_abbreviation_after_a_genitive_preposition",
+    ),
+    pytest.param(
+        "Река, лежавшая за г. Ишимом, оказалась шире прежней.",
+        "Река, лежавшая за городом Ишимом, оказалась шире прежней.",
+        id="city_abbreviation_after_an_instrumental_preposition",
+    ),
+    # Отрицательные примеры: фамилия, форма рельефа и незнакомое имя не дают
+    # права подставить «город».
+    pytest.param(
+        "Письмо получил г. Иванов, и ответа мы так и не дождались.",
+        "Письмо получил г. Иванов, и ответа мы так и не дождались.",
+        id="city_abbreviation_before_a_surname_unchanged",
+    ),
+    pytest.param(
+        "Г. Буле весьма удовлетворительно изъяснил надпись сего камня.",
+        "Г. Буле весьма удовлетворительно изъяснил надпись сего камня.",
+        id="city_abbreviation_before_a_name_in_the_wrong_case_unchanged",
+    ),
+    pytest.param(
+        "У подножия г. Эльбрус разбили лагерь и переждали непогоду.",
+        "У подножия г. Эльбрус разбили лагерь и переждали непогоду.",
+        id="city_abbreviation_in_relief_context_unchanged",
+    ),
+    # «Св.» согласуется по разбору имени, а не по его последней букве.
+    pytest.param(
+        "Церковь Св. Анны стоит на холме.",
+        "Церковь Святой Анны стоит на холме.",
+        id="saint_abbreviation_before_a_feminine_genitive_name",
+    ),
+    pytest.param(
+        "Известно, что св. Ольга, жившая в Киеве, приняла крещение.",
+        "Известно, что святая Ольга, жившая в Киеве, приняла крещение.",
+        id="saint_abbreviation_before_a_feminine_nominative_name",
+    ),
+    pytest.param(
+        "Храм Св. Николая построен из камня в незапамятные времена.",
+        "Храм Святого Николая построен из камня в незапамятные времена.",
+        id="saint_abbreviation_before_a_masculine_genitive_name",
+    ),
+    pytest.param(
+        "Об этом говорит Св. Писание, а не летопись позднего времени.",
+        "Об этом говорит Святое Писание, а не летопись позднего времени.",
+        id="saint_abbreviation_before_a_neuter_noun",
+    ),
+    pytest.param(
+        "Кое-как успели причастить царя Св. Тайн и увели его в покои.",
+        "Кое-как успели причастить царя Святых Тайн и увели его в покои.",
+        id="saint_abbreviation_before_a_plural_genitive_noun",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), GEO_AND_SAINT_ABBREVIATION_CASES)
+def test_geo_and_saint_abbreviation_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
 @pytest.mark.parametrize(("source", "expected"), CONTEXTUAL_ABBREVIATION_CASES)
 def test_contextual_abbreviation_edges(
     check_tts: CheckTts, source: str, expected: str

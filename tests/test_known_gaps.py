@@ -348,27 +348,6 @@ REVIEW_2026_09_GAP_CASES = (
             reason="a standalone Latin letter goes through IPA as the article «a»",
         ),
     ),
-    # «руб.» раскрывается в родительный множественного без числа слева.
-    # «г.» перед названием с заглавной буквы — город, а не год.
-    pytest.param(
-        "Он переехал в г. Казань в 2010 году.",
-        "Он переехал в город Казань в две тысячи десятом году.",
-        id="city_abbreviation_before_name_not_expanded",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="«г.» before a capitalized place name is not expanded to «город»",
-        ),
-    ),
-    # «Св.» перед именем в родительном не раскрывается.
-    pytest.param(
-        "Церковь Св. Анны стоит на холме.",
-        "Церковь Святой Анны стоит на холме.",
-        id="saint_abbreviation_before_genitive_name",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="«Св.» before a name in the genitive is left as is",
-        ),
-    ),
     # --- Найдено пробами corner cases при закрытии дефектов «-м» (3 сентября) --
     #
         # --- Найдено пробами при закрытии правок ревью (4 сентября) --------------
