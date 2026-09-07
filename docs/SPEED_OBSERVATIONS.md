@@ -1300,3 +1300,16 @@ uv run python scripts/benchmark.py --real-only --mode tts --samples 1 --warmups 
 ```
 
 Гейт 180 000 пройден; медиана совпадает с 181 589 на c99245e.
+
+## 7 сентября 2026 — фаза 6 плана качества: одиночная латинская буква
+
+Метка добавлена второй ветвью в `ALPHANUMERIC_SUFFIX_LETTER_PATTERN`, то есть
+в существующий проход стадии латинизации; сам проход выполняется только когда
+в тексте есть латиница. Проверка соседних слов идёт в окне 48 знаков.
+
+```
+uv run python scripts/benchmark.py --real-only --mode tts --samples 1 --warmups 1   --prefix-chars 250000 --book benchmarks/corpus/03_karamzin_history_of_russian_state.txt
+186 241 / 180 962 / 180 460 символов/с (медиана 180 962)
+```
+
+Гейт 180 000 пройден.

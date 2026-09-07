@@ -65,7 +65,7 @@
         "input_chars": 200000,
         "input_sha256": "bc12ab1181324e99addb01816b3473fbc5e8207d1d6e85e921119e24aaa8eb18",
         "output_chars": 206170,
-        "output_sha256": "766304aa00ffae174f7635b060a93cb216cbd8f1cb5a7b67c199a2f19a79f984"
+        "output_sha256": "aa5a88eb241f626d01505b366154d795ad5955d8fedcf1fa96f0fa9d8bcdc7e6"
       },
       "03_karamzin_history_of_russian_state": {
         "input_chars": 200000,
@@ -88,8 +88,8 @@
       "06_semenov_tyan_shansky_tien_shan_travel": {
         "input_chars": 200000,
         "input_sha256": "1e5b60e93d5b9d9b0a1383e26d7ca3e2a9d1d603483defb728ef7fbdc7456dd7",
-        "output_chars": 206540,
-        "output_sha256": "688d664673ec6feba6195e956172e28fb83d251e3eb0450e6c0fd73d169c1653"
+        "output_chars": 206541,
+        "output_sha256": "21107f78489b338c28ae544599c75e1eead7f5178cb8e3d819d1597ebc9a5289"
       }
     },
     "mode": "tts",

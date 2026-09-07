@@ -18,7 +18,32 @@ DEFAULT_LATINIZATION_DICTIONARIES_PATH = DEFAULT_DICTIONARIES_PATH / "latinizati
 LATIN_TOKEN_PATTERN = compile_scan(r"[A-Za-z][A-Za-z'\-]*(?:’[A-Za-z][A-Za-z'\-]*)*")
 ALPHANUMERIC_SUFFIX_LETTER_PATTERN = compile_scan(
     r"(?:(?<=\d)|(?<=[А-Яа-яЁё]-))(?P<letter>[A-Za-z])\b"
+    r"|(?<![\w'’-])(?P<label>[A-Za-z])(?![\w'’-])"
 )
+#: Слово рядом с одиночной латинской буквой: оно решает, метка перед нами или
+#: английское слово в английской фразе.
+_NEIGHBOUR_WORD_PATTERN = compile_scan(r"[A-Za-zА-Яа-яЁё]+")
+#: Сколько знаков просматривать в поисках соседнего слова: между буквой-меткой
+#: и словом стоят пробел, скобка или кавычка, а не целое предложение.
+_NEIGHBOUR_WORD_WINDOW = 48
+
+
+def _reads_as_letter_label(text: str, start: int, end: int) -> bool:
+    """Одиночная латинская буква в русской фразе — метка.
+
+    Английский артикль стоит внутри английской фразы, и рядом с ним латинские
+    слова; у метки соседи русские — «вариант A лучше». Латинский сосед с любой
+    стороны отменяет чтение именем буквы: там буква входит в английскую фразу
+    или в имя с инициалом («J. Smith»).
+    """
+    left = _NEIGHBOUR_WORD_PATTERN.findall(
+        text[max(0, start - _NEIGHBOUR_WORD_WINDOW) : start]
+    )
+    right = _NEIGHBOUR_WORD_PATTERN.findall(text[end : end + _NEIGHBOUR_WORD_WINDOW])
+    neighbours = left[-1:] + right[:1]
+    if not neighbours:
+        return False
+    return not any(word[0].isascii() for word in neighbours)
 IPA_BATCH_SIZE = 800
 IPA_BATCH_THRESHOLD = 24
 DICTIONARY_FALLBACK_BATCH_THRESHOLD = 8
@@ -441,11 +466,15 @@ def apply_latinization(
     if not re.search(r"[A-Za-z]", text):
         return text
 
-    text = ALPHANUMERIC_SUFFIX_LETTER_PATTERN.sub(
-        lambda match: resolve_letter_name(match.group("letter"), letter_vowel_mode)
-        or match.group("letter"),
-        text,
-    )
+    def letter_name_repl(match: re.Match[str]) -> str:
+        letter = match.group("letter")
+        if letter is None:
+            letter = match.group("label")
+            if not _reads_as_letter_label(text, match.start(), match.end()):
+                return letter
+        return resolve_letter_name(letter, letter_vowel_mode) or letter
+
+    text = ALPHANUMERIC_SUFFIX_LETTER_PATTERN.sub(letter_name_repl, text)
 
     dict_path, resolved_filename = _resolve_latinization_dictionary_source(
         dictionaries_path, dictionary_filename

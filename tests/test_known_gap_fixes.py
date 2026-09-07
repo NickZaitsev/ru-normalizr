@@ -634,7 +634,7 @@ ABBREVIATED_HEADING_MARKER_CASES = (
     # Однобуквенный маркер плюс однобуквенная цифра с точкой — это инициалы.
     pytest.param(
         "Инженер Т. X. Петров подписал акт.",
-        "Инженер тэ. экс. Петров подписал акт.",
+        "Инженер тэ. икс. Петров подписал акт.",
         id="initials_shape_not_a_heading",
     ),
     # Многобуквенный маркер инициалами быть не может, поэтому точка не мешает.
@@ -3645,7 +3645,7 @@ SPACED_DASH_BEFORE_NUMBER_CASES = (
     # открывающий контекст, а не слово.
     pytest.param(
         "Уравнение x = - 5 решено верно.",
-        "Уравнение экс = минус пять решено верно.",
+        "Уравнение икс = минус пять решено верно.",
         id="spaced_minus_after_equals_still_reads_as_minus",
     ),
 )
@@ -3965,7 +3965,7 @@ THOUSANDS_SUFFIX_CASES = (
     # режим кода, а заглавная K не угадывается ни тысячами, ни кельвинами.
     pytest.param(
         "Вариант A 100K оказался дороже.",
-        "Вариант э сто-кей оказался дороже.",
+        "Вариант эй сто-кей оказался дороже.",
         id="standalone_letter_label_still_reads_as_a_code",
     ),
     pytest.param(
@@ -4992,6 +4992,51 @@ GEO_AND_SAINT_ABBREVIATION_CASES = (
 
 @pytest.mark.parametrize(("source", "expected"), GEO_AND_SAINT_ABBREVIATION_CASES)
 def test_geo_and_saint_abbreviation_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
+
+
+# Одиночная латинская буква в русской фразе — метка, и читается именем буквы;
+# внутри английской фразы та же буква остаётся словом.
+STANDALONE_LATIN_LETTER_CASES = (
+    pytest.param(
+        "Вариант A лучше варианта B.",
+        "Вариант эй лучше варианта би.",
+        id="standalone_latin_letters_read_as_letter_names",
+    ),
+    pytest.param(
+        "Отсек C закрыт наглухо.",
+        "Отсек си закрыт наглухо.",
+        id="standalone_latin_letter_after_a_russian_noun",
+    ),
+    pytest.param(
+        "Точка a лежит на прямой, а точка b вне её.",
+        "Точка эй лежит на прямой, а точка би вне её.",
+        id="lowercase_standalone_latin_letters_read_as_letter_names",
+    ),
+    pytest.param(
+        "Уравнение x решено верно.",
+        "Уравнение икс решено верно.",
+        id="standalone_x_reads_as_its_russian_letter_name",
+    ),
+    # Отрицательные примеры: внутри английской фразы и в имени с инициалом
+    # буква остаётся частью латинского чтения.
+    pytest.param(
+        "This is a test of the system.",
+        "зис из э тэст эв зэ систэм.",
+        id="english_article_inside_an_english_sentence",
+    ),
+    pytest.param(
+        "Письмо от J. Smith пришло вчера.",
+        "Письмо от джей. смис пришло вчера.",
+        id="latin_initial_before_a_latin_surname",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), STANDALONE_LATIN_LETTER_CASES)
+def test_standalone_latin_letter_edges(
     check_tts: CheckTts, source: str, expected: str
 ) -> None:
     check_tts(source, expected)
