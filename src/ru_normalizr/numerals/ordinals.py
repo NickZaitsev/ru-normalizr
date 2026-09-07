@@ -61,6 +61,9 @@ HEADING_CONTEXT_CASES = {
     "середина": "gent",
     "см": "accs",
     "смотри": "accs",
+    # «на»/«про» вводят рубрику дополнением: «ссылка на главу двенадцатую».
+    "на": "accs",
+    "про": "accs",
 }
 SINGULAR_HEADING_WORDS_PATTERN = (
     r"глава|главы|главе|главу|главой|"
@@ -82,7 +85,8 @@ ABBREVIATED_HEADING_RANGE_PATTERN = compile_scan(
     re.IGNORECASE | re.UNICODE,
 )
 ABBREVIATED_HEADING_PATTERN = compile_scan(
-    r"\b(?P<head>гл)\.\s*(?P<number>\d+)\b",
+    r"(?<!\w)(?:(?P<lead>\d+)\s+(?P<lead_head>гл)\.(?!\s*\d)"
+    r"|(?P<head>гл)\.\s*(?P<number>\d+)\b)",
     re.IGNORECASE | re.UNICODE,
 )
 COMPOUND_ADJECTIVE_STEMS = (
@@ -264,7 +268,13 @@ def normalize_heading_numbers(text: str) -> str:
         inflected_noun = noun_parse.inflect({target_case, "sing"})
         if inflected_noun is None:
             return match.group(0)
-        ordinal = _ordinal_words(int(match.group("number")), target_case, "femn")
+        lead = match.group("lead")
+        number = lead if lead is not None else match.group("number")
+        ordinal = _ordinal_words(int(number), target_case, "femn")
+        if lead is not None:
+            # Порядок слов у номера перед сокращением обратный: «в восьмой
+            # главе», а не «в главе восьмой».
+            return f"{ordinal} {inflected_noun.word}"
         return f"{inflected_noun.word} {ordinal}"
 
     def repl(match: re.Match[str]) -> str:

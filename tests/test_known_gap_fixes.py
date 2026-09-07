@@ -4926,3 +4926,84 @@ def test_contextual_abbreviation_edges(
     check_tts: CheckTts, source: str, expected: str
 ) -> None:
     check_tts(source, expected)
+
+
+# «Гл.» перед существительным — сокращение прилагательного «главный», а номер
+# рубрики перед сокращением читается порядковым в падеже контекста.
+LEADING_HEADING_NUMBER_CASES = (
+    pytest.param(
+        "Гл. редактор ушёл в отставку.",
+        "Главный редактор ушёл в отставку.",
+        id="gl_before_a_noun_is_the_adjective",
+    ),
+    pytest.param(
+        "Работа велась гл. образом ночью.",
+        "Работа велась главным образом ночью.",
+        id="gl_before_an_instrumental_noun",
+    ),
+    pytest.param(
+        "Приказ подписал гл. врача.",
+        "Приказ подписал главного врача.",
+        id="gl_before_a_genitive_noun",
+    ),
+    # Номер перед сокращением: порядковое плюс существительное, падеж от
+    # предлога. «кн.» остаётся сокращённым по конвенции маркеров рубрикации.
+    pytest.param(
+        "Об этом сказано в 8 гл. кн. Царств, и с тем согласны все толкователи.",
+        "Об этом сказано в восьмой главе кн. Царств, и с тем согласны все толкователи.",
+        id="leading_chapter_number_agrees_with_the_preposition",
+    ),
+    pytest.param(
+        "В 5 гл. описан поход.",
+        "В пятой главе описан поход.",
+        id="leading_chapter_number_in_the_locative",
+    ),
+    pytest.param(
+        "Смотри 3 гл. и далее.",
+        "Смотри третью главу и далее.",
+        id="leading_chapter_number_after_see",
+    ),
+    # Номер справа читается как раньше.
+    pytest.param(
+        "В гл. 5 сказано иное.",
+        "В главе пятой сказано иное.",
+        id="trailing_chapter_number_unchanged",
+    ),
+    # Отрицательные примеры: номер рубрики и римская цифра не превращают
+    # сокращение в прилагательное.
+    pytest.param(
+        "Геродот пишет об этом в кн. IV, где описаны обычаи скифов.",
+        "Геродот пишет об этом в кн. четвёртой, где описаны обычаи скифов.",
+        id="roman_heading_marker_unchanged",
+    ),
+    pytest.param(
+        "Ссылка дана на гл. 12 второго тома.",
+        "Ссылка дана на главу двенадцатую второго тома.",
+        id="chapter_number_after_marker_unchanged",
+    ),
+    # Родительный неодушевлённого целого справа — управление существительного
+    # «глава», а не согласование прилагательного «главный».
+    pytest.param(
+        "Гл. книги посвящена завоеванию Сибири, и об этом пишет Небольсин.",
+        "глава книги посвящена завоеванию Сибири, и об этом пишет Небольсин.",
+        id="chapter_noun_keeps_the_genitive_whole",
+    ),
+    pytest.param(
+        "Он был гл. города в те годы, когда строилась крепость.",
+        "Он был глава города в те годы, когда строилась крепость.",
+        id="chapter_noun_before_a_city_in_the_genitive",
+    ),
+    # Одушевлённая должность справа — прилагательное, даже в родительном.
+    pytest.param(
+        "Совещание провёл гл. инженер проекта, вернувшийся из Сибири.",
+        "Совещание провёл главный инженер проекта, вернувшийся из Сибири.",
+        id="chapter_abbreviation_before_an_animate_role",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), LEADING_HEADING_NUMBER_CASES)
+def test_leading_heading_number_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)

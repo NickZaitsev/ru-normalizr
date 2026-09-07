@@ -124,22 +124,21 @@ BOOK_02B_GAP_CASES = (
 
 #: Найдено сплошным чтением книги 04 (Костомаров, «Русская история»).
 BOOK_04_GAP_CASES = (
-    # Сокращение «гл.» после числа раскрывается в именительном, а само число
-    # остаётся количественным.
+    # Осталась только конвенция: «кн.» перед именем не раскрывается.
     #
-    # НЕ РЕШАЕТСЯ без пересмотра конвенции: ожидание требует полного раскрытия
-    # маркеров «гл.»/«кн.» с падежом, а принятая конвенция (см.
-    # ABBREVIATED_HEADING_MARKER_CASES в test_known_gap_fixes.py) сознательно
-    # сохраняет маркер сокращённым («т. втором», «кн. пятую»). Отдельный дефект
-    # «в восемь глава» — падеж арабского номера перед «гл.» — решается в рамках
-    # кластера падежного согласования числительных.
+    # Падеж и порядковость номера перед «гл.» исправлены 7 сентября: теперь
+    # читается «в восьмой главе кн. Царств» вместо «в восемь глава», см.
+    # LEADING_HEADING_NUMBER_CASES в test_known_gap_fixes.py. НЕ РЕШАЕТСЯ без
+    # пересмотра конвенции остаток: ожидание требует раскрыть и «кн.», а
+    # принятая конвенция (см. ABBREVIATED_HEADING_MARKER_CASES там же)
+    # сознательно сохраняет маркер сокращённым («т. втором», «кн. пятую»).
     pytest.param(
         "Об этом сказано в 8 гл. кн. Царств, и с тем согласны все толкователи.",
         "Об этом сказано в восьмой главе книги Царств, и с тем согласны все толкователи.",
         id="chapter_abbreviation_after_a_number",
         marks=pytest.mark.xfail(
             strict=True,
-            reason="гл. after a number is expanded in the nominative and the number stays cardinal",
+            reason="кн. before a proper name keeps its abbreviated form by convention",
         ),
     ),
 )
@@ -220,6 +219,42 @@ BOOK_01_GAP_CASES = (
 #: содержит, поэтому ни один из этих пробелов тестами не ловился. Подробный
 #: разбор причин и предлагаемых правок — docs/ISSUES.md.
 REVIEW_2026_09_GAP_CASES = (
+    # Римский номер рубрики раскрывает сокращение «гл.», но само
+    # существительное остаётся в именительном: падеж от предлога получает
+    # только порядковое. У арабского номера («в гл. 5») согласуются оба слова.
+    pytest.param(
+        "Об этом сказано в гл. XLII, где описаны обычаи северных народов.",
+        "Об этом сказано в главе сорок второй, где описаны обычаи северных народов.",
+        id="roman_chapter_number_leaves_the_noun_in_the_nominative",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the roman heading pass inflects the ordinal but not the "
+            "heading noun it expands from «гл.»",
+        ),
+    ),
+    # «Гл.» перед родительным целого читается существительным «глава», но
+    # литеральная подстановка даёт только именительный и только строчную
+    # букву: падеж от предлога и позиция в начале предложения теряются.
+    pytest.param(
+        "Это сказано в гл. книги о завоевании Сибири.",
+        "Это сказано в главе книги о завоевании Сибири.",
+        id="chapter_noun_before_a_genitive_whole_stays_in_the_nominative",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the literal «гл.» rule substitutes one form and ignores the "
+            "governing preposition",
+        ),
+    ),
+    pytest.param(
+        "Гл. книги посвящена завоеванию Сибири.",
+        "Глава книги посвящена завоеванию Сибири.",
+        id="chapter_noun_at_sentence_start_loses_its_capital",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="the literal «гл.» rule substitutes a lowercase form "
+            "regardless of the sentence boundary",
+        ),
+    ),
     # --- Дефекты, меняющие смысл: число теряет цифру или значение -------------
     #
     # Имя собственное с номером перед знаком конца клаузы всё ещё теряет цифру:
@@ -248,19 +283,6 @@ REVIEW_2026_09_GAP_CASES = (
             strict=True,
             reason="a glued English sentence boundary is read as a bare domain; "
             "case does not separate it from Mail.Ru, see docs/ISSUES.md",
-        ),
-    ),
-    # --- Ложные срабатывания контекста ---------------------------------------
-    #
-    # «Гл.» перед существительным без числа раскрывается как глава книги, а
-    # это сокращение прилагательного «главный».
-    pytest.param(
-        "Гл. редактор ушёл в отставку.",
-        "Главный редактор ушёл в отставку.",
-        id="gl_abbreviation_before_noun_read_as_chapter",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="«гл.» is always expanded to «глава» regardless of the word after it",
         ),
     ),
     # --- Падеж и род числительных --------------------------------------------

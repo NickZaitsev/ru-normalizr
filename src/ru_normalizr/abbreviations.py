@@ -74,6 +74,10 @@ _UNAMBIGUOUS_PREPOSITION_CASES = {
     "при": "loct",
     "у": "gent",
 }
+#: Части речи, которые не начинают именную группу с определением слева:
+#: служебные слова и числительное. Числительное справа означает номер рубрики
+#: («гл. сорок вторая»), а не предмет, к которому относилось бы определение.
+_FUNCTION_WORD_POS = frozenset({"PREP", "CONJ", "PRCL", "INTJ", "NUMR"})
 _CASE_CONTEXT_BARRIER_POS = frozenset(
     {
         "ADJF",
@@ -179,6 +183,28 @@ def _expand_contextual_etc_abbreviations(text: str) -> str:
         return f"{expansion}{'.' if keep_terminal_dot else ''}{tail}"
 
     return _ETC_ABBREVIATION_PATTERN.sub(repl, text)
+
+
+#: Сокращения, омонимичные существительному: «гл.» — и «главный», и «глава».
+_HEADING_NOUN_ABBREVIATIONS = frozenset({"гл."})
+
+
+def _governs_genitive_whole(noun_parse: MorphParse) -> bool:
+    """Существительное справа — родительное неодушевлённое целое.
+
+    «Глава» управляет родительным целого: «глава книги», «глава города»,
+    «глава управления». Прилагательное «главный» так не управляет: у него
+    справа стоит одушевлённая должность («гл. врача») или другой падеж
+    («гл. образом»). Форма проверяется по всем разборам слова, потому что
+    «книги» — и родительный единственного, и именительный множественного,
+    а выбор между ними здесь ни на что не опирается.
+    """
+    return any(
+        candidate.tag.POS == "NOUN"
+        and candidate.tag.case == "gent"
+        and "inan" in candidate.tag
+        for candidate in parse_word(noun_parse.word)
+    )
 
 
 def _expand_contextual_adjective_abbreviations(text: str) -> str:
@@ -412,6 +438,11 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
         phrase = match.group("phrase")
         if abbr.lower() in _LANGUAGE_ORIGIN_ABBREVIATIONS and phrase[:1].isupper():
             return match.group(0)
+        # Определение стоит непосредственно перед своей группой, поэтому
+        # служебное слово справа означает, что группы здесь нет: «гл. без
+        # номера» — это существительное, а не прилагательное.
+        if first_parse_required(phrase.split()[0].lower()).tag.POS in _FUNCTION_WORD_POS:
+            return match.group(0)
         # The pattern is built from this dictionary's keys, so the lookup always
         # hits: a KeyError here would mean the two have drifted apart.
         lemma = ADJECTIVE_ABBREVIATION_EXPANSIONS[abbr.lower()]
@@ -419,6 +450,10 @@ def _expand_contextual_adjective_abbreviations(text: str) -> str:
         expected_case = infer_governing_case(text[left_context_start : match.start()])
         noun_parse = choose_head_noun(phrase, expected_case)
         if noun_parse is None:
+            return match.group(0)
+        if abbr.lower() in _HEADING_NOUN_ABBREVIATIONS and _governs_genitive_whole(
+            noun_parse
+        ):
             return match.group(0)
         expanded = inflect_adjective(
             lemma,
