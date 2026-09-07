@@ -4235,3 +4235,60 @@ def test_clause_reference_edges(
     check_tts: CheckTts, source: str, expected: str
 ) -> None:
     check_tts(source, expected)
+
+
+LINE_NUMBERING_CHRONOLOGY_CASES = (
+    # Хронологическая запись: номер строки — год-порядковое, а не номер пункта.
+    pytest.param(
+        "1941. Началась война, и город опустел.",
+        "Тысяча девятьсот сорок первый. Началась война, и город опустел.",
+        id="year_at_line_start_is_an_ordinal",
+    ),
+    pytest.param(
+        "1941. Началась война.\n1942. Город держался.",
+        "Тысяча девятьсот сорок первый. Началась война.\n"
+        "Тысяча девятьсот сорок второй. Город держался.",
+        id="chronology_of_two_years",
+    ),
+    # Отрицательные примеры: перечень остаётся перечнем, в том числе с большими
+    # номерами — пока рядом есть номер ниже тысячи, нумерация доказана.
+    pytest.param(
+        "1. Первый пункт списка.\n2. Второй пункт списка.",
+        "Один. Первый пункт списка.\nДва. Второй пункт списка.",
+        id="short_numbered_list_unchanged",
+    ),
+    pytest.param(
+        "1. Первый пункт.\n1000. Тысячный пункт.\n1001. Следующий пункт.",
+        "Один. Первый пункт.\nОдна тысяча. Тысячный пункт.\n"
+        "Одна тысяча один. Следующий пункт.",
+        id="large_list_numbers_stay_a_list_when_numbering_is_proven",
+    ),
+    pytest.param(
+        "5. Пятый пункт перечня.",
+        "Пять. Пятый пункт перечня.",
+        id="single_small_list_number_unchanged",
+    ),
+    pytest.param(
+        "1.2. Подпункт договора.",
+        "Один точка два. Подпункт договора.",
+        id="compound_list_number_unchanged",
+    ),
+    pytest.param(
+        "IV. Раздел четвёртый.",
+        "Четыре. Раздел четвёртый.",
+        id="roman_list_number_unchanged",
+    ),
+    # Число выше границы правдоподобного года годом не читается.
+    pytest.param(
+        "3000. Пункт с большим номером.",
+        "Три тысячи. Пункт с большим номером.",
+        id="number_above_the_year_range_stays_a_list_number",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), LINE_NUMBERING_CHRONOLOGY_CASES)
+def test_line_numbering_chronology_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)

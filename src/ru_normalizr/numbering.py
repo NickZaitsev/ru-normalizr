@@ -56,12 +56,58 @@ def convert_numeric_sequence(sequence: str) -> str:
     return " точка ".join(words)
 
 
-def convert_line_numbering(text: str) -> str:
-    def convert_numbering(match: re.Match[str]) -> str:
-        converted = convert_numeric_sequence(match.group(2)).capitalize()
-        return f"{match.group(1)}{converted}.{match.group(3)}"
+#: Границы правдоподобного года хронологической записи. Ниже — номер пункта
+#: («1000.» встречается в длинном перечне), выше — не год.
+_CHRONOLOGY_YEAR_RANGE = range(1000, 2101)
+#: Голый номер строки без подномеров: «1941.», но не «1.2.».
+_BARE_LINE_MARKER_PATTERN = re.compile(r"\A(?P<value>\d+)\.\Z")
 
-    return LINE_NUMBERING_PATTERN.sub(convert_numbering, text)
+
+def _bare_line_marker_value(marker: str) -> int | None:
+    match = _BARE_LINE_MARKER_PATTERN.match(marker)
+    return int(match.group("value")) if match else None
+
+
+def convert_line_numbering(text: str) -> str:
+    """Прочитать номер в начале строки — номером перечня или годом хронологии.
+
+    «1941. Началась война…» — хронологическая запись, и число в ней год, а не
+    номер пункта. Отличается она не самим числом, а нумерацией всего текста:
+    перечень нумеруют с начала, поэтому его номера доходят до единиц, а у
+    хронологии таких номеров нет вовсе. Пока рядом есть голый номер ниже
+    тысячи, нумерация доказана, и большие номера остаются номерами перечня.
+
+    Правила «все четырёхзначные числа — годы» здесь нет: римские номера и
+    составные «1.2.» в подсчёте не участвуют и класс записи не меняют. Перечень,
+    целиком пронумерованный от тысячи и выше, без единого номера ниже
+    неотличим от хронологии и читается годами — это принятая граница правила.
+
+    Разбор идёт по одному проходу: решение о классе нужно всему тексту сразу,
+    а второй `finditer` на книге — второй полнотекстовый проход впустую.
+    """
+    matches = list(LINE_NUMBERING_PATTERN.finditer(text))
+    if not matches:
+        return text
+    values = [_bare_line_marker_value(match.group(2)) for match in matches]
+    bare_values = [value for value in values if value is not None]
+    chronology = bool(bare_values) and all(
+        value in _CHRONOLOGY_YEAR_RANGE for value in bare_values
+    )
+
+    pieces: list[str] = []
+    position = 0
+    for match, value in zip(matches, values, strict=True):
+        if chronology and value is not None:
+            # Год-порядковое: «Тысяча девятьсот сорок первый.», а не
+            # количественное «Одна тысяча девятьсот сорок один.».
+            converted = render_ordinal(value, gender="masc", inanimate=True).capitalize()
+        else:
+            converted = convert_numeric_sequence(match.group(2)).capitalize()
+        pieces.append(text[position : match.start()])
+        pieces.append(f"{match.group(1)}{converted}.{match.group(3)}")
+        position = match.end()
+    pieces.append(text[position:])
+    return "".join(pieces)
 
 
 def convert_inline_list_markers(text: str) -> str:

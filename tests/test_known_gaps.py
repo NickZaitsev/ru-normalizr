@@ -238,18 +238,6 @@ REVIEW_2026_09_GAP_CASES = (
             "indistinguishable from a footnote marker once superscripts are lost",
         ),
     ),
-    # LINE_NUMBERING_PATTERN принимает год в начале строки за номер пункта и
-    # читает его количественным. Четырёхзначное число в диапазоне лет с точкой
-    # и предложением справа — хронологическая запись, год-порядковое.
-    pytest.param(
-        "1941. Началась война, и город опустел.",
-        "Тысяча девятьсот сорок первый. Началась война, и город опустел.",
-        id="year_at_line_start_read_as_list_number",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a year at line start is read as a cardinal list number",
-        ),
-    ),
     # Голый домен ловится по реестру TLD без учёта регистра: «Sorry.It» —
     # склейка двух предложений, а не адрес. Настоящий домен пишут строчными.
     pytest.param(
