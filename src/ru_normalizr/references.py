@@ -87,6 +87,90 @@ def _replace_volume_page_reference(match: re.Match[str]) -> str:
     return f"Том {volume_word}. Страницы {left_word} — {right_word}"
 
 
+#: Падеж ссылочного существительного по предлогу слева. Управление у ссылки
+#: обычное, а номер остаётся меткой и падежа не получает.
+REFERENCE_PREPOSITION_CASES = {
+    "согласно": "datv",
+    "по": "datv",
+    "к": "datv",
+    "ко": "datv",
+    "в": "loct",
+    "во": "loct",
+    "о": "loct",
+    "об": "loct",
+    "из": "gent",
+    "с": "gent",
+    "со": "gent",
+    "до": "gent",
+    "от": "gent",
+}
+REFERENCE_PREPOSITION_PATTERN = re.compile(
+    r"(?:^|\s)(?P<word>"
+    + "|".join(sorted(REFERENCE_PREPOSITION_CASES, key=len, reverse=True))
+    + r")\s*$",
+    re.IGNORECASE,
+)
+
+
+def reference_case_from_left(text: str, start: int) -> str:
+    """Падеж ссылочного существительного по предлогу непосредственно слева."""
+    match = REFERENCE_PREPOSITION_PATTERN.search(left_context(text, start, 32))
+    if match is None:
+        return "nomn"
+    return REFERENCE_PREPOSITION_CASES[match.group("word").casefold()]
+
+
+#: Формы ссылочных существительных по падежу. Список закрыт: маркер сокращения
+#: раскрывается только там, где его значение однозначно.
+_CLAUSE_REFERENCE_FORMS = {
+    "пункт": {
+        "nomn": "пункт",
+        "gent": "пункта",
+        "datv": "пункту",
+        "loct": "пункте",
+    },
+    "подпункт": {
+        "nomn": "подпункт",
+        "gent": "подпункта",
+        "datv": "подпункту",
+        "loct": "подпункте",
+    },
+}
+_CLAUSE_REFERENCE_MARKERS = {"п": "пункт", "подп": "подпункт", "пп": "подпункт"}
+
+#: Пункт с составным номером: «п. 1.2.34». Маркер ссылки слева задаёт класс
+#: записи раньше, чем `dates_time` увидит в «1.2.34» дату, а числительные —
+#: десятичную дробь. Составной номер обязателен: одиночное «п. 2» остаётся
+#: прежнему владельцу, и эта правка его поведения не меняет.
+CLAUSE_REFERENCE_PATTERN = compile_scan(
+    r"(?<!\w)(?P<marker>подп|пп|п)\.\s*(?P<number>\d+(?:\.\d+)+)(?!\w)",
+    re.IGNORECASE,
+)
+
+
+def normalize_clause_references(text: str) -> str:
+    """«Согласно п. 1.2.34 договора» — «Согласно пункту один точка два точка…».
+
+    Ссылочное существительное согласуется с управлением слева, а номер остаётся
+    меткой: он читается по частям через «точка», как уже читаются номера статей
+    и параграфов.
+    """
+
+    def repl(match: re.Match[str]) -> str:
+        number = _render_dotted_number(match.group("number"))
+        if number is None:
+            return match.group(0)
+        lemma = _CLAUSE_REFERENCE_MARKERS[match.group("marker").casefold()]
+        case = reference_case_from_left(text, match.start())
+        noun = _CLAUSE_REFERENCE_FORMS[lemma][case]
+        context = left_context(text, match.start(), 24)
+        if not context.strip() or context.rstrip().endswith((".", "!", "?", "…")):
+            noun = noun.capitalize()
+        return f"{noun} {number}"
+
+    return CLAUSE_REFERENCE_PATTERN.sub(repl, text)
+
+
 LEGAL_COMPLEX_REFERENCE_PATTERN = compile_scan(
     r"(?<!\w)п\.\s*(?P<point>\d+)\s+ст\.\s*(?P<article>\d+)\s+"
     r"ФЗ\s+№\s*(?P<code>\d+)(?!\w)",
@@ -168,25 +252,8 @@ def normalize_page_references(text: str) -> str:
 
 def normalize_complex_legal_references(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
-        context = left_context(text, match.start(), 32)
-        prep_match = re.search(
-            r"(?:^|\s)(?P<word>согласно|в|во|о|об|по|к|ко|из|с|со|до|от)\s*$",
-            context,
-            re.IGNORECASE,
-        )
-        prep = prep_match.group("word").casefold() if prep_match else ""
-        if prep in {"согласно", "по", "к", "ко"}:
-            point_case = "datv"
-            point_word = "пункту"
-        elif prep in {"в", "во", "о", "об"}:
-            point_case = "loct"
-            point_word = "пункте"
-        elif prep in {"из", "с", "со", "до", "от"}:
-            point_case = "gent"
-            point_word = "пункта"
-        else:
-            point_case = "nomn"
-            point_word = "пункт"
+        point_case = reference_case_from_left(text, match.start())
+        point_word = _CLAUSE_REFERENCE_FORMS["пункт"][point_case]
         point = render_ordinal(
             int(match.group("point")),
             case=point_case,

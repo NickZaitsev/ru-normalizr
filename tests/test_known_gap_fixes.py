@@ -4166,3 +4166,72 @@ def test_mass_against_year_edges(
     check_tts: CheckTts, source: str, expected: str
 ) -> None:
     check_tts(source, expected)
+
+
+CLAUSE_REFERENCE_CASES = (
+    # Маркер ссылки слева забирает составной номер раньше, чем dates_time
+    # увидит в нём дату. Ссылочное существительное согласуется с управлением,
+    # номер остаётся меткой.
+    pytest.param(
+        "Согласно п. 1.2.34 договора аванс не возвращается.",
+        "Согласно пункту один точка два точка тридцать четыре договора "
+        "аванс не возвращается.",
+        id="dotted_clause_number_after_soglasno",
+    ),
+    pytest.param(
+        "В п. 1.2 договора это сказано прямо.",
+        "В пункте один точка два договора это сказано прямо.",
+        id="dotted_clause_number_after_v",
+    ),
+    pytest.param(
+        "Из п. 3.1 следует прямой вывод.",
+        "Из пункта три точка один следует прямой вывод.",
+        id="dotted_clause_number_after_iz",
+    ),
+    pytest.param(
+        "П. 1.2 договора это допускает.",
+        "Пункт один точка два договора это допускает.",
+        id="dotted_clause_number_at_sentence_start",
+    ),
+    pytest.param(
+        "В подп. 2.1 указан порядок оплаты.",
+        "В подпункте два точка один указан порядок оплаты.",
+        id="dotted_subclause_number",
+    ),
+    # Отрицательные примеры: одиночный номер остаётся прежнему владельцу,
+    # настоящая цифровая дата — датой, а составные ссылки на закон не задеты.
+    pytest.param(
+        "Согласно п. 2 договора аванс не возвращается.",
+        "Согласно п. два договора аванс не возвращается.",
+        id="single_clause_number_keeps_its_owner",
+    ),
+    pytest.param(
+        "Дата 01.02.34 указана в акте.",
+        "Дата первого февраля две тысячи тридцать четвёртого года указана в акте.",
+        id="plain_numeric_date_is_still_a_date",
+    ),
+    pytest.param(
+        "Договор заключён 15.03.2021 года.",
+        "Договор заключён пятнадцатого марта две тысячи двадцать первого года.",
+        id="four_digit_year_date_is_still_a_date",
+    ),
+    pytest.param(
+        "Согласно п. 1 ст. 5 ФЗ № 44 закупка законна.",
+        "Согласно пункту первому статьи пятой федерального закона номер "
+        "сорок четыре закупка законна.",
+        id="complex_legal_reference_unchanged",
+    ),
+    pytest.param(
+        "В ч. 1 ст. 12.8 КоАП РФ есть штраф.",
+        "В части первой статьи двенадцать точка восемь Кодекса Российской "
+        "Федерации об административных правонарушениях есть штраф.",
+        id="administrative_law_reference_unchanged",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), CLAUSE_REFERENCE_CASES)
+def test_clause_reference_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)
