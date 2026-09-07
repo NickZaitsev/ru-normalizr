@@ -64,8 +64,8 @@
       "02b_russian_army_and_navy_pre_reform": {
         "input_chars": 200000,
         "input_sha256": "bc12ab1181324e99addb01816b3473fbc5e8207d1d6e85e921119e24aaa8eb18",
-        "output_chars": 206169,
-        "output_sha256": "3aec8ef75b0ea90d404e8ec9bd58bb4abc26f1331a186e7f3010247b86c18cb0"
+        "output_chars": 206157,
+        "output_sha256": "e0f58163aaa72756d8eb84d856f5d58d32b31e4bb31a61b58da3fb866726ab89"
       },
       "03_karamzin_history_of_russian_state": {
         "input_chars": 200000,

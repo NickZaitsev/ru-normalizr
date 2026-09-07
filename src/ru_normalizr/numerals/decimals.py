@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+from dataclasses import replace
 from functools import lru_cache
 
 import num2words
@@ -33,14 +34,15 @@ from .unit_rendering import render_unit_expression
 # A bare "-" only reads as a unary minus when nothing word-like precedes it;
 # otherwise it is a hyphen joining the number to the previous token ("GLM-5.2").
 #
-# "range_sep" is the hyphen of a numeric range whose right side is a decimal
-# ("10-5.2", "1.5-2.5"). It has to be matched here rather than left behind,
+# "range_sep" is the separator of a numeric range whose right side is a decimal
+# ("10-5.2", "1.5-2.5", "1,2—1,5"). It has to be matched here rather than left
+# behind,
 # because a hyphen glued to a rendered numeral is no longer recognisable as a
 # range separator: normalize_hyphenated_words treats "10-пять целых…" like
 # "10-этажный" and replaces the hyphen with a space. Re-emitting it spaced lets
 # detokenize turn it into an em dash, exactly as it already does for "10-20".
 DECIMAL_PATTERN = compile_scan(
-    rf"(?:(?<=\d)(?P<range_sep>-))?(?<!\d)(?P<num>(?:(?<![^\W_])-|{re.escape(NEGATIVE_NUMBER_PLACEHOLDER)})?\d+[.,]\d+)(?:\s*(?P<unit>{UNIT_TOKEN_FRAGMENT})(?P<unit_dot>\.)?)?(?:\s+(?P<unit2>{UNIT_TOKEN_FRAGMENT})(?P<unit2_dot>\.)?)?(?!\d)"
+    rf"(?:(?<=\d)(?P<range_sep>[-—–]))?(?<!\d)(?P<num>(?:(?<![^\W_])-|{re.escape(NEGATIVE_NUMBER_PLACEHOLDER)})?\d+[.,]\d+)(?:\s*(?P<unit>{UNIT_TOKEN_FRAGMENT})(?P<unit_dot>\.)?)?(?:\s+(?P<unit2>{UNIT_TOKEN_FRAGMENT})(?P<unit2_dot>\.)?)?(?!\d)"
 )
 
 logger = logging.getLogger(__name__)
@@ -84,11 +86,19 @@ def render_money_amount(
         return None
     # "100,5 ₽" is fifty kopecks, not five: the fractional part is positional.
     minor_value = int(frac_part_s.ljust(_MONEY_MINOR_DIGITS, "0"))
-    major = render_counted_money(unit_info, int(int_part_s), case)
+    # Отношение («₽/кг») принадлежит всему выражению, а не его старшей части:
+    # «девяносто девять рублей девяносто копеек за килограмм». Поэтому суффикс
+    # снимается с обеих частей и произносится один раз, в конце.
+    major_info = (
+        replace(unit_info, suffix=None) if unit_info.suffix else unit_info
+    )
+    ratio_suffix = f" {unit_info.suffix}" if unit_info.suffix else ""
+    major = render_counted_money(major_info, int(int_part_s), case)
     if minor_value == 0:
         # "100,00 ₽" is plain "сто рублей" — nobody voices "ноль копеек".
-        return major
-    return f"{major} {render_counted_money(minor_info, minor_value, case)}"
+        return f"{major}{ratio_suffix}"
+    minor = render_counted_money(minor_info, minor_value, case)
+    return f"{major} {minor}{ratio_suffix}"
 
 
 def _render_half_multiplier(

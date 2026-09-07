@@ -105,9 +105,18 @@ PREPOSITIONS_TO_CASE = {
 }
 # The hyphen lookahead leaves «6—7-тысячного» to the compound adjective rule
 # of the numerals stage: it is one attribute, not an enumeration.
+#
+# Границы слева и справа держат правило вне десятичной записи: в «1,2—1,5 ГВт»
+# частями «диапазона» иначе становятся дробные разряды («2—1»), и запятая
+# перечисления встаёт внутрь дроби.
 NUMERIC_RANGE_PATTERN = compile_scan(
-    r"(\d+)\s*[—–]\s*(\d+)(?!\d)(?!\s*[а-яА-ЯёЁa-zA-Z%°$€₽Ω])(?!-[а-яА-ЯёЁ])"
+    r"(?<![\d.,])(\d+)\s*[—–]\s*(\d+)(?![\d.,]\d)(?!\d)"
+    r"(?!\s*[а-яА-ЯёЁa-zA-Z%°$€₽Ω])(?!-[а-яА-ЯёЁ])"
 )
+#: Обратный приблизительный счёт: существительное в родительном множественном
+#: перед числом («лет 25—30», «рублей 100—200») — конструкция приблизительности,
+#: и число при нём читается диапазоном, а не перечислением.
+_INVERTED_QUANTITY_TAIL_PATTERN = compile_scan(r"(?P<noun>[а-яё]{3,})\s*\Z")
 YEAR_PREPOSITION_REGEX = r"в|во|о|об|к|ко|с|со|до|от|за|на|по|между|около|под"
 YEAR_IMPLICIT_PREP_REGEX = r"в|во|о|об|к|ко|на|за|под"
 #: Как и `ERA_ABBREVIATION_PATTERN` в препроцессе, маркер эры закрыт границей
@@ -394,12 +403,32 @@ def year_to_ordinal_words(year: int, case: str = "nomn", plural: bool = False) -
     return " ".join(words)
 
 
+def _inverted_quantity_precedes(text: str, start: int) -> bool:
+    """Слева стоит счётное существительное в родительном множественном.
+
+    «Ему было лет 25—30» — приблизительный возраст, то есть диапазон. Признак
+    грамматический: обратный порядок «существительное + число» возможен только
+    в этой конструкции, и существительное в ней стоит в родительном
+    множественном. Метка перечисления («выпуск 5—7») стоит в именительном
+    единственном и под признак не попадает.
+    """
+    tail = _INVERTED_QUANTITY_TAIL_PATTERN.search(text, max(0, start - 24), start)
+    if tail is None:
+        return False
+    parsed = select_parse(parse_word(tail.group("noun")), pos="NOUN")
+    if parsed is None:
+        return False
+    return parsed.tag.case == "gent" and parsed.tag.number == "plur"
+
+
 def normalize_numeric_ranges(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
         # Малые числа без слова после — перечисление («выпуск 5—7.»), но
         # крупные круглые величины — настоящий диапазон: «50 000—60 000»
         # читается через тире, а не через запятую.
         if len(match.group(1)) >= 4 or len(match.group(2)) >= 4:
+            return match.group(0)
+        if _inverted_quantity_precedes(text, match.start()):
             return match.group(0)
         return f"{match.group(1)}, {match.group(2)}"
 

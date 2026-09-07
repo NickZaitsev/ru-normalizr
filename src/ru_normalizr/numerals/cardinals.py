@@ -29,6 +29,7 @@ from ._constants import (
     POST_NUMERAL_ABBREVIATION_REPLACEMENTS,
     PREP_CASE,
     TIME_WORDS,
+    UNIT_TOKEN_FRAGMENT,
     UNITS_DATA,
     UnitDescriptor,
     resolve_unit_form,
@@ -64,6 +65,11 @@ _NUMERIC_NOUN_RANGE_PATTERN = compile_scan(
     r"(?P<space>\s+)(?P<noun>[^\W\d_]+)",
     re.UNICODE,
 )
+#: Единица после множителя в диапазоне: «3—4 тыс. км». Множитель сам стоит
+#: в группе `unit` основного шаблона, а настоящая единица — за ним, поэтому
+#: диапазону нужен собственный просмотр вперёд, как одиночному числу в
+#: `_handle_unit`.
+_SCALED_RANGE_UNIT_PATTERN = compile_scan(rf"\s+(?P<unit>{UNIT_TOKEN_FRAGMENT})")
 
 
 def _resolve_range_unit_info(unit_raw: str):
@@ -1082,6 +1088,22 @@ def normalize_cardinal_numerals(text: str) -> str:
 
 
 
+def _scaled_range_unit(text: str, end: int) -> tuple[str, int] | None:
+    """Единица за множителем диапазона: «3—4 тыс. км» — «тысячи километров».
+
+    Возвращает форму родительного множественного и позицию за единицей;
+    ``None`` — за множителем стоит не единица, и диапазон читается как есть.
+    """
+    tail = _SCALED_RANGE_UNIT_PATTERN.match(text, end)
+    if tail is None:
+        return None
+    raw = tail.group("unit")
+    info = resolve_unit_info(raw)
+    if info is None:
+        return None
+    return render_unit_expression(info, {"gent", "plur"}), tail.end()
+
+
 def normalize_numeric_unit_ranges(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
         left = match.group("left")
@@ -1137,7 +1159,34 @@ def normalize_numeric_unit_ranges(text: str) -> str:
             result += "."
         return result
 
-    normalized = NUMERIC_UNIT_RANGE_PATTERN.sub(repl, text)
+    def render_range(match: re.Match[str]) -> tuple[str, int]:
+        result = repl(match)
+        if result == match.group(0):
+            return result, match.end()
+        unit_info = _resolve_range_unit_info(match.group("unit"))
+        if unit_info is None or unit_info.lemma not in _MULTIPLIER_LEMMAS:
+            return result, match.end()
+        scaled = _scaled_range_unit(text, match.end())
+        if scaled is None:
+            return result, match.end()
+        unit_words, end = scaled
+        # Точка множителя проглочена вместе с ним, а точка предложения стоит
+        # уже за настоящей единицей и остаётся в необработанном хвосте.
+        return f"{result.rstrip('.')} {unit_words}", end
+
+    # Просмотр за конец совпадения делает нужным ручной проход: `sub` не даёт
+    # поглотить единицу, стоящую за множителем.
+    pieces: list[str] = []
+    position = 0
+    for match in NUMERIC_UNIT_RANGE_PATTERN.finditer(text):
+        if match.start() < position:
+            continue
+        replacement, end = render_range(match)
+        pieces.append(text[position : match.start()])
+        pieces.append(replacement)
+        position = end
+    pieces.append(text[position:])
+    normalized = "".join(pieces)
 
     def normalize_noun_range(match: re.Match[str]) -> str:
         noun = match.group("noun")

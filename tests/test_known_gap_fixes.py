@@ -4580,3 +4580,200 @@ DISTANCE_RANGE_CASES = (
 @pytest.mark.parametrize(("source", "expected"), DISTANCE_RANGE_CASES)
 def test_distance_range_edges(check_tts: CheckTts, source: str, expected: str) -> None:
     check_tts(source, expected)
+
+
+# Отношение единиц с точкой сокращения и денежный числитель: выражение
+# читается целиком, а само отношение произносится один раз, после суммы.
+MONEY_RATIO_CASES = (
+    pytest.param(
+        "Курс составил 70 руб./долл.",
+        "Курс составил семьдесят рублей за доллар.",
+        id="currency_ratio_with_abbreviation_dots",
+    ),
+    pytest.param(
+        "Курс составил 70 руб./долл. в среднем.",
+        "Курс составил семьдесят рублей за доллар в среднем.",
+        id="currency_ratio_inside_a_sentence",
+    ),
+    pytest.param(
+        "Яблоки стоят 99,90 ₽/кг.",
+        "Яблоки стоят девяносто девять рублей девяносто копеек за килограмм.",
+        id="price_per_kilogram_with_kopecks",
+    ),
+    pytest.param(
+        "Яблоки стоят 99,90 руб./кг.",
+        "Яблоки стоят девяносто девять рублей девяносто копеек за килограмм.",
+        id="price_per_kilogram_written_with_an_abbreviation",
+    ),
+    pytest.param(
+        "Яблоки стоят 100,00 ₽/кг.",
+        "Яблоки стоят сто рублей за килограмм.",
+        id="price_per_kilogram_without_kopecks",
+    ),
+    pytest.param(
+        "Яблоки стоят 0,01 ₽/кг.",
+        "Яблоки стоят ноль рублей одна копейка за килограмм.",
+        id="price_per_kilogram_one_kopeck",
+    ),
+    pytest.param(
+        "Яблоки стоят 1 ₽/кг.",
+        "Яблоки стоят один рубль за килограмм.",
+        id="price_per_kilogram_one_rouble",
+    ),
+    pytest.param(
+        "Яблоки стоят 2 ₽/кг.",
+        "Яблоки стоят два рубля за килограмм.",
+        id="price_per_kilogram_two_roubles",
+    ),
+    pytest.param(
+        "Яблоки стоят 5 ₽/кг.",
+        "Яблоки стоят пять рублей за килограмм.",
+        id="price_per_kilogram_five_roubles",
+    ),
+    pytest.param(
+        "Молоко стоит 89,50 ₽/л.",
+        "Молоко стоит восемьдесят девять рублей пятьдесят копеек за литр.",
+        id="price_per_litre",
+    ),
+    pytest.param(
+        "Работа стоит 500 ₽/ч.",
+        "Работа стоит пятьсот рублей за час.",
+        id="price_per_hour",
+    ),
+    # Знаменатель времени даёт «в», а не «за»: это частота, а не цена.
+    pytest.param(
+        "Пульс 72 уд./мин считается нормой.",
+        "Пульс семьдесят два удара в минуту считается нормой.",
+        id="beats_per_minute_with_an_abbreviation_dot",
+    ),
+    pytest.param(
+        "Пульс 72 уд/мин считается нормой.",
+        "Пульс семьдесят два удара в минуту считается нормой.",
+        id="beats_per_minute_without_a_dot",
+    ),
+    # Уже поддержанные отношения не изменились.
+    pytest.param(
+        "Норма 5 мг/кг веса.",
+        "Норма пять миллиграммов на килограмм веса.",
+        id="milligrams_per_kilogram_unchanged",
+    ),
+    pytest.param(
+        "Норма 0,5 мг/кг веса.",
+        "Норма ноль целых пять десятых миллиграмма на килограмм веса.",
+        id="decimal_milligrams_per_kilogram_unchanged",
+    ),
+    pytest.param(
+        "Расход 10 мл/мин.",
+        "Расход десять миллилитров в минуту.",
+        id="millilitres_per_minute_unchanged",
+    ),
+    # Неизвестное отношение единицей не объявляется.
+    pytest.param(
+        "Курс составил 70 долларов.",
+        "Курс составил семьдесят долларов.",
+        id="plain_currency_without_a_ratio_unchanged",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), MONEY_RATIO_CASES)
+def test_money_ratio_edges(check_tts: CheckTts, source: str, expected: str) -> None:
+    check_tts(source, expected)
+
+
+# Диапазон: единица после множителя, разделитель у десятичных границ и
+# обратный приблизительный счёт.
+RANGE_RENDERING_CASES = (
+    pytest.param(
+        "Расстояние до цели — 3—4 тыс. км.",
+        "Расстояние до цели — три — четыре тысячи километров.",
+        id="unit_after_thousands_in_a_range",
+    ),
+    pytest.param(
+        "Расстояние до цели — 40—50 тыс. человек.",
+        "Расстояние до цели — сорок — пятьдесят тысяч человек.",
+        id="counted_noun_after_thousands_in_a_range",
+    ),
+    pytest.param(
+        "Прошли 40—50 тыс.",
+        "Прошли сорок — пятьдесят тысяч.",
+        id="thousands_range_without_a_unit",
+    ),
+    # Десятичные границы: тире сохраняется при любом начертании разделителя.
+    pytest.param(
+        "Мощность станции 1,2—1,5 ГВт.",
+        "Мощность станции одна целая две десятых — одна целая пять десятых гигаватта.",
+        id="decimal_range_with_an_em_dash",
+    ),
+    pytest.param(
+        "Мощность станции 1,2–1,5 ГВт.",
+        "Мощность станции одна целая две десятых — одна целая пять десятых гигаватта.",
+        id="decimal_range_with_an_en_dash",
+    ),
+    pytest.param(
+        "Мощность станции 1,2-1,5 ГВт.",
+        "Мощность станции одна целая две десятых — одна целая пять десятых гигаватта.",
+        id="decimal_range_with_a_hyphen",
+    ),
+    pytest.param(
+        "Температура 1,5—2,5 °C.",
+        "Температура одна целая пять десятых — две целых пять десятых градуса Цельсия.",
+        id="decimal_temperature_range",
+    ),
+    # Обратный приблизительный счёт: существительное слева считаемое, поэтому
+    # число именительное, а диапазон остаётся диапазоном.
+    pytest.param(
+        "Ему было лет 25–30, не больше.",
+        "Ему было лет двадцать пять — тридцать, не больше.",
+        id="inverted_age_range",
+    ),
+    pytest.param(
+        "Собрали рублей 100—200.",
+        "Собрали рублей сто — двести.",
+        id="inverted_money_range",
+    ),
+    pytest.param(
+        "Цена билетов 100—200 рублей.",
+        "Цена билетов сто — двести рублей.",
+        id="counted_noun_before_a_range_does_not_govern_it",
+    ),
+    pytest.param(
+        "Ему было лет 25, не больше.",
+        "Ему было лет двадцать пять, не больше.",
+        id="inverted_single_quantity_unchanged",
+    ),
+    # Разрядная точка у границы диапазона — не десятичная дробь.
+    pytest.param(
+        "Отряд 1.000—2.000 человек.",
+        "Отряд одна тысяча — две тысячи человек.",
+        id="dotted_thousands_at_a_range_boundary",
+    ),
+    # Отрицательные примеры: перечисление и управление слева не изменились.
+    pytest.param(
+        "Смотри страницы 5—7.",
+        "Смотри страницы пять, семь.",
+        id="bare_small_number_pair_stays_an_enumeration",
+    ),
+    pytest.param(
+        "На страницах 91—92 есть карта.",
+        "На страницах девяносто один — девяносто два есть карта.",
+        id="label_head_before_a_range_stays_nominative",
+    ),
+    pytest.param(
+        "В 3-5 квартирах живут семьи.",
+        "В трёх — пяти квартирах живут семьи.",
+        id="locative_head_after_a_range_still_governs_it",
+    ),
+    pytest.param(
+        "Ему было 25–30 лет.",
+        "Ему было двадцать пять — тридцать лет.",
+        id="direct_age_range_unchanged",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), RANGE_RENDERING_CASES)
+def test_range_rendering_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)

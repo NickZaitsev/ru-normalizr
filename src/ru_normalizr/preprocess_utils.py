@@ -670,6 +670,16 @@ THOUSANDS_BEFORE_UNIT_PATTERN = compile_scan(
 COMMA_THOUSANDS_BEFORE_UNIT_PATTERN = compile_scan(
     r"(?<![\d.,])(?P<number>\d{1,3},000)(?=\s*(?P<unit>[₽$€£¥%‰]|\w+))"
 )
+#: Разрядная точка у границы диапазона: «800—1.000 человѣкъ». Одна группа из
+#: трёх цифр сама по себе неотличима от десятичной дроби, но у границы
+#: диапазона, вторая сторона которого — целое число, десятичной записи не
+#: бывает. Ровно три цифры после точки отделяют разряд от номера пункта
+#: («п. 1.1—1.2») и от даты («10—20.05»).
+DOTTED_THOUSANDS_RANGE_PATTERN = compile_scan(
+    r"(?<![\d.,])(?P<left>\d{1,3}(?:\.\d{3})?)\s*(?P<dash>[—–])\s*"
+    r"(?P<right>\d{1,3}(?:\.\d{3})?)(?![\d.,])"
+)
+
 #: Две и более групп по три цифры через запятую — однозначно разрядная
 #: группировка: «1,234,567».
 COMMA_GROUPED_NUMBER_PATTERN = compile_scan(
@@ -705,6 +715,14 @@ def _join_comma_thousands_before_unit(match: re.Match[str]) -> str:
     return match.group("number").replace(",", "")
 
 
+def _join_dotted_thousands_range(match: re.Match[str]) -> str:
+    left = match.group("left")
+    right = match.group("right")
+    if "." not in left and "." not in right:
+        return match.group(0)
+    return f"{left.replace('.', '')}{match.group('dash')}{right.replace('.', '')}"
+
+
 def clean_numbers(text: str) -> str:
     def repl_spaces(match: re.Match[str]) -> str:
         return (
@@ -724,6 +742,7 @@ def clean_numbers(text: str) -> str:
     text = re.sub(
         r"(?<!\d)(\d{1,3}\.\d{3})(?=,\d+)", lambda m: m.group(1).replace(".", ""), text
     )
+    text = DOTTED_THOUSANDS_RANGE_PATTERN.sub(_join_dotted_thousands_range, text)
     text = COMMA_GROUPED_NUMBER_PATTERN.sub(
         lambda m: m.group(1).replace(",", ""), text
     )

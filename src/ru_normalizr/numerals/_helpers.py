@@ -1305,6 +1305,20 @@ def _rule_range_start_governed_by_left(ctx: NumeralContext) -> str | None:
             return "nomn"
         if p_prev.normal_form in GENITIVE_QUANTITY_GOVERNORS:
             return "gent"
+        if (
+            p_prev.tag.case == "gent"
+            and p_prev.tag.number == "plur"
+            and ctx.word(-2) not in PREP_CASE
+        ):
+            # Обратный приблизительный счёт: существительное в родительном
+            # множественном перед числом — считаемое, а не управляющее
+            # («лет 25—30», «вёрст 30—40», «цена билетов 100—200 рублей»), и
+            # число при нём именительное. Одиночное число в той же
+            # конструкции уже читается так; диапазон отличался только тем, что
+            # это правило принимало падеж считаемого за управление. Предлог
+            # слева объясняет родительный сам («до пяти рублей»), и тогда
+            # признак не работает.
+            return "nomn"
         if ctx.idx > 1:
             prev_prev = ctx.word(-2)
             if prev_prev in _LOCATIVE_PREPOSITIONS:

@@ -1027,9 +1027,12 @@ CURRENCY_SYMBOLS = frozenset(
 # raw in the output ("девятнадцать целых девяносто пять сотых £").
 _UNIT_FRAGMENT_CHARS = "а-яА-ЯёЁa-zA-ZµμΩ%°" + re.escape("".join(sorted(CURRENCY_SYMBOLS)))
 
+#: Точка сокращения перед знаком отношения даёт два разделителя подряд:
+#: «руб./кг» — это «руб.» и «/кг», а не незамкнутая точка. Больше двух
+#: разделителей подряд единицей не бывает.
 UNIT_TOKEN_FRAGMENT = (
     rf"[{_UNIT_FRAGMENT_CHARS}]+"
-    rf"(?:[./^·][{_UNIT_FRAGMENT_CHARS}]+|\d+|[²³])*"
+    rf"(?:[./^·]{{1,2}}[{_UNIT_FRAGMENT_CHARS}]+|\d+|[²³])*"
 )
 
 NUMERIC_UNIT_RANGE_PATTERN = compile_scan(

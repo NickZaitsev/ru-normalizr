@@ -329,64 +329,16 @@ REVIEW_2026_09_GAP_CASES = (
     ),
     # --- Единицы измерения ------------------------------------------------------
     #
-    # Отношения единиц с точкой сокращения («руб./долл.», «уд./мин») и знак
-    # валюты перед «/кг» не разбираются: остаётся мусор «рублей./долларов»,
-    # а число слева получает чужой падеж.
-    pytest.param(
-        "Курс составил 70 руб./долл.",
-        "Курс составил семьдесят рублей за доллар.",
-        id="dotted_unit_ratio_keeps_dot_and_slash",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a unit ratio with abbreviation dots is not parsed",
-        ),
-    ),
-    pytest.param(
-        "Пульс 72 уд./мин считается нормой.",
-        "Пульс семьдесят два удара в минуту считается нормой.",
-        id="dotted_unit_ratio_leaves_number_in_genitive",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a unit ratio with an abbreviation dot is not parsed and the number gets the genitive",
-        ),
-    ),
+    # Распределительное «по» с ценой требует винительного («продавали по
+    # девяносто девять рублей»), а получает дательный. Отношение единиц при
+    # этом читается верно, см. MONEY_RATIO_CASES в test_known_gap_fixes.py.
     pytest.param(
         "Яблоки продавали по 99,90 ₽/кг.",
         "Яблоки продавали по девяносто девять рублей девяносто копеек за килограмм.",
-        id="currency_symbol_per_unit_not_parsed",
+        id="distributive_po_with_a_price_takes_the_dative",
         marks=pytest.mark.xfail(
             strict=True,
-            reason="a currency symbol followed by /unit is left as is and the amount is read as a decimal",
-        ),
-    ),
-    # После «тыс.» единица «км» не раскрывается.
-    pytest.param(
-        "Расстояние до цели — 3—4 тыс. км.",
-        "Расстояние до цели — три — четыре тысячи километров.",
-        id="unit_after_thousands_abbreviation_not_expanded",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the unit after «тыс.» is not expanded",
-        ),
-    ),
-    # Диапазон после «лет» и диапазон десятичных читаются через запятую, тогда
-    # как остальные диапазоны — через тире.
-    pytest.param(
-        "Ему было лет 25–30, не больше.",
-        "Ему было лет двадцать пять — тридцать, не больше.",
-        id="range_after_let_read_as_comma",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a range after «лет» is rendered with a comma instead of a dash",
-        ),
-    ),
-    pytest.param(
-        "Мощность станции 1,2—1,5 ГВт.",
-        "Мощность станции одна целая две десятых — одна целая пять десятых гигаватта.",
-        id="decimal_range_read_as_comma",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a decimal range is rendered with a comma instead of a dash",
+            reason="distributive «по» before a price is read as an ordinary dative",
         ),
     ),
     # --- Регистр, аббревиатуры и латиница ------------------------------------
