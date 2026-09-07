@@ -20,6 +20,7 @@ from .identifiers import (
     drop_superscript_footnote_markers,
     fix_glued_numbers,
     normalize_identifier_letter_suffixes,
+    normalize_labelled_identifiers,
     normalize_phone_numbers,
     normalize_vehicle_registration_plates,
 )
@@ -340,6 +341,12 @@ class PipelineNormalizer:
         text = normalize_cyrillic_combining_stress_marks(text)
         text = normalize_script_homoglyphs(text)
         text = collapse_letterspaced_emphasis(text)
+        # Код при метке идентификатора разбирается раньше всех правил, которые
+        # его разрушают: ниже препроцесс расклеивает точки, dates_time видит в
+        # «2.105-95» дату, а числительные — десятичную дробь.
+        text = normalize_labelled_identifiers(
+            text, letter_vowel_mode=self.options.letter_vowel_mode
+        )
         # An address chain is the specific case: «стр. 2» right after a house
         # number is a building, not a page, and «д.» must lose its dot before
         # the numerals stage reads it as a sentence end and capitalizes the

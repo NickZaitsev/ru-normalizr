@@ -13,7 +13,7 @@ import re
 from ._morph import first_parse_required, parse_word
 from .constants import LetterVowelMode, resolve_letter_name
 from .numerals._constants import is_unit_token, resolve_unit_info
-from .numerals._helpers import LABEL_NOUN_LEMMAS
+from .numerals._helpers import LABEL_NOUN_LEMMAS, inflect_numeral_string
 from .numerals.numeric_suffixes import NUMERIC_SUFFIXES
 from .placeholders import GLUED_CODES, PlaceholderAllocator
 from .preprocess_utils import left_context
@@ -100,6 +100,45 @@ STRUCTURED_NUMERIC_SUFFIX_PATTERN = compile_scan(
     re.IGNORECASE | re.UNICODE,
 )
 PHONE_CONTEXT_PATTERN = re.compile(r"\b(?:номер|телефон|позвон\w*)\b", re.IGNORECASE)
+#: Метки учётных номеров: после них цифры читаются по одной. У такого номера
+#: значима каждая цифра, включая начальные нули, а количественное чтение
+#: («семь миллиардов семьсот один миллион…») записи не передаёт вовсе.
+DIGIT_SEQUENCE_IDENTIFIER_LABELS = ("ИНН", "ОГРНИП", "ОГРН", "КПП", "БИК", "ОКПО")
+
+#: Метки обозначений стандарта: код читается группами, а разделители внутри
+#: значимы. Точка произносится словом, дефис и двоеточие дают паузу.
+GROUPED_IDENTIFIER_LABELS = ("ГОСТ", "ISO", "IEC")
+
+#: Список закрыт намеренно: метка и форма кода вместе определяют класс записи,
+#: и неизвестное сокращение перед числом идентификатором не объявляется. «ТУ» и
+#: «ОСТ» здесь отсутствуют по той же причине — они совпадают с прописной формой
+#: обычных слов, а выигрыш от них не покрывает риска ложного совпадения.
+LABELLED_IDENTIFIER_PATTERN = compile_scan(
+    r"(?<!\w)(?P<label>"
+    + "|".join((*DIGIT_SEQUENCE_IDENTIFIER_LABELS, *GROUPED_IDENTIFIER_LABELS))
+    + r")"
+    r"(?P<series>[  ]+[А-ЯЁA-Z](?![\w.]))?"
+    r"[  ]+(?P<code>\d[\d.:-]*\d)(?!\w)"
+)
+
+#: Разделители внутри кода стандарта и их чтение. Точка в обозначении значима
+#: («2.105» — не «две целых сто пять тысячных»), дефис отделяет год издания,
+#: двоеточие в ISO — тоже год, но пауза перед ним слышна отчётливее.
+_IDENTIFIER_SEPARATOR_READINGS = {".": " точка ", "-": " ", ":": ", "}
+
+#: Компактный буквенно-цифровой код: цифры, одна латинская буква, снова цифры.
+#: Буква здесь часть кода, а не единица измерения, поэтому её читают именем:
+#: «24H2» — «двадцать четыре эйч два», а не «двадцать четыре генри два».
+#: Метка не нужна — форма однозначна сама: настоящая единица стоит после числа,
+#: а не между двумя числами.
+COMPACT_ALPHANUMERIC_CODE_PATTERN = compile_scan(
+    r"(?<![\w.,])(?P<head>\d+)(?P<letter>[A-Za-z])(?P<tail>\d+)(?![\w.,])"
+)
+
+#: Буквы, которые между числами значат не код: «x» — знак умножения размеров
+#: («1x2»), «e» — порядок в научной записи («1e5»).
+_NON_CODE_INFIX_LETTERS = frozenset({"x", "e"})
+
 #: Надстрочная цифра, приклеенная к слову, — типографский маркер сноски.
 #: Подстрочных цифр здесь нет намеренно: сноску ими не набирают, зато ими
 #: набирают химические индексы. Слово от трёх букв отсекает и степень после
@@ -278,6 +317,88 @@ def _glued_digits_are_footnote(
         ):
             return False
     return True
+
+
+def _read_digits_one_by_one(code: str) -> str:
+    """«7701234567» — «семь семь ноль один два три четыре пять шесть семь».
+
+    Начальные нули сохраняются: у учётного номера они значимы, а количественное
+    чтение их теряет вместе со смыслом записи.
+    """
+    return " ".join(inflect_numeral_string(digit, "nomn") for digit in code)
+
+
+def _read_code_groups(code: str) -> str:
+    """«2.105-95» — «два точка сто пять девяносто пять».
+
+    Каждая цифровая группа — количественное в именительном: метка
+    идентификатора не измерение и падежа не получает.
+    """
+    parts: list[str] = []
+    group = ""
+    for char in code:
+        if char.isdecimal():
+            group += char
+            continue
+        if group:
+            parts.append(inflect_numeral_string(group, "nomn"))
+            group = ""
+        parts.append(_IDENTIFIER_SEPARATOR_READINGS.get(char, " "))
+    if group:
+        parts.append(inflect_numeral_string(group, "nomn"))
+    # Разделители уже несут свои пробелы, поэтому склейка идёт без них.
+    return "".join(parts).strip()
+
+
+def normalize_labelled_identifiers(
+    text: str, *, letter_vowel_mode: LetterVowelMode = "single"
+) -> str:
+    """Прочитать код при метке идентификатора и компактный буквенно-цифровой код.
+
+    Метка слева и форма кода вместе задают класс записи, и решать это надо до
+    стадий, которые запись разрушают: препроцесс расклеивает точки сокращений,
+    dates_time видит в «2.105-95» дату, а числительные — десятичную дробь.
+    Поэтому код читается здесь и уходит дальше уже словами: поздней стадии
+    нечего перечитывать, и заменитель для этого не нужен.
+
+    Неизвестная метка идентификатором не объявляется, а известная метка с кодом
+    неожидаемой формы остаётся прежнему разбору: список меток и форм закрыт.
+    """
+
+    def read_labelled(match: re.Match[str]) -> str:
+        label = match.group("label")
+        code = match.group("code")
+        if label in DIGIT_SEQUENCE_IDENTIFIER_LABELS:
+            if not code.isdecimal() or len(code) < 6:
+                # Учётный номер короче шести цифр — не учётный номер: пусть его
+                # читают обычные правила, а не конвенция «по цифрам».
+                return match.group(0)
+            reading = _read_digits_one_by_one(code)
+        else:
+            if not any(char in code for char in _IDENTIFIER_SEPARATOR_READINGS):
+                # «ISO 8601» без разделителей — обычное число, и количественное
+                # чтение его не искажает.
+                return match.group(0)
+            reading = _read_code_groups(code)
+        series = match.group("series") or ""
+        return f"{label}{series} {reading}"
+
+    def read_compact_code(match: re.Match[str]) -> str:
+        letter = match.group("letter")
+        if letter.lower() in _NON_CODE_INFIX_LETTERS:
+            return match.group(0)
+        token = match.group(0)
+        if is_unit_token(token) or resolve_unit_info(token) is not None:
+            return token
+        name = resolve_letter_name(letter, letter_vowel_mode)
+        if name is None:
+            return token
+        head = inflect_numeral_string(match.group("head"), "nomn")
+        tail = inflect_numeral_string(match.group("tail"), "nomn")
+        return f"{head} {name} {tail}"
+
+    text = LABELLED_IDENTIFIER_PATTERN.sub(read_labelled, text)
+    return COMPACT_ALPHANUMERIC_CODE_PATTERN.sub(read_compact_code, text)
 
 
 def drop_superscript_footnote_markers(text: str) -> str:

@@ -3979,3 +3979,96 @@ THOUSANDS_SUFFIX_CASES = (
 @pytest.mark.parametrize(("source", "expected"), THOUSANDS_SUFFIX_CASES)
 def test_thousands_suffix_edges(check_tts: CheckTts, source: str, expected: str) -> None:
     check_tts(source, expected)
+
+
+LABELLED_IDENTIFIER_CASES = (
+    # Учётный номер читается по цифрам: количественное чтение записи не
+    # передаёт, а начальные нули у него значимы.
+    pytest.param(
+        "ИНН 7701234567 указан в договоре.",
+        "ИНН семь семь ноль один два три четыре пять шесть семь указан в договоре.",
+        id="tax_id_is_read_digit_by_digit",
+    ),
+    pytest.param(
+        "ИНН 007701234567 указан в договоре.",
+        "ИНН ноль ноль семь семь ноль один два три четыре пять шесть семь "
+        "указан в договоре.",
+        id="tax_id_keeps_leading_zeros",
+    ),
+    pytest.param(
+        "КПП 770101001 совпадает с прошлым.",
+        "ка пэ пэ семь семь ноль один ноль один ноль ноль один совпадает с прошлым.",
+        id="another_registration_label_is_read_digit_by_digit",
+    ),
+    # Обозначение стандарта читается группами: точка произносится, дефис и
+    # двоеточие дают паузу.
+    pytest.param(
+        "ГОСТ 2.105-95 устанавливает общие требования к текстовым документам.",
+        "гост два точка сто пять девяносто пять устанавливает общие требования "
+        "к текстовым документам.",
+        id="standard_code_is_read_in_groups",
+    ),
+    pytest.param(
+        "Компания сертифицирована по ISO 9001:2015.",
+        "Компания сертифицирована по ай эс о девять тысяч один, "
+        "две тысячи пятнадцать.",
+        id="iso_code_colon_becomes_a_pause",
+    ),
+    pytest.param(
+        "ГОСТ 34.10-2012 описывает электронную подпись.",
+        "гост тридцать четыре точка десять две тысячи двенадцать описывает "
+        "электронную подпись.",
+        id="standard_code_with_two_separators",
+    ),
+    # Буква внутри компактного кода — имя буквы, а не единица измерения.
+    pytest.param(
+        "Обновление Windows 11 24H2 вышло осенью.",
+        "Обновление виндоуз одиннадцать двадцать четыре эйч два вышло осенью.",
+        id="compact_code_letter_is_a_letter_name",
+    ),
+    pytest.param(
+        "Сборка 22H1 оказалась стабильнее.",
+        "Сборка двадцать два эйч один оказалась стабильнее.",
+        id="compact_code_at_sentence_start",
+    ),
+    # Отрицательные примеры: короткий номер, стандарт без разделителей и
+    # неизвестная метка остаются прежнему разбору.
+    pytest.param(
+        "ИНН 7701 не бывает таким коротким.",
+        "ИНН семь тысяч семьсот один не бывает таким коротким.",
+        id="too_short_a_code_is_not_an_identifier",
+    ),
+    pytest.param(
+        "Стандарт ISO 8601 задаёт формат даты.",
+        "Стандарт ай эс о восемь тысяч шестьсот один задаёт формат даты.",
+        id="standard_code_without_separators_stays_a_cardinal",
+    ),
+    pytest.param(
+        "Приказ 2.105-95 подписан вчера.",
+        "Приказ две целых сто пять тысячных-девяносто пять подписан вчера.",
+        id="dotted_code_without_a_label_is_not_an_identifier",
+    ),
+    # Настоящая дата, единица и номер дома не задеты.
+    pytest.param(
+        "Договор заключён 15.03.2021 года.",
+        "Договор заключён пятнадцатого марта две тысячи двадцать первого года.",
+        id="real_date_is_untouched",
+    ),
+    pytest.param(
+        "Дом 7Б стоит во дворе.",
+        "Дом семь бэ стоит во дворе.",
+        id="house_letter_suffix_is_untouched",
+    ),
+    pytest.param(
+        "Ширина 3 м, глубина 200 м.",
+        "Ширина три метра, глубина двести метров.",
+        id="units_after_numbers_are_untouched",
+    ),
+)
+
+
+@pytest.mark.parametrize(("source", "expected"), LABELLED_IDENTIFIER_CASES)
+def test_labelled_identifier_edges(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    check_tts(source, expected)

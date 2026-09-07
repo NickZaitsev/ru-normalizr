@@ -10,10 +10,13 @@
   because the quantity is its complement, not an apposition: `в возрасте
   двадцати пяти лет`, `в количестве пяти штук`, `в размере пятисот рублей`
   (`LOCATIVE_GENITIVE_QUANTITY_HEADS`).
-- A counted unit is never oblique. `двухстах метрах`, `двух атмосферах` and
-  `пяти километрах в час` are ungrammatical in every construction, so no case
-  from the surrounding phrase may reach the unit; `tests/test_morphology_policy.py`
-  asserts this as an invariant.
+- A counted unit inside a measurement apposition is never oblique. `двухстах
+  метрах`, `двух атмосферах` and `пяти километрах в час` are ungrammatical *in
+  that reading*, so no case from the parameter noun may reach the unit;
+  `tests/test_morphology_policy.py` asserts this as an invariant. The ban is
+  about the apposition, not about units in general: distance from a landmark
+  puts both the numeral and the unit in the locative (`в двухстах метрах от
+  реки`), and the next bullet spells that out.
 - Government from outside the quantity is unaffected: `в 200 м от реки` →
   `в двухстах метрах от реки`, `в 12 городах` → `в двенадцати городах`.
 - Ranges with `с … по …` end in singular `год` / `век`; `до … века` is also
@@ -27,6 +30,20 @@
   реестре отношение (`мг/кг` → «миллиграммов на килограмм», `мл/мин` →
   «миллилитров в минуту»), а `·` — лексикализованное произведение
   (`кВт·ч` → «киловатт-час»). Вложенные и неизвестные выражения не разбираются.
+- Метка идентификатора не измерение и падежа от фразы не получает: она
+  читается в именительном. Учётный номер при метке (`ИНН`, `ОГРН`, `ОГРНИП`,
+  `КПП`, `БИК`, `ОКПО`) читается по цифрам с сохранением начальных нулей:
+  `ИНН 7701234567` → «ИНН семь семь ноль один два три четыре пять шесть семь».
+  Обозначение стандарта при метке (`ГОСТ`, `ISO`, `IEC`) читается группами:
+  точка произносится словом, дефис даёт пробел, двоеточие — паузу запятой
+  (`ГОСТ 2.105-95` → «гост два точка сто пять девяносто пять»,
+  `ISO 9001:2015` → «ай эс о девять тысяч один, две тысячи пятнадцать»).
+  Список меток и допустимых форм кода закрыт: неизвестная метка перед числом
+  идентификатором не объявляется, а метка с кодом неожидаемой формы
+  (`ИНН 7701`, `ISO 8601`) остаётся обычному разбору.
+- Буква внутри компактного буквенно-цифрового кода читается именем буквы, а не
+  единицей измерения: `24H2` → «двадцать четыре эйч два». Настоящая единица
+  стоит после числа, а не между двумя числами.
 - References governed by `см.` / `смотри` use an accusative reference noun and
   a cardinal label: `смотри рисунок два, таблицу три, страницу четыре`.
 - Default and safe initial settings use ordinary Russian letter names (`Е. → е`)

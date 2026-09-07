@@ -262,48 +262,6 @@ REVIEW_2026_09_GAP_CASES = (
             "case does not separate it from Mail.Ru, see docs/ISSUES.md",
         ),
     ),
-    # Идентификаторы читаются как числа: ИНН — как «семь миллиардов…», код
-    # ГОСТа — как десятичная дробь, номер ISO — с двоеточием внутри. Слово-
-    # метка слева (ИНН, ОГРН, ГОСТ, ISO) должно переключать чтение на цифры
-    # или группы; способ группировки — конвенция, которую фиксирует правка.
-    pytest.param(
-        "ИНН 7701234567 указан в договоре.",
-        "ИНН семь семь ноль один два три четыре пять шесть семь указан в договоре.",
-        id="tax_id_read_as_cardinal",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="an identifier after ИНН is read as a ten-digit cardinal",
-        ),
-    ),
-    pytest.param(
-        "ГОСТ 2.105-95 устанавливает общие требования к текстовым документам.",
-        "гост два точка сто пять девяносто пять устанавливает общие требования к текстовым документам.",
-        id="standard_code_read_as_decimal",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a dotted standard code after ГОСТ is read as a decimal fraction",
-        ),
-    ),
-    pytest.param(
-        "Компания сертифицирована по ISO 9001:2015.",
-        "Компания сертифицирована по ай эс о девять тысяч один, две тысячи пятнадцать.",
-        id="standard_code_with_colon_not_split",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="the colon inside an ISO code survives into the output",
-        ),
-    ),
-    # Буква внутри буквенно-цифрового кода резолвится как единица измерения:
-    # «H» в «24H2» читается «генри».
-    pytest.param(
-        "Обновление Windows 11 24H2 вышло осенью.",
-        "Обновление виндоуз одиннадцать двадцать четыре эйч два вышло осенью.",
-        id="alphanumeric_code_letter_read_as_unit",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="a letter inside an alphanumeric code is resolved as an SI unit",
-        ),
-    ),
     # --- Ложные срабатывания контекста ---------------------------------------
     #
     # Граммы принимаются за годы: allows_short_abbreviated_year разрешает «г»
