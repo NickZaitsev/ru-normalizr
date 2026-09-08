@@ -4,7 +4,7 @@ All notable changes to `ru-normalizr` will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
-## Unreleased
+## [1.2.0] - 2026-09-08
 
 ### Fixed
 - Ссылка на рубрику забирает составной номер и буквенный индекс: «рис. 1.5» —
