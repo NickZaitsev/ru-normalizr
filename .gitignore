@@ -24,6 +24,9 @@ input.txt
 *.tar.gz
 TODO.txt
 
-# Local compatibility link; canonical skills live in .claude/skills.
-.agents/skills/
+# Локальные настройки агентов и рабочие планы не входят в публичный репозиторий.
+/.agents/
+/.claude/
+/CLAUDE.md
+/docs/agents/plans/
 scratch_*
