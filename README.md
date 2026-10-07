@@ -401,7 +401,6 @@ RuNorm значительно медленнее и использует зна�
 ### Упоминания
 
 Упомянута [на 4PDA](https://4pda.to/forum/index.php?showtopic=1110815&view=findpost&p=142570171)
-Библиотека ru-normalizr [используется каталогом ИИ аудиокниг AIaudiobooks.org](https://aiaudiobooks.org/about)
 
 
 # ru-normalizr — the best open-source Russian text normalizer
