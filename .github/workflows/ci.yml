@@ -5,15 +5,56 @@ on:
     branches: [main]
   pull_request:
   schedule:
-    # Weekly run so upstream dependency releases (e.g. num2words, which has no
-    # upper bound while tests assert exact output) are caught here, not by users.
+    # Weekly run so upstream dependency releases (e.g. num2words, whose upper
+    # bound has to be raised deliberately) are caught here, not by users.
     - cron: "0 6 * * 1"
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Абсолютная цель из AGENTS.md. Сравнение с base commit её не защищает: пайплайн
+  # может уезжать сколько угодно долго, пока каждый PR замедляет его меньше 25%.
+  MIN_CHARS_PER_SECOND: "180000"
+
 jobs:
+  lint:
+    name: Lint and type check
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # pyright гоняется и на Windows: cp1251/cp1252 уже приносили баги,
+        # которые видны только на этой платформе.
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.29"
+          enable-cache: true
+
+      - name: Sync locked dependencies
+        run: uv sync --frozen
+
+      - name: Lint
+        if: runner.os == 'Linux'
+        run: uv run ruff check .
+
+      - name: Type check
+        run: uv run pyright
+
   test:
     runs-on: ${{ matrix.os }}
 
@@ -25,15 +66,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v8.3.2
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.11.29"
           enable-cache: true
@@ -51,15 +92,13 @@ jobs:
       - name: Verify compiled morphology backend
         run: uv run python -c "from pymorphy3 import dawg; assert dawg.EXTENSION_AVAILABLE"
 
-      - name: Lint
-        run: uv run ruff check .
-
-      - name: Type check
-        if: runner.os == 'Linux'
-        run: uv run pyright
-
+      # Сборка wheel занимает ~24 с и нужна один раз, а не в каждой из 8 ячеек.
       - name: Test
-        run: uv run pytest -q
+        run: uv run pytest -q -m "not packaging"
+
+      - name: Test packaging
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        run: uv run pytest -q -m packaging
 
       - name: Branch coverage report
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
@@ -74,15 +113,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v8.3.2
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.11.29"
           enable-cache: true
@@ -100,3 +139,172 @@ jobs:
           .smoke-venv/bin/python -c "from pymorphy3 import dawg; assert dawg.EXTENSION_AVAILABLE"
           .smoke-venv/bin/ru-normalizr --version
           .smoke-venv/bin/ru-normalizr "тест 123"
+
+  performance:
+    name: Performance regression
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout pull request
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # Нужна история, чтобы разрешить base commit при push-событии.
+          fetch-depth: 0
+
+      # github.event.before — нулевой SHA при force-push и первом push в ветку,
+      # и checkout такого ref падает. В этом случае берём merge-base с main.
+      - name: Resolve base commit
+        id: base
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          zero="0000000000000000000000000000000000000000"
+          if [ -z "$base" ] || [ "$base" = "$zero" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "base commit '$base' недоступен, откатываемся на main"
+            # actions/checkout не создаёт ref origin/main, поэтому берём FETCH_HEAD.
+            git fetch --no-tags origin main
+            base="$(git merge-base HEAD FETCH_HEAD)"
+          fi
+          echo "Базовый commit: $base"
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+
+      - name: Preserve benchmark harness and corpus
+        run: |
+          cp scripts/benchmark.py "$RUNNER_TEMP/benchmark.py"
+          cp -R benchmarks/corpus "$RUNNER_TEMP/benchmark-corpus"
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.29"
+          enable-cache: true
+
+      - name: Checkout base commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ steps.base.outputs.sha }}
+
+      - name: Benchmark base commit
+        run: |
+          uv sync --frozen
+          uv run python "$RUNNER_TEMP/benchmark.py" \
+            --mode tts --case mixed --case number-dense --size 500000 \
+            --samples 5 --warmups 1 \
+            --json "$RUNNER_TEMP/base-synthetic.json"
+
+      - name: Benchmark base real corpus
+        run: |
+          uv run python "$RUNNER_TEMP/benchmark.py" \
+            --manifest "$RUNNER_TEMP/benchmark-corpus/MANIFEST.json" \
+            --corpus 03_karamzin_history_of_russian_state \
+            --corpus 06_semenov_tyan_shansky_tien_shan_travel \
+            --real-only --mode tts --samples 5 --warmups 1 \
+            --partial-json "$RUNNER_TEMP/base-real.partial.json" \
+            --json "$RUNNER_TEMP/base-real.json"
+
+      - name: Checkout pull request again
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Benchmark and compare pull request
+        run: |
+          uv sync --frozen
+          uv run python scripts/benchmark.py \
+            --mode tts --case mixed --case number-dense --size 500000 \
+            --samples 5 --warmups 1 \
+            --compare "$RUNNER_TEMP/base-synthetic.json" \
+            --json "$RUNNER_TEMP/current-synthetic.json" \
+            --max-regression-percent 25 \
+            --max-memory-regression-percent 30
+
+      - name: Benchmark and compare real corpus
+        run: |
+          uv run python scripts/benchmark.py \
+            --manifest benchmarks/corpus/MANIFEST.json \
+            --corpus 03_karamzin_history_of_russian_state \
+            --corpus 06_semenov_tyan_shansky_tien_shan_travel \
+            --real-only --mode tts --samples 5 --warmups 1 \
+            --partial-json "$RUNNER_TEMP/current-real.partial.json" \
+            --compare "$RUNNER_TEMP/base-real.json" \
+            --json "$RUNNER_TEMP/current-real.json" \
+            --max-regression-percent 25 \
+            --max-memory-regression-percent 30
+
+      - name: Upload benchmark metrics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: performance-metrics
+          path: |
+            ${{ runner.temp }}/base-synthetic.json
+            ${{ runner.temp }}/current-synthetic.json
+            ${{ runner.temp }}/base-real.json
+            ${{ runner.temp }}/base-real.partial.json
+            ${{ runner.temp }}/current-real.json
+            ${{ runner.temp }}/current-real.partial.json
+
+  performance-nightly:
+    name: Full corpus performance (nightly)
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.29"
+          enable-cache: true
+
+      - name: Sync locked dependencies
+        run: uv sync --frozen
+
+      # Абсолютный порог живёт только здесь: на PR-раннере разброс слишком велик,
+      # чтобы падать по абсолютной цифре, а nightly гоняет полный корпус.
+      - name: Benchmark every real book in an isolated process
+        shell: bash
+        run: |
+          set -euo pipefail
+          for corpus in \
+            01_solovyov_history_of_russia \
+            02_russian_army_and_navy_modern \
+            02b_russian_army_and_navy_pre_reform \
+            03_karamzin_history_of_russian_state \
+            04_kostomarov_russian_history_biographies \
+            05_nebolsin_conquest_of_siberia \
+            06_semenov_tyan_shansky_tien_shan_travel; do
+            uv run python scripts/benchmark.py \
+              --manifest benchmarks/corpus/MANIFEST.json \
+              --corpus "$corpus" --real-only --mode tts \
+              --samples 3 --warmups 1 \
+              --min-chars-per-second "$MIN_CHARS_PER_SECOND" \
+              --partial-json "$RUNNER_TEMP/$corpus.partial.json" \
+              --json "$RUNNER_TEMP/$corpus.json"
+          done
+
+      # Хэши книг целиком ловят расхождение, на которое никто не написал теста.
+      # Чтение всего корпуса занимает минуты, поэтому шаг живёт только в nightly
+      # и идёт после бенчмарков, чтобы не мешать их измерениям.
+      - name: Check golden corpus hashes on full books
+        run: uv run python scripts/golden_corpus.py --check --full
+
+      - name: Upload nightly corpus metrics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: performance-nightly-metrics
+          path: |
+            ${{ runner.temp }}/*.json

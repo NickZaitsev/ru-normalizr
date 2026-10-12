@@ -3,10 +3,25 @@ from __future__ import annotations
 import logging
 import re
 import threading
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+#: Путь к словарям, поставляемым вместе с пакетом.
+BUNDLED_DICTIONARIES_PATH = Path(__file__).resolve().parent / "dictionaries"
+
+
+class DictionaryLoadError(RuntimeError):
+    """Пользовательский словарь не читается или содержит некорректное правило.
+
+    Для словарей из состава пакета ошибка загрузки логируется и загрузка
+    продолжается: сломать их может только сборка, и отказ на старте хуже
+    частичной функциональности. Для словарей, которые передал пользователь,
+    тихо выбросить часть правил нельзя — нормализация молча станет неполной.
+    """
+
 
 def _compile_simple_mapping_patterns(
     mapping: dict[str, str],
@@ -35,10 +50,9 @@ class DictionaryNormalizer:
         include_only_files: list[str] | None = None,
     ) -> None:
         self.dictionaries_path = (
-            Path(dictionaries_path)
-            if dictionaries_path
-            else Path(__file__).resolve().parent / "dictionaries"
+            Path(dictionaries_path) if dictionaries_path else BUNDLED_DICTIONARIES_PATH
         )
+        self._is_bundled = self.dictionaries_path == BUNDLED_DICTIONARIES_PATH
         self.exclude_files = set(exclude_files or [])
         self.include_only_files = set(include_only_files or [])
         self._file_rules: list[tuple[str, Any]] = []
@@ -72,6 +86,10 @@ class DictionaryNormalizer:
                         for chunk in chunks
                     )
             except Exception as exc:
+                if not self._is_bundled:
+                    raise DictionaryLoadError(
+                        f"Не удалось загрузить словарь {filepath}: {exc}"
+                    ) from exc
                 logger.error("Error loading %s: %s", filepath.name, exc)
 
     def _load_dic_file(self, path: Path) -> list[tuple[str, Any]]:
@@ -286,9 +304,17 @@ class DictionaryNormalizer:
         return self._total_dic
 
 
-_normalizers: dict[
-    tuple[str, tuple[str, ...], tuple[str, ...]], DictionaryNormalizer
-] = {}
+#: Реестр собранных нормализаторов, ограниченный по размеру. Без границы
+#: долгоживущий сервис, который принимает путь к словарям или набор include/
+#: exclude из запроса, накапливал по объекту на каждую уникальную комбинацию —
+#: каждый со своими скомпилированными паттернами — и не отдавал память никогда.
+#: Кеш нужен для повторных вызовов с одними и теми же аргументами, а не как
+#: вечное хранилище, поэтому LRU на 16 записей.
+_NORMALIZERS_MAXSIZE = 16
+
+_NormalizerKey = tuple[str, tuple[str, ...], tuple[str, ...]]
+
+_normalizers: OrderedDict[_NormalizerKey, DictionaryNormalizer] = OrderedDict()
 _normalizers_lock = threading.Lock()
 
 
@@ -308,26 +334,40 @@ def get_dictionary_normalizer(
         tuple(sorted(include_only_files or [])),
     )
     with _normalizers_lock:
-        if key not in _normalizers:
-            _normalizers[key] = DictionaryNormalizer(
-                dictionaries_path=key[0],
-                exclude_files=list(key[1]),
-                include_only_files=list(key[2]),
-            )
-        return _normalizers[key]
+        cached = _normalizers.get(key)
+        if cached is not None:
+            _normalizers.move_to_end(key)
+            return cached
+
+    # Сборка идёт вне блокировки: она читает файлы и компилирует паттерны, а
+    # держать на это время общий лок означало бы сериализовать все потоки.
+    normalizer = DictionaryNormalizer(
+        dictionaries_path=key[0],
+        exclude_files=list(key[1]),
+        include_only_files=list(key[2]),
+    )
+
+    with _normalizers_lock:
+        # Пока мы собирали, другой поток мог собрать тот же ключ — тогда отдаём
+        # его объект, чтобы у одного ключа был один нормализатор.
+        existing = _normalizers.get(key)
+        if existing is not None:
+            _normalizers.move_to_end(key)
+            return existing
+        _normalizers[key] = normalizer
+        while len(_normalizers) > _NORMALIZERS_MAXSIZE:
+            _normalizers.popitem(last=False)
+        return normalizer
 
 
 def apply_dictionary_rules(
     text: str,
     *,
-    enabled: bool,
     dictionaries_path: str | Path | None = None,
     include_only_files: tuple[str, ...] = (),
     exclude_files: tuple[str, ...] = (),
     strip_unmatched_latin: bool = False,
 ) -> str:
-    if not enabled:
-        return text
     normalizer = get_dictionary_normalizer(
         dictionaries_path=dictionaries_path,
         include_only_files=list(include_only_files),

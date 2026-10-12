@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from ..preprocess_utils import NEGATIVE_NUMBER_PLACEHOLDER
+from ..text_scan import compile_scan
 from ._constants import resolve_unit_info
 from ._helpers import inflect_numeral_string
 
@@ -12,14 +13,14 @@ VERSION_SEPARATOR_WORD = "точка"
 # either it carries more components than a fraction can have ("3.12.1"), or it
 # is glued by a hyphen to a name ("GLM-5.2", "Ту-154.2"). Both signals are
 # structural, so no list of product names is involved.
-VERSION_PATTERN = re.compile(
+VERSION_PATTERN = compile_scan(
     rf"(?<![\w.,{re.escape(NEGATIVE_NUMBER_PLACEHOLDER)}])"
     r"(?:(?P<name>[^\W\d_]\w*)-)?"
     r"(?P<version>\d+(?:\.\d+)+)"
     r"(?!\w)",
     re.UNICODE,
 )
-_TRAILING_UNIT_PATTERN = re.compile(r"\s*(?P<unit>[^\W\d_]+)\.?(?!\w)", re.UNICODE)
+_TRAILING_UNIT_PATTERN = compile_scan(r"\s*(?P<unit>[^\W\d_]+)\.?(?!\w)", re.UNICODE)
 
 
 def _render_component(component: str) -> str:
@@ -31,8 +32,8 @@ def _render_component(component: str) -> str:
     return " ".join(words)
 
 
-def _is_followed_by_unit(rest: str) -> bool:
-    match = _TRAILING_UNIT_PATTERN.match(rest)
+def _is_followed_by_unit(text: str, start: int) -> bool:
+    match = _TRAILING_UNIT_PATTERN.match(text, start)
     return bool(match) and resolve_unit_info(match.group("unit")) is not None
 
 
@@ -49,7 +50,7 @@ def normalize_versions(text: str) -> str:
         # Two components are a fraction unless a name claims them, and even
         # then a following unit means it really is a measurement ("X-1.5 кг").
         if len(components) < 3 and (
-            not name or _is_followed_by_unit(text[match.end() :])
+            not name or _is_followed_by_unit(text, match.end())
         ):
             return match.group(0)
         spoken = f" {VERSION_SEPARATOR_WORD} ".join(

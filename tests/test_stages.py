@@ -13,7 +13,6 @@ from ru_normalizr.numerals import (
     normalize_ordinals,
 )
 from ru_normalizr.roman_numerals import normalize_roman
-from ru_normalizr.urls import normalize_urls
 from ru_normalizr.years import normalize_years
 from ru_normalizr.years_context import is_plausible_year
 
@@ -240,8 +239,16 @@ class RuNormalizrStageTests(unittest.TestCase):
         self.assertEqual(normalize_roman("IIII-IV век"), "IIII-IV век")
 
     def test_roman_stage_respects_disabled_option(self):
+        """Флаг стадии проверяется в пайплайне, а не внутри самой стадии.
+
+        Поэтому выключенность проверяется через `run_stage`: у `normalize_roman`
+        параметра `options` больше нет, и вызов её напрямую всегда работает.
+        """
         options = NormalizeOptions(enable_roman_normalization=False)
-        self.assertEqual(normalize_roman("Глава IV.", options), "Глава IV.")
+        self.assertEqual(
+            Normalizer(options).run_stage("roman", "Глава IV."), "Глава IV."
+        )
+        self.assertEqual(normalize_roman("Глава IV."), "Глава четвёртая.")
 
     def test_dates_time_stage(self):
         self.assertEqual(
@@ -454,7 +461,7 @@ class RuNormalizrStageTests(unittest.TestCase):
             ),
             (
                 "Итого 3,5 млн руб., без НДС.",
-                "Итого три целых пять десятых миллиона рублей, без НДС.",
+                "Итого три с половиной миллиона рублей, без НДС.",
             ),
         )
         for source, expected in cases:
@@ -500,8 +507,9 @@ class RuNormalizrStageTests(unittest.TestCase):
         )
 
     def test_url_stage_is_disabled_outside_tts_by_default(self):
+        # Вне TTS стадия выключена по умолчанию, и решает это пайплайн.
         self.assertEqual(
-            normalize_urls("https://milk.org/a1?b=23.", enabled=False),
+            Normalizer().run_stage("urls", "https://milk.org/a1?b=23."),
             "https://milk.org/a1?b=23.",
         )
 
@@ -513,6 +521,41 @@ class RuNormalizrStageTests(unittest.TestCase):
                 "ст. 15, рис. 2, табл. 3, с. 4, p. 5, стр. 6",
             ),
             "статья 15, рисунок 2, таблица 3, страница 4, страница 5, страница 6",
+        )
+
+    def test_preprocess_stage_unglues_a_digit_from_an_abbreviation_dot(self):
+        normalizer = Normalizer()
+        cases = (
+            ("Танк Pz.38(t) стоял.", "Танк Pz. 38 (t) стоял."),
+            ("Это глава кн.2 из серии.", "Это глава кн. 2 из серии."),
+            ("Смотри Fig.3 внизу.", "Смотри Fig. 3 внизу."),
+            ("Машина Sd.Kfz.251 ехала.", "Машина Sd. Kfz. 251 ехала."),
+            ("Смотри примеч.12 внизу.", "Смотри примеч. 12 внизу."),
+            # Слева от точки цифра — это дробь, версия или разряд, не сокращение.
+            ("Цена 3.50 евро.", "Цена 3.50 евро."),
+            ("Версия 1.2.3 вышла.", "Версия 1.2.3 вышла."),
+            ("Итого 1.000 рублей.", "Итого 1.000 рублей."),
+            ("Дата 15.03.2021 года.", "Дата 15.03.2021 года."),
+            ("С. М. Соловьёв", "С. М. Соловьёв"),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalizer.run_stage("preprocess", source), expected)
+
+    def test_preprocess_stage_keeps_urls_out_of_the_dot_digit_split(self):
+        # Адрес переписывается стадией urls раньше препроцесса, а спрятанный
+        # адрес стоит за служебным символом — буквы перед точкой там нет.
+        normalizer = Normalizer(NormalizeOptions(remove_links=False))
+        self.assertEqual(
+            normalizer.normalize("Ссылка https://sostav.ru/tech2 тут."),
+            "Ссылка https://sostav.ru/tech2 тут.",
+        )
+        self.assertEqual(
+            normalize(
+                "Ссылка sostav.ru/tech2 тут.",
+                NormalizeOptions(enable_url_normalization=True),
+            ),
+            "Ссылка sostav точка ру слэш tech два тут.",
         )
 
     def test_preprocess_stage_expands_birth_year_and_mass_gram_abbreviations(self):
@@ -921,3 +964,18 @@ class RuNormalizrStageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+def test_cleanup_replacements_apply_longest_forms_first() -> None:
+    """Порядок в CLEANUP_REPLACEMENTS — часть правила, а не оформление.
+
+    Двойной минус «−−» должен стать «--», а не тире: односимвольная замена
+    минуса, применённая раньше двухсимвольной, дала бы «—» и молча изменила бы
+    чтение. Замена цикла `str.replace` на `str.translate` теряет этот порядок,
+    поэтому здесь он закреплён.
+    """
+    from ru_normalizr.preprocess_utils import CLEANUP_REPLACEMENTS, apply_cleanup_replacements
+
+    assert apply_cleanup_replacements("−−") == "--"
+    lengths = [len(old) for old, _ in CLEANUP_REPLACEMENTS]
+    assert lengths == sorted(lengths, reverse=True), (
+        "многосимвольные ключи должны стоять раньше односимвольных"
+    )

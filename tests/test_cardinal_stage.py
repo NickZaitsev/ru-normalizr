@@ -67,7 +67,10 @@ class AccusativeAgreementTests(unittest.TestCase):
 
     def test_bare_paucal_numeral_is_genitive_before_an_animate_noun(self):
         self.assertEqual(
-            normalize_cardinal_numerals("Вижу 2 человека"), "Вижу двух человека"
+            normalize_cardinal_numerals("Вижу 2 человека"), "Вижу двух человек"
+        )
+        self.assertEqual(
+            normalize_cardinal_numerals("Вижу 2 гостя"), "Вижу двух гостей"
         )
 
     def test_inanimate_noun_keeps_the_nominative_numeral(self):
@@ -187,6 +190,37 @@ class UnitRangeTests(unittest.TestCase):
         )
 
 
+class SpliceDashSpacingTests(unittest.TestCase):
+    """Тире отбивается с двух сторон, если пробел справа появился при сплайсе.
+
+    Пробел справа от тире ставит сам сплайс — потому что справа переписано
+    число. Оставить левую сторону склеенной значит выдать «слово— два
+    миллиона», чего в исходнике не было. Тире, рядом с которым ничего не
+    переписывали, сохраняется как в источнике — это отдельное решение.
+    """
+
+    def test_dash_before_a_rewritten_numeral_is_spaced_on_both_sides(self):
+        self.assertEqual(
+            normalize_cardinal_numerals("слово—2 книги"), "слово — две книги"
+        )
+
+    def test_dash_after_a_rewritten_decimal_is_spaced_on_both_sides(self):
+        self.assertEqual(
+            normalize_cardinal_numerals("одна целая семь десятых—2 млн лет"),
+            "одна целая семь десятых — два миллиона лет",
+        )
+
+    def test_source_dash_without_an_adjacent_rewrite_is_preserved(self):
+        for source in ("луны,— отвечал отец", "Казань—Екатеринбург", "по—прежнему"):
+            with self.subTest(source=source):
+                self.assertEqual(normalize_cardinal_numerals(source), source)
+
+    def test_range_between_two_rewritten_numerals_keeps_its_spacing(self):
+        self.assertEqual(
+            normalize_cardinal_numerals("Тут 2—3 ошибки."), "Тут две — три ошибки."
+        )
+
+
 class PostNumeralAbbreviationTests(unittest.TestCase):
     def test_abbreviation_dot_is_kept_at_the_end_of_the_text(self):
         result = normalize_remaining_post_numeral_abbreviations("вес 5 кг.")
@@ -200,6 +234,17 @@ class PostNumeralAbbreviationTests(unittest.TestCase):
                     f"вес 5 кг{tail}"
                 )
                 self.assertIn("кг", result)
+
+    def test_abbreviations_are_expanded_case_insensitively_with_mixed_spacing(self):
+        result = normalize_remaining_post_numeral_abbreviations(
+            "5 ТЫС. 6 Млн. 7 МЛРД. 8 ТРЛН. 9 РУБ. 10 ДОЛЛ. 11 ДОЛ. 12 и\tДР."
+        )
+
+        self.assertEqual(
+            result,
+            "5 тысяч 6 миллионов 7 миллиардов 8 триллионов 9 рублей "
+            "10 долларов 11 долларов 12 и другие.",
+        )
 
 
 class AllDigitsTests(unittest.TestCase):

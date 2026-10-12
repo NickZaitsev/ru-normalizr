@@ -1,0 +1,168 @@
+{
+  "destination": "benchmarks/corpus",
+  "source": "https://ru.wikisource.org/",
+  "rights_reference": "https://ru.wikisource.org/wiki/Викитека:Авторские_права",
+  "works": [
+    {
+      "title": "История России с древнейших времён (Соловьёв)",
+      "source": "Русская Викитека",
+      "source_url": "https://ru.wikisource.org/wiki/%D0%98%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%8F%20%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D0%B8%20%D1%81%20%D0%B4%D1%80%D0%B5%D0%B2%D0%BD%D0%B5%D0%B9%D1%88%D0%B8%D1%85%20%D0%B2%D1%80%D0%B5%D0%BC%D1%91%D0%BD%20(%D0%A1%D0%BE%D0%BB%D0%BE%D0%B2%D1%8C%D1%91%D0%B2)",
+      "license_status": "PD-old-70",
+      "pages_requested": 156,
+      "pages_downloaded": 156,
+      "pages_missing": [],
+      "raw_file": "01_solovyov_history_of_russia.wikitext.jsonl",
+      "plain_text_file": "01_solovyov_history_of_russia.txt",
+      "notes": "Основной многотомный исторический корпус. Производный TXT очищен от служебной разметки; числовые шаблоны сохранены.",
+      "verification": {
+        "bytes": 41686494,
+        "characters": 22911215,
+        "lines": 27783,
+        "digit_characters": 79332,
+        "sha256": "afe5c91490181b4ef0333644a1b1d436a45f74ce6066b366e7721861aa2a264e",
+        "empty": false,
+        "mediawiki_pages_tags": 0,
+        "template_markers": 0,
+        "html_tags": 0
+      }
+    },
+    {
+      "title": "История русской армии и флота — современная орфография",
+      "source": "Русская Викитека",
+      "source_url": "https://ru.wikisource.org/wiki/История_русской_армии_и_флота",
+      "license_status": "PD-RusEmpire",
+      "pages_requested": 31,
+      "pages_downloaded": 31,
+      "pages_missing": [],
+      "raw_file": "02_russian_army_and_navy_modern.rendered.jsonl",
+      "plain_text_file": "02_russian_army_and_navy_modern.txt",
+      "notes": "Современная орфография; страницы отрендерены MediaWiki с раскрытием <pages>. Производный TXT очищен от служебной разметки; числовые шаблоны сохранены.",
+      "verification": {
+        "bytes": 1123709,
+        "characters": 614265,
+        "lines": 2845,
+        "digit_characters": 4529,
+        "sha256": "f3abfd25b28082aff457145490e5cde516b6b505db37b92b7b353a32738df652",
+        "empty": false,
+        "mediawiki_pages_tags": 0,
+        "template_markers": 0,
+        "html_tags": 0
+      }
+    },
+    {
+      "title": "История русской армии и флота — дореформенная орфография",
+      "source": "Русская Викитека",
+      "source_url": "https://ru.wikisource.org/wiki/История_русской_армии_и_флота",
+      "license_status": "PD-RusEmpire",
+      "pages_requested": 31,
+      "pages_downloaded": 31,
+      "pages_missing": [],
+      "raw_file": "02b_russian_army_and_navy_pre_reform.rendered.jsonl",
+      "plain_text_file": "02b_russian_army_and_navy_pre_reform.txt",
+      "notes": "Дореформенная орфография; страницы отрендерены MediaWiki с раскрытием <pages>. Производный TXT очищен от служебной разметки; числовые шаблоны сохранены.",
+      "verification": {
+        "bytes": 1171870,
+        "characters": 639133,
+        "lines": 2915,
+        "digit_characters": 4697,
+        "sha256": "da60851c4ed40bdf69f146cba3498333e3b6b70675e4839eda73627ba96d6a1a",
+        "empty": false,
+        "mediawiki_pages_tags": 0,
+        "template_markers": 0,
+        "html_tags": 0
+      }
+    },
+    {
+      "title": "История государства Российского (Карамзин)",
+      "source": "Русская Викитека",
+      "source_url": "https://ru.wikisource.org/wiki/История_государства_Российского_(Карамзин)",
+      "license_status": "PD-old-70",
+      "pages_requested": 93,
+      "pages_downloaded": 93,
+      "pages_missing": [],
+      "raw_file": "03_karamzin_history_of_russian_state.rendered.jsonl",
+      "plain_text_file": "03_karamzin_history_of_russian_state.txt",
+      "notes": "MediaWiki-rendered export с раскрытием тегов <pages>; дореформенные дубликаты исключены. Производный TXT очищен от служебной разметки; числовые шаблоны сохранены.",
+      "verification": {
+        "bytes": 8154898,
+        "characters": 4495192,
+        "lines": 185,
+        "digit_characters": 15950,
+        "sha256": "0a797ad3b7f2678f9d805f2e575024d01e1f84f41c2da0e9bbaf9ed97b5efc6d",
+        "empty": false,
+        "mediawiki_pages_tags": 0,
+        "template_markers": 0,
+        "html_tags": 0
+      }
+    },
+    {
+      "title": "Русская история в жизнеописаниях её главнейших деятелей (Костомаров)",
+      "source": "Русская Викитека",
+      "source_url": "https://ru.wikisource.org/wiki/Русская_история_в_жизнеописаниях_её_главнейших_деятелей_(Костомаров)",
+      "license_status": "PD-old-70",
+      "pages_requested": 53,
+      "pages_downloaded": 53,
+      "pages_missing": [],
+      "raw_file": "04_kostomarov_russian_history_biographies.wikitext.jsonl",
+      "plain_text_file": "04_kostomarov_russian_history_biographies.txt",
+      "notes": "Биографическая историческая проза. Производный TXT очищен от служебной разметки; числовые шаблоны сохранены.",
+      "verification": {
+        "bytes": 7772197,
+        "characters": 4262689,
+        "lines": 8436,
+        "digit_characters": 13898,
+        "sha256": "9c2e36980cfc7a8e69eec5ff052985a963324b9dbb1472eff22d96c51569d856",
+        "empty": false,
+        "mediawiki_pages_tags": 0,
+        "template_markers": 0,
+        "html_tags": 0
+      }
+    },
+    {
+      "title": "Покорение Сибири (Небольсин)",
+      "source": "Русская Викитека",
+      "source_url": "https://ru.wikisource.org/wiki/Покорение_Сибири_(Небольсин)",
+      "license_status": "PD-old-70",
+      "pages_requested": 1,
+      "pages_downloaded": 1,
+      "pages_missing": [],
+      "raw_file": "05_nebolsin_conquest_of_siberia.wikitext.jsonl",
+      "plain_text_file": "05_nebolsin_conquest_of_siberia.txt",
+      "notes": "Полный текст на одной странице. Производный TXT очищен от служебной разметки; числовые шаблоны сохранены.",
+      "verification": {
+        "bytes": 825057,
+        "characters": 449235,
+        "lines": 3328,
+        "digit_characters": 3807,
+        "sha256": "e5f43c39bff3c8ee07f2b497a8508ba9489c6177c6179e8c3068ada97604d41f",
+        "empty": false,
+        "mediawiki_pages_tags": 0,
+        "template_markers": 0,
+        "html_tags": 0
+      }
+    },
+    {
+      "title": "Путешествие в Тянь-Шань в 1856-1857 годах (Семёнов-Тян-Шанский)",
+      "source": "Русская Викитека",
+      "source_url": "https://ru.wikisource.org/wiki/Путешествие_в_Тянь-Шань_в_1856-1857_годах_(Семёнов-Тян-Шанский)",
+      "license_status": "PD-old-70",
+      "pages_requested": 1,
+      "pages_downloaded": 1,
+      "pages_missing": [],
+      "raw_file": "06_semenov_tyan_shansky_tien_shan_travel.wikitext.jsonl",
+      "plain_text_file": "06_semenov_tyan_shansky_tien_shan_travel.txt",
+      "notes": "Числовой stress-test: расстояния, высоты, даты и измерения. Производный TXT очищен от служебной разметки; числовые шаблоны сохранены.",
+      "verification": {
+        "bytes": 1238577,
+        "characters": 677478,
+        "lines": 2533,
+        "digit_characters": 3805,
+        "sha256": "fc4154acdbe00a68780ed80122fa430b2dabc3ade23b9820ed2d8429a57a7632",
+        "empty": false,
+        "mediawiki_pages_tags": 0,
+        "template_markers": 0,
+        "html_tags": 0
+      }
+    }
+  ]
+}

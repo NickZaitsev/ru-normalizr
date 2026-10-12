@@ -2,18 +2,33 @@ from __future__ import annotations
 
 import re
 
-from ._morph import first_parse_required
+from ._morph import first_parse_required, parse_word
+from .abbreviation_context import ends_with_abbreviation
 from .constants import KNOWN_ABBREVIATIONS
+from .text_scan import compile_scan
 
-_LINE_SPLIT_PATTERN = re.compile(r"(\n)")
-_FIRST_WORD_CAPS_PATTERN = re.compile(
+_LINE_SPLIT_PATTERN = compile_scan(r"(\n)")
+_FIRST_WORD_CAPS_PATTERN = compile_scan(
     r"^([^\S\r\n]*)([A-ZА-ЯЁ]{2,})(?=\b|\s|[.,!?;:])", re.MULTILINE
 )
-_SENTENCE_START_PATTERN = re.compile(
+_SENTENCE_START_PATTERN = compile_scan(
     r"(?P<punct>[.!?…])(?P<prefix>(?:(?=[^\r\n])\s|[\"'«»„“”()\[\]{}])*)"
     r"(?P<letter>[a-zA-Zа-яА-ЯёЁ])"
 )
+_WORD_AT_POSITION_PATTERN = compile_scan(r"[A-Za-zА-Яа-яЁё]+")
 _CAPS_CONNECTORS = {"А", "В", "И", "К", "О", "С", "У"}
+
+
+def _is_dictionary_abbreviation(word: str) -> bool:
+    """Словарь знает слово только как аббревиатуру («МГИМО», «ГИБДД»).
+
+    Заглавная строка-заголовок опускается в обычный регистр, но акроним
+    заглавным написан по существу, а не потому, что попал в заголовок. Признак
+    берётся из морфологии: у слова-заголовка («СТОЛ», «ЗАГОЛОВОК») есть
+    обычные разборы, у акронима все разборы помечены `Abbr`.
+    """
+    parses = parse_word(word.lower())
+    return bool(parses) and all("Abbr" in candidate.tag for candidate in parses)
 
 
 def normalize_first_word_caps(text: str, enabled: bool = True) -> str:
@@ -27,12 +42,41 @@ def normalize_first_word_caps(text: str, enabled: bool = True) -> str:
         if (
             word not in KNOWN_ABBREVIATIONS
             and len(word) > 3
+            and not _is_dictionary_abbreviation(word)
             and any(char.isalpha() or char.isdigit() for char in rest)
         ):
             return match.group(1) + word.capitalize()
         return match.group(0)
 
     return _FIRST_WORD_CAPS_PATTERN.sub(normalize_line_start, text)
+
+
+def _ellipsis_precedes(text: str, punctuation_position: int) -> bool:
+    """Знак в `punctuation_position` — часть многоточия, а не точка."""
+
+    if text[punctuation_position] == "…":
+        return True
+    if text[punctuation_position] != ".":
+        return False
+    return punctuation_position > 0 and text[punctuation_position - 1] in ".…"
+
+
+def _starts_with_numeral(text: str, position: int) -> bool:
+    """Слово в позиции `position` — числительное (количественное или порядковое).
+
+    Восклицание внутри кавычек обычно не кончает предложение («Стой!» крикнул
+    он), и рамку продолжают глагол речи, союз или наречие. Числительное её
+    продолжать не может: строчным оно оказалось потому, что на его месте в
+    исходнике стояли цифры, у которых регистра нет вовсе.
+    """
+
+    word_match = _WORD_AT_POSITION_PATTERN.match(text, position)
+    if word_match is None:
+        return False
+    return any(
+        candidate.tag.POS == "NUMR" or "Anum" in candidate.tag
+        for candidate in parse_word(word_match.group(0))
+    )
 
 
 def normalize_sentence_start_caps(text: str, enabled: bool = True) -> str:
@@ -47,7 +91,26 @@ def normalize_sentence_start_caps(text: str, enabled: bool = True) -> str:
             punctuation in {"?", "!"}
             and any(quote in prefix for quote in ('"', "'", "»", "”"))
             and letter.islower()
+            and not _starts_with_numeral(text, match.start("letter"))
         ):
+            return match.group(0)
+        # Многоточие — не конец предложения: им отмечают и пропуск внутри цитаты
+        # («писал так: «... факты»), и обрыв речи посередине фразы («Начало...
+        # конец»). Строчная буква в исходнике сама говорит, что фраза
+        # продолжается; поднимать регистр надо только там, где его не было
+        # изначально — у числа, развёрнутого в слово.
+        if (
+            _ellipsis_precedes(text, match.start("punct"))
+            and letter.islower()
+            and not _starts_with_numeral(text, match.start("letter"))
+        ):
+            return match.group(0)
+        # The dot of an abbreviation the pipeline left alone is not a sentence
+        # end. Capitalizing after it produced «в д. Пять архива» — a spurious
+        # sentence break in the middle of a phrase, which a TTS engine reads as
+        # a pause. A genuine sentence end after an abbreviation is unaffected:
+        # its next word is already capitalized in the source.
+        if punctuation == "." and ends_with_abbreviation(text, match.start("punct")):
             return match.group(0)
         return f"{punctuation}{prefix}{letter.upper()}"
 
@@ -143,6 +206,12 @@ def _restore_known_abbreviations(original: str, lowered: str) -> str:
         letters = _letters_only(orig_tok)
         if not letters or not letters.isupper():
             continue
+        # Однобуквенные предлоги и союзы в капс-строке — слова, а не
+        # аббревиатуры: «СТОЛ СТОЯЛ У ОКНА» читается «стол стоял у окна».
+        # Точка рядом («ПУНКТ А.») делает из буквы маркер рубрикации, и его
+        # регистр восстанавливается по общему правилу ниже.
+        if letters in _CAPS_CONNECTORS and "." not in orig_tok:
+            continue
         upper_letters = letters.upper()
         is_known = upper_letters in KNOWN_ABBREVIATIONS
         is_short_abbrev = len(letters) <= 3
@@ -153,7 +222,16 @@ def _restore_known_abbreviations(original: str, lowered: str) -> str:
         is_consonant_heavy = (
             len(letters) == 4 and sum(1 for c in upper_letters if c in vowels) <= 1
         )
-        if is_known or (is_short_abbrev and not is_real_short_word) or is_consonant_heavy:
+        # Слово без единой гласной аббревиатура по существу, какой бы длины оно
+        # ни было («ВЛКСМ», «ШКПС»): опустив его в нижний регистр, мы прячем его
+        # от стадии аббревиатур, и в синтез уезжает нечитаемая буквенная каша.
+        has_no_vowels = not any(char in vowels for char in upper_letters)
+        if (
+            is_known
+            or (is_short_abbrev and not is_real_short_word)
+            or is_consonant_heavy
+            or has_no_vowels
+        ):
             low_tokens[i] = orig_tok
     return "".join(low_tokens)
 
@@ -167,10 +245,14 @@ def normalize_caps_lines(
     parts = _LINE_SPLIT_PATTERN.split(text)
     for idx in range(0, len(parts), 2):
         line = parts[idx]
-        letters = [char for char in line if char.isalpha()]
-        if len(letters) >= min_length:
-            uppercase_count = sum(1 for char in letters if char.isupper())
-            caps_ratio = uppercase_count / len(letters)
+        letter_count = 0
+        uppercase_count = 0
+        for char in line:
+            if char.isalpha():
+                letter_count += 1
+                uppercase_count += char.isupper()
+        if letter_count >= min_length:
+            caps_ratio = uppercase_count / letter_count
             if caps_ratio >= caps_threshold:
                 stripped = line.strip()
                 lowered = stripped.lower()
@@ -187,7 +269,7 @@ def normalize_caps_lines(
                 continue
             if uppercase_count < 4:
                 continue
-        elif sum(1 for char in letters if char.isupper()) < 4:
+        elif uppercase_count < 4:
             continue
         parts[idx] = _normalize_inline_caps(line)
     return "".join(parts)

@@ -40,11 +40,18 @@ def parse_word(word: str) -> tuple[MorphParse, ...]:
     return _parse_word_lower(word.lower())
 
 
+@functools.lru_cache(maxsize=4096)
+def _canonicalize_grammemes_cached(grammemes: frozenset[str]) -> frozenset[str]:
+    return frozenset(get_morph().TagClass.fix_rare_cases(set(grammemes)))
+
+
 def canonicalize_grammemes(grammemes: Iterable[str]) -> frozenset[str]:
     """Convert pymorphy's rare cases through its authoritative tag policy."""
-    return get_morph().TagClass.fix_rare_cases(set(grammemes))
+    key = grammemes if isinstance(grammemes, frozenset) else frozenset(grammemes)
+    return _canonicalize_grammemes_cached(key)
 
 
+@functools.lru_cache(maxsize=32)
 def canonicalize_case(case: str | None, default: str = "nomn") -> str:
     """Return the primary pymorphy case for a possibly rare-case value."""
     if case is None:
@@ -108,6 +115,12 @@ def select_parse(
     return best
 
 
+@functools.lru_cache(maxsize=16384)
+def word_is_known(word: str) -> bool:
+    """Whether the dictionary holds ``word`` itself, without guessing."""
+    return bool(get_morph().word_is_known(word.lower()))
+
+
 def first_parse(word: str) -> MorphParse | None:
     """Return the first pymorphy parse for ``word``, or ``None`` if there is none.
 
@@ -125,7 +138,13 @@ def first_parse(word: str) -> MorphParse | None:
 
 
 def first_parse_required(word: str) -> MorphParse:
-    """Return the first parse and enforce pymorphy's non-empty result invariant."""
+    """Return the first parse and enforce pymorphy's non-empty result invariant.
+
+    Raises instead of asserting: под ``python -O`` assert исчезает, и вместо
+    внятной ошибки вызывающий код получил бы ``None`` в аннотации ``MorphParse``
+    и падение где-то дальше по стеку.
+    """
     parsed = first_parse(word)
-    assert parsed is not None, f"pymorphy3 returned no parses for {word!r}"
+    if parsed is None:
+        raise RuntimeError(f"pymorphy3 returned no parses for {word!r}")
     return parsed

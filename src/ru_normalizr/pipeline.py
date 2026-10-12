@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from .normalizer import PipelineNormalizer, preprocess_text
+from .normalizer import PipelineNormalizer, Stage, preprocess_text
 from .options import NormalizeOptions
 
 
@@ -19,7 +19,7 @@ class Normalizer:
     def normalize_batch(self, texts: Iterable[str]) -> list[str]:
         return [self.normalize(text) for text in texts]
 
-    def run_stage(self, stage: str, text: str) -> str:
+    def run_stage(self, stage: Stage, text: str) -> str:
         return self._normalizer.run_stage(stage, text)
 
 
@@ -27,4 +27,4 @@ def normalize(text: str, options: NormalizeOptions | None = None) -> str:
     return Normalizer(options).normalize(text)
 
 
-__all__ = ["Normalizer", "normalize", "preprocess_text"]
+__all__ = ["Normalizer", "Stage", "normalize", "preprocess_text"]

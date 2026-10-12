@@ -1,20 +1,26 @@
 from __future__ import annotations
 
+import functools
 import re
 
+from ..text_scan import compile_scan
 from .unit_data import explicit_expression_aliases, generated_prefixed_aliases
 from .unit_registry import UnitDescriptor, UnitMorphology, UnitRegistry
 
-POST_NUMERAL_ABBREVIATION_PATTERNS = [
-    (re.compile(r"(?<!\w)тыс\.(?!\w)", re.IGNORECASE), "тысяч"),
-    (re.compile(r"(?<!\w)млн\.(?!\w)", re.IGNORECASE), "миллионов"),
-    (re.compile(r"(?<!\w)млрд\.(?!\w)", re.IGNORECASE), "миллиардов"),
-    (re.compile(r"(?<!\w)трлн\.(?!\w)", re.IGNORECASE), "триллионов"),
-    (re.compile(r"(?<!\w)руб\.(?!\w)", re.IGNORECASE), "рублей"),
-    (re.compile(r"(?<!\w)долл\.(?!\w)", re.IGNORECASE), "долларов"),
-    (re.compile(r"(?<!\w)дол\.(?!\w)", re.IGNORECASE), "долларов"),
-    (re.compile(r"(?<!\w)и\s+др\.(?!\w)", re.IGNORECASE), "и другие"),
-]
+POST_NUMERAL_ABBREVIATION_PATTERN = compile_scan(
+    r"(?<!\w)(?:тыс\.|млн\.|млрд\.|трлн\.|руб\.|долл\.|дол\.|и\s+др\.)(?!\w)",
+    re.IGNORECASE,
+)
+POST_NUMERAL_ABBREVIATION_REPLACEMENTS = {
+    "тыс.": "тысяч",
+    "млн.": "миллионов",
+    "млрд.": "миллиардов",
+    "трлн.": "триллионов",
+    "руб.": "рублей",
+    "долл.": "долларов",
+    "дол.": "долларов",
+    "и др.": "и другие",
+}
 
 GREEK_LETTERS = {
     "α": "альфа",
@@ -125,6 +131,8 @@ PREP_CASE = {
     "больше": "gent",
     "менее": "gent",
     "меньше": "gent",
+    "больше или равно": "gent",
+    "меньше или равно": "gent",
     "свыше": "gent",
     "после": "gent",
     "против": "gent",
@@ -141,6 +149,7 @@ PREP_CASE = {
     "из-за": "gent",
     "из-под": "gent",
     "вблизи": "gent",
+    "близ": "gent",
     "вроде": "gent",
     "наподобие": "gent",
     "касательно": "gent",
@@ -189,6 +198,10 @@ PREP_CASE = {
     "ниже": "gent",
     "дольше": "gent",
     "короче": "gent",
+    "позднее": "gent",
+    "ранее": "gent",
+    "позже": "gent",
+    "раньше": "gent",
 }
 
 VERB_CASE = {
@@ -246,8 +259,9 @@ VERB_CASE = {
     "радоваться": "datv",
     "завидовать": "datv",
     "угрожать": "datv",
-    "рекомендовать": "datv",
-    "предлагать": "datv",
+    # «рекомендовать» и «предлагать» дательным управляют только для адресата;
+    # число при них — прямой объект («предлагали 300 тысяч»), его решает
+    # переходность.
     "являться": "ablt",
     "считаться": "ablt",
     "обладать": "ablt",
@@ -257,15 +271,10 @@ VERB_CASE = {
     "пользоваться": "ablt",
     "управлять": "ablt",
     "владеть": "ablt",
-    "говорить": "loct",
-    "сообщать": "loct",
-    "рассказывать": "loct",
-    "упоминать": "loct",
-    "писать": "loct",
-    "думать": "loct",
-    "размышлять": "loct",
-    "основываться": "loct",
-    "заключаться": "loct",
+    # Предложный падеж без предлога в русском невозможен, поэтому глаголы
+    # речи и мысли («говорить», «думать», «писать»…) голым числом не управляют:
+    # «думает 100000 рублей достать» — винительный. Чтение «о пяти задачах»
+    # обеспечивает сам предлог «о».
     "стоить": "accs",
 }
 
@@ -290,7 +299,69 @@ _UNIT_MORPHOLOGY = {
     "лира": UnitMorphology(expected_normal_form="лира", animacy="inan"),
     "вона": UnitMorphology(expected_normal_form="вона", animacy="inan"),
     "моль": UnitMorphology(expected_normal_form="моль", animacy="inan"),
-    "человек": UnitMorphology(expected_normal_form="человек", animacy="anim"),
+    "микрограмм": UnitMorphology(
+        expected_normal_form="микрограмм",
+        forbidden_grammemes=frozenset({"Coun"}),
+    ),
+    # Счётная форма: после числительных родительный множественного — «человек»,
+    # а не супплетивное «людей» («десять тысяч человек»).
+    "человек": UnitMorphology(
+        expected_normal_form="человек",
+        animacy="anim",
+        paradigm=(("gent", "plur", "человек"),),
+    ),
+    # Косвенные падежи множественного числа верста́ несут ударение на окончании
+    # («в двух верстах от города»); pymorphy отдаёт разговорное «вёрстах».
+    "верста": UnitMorphology(
+        expected_normal_form="верста",
+        paradigm=(
+            ("datv", "plur", "верстам"),
+            ("ablt", "plur", "верстами"),
+            ("loct", "plur", "верстах"),
+        ),
+    ),
+    "ньютон-метр": UnitMorphology(
+        expected_normal_form="ньютон-метр",
+        paradigm=_paradigm(
+            (
+                "ньютон-метр",
+                "ньютон-метра",
+                "ньютон-метру",
+                "ньютон-метр",
+                "ньютон-метром",
+                "ньютон-метре",
+            ),
+            (
+                "ньютон-метры",
+                "ньютон-метров",
+                "ньютон-метрам",
+                "ньютон-метры",
+                "ньютон-метрами",
+                "ньютон-метрах",
+            ),
+        ),
+    ),
+    "килоньютон-метр": UnitMorphology(
+        expected_normal_form="килоньютон-метр",
+        paradigm=_paradigm(
+            (
+                "килоньютон-метр",
+                "килоньютон-метра",
+                "килоньютон-метру",
+                "килоньютон-метр",
+                "килоньютон-метром",
+                "килоньютон-метре",
+            ),
+            (
+                "килоньютон-метры",
+                "килоньютон-метров",
+                "килоньютон-метрам",
+                "килоньютон-метры",
+                "килоньютон-метрами",
+                "килоньютон-метрах",
+            ),
+        ),
+    ),
     "шекель": UnitMorphology(
         expected_normal_form="шекель",
         paradigm=_paradigm(
@@ -693,6 +764,14 @@ UNITS_DATA = _upgrade_units({
     "квм": ("квадратный метр", "masc", "measure"),
     "куб.м": ("кубический метр", "masc", "measure"),
     "кубм": ("кубический метр", "masc", "measure"),
+    "кв.км": ("квадратный километр", "masc", "measure"),
+    "куб.км": ("кубический километр", "masc", "measure"),
+    "кв.см": ("квадратный сантиметр", "masc", "measure"),
+    "куб.см": ("кубический сантиметр", "masc", "measure"),
+    "кв.мм": ("квадратный миллиметр", "masc", "measure"),
+    "куб.мм": ("кубический миллиметр", "masc", "measure"),
+    "кв.дм": ("квадратный дециметр", "masc", "measure"),
+    "куб.дм": ("кубический дециметр", "masc", "measure"),
     "кмч": ("километр", "masc", "measure", "в час"),
     "км": ("километр", "masc", "measure"),
     "километр": ("километр", "masc", "measure"),
@@ -702,6 +781,7 @@ UNITS_DATA = _upgrade_units({
     "км^2": ("квадратный километр", "masc", "measure"),
     "inch": ("дюйм", "masc", "measure"),
     "inches": ("дюйм", "masc", "measure"),
+    "дюйм": ("дюйм", "masc", "measure"),
     "in³": ("кубический дюйм", "masc", "measure"),
     "л": ("литр", "masc", "measure"),
     "литр": ("литр", "masc", "measure"),
@@ -711,11 +791,21 @@ UNITS_DATA = _upgrade_units({
     "пинта": ("пинта", "femn", "measure"),
     "pint": ("пинта", "femn", "measure"),
     "м/с": ("метр", "masc", "measure", "в секунду"),
+    "м/с²": ("метр", "masc", "measure", "в секунду в квадрате"),
+    "м/с2": ("метр", "masc", "measure", "в секунду в квадрате"),
+    "м/с^2": ("метр", "masc", "measure", "в секунду в квадрате"),
     "км/ч": ("километр", "masc", "measure", "в час"),
     "об/мин": ("оборот", "masc", "measure", "в минуту"),
     "rpm": ("оборот", "masc", "measure", "в минуту"),
     "ч": ("час", "masc", "measure"),
     "ч.": ("час", "masc", "measure"),
+    "ч.л.": ("чайная ложка", "femn", "measure"),
+    "ч. л.": ("чайная ложка", "femn", "measure"),
+    # «ст. л.» здесь намеренно нет. Ключ «ст.» многозначен — статья, станция,
+    # старший, столбец, — и раскрытие «столовая ложка» рискует сработать вне
+    # кулинарного контекста («2 ст. л. 5» в ссылке на закон, «ст. л-т» рядом
+    # с числом). Ложка встречается редко, цена ошибки выше выигрыша, поэтому
+    # «2 ст. л. сахара» остаётся нераскрытым.
     "час": ("час", "masc", "measure"),
     "мин": ("минута", "femn", "measure"),
     "мин.": ("минута", "femn", "measure"),
@@ -724,8 +814,8 @@ UNITS_DATA = _upgrade_units({
     "сек.": ("секунда", "femn", "measure"),
     "секунд": ("секунда", "femn", "measure"),
     "секунда": ("секунда", "femn", "measure"),
-    "с": ("секунда", "femn", "measure"),
-    "с.": ("секунда", "femn", "measure"),
+    # «с» и «с.» неоднозначны: предлог, страницы или секунды.
+    # Сохраняем их буквально; «сек», приставки и составные единицы раскрываем.
     "мс": ("миллисекунда", "femn", "measure"),
     "мкс": ("микросекунда", "femn", "measure"),
     "нс": ("наносекунда", "femn", "measure"),
@@ -775,6 +865,7 @@ UNITS_DATA = _upgrade_units({
     "mi": ("миля", "femn", "measure"),
     "аршин": ("аршин", "masc", "measure"),
     "арш": ("аршин", "masc", "measure"),
+    "верста": ("верста", "femn", "measure"),
     "mph": ("миля", "femn", "measure", "в час"),
     "обмин": ("оборот", "masc", "measure", "в минуту"),
     "уз": ("узел", "masc", "measure"),
@@ -825,6 +916,10 @@ CASE_SENSITIVE_UNITS_DATA = _upgrade_units({
     "т": ("тонна", "femn", "measure"),
     "°С": ("градус", "masc", "measure", "Цельсия"),
     "°К": ("градус", "masc", "measure", "Кельвина"),
+    # Traditional Russian spelling of the temperature scales, still common in
+    # older prose: «12,5° Ц.», «60° Ф.».
+    "°Ц": ("градус", "masc", "measure", "Цельсия"),
+    "°Ф": ("градус", "masc", "measure", "Фаренгейта"),
     "мкА": ("микроампер", "masc", "measure"),
     "мА": ("миллиампер", "masc", "measure"),
     "кА": ("килоампер", "masc", "measure"),
@@ -896,11 +991,27 @@ for _symbol, _source_alias in {
 
 UNIT_REGISTRY = UnitRegistry(UNITS_DATA, CASE_SENSITIVE_UNITS_DATA)
 
+# A decimal money amount is spoken as major plus minor units ("89,40 ₽" ->
+# "восемьдесят девять рублей сорок копеек"), not as a fraction of the major
+# unit. Only currencies whose subunit is actually pronounced in Russian are
+# listed: an obscure subunit (тиын, куруш, агора) would be read out where a
+# speaker says nothing, so those currencies deliberately keep the plain
+# decimal-fraction reading.
+CURRENCY_MINOR_UNITS = _upgrade_units({
+    "рубль": ("копейка", "femn", "money"),
+    "гривна": ("копейка", "femn", "money"),
+    "доллар": ("цент", "masc", "money"),
+    "евро": ("цент", "masc", "money"),
+    "фунт": ("пенс", "masc", "money"),
+})
 
+
+@functools.lru_cache(maxsize=16384)
 def resolve_unit_info(unit: str) -> UnitDescriptor | None:
     return UNIT_REGISTRY.resolve(unit)
 
 
+@functools.lru_cache(maxsize=16384)
 def resolve_unit_form(token: str) -> UnitDescriptor | None:
     direct = resolve_unit_info(token)
     if direct is not None:
@@ -952,18 +1063,70 @@ ALL_UNITS = (
     }
 )
 
-UNIT_TOKEN_FRAGMENT = (
-    r"[а-яА-ЯёЁa-zA-ZµμΩ%°$€₽]+"
-    r"(?:[./^·][а-яА-ЯёЁa-zA-ZµμΩ%°$€₽]+|\d+|[²³])*"
+CURRENCY_SYMBOLS = frozenset(
+    alias
+    for alias, descriptor in UNITS_DATA.items()
+    if descriptor.category == "money" and len(alias) == 1 and not alias.isalnum()
 )
 
-NUMERIC_UNIT_RANGE_PATTERN = re.compile(
-    rf"(?<!\d)(?P<left>\d+)\s*[—–-]\s*(?P<right>\d+)\s*(?P<unit>{UNIT_TOKEN_FRAGMENT}(?:\s+[^\W\d_]+){{0,2}})(?!\w)"
+# Every currency symbol has to be reachable from the fragment, otherwise a
+# decimal amount matches the number but not its currency and the symbol is left
+# raw in the output ("девятнадцать целых девяносто пять сотых £").
+_UNIT_FRAGMENT_CHARS = "а-яА-ЯёЁa-zA-ZµμΩ%°" + re.escape("".join(sorted(CURRENCY_SYMBOLS)))
+
+#: Точка сокращения перед знаком отношения даёт два разделителя подряд:
+#: «руб./кг» — это «руб.» и «/кг», а не незамкнутая точка. Больше двух
+#: разделителей подряд единицей не бывает.
+UNIT_TOKEN_FRAGMENT = (
+    rf"[{_UNIT_FRAGMENT_CHARS}]+"
+    rf"(?:[./^·]{{1,2}}[{_UNIT_FRAGMENT_CHARS}]+|\d+|[²³])*"
 )
-FRACTION_PATTERN = re.compile(r"(?<![\d,])(\d+)/(\d+)(?![\d,])")
-HYPHENATED_WORD_PATTERN = re.compile(r"(?<![\w\d])(\d+)-([а-яА-ЯёЁ]{1,})")
-STANDALONE_CURRENCY_PATTERN = re.compile(r"(?<!\S)([$€£¥₽₴₸₺₹¢])(?!\S)")
-DIGIT_PATTERN = re.compile(r"\d+")
+
+NUMERIC_UNIT_RANGE_PATTERN = compile_scan(
+    rf"(?<!\d)(?P<left>\d+)\s*[—–-]\s*(?P<right>\d+)\s*(?P<unit>{UNIT_TOKEN_FRAGMENT}(?:\s+[^\W\d_]+){{0,2}})(?P<udot>\.(?!\.))?(?!\w)"
+)
+FRACTION_PATTERN = compile_scan(r"(?<![\d,])(\d+)/(\d+)(?![\d,])")
+# The optional infix is a duplicated case ending of the numeral written out
+# before the word it modifies: «17-ти-летняя» is «семнадцатилетняя».
+HYPHENATED_WORD_PATTERN = compile_scan(
+    # Твёрдый знак после окончания числительного — дореформенное «3-хъ-дневный»:
+    # он часть окончания, а не начало слова справа.
+    r"(?<![\w\d])(?P<num>\d+)-(?:(?P<infix>тью|ти|ми|мя|ух|ех|ёх|х)ъ?-)?"
+    r"(?P<word>[а-яА-ЯёЁ]{1,})"
+)
+STANDALONE_CURRENCY_PATTERN = compile_scan(r"(?<!\S)([$€£¥₽₴₸₺₹¢])(?!\S)")
+DIGIT_PATTERN = compile_scan(r"\d+")
+
+#: Слова, называющие пронумерованный объект. Число при них — приложение-имя
+#: («дом двадцать четыре», «пункт двадцать два»), а не количество, поэтому оно
+#: остаётся в именительном, даже если справа стоит родительный множественного.
+NUMBER_LABEL_LEMMAS = frozenset(
+    {
+        "номер",
+        "пункт",
+        "статья",
+        "параграф",
+        "глава",
+        "раздел",
+        "том",
+        "страница",
+        "приложение",
+        "рейс",
+        "дом",
+        "квартира",
+        "комната",
+        "палата",
+        "вагон",
+    }
+)
+
+#: Части суток. Такое слово при числе задаёт час («в 10 утра», «около 11
+#: вечера»), а не число месяца: родительным справа управляет сама часть суток,
+#: поэтому количественное чтение здесь единственно верное.
+DAY_PART_LEMMAS = frozenset({"утро", "день", "вечер", "ночь", "полдень", "полночь"})
+
+#: Часы суток, при которых часть суток читается временем.
+MAX_CLOCK_HOUR = 24
 
 TIME_WORDS = {
     "год": "masc",
@@ -1040,7 +1203,6 @@ TIME_WORDS = {
     "секундах": "femn",
     "ч": "masc",
     "мин": "femn",
-    "с": "femn",
     "дн": "masc",
     "нед": "femn",
     "в": "masc",

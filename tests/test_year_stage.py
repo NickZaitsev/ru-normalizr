@@ -9,8 +9,9 @@ import unittest
 from unittest.mock import patch
 
 import num2words
+import pytest
 
-from ru_normalizr.options import NormalizeOptions
+from ru_normalizr import normalize
 from ru_normalizr.years import (
     normalize_numeric_ranges,
     normalize_years,
@@ -19,7 +20,7 @@ from ru_normalizr.years import (
 
 
 def years(text: str) -> str:
-    return normalize_years(text, NormalizeOptions())
+    return normalize_years(text)
 
 
 class YearOrdinalWordsTests(unittest.TestCase):
@@ -248,6 +249,25 @@ class ExplicitYearWordTests(unittest.TestCase):
             with self.subTest(source=source):
                 self.assertEqual(years(source), expected)
 
+    def test_internal_stress_marker_does_not_split_a_year_word(self):
+        cases = (
+            (
+                "В 2020 году.",
+                "В две тысячи двадцатом году.",
+            ),
+            (
+                "В 2020 г+оду.",
+                "В две тысячи двадцатом году.",
+            ),
+            (
+                "Между 1999 и 2000 год+ами разница велика.",
+                "Между тысяча девятьсот девяносто девятым и двухтысячным годами разница велика.",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(years(source), expected)
+
     def test_every_written_suffix_sets_the_case_and_number(self):
         # YEAR_SUFFIX_REGEX is sorted longest first, so the shared tails ("го"
         # inside "ого", "м" inside "ом") only resolve correctly while that order
@@ -359,13 +379,15 @@ class DecadeTests(unittest.TestCase):
 
 class YearRangeTests(unittest.TestCase):
     def test_range_with_an_explicit_year_word_agrees_in_case(self):
+        # Диапазон называет конкретные годы, поэтому каждый читается порядковым
+        # в единственном числе; множественное остаётся за десятилетиями («-е»).
         self.assertEqual(
             years("1941-1945 годы"),
-            "тысяча девятьсот сорок первые — тысяча девятьсот сорок пятые годы",
+            "тысяча девятьсот сорок первый — тысяча девятьсот сорок пятый годы",
         )
         self.assertEqual(
             years("в 1941-1945 гг."),
-            "в тысяча девятьсот сорок первых — тысяча девятьсот сорок пятых годах.",
+            "в тысяча девятьсот сорок первом — тысяча девятьсот сорок пятом годах.",
         )
 
     def test_bare_plural_abbreviation_range_is_rewritten_as_s_po(self):
@@ -453,7 +475,7 @@ class EraMarkerTests(unittest.TestCase):
     def test_shared_era_marker_covers_a_range(self):
         self.assertEqual(
             years("300-200 гг. до н. э."),
-            "трёхсотые — двухсотые годы до нашей эры.",
+            "трёхсотый — двухсотый годы до нашей эры.",
         )
 
     def test_era_terminal_dot_is_kept_before_a_sentence_boundary(self):
@@ -530,7 +552,7 @@ class SharedEraRangeTests(unittest.TestCase):
     def test_range_with_an_explicit_year_word_keeps_it(self):
         self.assertEqual(
             years("300-200 годы до нашей эры"),
-            "трёхсотые — двухсотые годы до нашей эры",
+            "трёхсотый — двухсотый годы до нашей эры",
         )
 
 
@@ -565,6 +587,88 @@ class NumericRangeTests(unittest.TestCase):
         self.assertEqual(normalize_numeric_ranges("5—7 человек"), "5—7 человек")
         self.assertEqual(normalize_numeric_ranges("5—7%"), "5—7%")
 
+
+# --- Эры и сокращения при годах: E2E, а не только стадия ---------------------
+#
+# Здесь вызывается полный `normalize`: раскрытие «г.»/«гг.»/«н. э.» делится
+# между стадией годов и стадией сокращений, и проверять его на одной стадии
+# бессмысленно.
+
+
+def test_normalize_handles_era_year_abbreviation_without_preposition():
+    assert normalize("50 г. до н. э.") == "пятидесятый год до нашей эры."
+    assert normalize("50 г. н. э.") == "пятидесятый год нашей эры."
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    (
+        (
+            "44-45 гг. до н. э.",
+            "сорок четвёртый — сорок пятый годы до нашей эры.",
+        ),
+        (
+            "В 300-200 г. до н. э.",
+            "В трёхсотом — двухсотом годах до нашей эры.",
+        ),
+        (
+            "44-45 гг. нашей эры.",
+            "сорок четвёртый — сорок пятый годы нашей эры.",
+        ),
+        (
+            "В 300-200 г. нашей эры.",
+            "В трёхсотом — двухсотом годах нашей эры.",
+        ),
+        (
+            "В 300-200 г. до н. э. продолжались войны.",
+            "В трёхсотом — двухсотом годах до нашей эры продолжались войны.",
+        ),
+        ("44-45 гг.", "сорок четвёртый — сорок пятый годы."),
+        ("В 300-200 г.", "В трёхсотом — двухсотом годах."),
+        (
+            "1941-1945 гг. до н. э.",
+            "с тысяча девятьсот сорок первого по тысяча девятьсот сорок пятый год "
+            "до нашей эры.",
+        ),
+    ),
+)
+def test_normalize_keeps_shared_era_marker_attached_to_year_range(
+    source: str, expected: str
+) -> None:
+    assert normalize(source) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    (
+        (
+            "В летописи под 1185 г. в рассказе о поставлении епископа сказано так.",
+            "В летописи под тысяча сто восемьдесят пятым годом в рассказе "
+            "о поставлении епископа сказано так.",
+        ),
+        (
+            "Под 1185 г. о походе на половцев летописец пишет подробно.",
+            "Под тысяча сто восемьдесят пятым годом о походе на половцев "
+            "летописец пишет подробно.",
+        ),
+        (
+            "Под 1185 г. и позже летопись об этом молчит совершенно.",
+            "Под тысяча сто восемьдесят пятым годом и позже летопись об этом "
+            "молчит совершенно.",
+        ),
+        (
+            "Насыпали под 30 г. песка в каждую форму для пробы.",
+            "Насыпали под тридцать грамм песка в каждую форму для пробы.",
+        ),
+    ),
+)
+def test_annalistic_year_survives_a_following_function_word(
+    source: str, expected: str
+) -> None:
+    # Служебное слово после «г.» не вещество: у «в», «о», «и» есть чтение
+    # существительным (название буквы), и без отсечения служебных частей речи
+    # летописный год превращался в граммы.
+    assert normalize(source) == expected
 
 if __name__ == "__main__":
     unittest.main()

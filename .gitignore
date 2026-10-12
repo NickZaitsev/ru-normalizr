@@ -18,10 +18,15 @@ dist/
 .tmp-pymorphy3-*.json
 .smoke-venv/
 .coverage
+.benchmarks/
 input.txt
 *.whl
 *.tar.gz
 TODO.txt
 
-# Local compatibility link; canonical skills live in .claude/skills.
-.agents/skills/
+# Локальные настройки агентов и рабочие планы не входят в публичный репозиторий.
+/.agents/
+/.claude/
+/CLAUDE.md
+/docs/agents/plans/
+scratch_*

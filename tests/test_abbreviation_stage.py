@@ -111,6 +111,36 @@ class AdjectiveAbbreviationTests(unittest.TestCase):
             with self.subTest(source=source):
                 self.assertEqual(abbr(source), expected)
 
+    def test_ambiguous_head_uses_the_local_governing_case(self):
+        cases = (
+            (
+                "Восстановили гос. пути сообщения.",
+                "Восстановили государственные пути сообщения.",
+            ),
+            (
+                "О гос. пути сообщения.",
+                "О государственном пути сообщения.",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(abbr(source), expected)
+
+    def test_case_inference_ignores_adverb_homonyms_and_crosses_quantifiers(self):
+        cases = (
+            (
+                "Избегали порой гос. пути сообщения.",
+                "Избегали порой государственного пути сообщения.",
+            ),
+            (
+                "Восстановили часто гос. пути сообщения.",
+                "Восстановили часто государственные пути сообщения.",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(abbr(source), expected)
+
     def test_substantivized_adjective_can_be_the_head(self):
         cases = (
             (
@@ -356,6 +386,33 @@ class LetterAbbreviationTests(unittest.TestCase):
             with self.subTest(source=source):
                 self.assertEqual(expand_letter_abbreviations(source), expected)
 
+    def test_vowelless_acronym_is_spelled_even_when_the_dictionary_knows_it(self):
+        # pymorphy holds "гдр" as an ordinary noun and predicts a noun for "шкпс";
+        # neither can be pronounced, so morphology does not get a say.
+        for source, expected in (
+            ("ГДР", "гэ дэ эр"),
+            ("ШКПС", "шэ ка пэ эс"),
+            ("ВЧК", "вэ чэ ка"),
+            ("ЖКХ", "же кэ ха"),
+        ):
+            with self.subTest(source=source):
+                self.assertEqual(expand_letter_abbreviations(source), expected)
+
+    def test_ordinary_capitalised_words_are_left_to_the_caps_stage(self):
+        for source in ("ОТВЕТ", "КСТАТИ", "ГЛАВА"):
+            with self.subTest(source=source):
+                self.assertEqual(expand_letter_abbreviations(source), source)
+
+    def test_acronyms_read_as_words_keep_their_curated_reading(self):
+        for source, expected in (("СПИД", "спид"), ("ЗАГС", "загс"), ("ГОСТ", "гост")):
+            with self.subTest(source=source):
+                self.assertEqual(expand_letter_abbreviations(source), expected)
+
+    def test_known_reading_wins_over_the_vowel_rule(self):
+        # Two vowels would keep it a "word"; the curated reading spells it out.
+        self.assertEqual(expand_letter_abbreviations("ОГПУ"), "о гэ пэ у")
+        self.assertEqual(expand_letter_abbreviations("МГУ"), "эм гэ у")
+
     def test_letter_by_letter_reading_for_latin_acronyms(self):
         self.assertEqual(expand_letter_abbreviations("ABC"), "эй би си")
         self.assertEqual(expand_letter_abbreviations("FBI"), "эф би ай")
@@ -486,6 +543,27 @@ class LetterAbbreviationTests(unittest.TestCase):
         # The dots themselves say it is an abbreviation, so the heuristics that
         # protect vowel-heavy ordinary words are not applied.
         self.assertEqual(expand_letter_abbreviations("А.Е.И."), "а е и.")
+
+    def test_dotted_acronym_drops_a_non_terminal_abbreviation_dot(self):
+        self.assertEqual(
+            expand_letter_abbreviations("Флаг С.Ш.А. висел над входом."),
+            "Флаг сэ шэ а висел над входом.",
+        )
+
+    def test_camel_case_trailing_acronym_is_spelled_out_in_tts(self):
+        options = NormalizeOptions.tts()
+        assert "эс кью эл" in expand_abbreviations("PostgreSQL", options)
+        assert "кью эл" in expand_abbreviations("GraphQL", options)
+        assert "ви пи эн" in expand_abbreviations("OpenVPN", options)
+
+    def test_single_sandwiched_lowercase_letter_is_a_brand_not_an_acronym(self):
+        # «NeXT» — стилизованное имя, а не приставка с аббревиатурой: одна
+        # строчная буква слишком коротка для приставки.
+        options = NormalizeOptions.tts()
+        self.assertEqual(expand_abbreviations("NeXT", options), "NeXT")
+        for source in ("iPhone", "MacBook", "TeX", "LaTeX"):
+            with self.subTest(source=source):
+                self.assertEqual(expand_abbreviations(source, options), source)
 
     def test_lowercase_dotted_form_is_not_an_acronym(self):
         self.assertEqual(expand_letter_abbreviations("и.о."), "и.о.")

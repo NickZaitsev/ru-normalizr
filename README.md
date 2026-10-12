@@ -27,6 +27,22 @@
 - нормализует единицы измерения и некоторые символы
 - исправляет пробелы, пунктуацию, переносы строк и часть склеек в тексте
 
+Международные телефоны с явным `+` читаются группами в обоих режимах:
+`Телефон +375 29 123-45-67` → `Телефон плюс триста семьдесят пять, двадцать
+девять, сто двадцать три, сорок пять, шестьдесят семь`. Написанные группы и
+начальные нули сохраняются; у номера без разделителей используются группы
+международного формата страны. Требуется телефонная метка слева (`телефон`,
+`тел.`, `позвоните`, `контакты`, `факс`, `номер:`) или отдельная строка с номером.
+Неизвестные коды, некорректные структуры, измерения и арифметические выражения
+остаются обычному разбору. Проверка использует локальные данные libphonenumber
+из `phonenumberslite`; сетевых запросов нет. Опция
+`enable_numeral_normalization=False` отключает новое чтение телефонов.
+
+Неоднозначные «с» и «с.» после числа сохраняются: `120 с.` → `сто двадцать с.`,
+чтобы страницы в библиографии не превращались в секунды. Для явного обозначения
+секунд используйте `сек` или `сек.`; `мс` и составные единицы вроде `м/с`
+раскрываются как прежде.
+
 Режим `tts` нормализует ближе к "как это надо читать вслух" — рекомендуется для TTS. Кроме всего перечисленного выше, этот режим:
 - включает нормализацию CAPS (`ГЛАВА` → `Глава`)
 - раскрывает инициалы и аббревиатуры в звуки (`ГИБДД` → `ги бэ дэ дэ`)
@@ -272,6 +288,30 @@ uv run pytest -q
 uv run pytest -q --cov=src/ru_normalizr --cov-branch --cov-report=term-missing
 ```
 
+Локальный замер полного TTS-пайплайна на синтетических книгах по 500 000 символов
+и сравнение с сохранённым baseline (CI автоматически сравнивает смешанную и
+насыщенную числами книги для pull request и push в `main`). Реальную UTF-8 книгу можно передать
+через `--book`; параметр можно повторять. Для набора книг используйте `MANIFEST.json`:
+
+```bash
+uv run python scripts/benchmark.py --mode tts --json .benchmarks/base.json
+uv run python scripts/benchmark.py --mode tts --compare .benchmarks/base.json
+uv run python scripts/benchmark.py --mode tts --book path/to/book.txt
+uv run python scripts/benchmark.py --manifest benchmarks/corpus/MANIFEST.json \
+  --corpus 03_karamzin_history_of_russian_state \
+  --corpus 06_semenov_tyan_shansky_tien_shan_travel \
+  --real-only --mode tts --samples 3 --warmups 1 \
+  --partial-json .benchmarks/real.partial.json
+```
+
+В `MANIFEST.json` для каждой книги указываются `plain_text_file` и проверка
+`verification.sha256`/размера/числа символов. Harness проверяет эти значения до
+замера и сохраняет SHA-256 входа и результата, число символов результата и
+peak RSS в JSON-отчёте, поэтому baseline нельзя случайно сравнить с другой
+редакцией книги или изменившимся выводом. Набор public-domain `.txt` закреплён
+в `benchmarks/corpus`; его лицензия и источники описаны в `DATA_LICENSE.md`.
+`--prefix-chars` позволяет снять scaling-кривую на одном и том же тексте.
+
 Полный цикл проверки выпуска — очистка, сверка версий, линт, типы, тесты, сборка
 и `twine check`:
 
@@ -282,6 +322,23 @@ uv run python scripts/dev.py check
 Порядок выпуска на PyPI описан в [docs/RELEASING.md](docs/RELEASING.md), правила
 версионирования — в [VERSIONING.md](VERSIONING.md), соглашения для правок кода —
 в [AGENTS.md](AGENTS.md) и [docs/agents/](docs/agents/README.md).
+
+### Многопоточность
+
+`normalize()` и `Normalizer.normalize()` не держат изменяемого состояния между
+вызовами, поэтому вызывать их из нескольких потоков безопасно:
+
+- `NormalizeOptions` — неизменяемый frozen dataclass, его можно свободно делить
+  между потоками;
+- анализатор `pymorphy3.MorphAnalyzer` один на процесс и используется только для
+  чтения; его собственные кеши защищены GIL;
+- кеш casefold-копии документа и реестр словарных нормализаторов живут в
+  `ContextVar` и в ограниченном LRU соответственно, так что потоки не вытесняют
+  записи друг друга;
+- один экземпляр `Normalizer` можно использовать из нескольких потоков, но
+  собственный экземпляр на поток даёт лучшую локальность кешей.
+
+Гарантий для нескольких **процессов** не требуется: общего состояния нет.
 
 ## Сравнение с другими нормализаторами
 
@@ -318,7 +375,7 @@ uv run python scripts/dev.py check
 
 Автомобилестроение конвейерное организовал американский промышленник эр ээ Олдс — основатель компании "Олдс Мотор Уоркс" (оулдз моутэр вэркс) в городе Детройте.
 
-Компания эй би си элтиди. Протестировала систему на трёх целых пять десятых терабайта данных со скоростью ста мегабайтов в секунду.
+Компания эй би си элтиди. Протестировала систему на три целых пять десятых терабайта данных со скоростью сто мегабит в секунду.
 Размер модели: две целых семь десятых гигабайта, точность: девяносто девять целых пять десятых процента.
 ```
 На нормализацию примера ушло 0.24 секунды. Аббревиатуры и инициалы раскрываются в буквы намерено. Это можно отключить.
@@ -623,6 +680,28 @@ Branch coverage report:
 uv run pytest -q --cov=src/ru_normalizr --cov-branch --cov-report=term-missing
 ```
 
+Local full TTS pipeline benchmark on synthetic 500,000-character books and
+comparison against a saved baseline (CI compares the mixed and number-dense books
+automatically for pull requests and pushes to `main`). Pass a real UTF-8 book with `--book`
+(repeat the option for several books), or use a verified `MANIFEST.json`:
+
+```bash
+uv run python scripts/benchmark.py --mode tts --json .benchmarks/base.json
+uv run python scripts/benchmark.py --mode tts --compare .benchmarks/base.json
+uv run python scripts/benchmark.py --mode tts --book path/to/book.txt
+uv run python scripts/benchmark.py --manifest benchmarks/corpus/MANIFEST.json \
+  --corpus 03_karamzin_history_of_russian_state \
+  --corpus 06_semenov_tyan_shansky_tien_shan_travel \
+  --real-only --mode tts --samples 3 --warmups 1 \
+  --partial-json .benchmarks/real.partial.json
+```
+
+Each manifest entry must provide `plain_text_file` and `verification.sha256`,
+the byte size, and the character count. The harness verifies those values before
+timing, loads only the selected book, and stores input/output hashes, output size,
+and peak RSS in the JSON report. The tracked public-domain corpus lives under
+`benchmarks/corpus`; use `--prefix-chars` to measure scaling on one text.
+
 The full release verification cycle — clean, version sync, lint, types, tests,
 build, and `twine check`:
 
@@ -633,6 +712,22 @@ uv run python scripts/dev.py check
 The PyPI release procedure is described in [docs/RELEASING.md](docs/RELEASING.md),
 the versioning policy in [VERSIONING.md](VERSIONING.md), and the code conventions
 in [AGENTS.md](AGENTS.md) and [docs/agents/](docs/agents/README.md).
+
+### Threading
+
+`normalize()` and `Normalizer.normalize()` keep no mutable state between calls,
+so calling them from several threads is safe:
+
+- `NormalizeOptions` is an immutable frozen dataclass and can be shared freely;
+- the `pymorphy3.MorphAnalyzer` is a single per-process instance used read-only;
+  its own caches are protected by the GIL;
+- the casefolded-document cache lives in a `ContextVar` and the dictionary
+  normalizer registry is a bounded LRU, so threads do not evict each other's
+  entries;
+- one `Normalizer` instance may be shared across threads, but a per-thread
+  instance gives better cache locality.
+
+No guarantees are needed across **processes**: there is no shared state.
 
 ## Comparison with other normalizers
 
@@ -670,7 +765,7 @@ A comparison was also made with the promising `russian_text_normalizer`. It perf
 
 Автомобилестроение конвейерное организовал американский промышленник эр ээ Олдс — основатель компании "Олдс Мотор Уоркс" (оулдз моутэр вэркс) в городе Детройте.
 
-Компания эй би си элтиди. Протестировала систему на трёх целых пять десятых терабайта данных со скоростью ста мегабайтов в секунду.
+Компания эй би си элтиди. Протестировала систему на три целых пять десятых терабайта данных со скоростью сто мегабит в секунду.
 Размер модели: две целых семь десятых гигабайта, точность: девяносто девять целых пять десятых процента.
 ```
 

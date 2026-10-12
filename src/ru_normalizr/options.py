@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import inspect
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -11,57 +13,50 @@ LatinizationBackend = Literal["ipa", "dictionary"]
 InitialsVowelMode = LetterVowelMode
 InitialsPauseMode = Literal["preserve", "comma"]
 
-_SAFE_MODE_DEFAULTS = {
-    "cleanup_malformed_punctuation": False,
-    "enable_caps_normalization": False,
-    "enable_first_word_decap": False,
-    "remove_links": False,
-    "enable_url_normalization": False,
-    "enable_year_normalization": True,
-    "enable_roman_normalization": True,
-    "enable_dates_time_normalization": True,
-    "enable_numeral_normalization": True,
-    "enable_abbreviation_expansion": True,
-    "enable_contextual_abbreviation_expansion": True,
-    "enable_years_ago_expansion": True,
-    "enable_initials_expansion": False,
-    "letter_vowel_mode": "single",
-    "initials_pause_mode": "preserve",
-    "enable_letter_abbreviation_expansion": False,
-    "enable_dictionary_normalization": True,
-    "enable_latinization": False,
-    "latinization_backend": "ipa",
-    "enable_latinization_stress_marks": False,
+# Единственный источник истины для профилей: одна строка на опцию, значения для
+# safe и tts рядом. Расхождение между профилями видно глазами, и нельзя добавить
+# опцию в один профиль, забыв про другой.
+_MODE_DEFAULTS: dict[str, tuple[object, object]] = {
+    # опция: (safe, tts)
+    "cleanup_malformed_punctuation": (False, True),
+    "enable_caps_normalization": (False, True),
+    "enable_first_word_decap": (False, True),
+    "remove_links": (False, True),
+    "enable_url_normalization": (False, True),
+    "enable_year_normalization": (True, True),
+    "enable_roman_normalization": (True, True),
+    "enable_math_normalization": (False, True),
+    "enable_dates_time_normalization": (True, True),
+    "enable_numeral_normalization": (True, True),
+    "enable_abbreviation_expansion": (True, True),
+    "enable_contextual_abbreviation_expansion": (True, True),
+    "enable_years_ago_expansion": (True, True),
+    "enable_initials_expansion": (False, True),
+    "letter_vowel_mode": ("single", "double"),
+    "initials_pause_mode": ("preserve", "comma"),
+    "enable_letter_abbreviation_expansion": (False, True),
+    "enable_dictionary_normalization": (True, True),
+    "enable_latinization": (False, True),
+    "latinization_backend": ("ipa", "ipa"),
+    "enable_latinization_stress_marks": (False, False),
 }
 
-_TTS_MODE_DEFAULTS = {
-    "cleanup_malformed_punctuation": True,
-    "enable_caps_normalization": True,
-    "enable_first_word_decap": True,
-    "remove_links": True,
-    "enable_url_normalization": True,
-    "enable_year_normalization": True,
-    "enable_roman_normalization": True,
-    "enable_dates_time_normalization": True,
-    "enable_numeral_normalization": True,
-    "enable_abbreviation_expansion": True,
-    "enable_contextual_abbreviation_expansion": True,
-    "enable_years_ago_expansion": True,
-    "enable_initials_expansion": True,
-    "letter_vowel_mode": "double",
-    "initials_pause_mode": "comma",
-    "enable_letter_abbreviation_expansion": True,
-    "enable_dictionary_normalization": True,
-    "enable_latinization": True,
-    "latinization_backend": "ipa",
-    "enable_latinization_stress_marks": False,
+_PROFILES: dict[str, Mapping[str, object]] = {
+    "safe": {name: values[0] for name, values in _MODE_DEFAULTS.items()},
+    "tts": {name: values[1] for name, values in _MODE_DEFAULTS.items()},
 }
 
 
-def _mode_defaults(mode: NormalizeMode | None) -> dict[str, object]:
-    if mode == "tts":
-        return dict(_TTS_MODE_DEFAULTS)
-    return dict(_SAFE_MODE_DEFAULTS)
+def _mode_defaults(mode: NormalizeMode | None) -> Mapping[str, object]:
+    """Вернуть дефолты профиля. Без режима действует safe, опечатка в режиме — ошибка."""
+    if mode is None:
+        return _PROFILES["safe"]
+    try:
+        return _PROFILES[mode]
+    except KeyError:
+        raise ValueError(
+            f"unknown normalization mode {mode!r}; expected one of {sorted(_PROFILES)}"
+        ) from None
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -76,6 +71,7 @@ class NormalizeOptions:
     remove_links_ignore_interval: tuple[int, int]
     enable_year_normalization: bool
     enable_roman_normalization: bool
+    enable_math_normalization: bool
     enable_dates_time_normalization: bool
     enable_numeral_normalization: bool
     enable_abbreviation_expansion: bool
@@ -107,6 +103,7 @@ class NormalizeOptions:
         remove_links_ignore_interval: tuple[int, int] = (1000, 2200),
         enable_year_normalization: bool | None = None,
         enable_roman_normalization: bool | None = None,
+        enable_math_normalization: bool | None = None,
         enable_dates_time_normalization: bool | None = None,
         enable_numeral_normalization: bool | None = None,
         enable_abbreviation_expansion: bool | None = None,
@@ -149,6 +146,7 @@ class NormalizeOptions:
             "enable_url_normalization": enable_url_normalization,
             "enable_year_normalization": enable_year_normalization,
             "enable_roman_normalization": enable_roman_normalization,
+            "enable_math_normalization": enable_math_normalization,
             "enable_dates_time_normalization": enable_dates_time_normalization,
             "enable_numeral_normalization": enable_numeral_normalization,
             "enable_abbreviation_expansion": enable_abbreviation_expansion,
@@ -182,8 +180,27 @@ class NormalizeOptions:
 
     @classmethod
     def safe(cls, **overrides: Any) -> NormalizeOptions:
+        _check_override_names("safe", overrides)
         return cls(mode="safe", **overrides)
 
     @classmethod
     def tts(cls, **overrides: Any) -> NormalizeOptions:
+        _check_override_names("tts", overrides)
         return cls(mode="tts", **overrides)
+
+
+# Имена опций выводятся из подписи __init__, чтобы не держать ещё один список
+# опций, который придётся руками синхронизировать при добавлении новой.
+OPTION_NAMES: frozenset[str] = frozenset(
+    name for name in inspect.signature(NormalizeOptions.__init__).parameters if name != "self"
+)
+
+
+def _check_override_names(profile: str, overrides: Mapping[str, Any]) -> None:
+    """Отклонить опечатки в именах опций: иначе они молча теряются в **overrides."""
+    unknown = sorted(set(overrides) - OPTION_NAMES)
+    if unknown:
+        raise TypeError(
+            f"NormalizeOptions.{profile}() got unexpected keyword argument(s): "
+            f"{', '.join(repr(name) for name in unknown)}"
+        )

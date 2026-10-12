@@ -12,7 +12,12 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from ru_normalizr.dictionary import DictionaryNormalizer, apply_dictionary_rules
+from ru_normalizr import NormalizeOptions, Normalizer, dictionary
+from ru_normalizr.dictionary import (
+    DictionaryLoadError,
+    DictionaryNormalizer,
+    apply_dictionary_rules,
+)
 
 
 class DictionaryRuleTestCase(unittest.TestCase):
@@ -29,6 +34,18 @@ class DictionaryRuleTestCase(unittest.TestCase):
 
     def normalizer(self, **kwargs) -> DictionaryNormalizer:
         return DictionaryNormalizer(dictionaries_path=self.root, **kwargs)
+
+    @staticmethod
+    def _failing_open(failing_name: str):
+        """Подменить ``Path.open`` так, чтобы падал только один файл."""
+        real_open = Path.open
+
+        def fake_open(self_path, *args, **kwargs):
+            if self_path.name == failing_name:
+                raise OSError("disk is on fire")
+            return real_open(self_path, *args, **kwargs)
+
+        return fake_open
 
 
 class SimpleRuleTests(DictionaryRuleTestCase):
@@ -342,20 +359,33 @@ class FileSelectionTests(DictionaryRuleTestCase):
 
         self.assertEqual(self.normalizer().apply("слово"), "ок")
 
-    def test_unreadable_dictionary_file_does_not_break_the_others(self):
+    def test_unreadable_user_dictionary_raises_instead_of_dropping_rules(self):
+        # Раньше нечитаемый файл просто выпадал из загрузки: нормализация молча
+        # становилась неполной, и наружу это выглядело как пропущенное правило.
         self.write_dic("a_broken.dic", "слово=нет\n")
         self.write_dic("b_good.dic", "другое=да\n")
-        real_open = Path.open
 
-        def fail_for_broken(self_path, *args, **kwargs):
-            if self_path.name == "a_broken.dic":
-                raise OSError("disk is on fire")
-            return real_open(self_path, *args, **kwargs)
+        with (
+            patch.object(Path, "open", self._failing_open("a_broken.dic")),
+            self.assertRaises(DictionaryLoadError) as raised,
+        ):
+            self.normalizer()
 
-        with patch.object(Path, "open", fail_for_broken):
-            normalizer = self.normalizer()
+        self.assertIn("a_broken.dic", str(raised.exception))
 
-        self.assertEqual(normalizer.apply("слово другое"), "слово да")
+    def test_unreadable_bundled_dictionary_is_logged_and_skipped(self):
+        # Словари из состава пакета — другой случай: сломать их может только
+        # сборка, и отказ на старте хуже частичной функциональности.
+        with (
+            patch.object(Path, "open", self._failing_open("latinization_rules.dic")),
+            self.assertLogs("ru_normalizr.dictionary", level="ERROR") as logs,
+        ):
+            normalizer = DictionaryNormalizer(
+                include_only_files=["latinization/latinization_rules.dic"]
+            )
+
+        self.assertEqual(normalizer.get_rule_count(), 0)
+        self.assertTrue(any("latinization_rules.dic" in message for message in logs.output))
 
     def test_invalid_utf8_bytes_are_replaced_instead_of_raising(self):
         (self.root / "a.dic").write_bytes(b"\xff\xfe=bad\n\xd1\x85\xd0\xbe=ok\n")
@@ -479,7 +509,6 @@ class PublicFunctionTests(DictionaryRuleTestCase):
         self.assertEqual(
             apply_dictionary_rules(
                 "Он поставил линукс вместо Windows",
-                enabled=True,
                 dictionaries_path=self.root,
             ),
             "Он поставил Linux вместо Windows",
@@ -489,7 +518,7 @@ class PublicFunctionTests(DictionaryRuleTestCase):
         # No path means "use the ones shipped with the package"; nothing outside
         # latinization ships, so the text returns untouched rather than raising.
         self.assertEqual(
-            apply_dictionary_rules("Он поставил линукс вместо Windows", enabled=True),
+            apply_dictionary_rules("Он поставил линукс вместо Windows"),
             "Он поставил линукс вместо Windows",
         )
 
@@ -497,7 +526,6 @@ class PublicFunctionTests(DictionaryRuleTestCase):
         self.assertEqual(
             apply_dictionary_rules(
                 "Модель a",
-                enabled=True,
                 include_only_files=("latinization_rules.dic",),
             ),
             "Модель Эй,",
@@ -506,14 +534,92 @@ class PublicFunctionTests(DictionaryRuleTestCase):
     def test_disabled_rules_leave_the_text_alone(self):
         self.write_dic("a.dic", "линукс=Linux\n")
 
-        self.assertEqual(
-            apply_dictionary_rules(
-                "Он поставил линукс вместо Windows",
-                enabled=False,
+        # Выключение стадии — дело пайплайна: у `apply_dictionary_rules`
+        # параметра `enabled` больше нет.
+        normalizer = Normalizer(
+            NormalizeOptions(
+                enable_dictionary_normalization=False,
                 dictionaries_path=self.root,
-            ),
+            )
+        )
+        self.assertEqual(
+            normalizer.run_stage("dictionary", "Он поставил линукс вместо Windows"),
             "Он поставил линукс вместо Windows",
         )
+
+
+class NormalizerRegistryTests(DictionaryRuleTestCase):
+    """Реестр ``get_dictionary_normalizer`` ограничен по размеру.
+
+    Долгоживущий сервис, который берёт путь к словарям или include/exclude из
+    запроса, раньше накапливал по нормализатору на каждую комбинацию — со всеми
+    скомпилированными паттернами — и не отдавал память никогда.
+    """
+
+    def setUp(self) -> None:
+        super().setUp()
+        saved = dictionary._normalizers.copy()
+        dictionary._normalizers.clear()
+
+        def restore() -> None:
+            dictionary._normalizers.clear()
+            dictionary._normalizers.update(saved)
+
+        self.addCleanup(restore)
+
+    def test_same_arguments_reuse_one_normalizer(self):
+        self.write_dic("a.dic", "один=1\n")
+
+        first = dictionary.get_dictionary_normalizer(self.root)
+        second = dictionary.get_dictionary_normalizer(self.root)
+
+        self.assertIs(first, second)
+
+    def test_registry_never_exceeds_its_bound(self):
+        self.write_dic("a.dic", "один=1\n")
+
+        for index in range(dictionary._NORMALIZERS_MAXSIZE * 3):
+            dictionary.get_dictionary_normalizer(
+                self.root, exclude_files=[f"missing_{index}.dic"]
+            )
+
+        self.assertEqual(len(dictionary._normalizers), dictionary._NORMALIZERS_MAXSIZE)
+
+    def test_least_recently_used_entry_is_evicted_first(self):
+        self.write_dic("a.dic", "один=1\n")
+        first_key_normalizer = dictionary.get_dictionary_normalizer(
+            self.root, exclude_files=["keep.dic"]
+        )
+
+        # Обращение к первой записи делает её свежей, поэтому вытесняться должны
+        # следующие за ней, а не она сама.
+        for index in range(dictionary._NORMALIZERS_MAXSIZE - 1):
+            dictionary.get_dictionary_normalizer(
+                self.root, exclude_files=[f"filler_{index}.dic"]
+            )
+        self.assertIs(
+            dictionary.get_dictionary_normalizer(self.root, exclude_files=["keep.dic"]),
+            first_key_normalizer,
+        )
+
+        dictionary.get_dictionary_normalizer(self.root, exclude_files=["overflow.dic"])
+
+        self.assertIs(
+            dictionary.get_dictionary_normalizer(self.root, exclude_files=["keep.dic"]),
+            first_key_normalizer,
+        )
+        self.assertEqual(len(dictionary._normalizers), dictionary._NORMALIZERS_MAXSIZE)
+
+    def test_different_include_sets_get_different_normalizers(self):
+        self.write_dic("a.dic", "один=1\n")
+        self.write_dic("b.dic", "два=2\n")
+
+        only_a = dictionary.get_dictionary_normalizer(self.root, include_only_files=["a.dic"])
+        only_b = dictionary.get_dictionary_normalizer(self.root, include_only_files=["b.dic"])
+
+        self.assertIsNot(only_a, only_b)
+        self.assertEqual(only_a.apply("один два"), "1 два")
+        self.assertEqual(only_b.apply("один два"), "один 2")
 
 
 if __name__ == "__main__":

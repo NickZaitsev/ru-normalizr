@@ -15,14 +15,15 @@ USAGE_ERROR_EXIT_CODE = 2
 
 
 def _use_utf8_stdio() -> None:
-    """Keep stdin/stdout UTF-8 whatever the platform locale encoding is.
+    """Keep stdin/stdout/stderr UTF-8 whatever the platform locale encoding is.
 
     ``--file`` and ``--output`` are already UTF-8. Without this, a redirected
     stdout is encoded with the locale codepage, and Windows locales such as
     cp1252 cannot represent Cyrillic at all, so printing a normalized result
-    raises UnicodeEncodeError.
+    raises UnicodeEncodeError. Diagnostics carry the same Cyrillic — a file
+    path or a quoted fragment — so stderr needs the same treatment.
     """
-    for stream in (sys.stdin, sys.stdout):
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure is None:
             continue

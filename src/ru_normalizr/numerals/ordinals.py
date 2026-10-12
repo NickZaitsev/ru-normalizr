@@ -3,11 +3,13 @@ from __future__ import annotations
 import logging
 import re
 
-from .._morph import canonicalize_case, parse_word
+from .._morph import canonicalize_case, parse_word, word_is_known
+from ..constants import RU_VOWELS
 from ..ordinal_utils import (
     render_ordinal,
 )
 from ..text_context import simple_tokenize
+from ..text_scan import compile_scan
 from ._constants import HYPHENATED_WORD_PATTERN
 from ._helpers import get_numeral_case, inflect_numeral_string
 from ._hyphen import classify_numeric_hyphen_rhs
@@ -59,6 +61,9 @@ HEADING_CONTEXT_CASES = {
     "середина": "gent",
     "см": "accs",
     "смотри": "accs",
+    # «на»/«про» вводят рубрику дополнением: «ссылка на главу двенадцатую».
+    "на": "accs",
+    "про": "accs",
 }
 SINGULAR_HEADING_WORDS_PATTERN = (
     r"глава|главы|главе|главу|главой|"
@@ -67,20 +72,21 @@ SINGULAR_HEADING_WORDS_PATTERN = (
     r"книга|книги|книге|книгой|"
     r"квартал|квартала|квартале|кварталу|кварталом"
 )
-HEADING_RANGE_PATTERN = re.compile(
+HEADING_RANGE_PATTERN = compile_scan(
     rf"\b(?P<head>{HEADING_WORDS_PATTERN})\s+(?P<left>\d+)\s*[–—-]\s*(?P<right>\d+)\b",
     re.IGNORECASE | re.UNICODE,
 )
-HEADING_SINGLE_PATTERN = re.compile(
+HEADING_SINGLE_PATTERN = compile_scan(
     rf"\b(?P<head>{SINGULAR_HEADING_WORDS_PATTERN})\s+(?P<number>\d+)\b",
     re.IGNORECASE | re.UNICODE,
 )
-ABBREVIATED_HEADING_RANGE_PATTERN = re.compile(
+ABBREVIATED_HEADING_RANGE_PATTERN = compile_scan(
     r"\b(?P<head>гл)\.\s*(?P<left>\d+)\s*[–—-]\s*(?P<right>\d+)\b",
     re.IGNORECASE | re.UNICODE,
 )
-ABBREVIATED_HEADING_PATTERN = re.compile(
-    r"\b(?P<head>гл)\.\s*(?P<number>\d+)\b",
+ABBREVIATED_HEADING_PATTERN = compile_scan(
+    r"(?<!\w)(?:(?P<lead>\d+)\s+(?P<lead_head>гл)\.(?!\s*\d)"
+    r"|(?P<head>гл)\.\s*(?P<number>\d+)\b)",
     re.IGNORECASE | re.UNICODE,
 )
 COMPOUND_ADJECTIVE_STEMS = (
@@ -94,11 +100,11 @@ COMPOUND_ADJECTIVE_STEMS = (
     "часов",
     "летн",
 )
-COMPOUND_ADJECTIVE_PATTERN = re.compile(
+COMPOUND_ADJECTIVE_PATTERN = compile_scan(
     rf"(?<!\d)(?P<num>\d+)(?:\s*[-–—]?\s*(?P<suffix>и|х))?\s+(?P<adj>(?:{'|'.join(COMPOUND_ADJECTIVE_STEMS)})[а-яё]+)\b",
     re.IGNORECASE | re.UNICODE,
 )
-PERCENT_COMPOUND_ADJECTIVE_PATTERN = re.compile(
+PERCENT_COMPOUND_ADJECTIVE_PATTERN = compile_scan(
     r"(?<!\d)(?P<num>\d+)\s*%\s*[-–—]?\s*(?P<suffix>н(?:ый|ая|ое|ые|ого|ой|ому|ым|ом|ую|ых|ыми))\b",
     re.IGNORECASE | re.UNICODE,
 )
@@ -108,8 +114,36 @@ def _ordinal_words(num: int, case: str, gender: str | None) -> str:
     return render_ordinal(num, case=case, gender=gender)
 
 
+#: Согласные, после которых «с» наращивается до «со», — но только если за
+#: ними идёт ещё одна согласная: стечение «ст», «вт» произнести без гласной
+#: нельзя, а «во», «ше», «се» — можно.
+_RANGE_PREPOSITION_CLUSTER_HEADS = frozenset("вфсзшж")
+
+
 def _pick_range_preposition(first_ordinal: str) -> str:
-    return "со" if first_ordinal.startswith(("в", "ф", "с", "з", "ш", "ж")) else "с"
+    """«со второго», «со стотысячного», но «с восьмого», «с сотого»."""
+
+    head = first_ordinal[:2].lower()
+    if len(head) < 2 or head[0] not in _RANGE_PREPOSITION_CLUSTER_HEADS:
+        return "с"
+    return "с" if head[1].upper() in RU_VOWELS else "со"
+
+
+def _heading_gender(head: str) -> str:
+    """Род вершины рубрикации, когда её падеж по контексту не определился.
+
+    У «главы», «части», «книги» род стабилен, а неоднозначен только падеж:
+    «главы 8-9» без предлога слева `_heading_parse` разобрать не может, но
+    женский род известен и там. Одушевлённый омоним («глава» как начальник)
+    для рубрики невозможен, поэтому предпочитается неодушевлённый разбор —
+    тот же, который `_heading_parse` уже отбирает для выбора падежа.
+    """
+    nouns = [candidate for candidate in parse_word(head.lower()) if "NOUN" in candidate.tag]
+    inanimate = [candidate for candidate in nouns if "inan" in candidate.tag]
+    for candidate in inanimate or nouns:
+        if candidate.tag.gender:
+            return candidate.tag.gender
+    return "masc"
 
 
 def _heading_parse(text: str, match_start: int, head: str):
@@ -152,7 +186,9 @@ def _heading_parse(text: str, match_start: int, head: str):
 
 def normalize_heading_ranges(text: str) -> str:
     def render_range(head: str, noun_parse, left: int, right: int) -> str:
-        gender = noun_parse.tag.gender if noun_parse and noun_parse.tag.gender else "masc"
+        gender = (
+            noun_parse.tag.gender if noun_parse and noun_parse.tag.gender else None
+        ) or _heading_gender(head)
         left_ordinal = _ordinal_words(left, "gent", gender)
         right_case = "accs" if gender == "femn" else "nomn"
         right_ordinal = _ordinal_words(right, right_case, gender)
@@ -232,7 +268,13 @@ def normalize_heading_numbers(text: str) -> str:
         inflected_noun = noun_parse.inflect({target_case, "sing"})
         if inflected_noun is None:
             return match.group(0)
-        ordinal = _ordinal_words(int(match.group("number")), target_case, "femn")
+        lead = match.group("lead")
+        number = lead if lead is not None else match.group("number")
+        ordinal = _ordinal_words(int(number), target_case, "femn")
+        if lead is not None:
+            # Порядок слов у номера перед сокращением обратный: «в восьмой
+            # главе», а не «в главе восьмой».
+            return f"{ordinal} {inflected_noun.word}"
         return f"{inflected_noun.word} {ordinal}"
 
     def repl(match: re.Match[str]) -> str:
@@ -275,11 +317,14 @@ def _compound_numeral_prefix(num_str: str) -> str:
     if value == 4:
         return "четырёх"
     words = inflect_numeral_string(num_str, "gent").split()
-    if 90 < value < 100 and words[:1] == ["девяноста"]:
-        words[0] = "девяносто"
-    elif value == 100:
+    # «девяносто» — единственная основа, которая в сложном прилагательном не
+    # переходит в родительный: «девяностолетний», не «девяносталетний». В
+    # составном числе она стоит не обязательно первой, поэтому правится в
+    # любой позиции: «стодевяностолетний», «тысячедевяностолетний».
+    words = ["девяносто" if word == "девяноста" else word for word in words]
+    if value == 100:
         return "сто"
-    elif 100 < value < 200 and words[:1] == ["ста"]:
+    if 100 < value < 200 and words[:1] == ["ста"]:
         words[0] = "сто"
     if value % 10 == 1 and value % 100 != 11 and words[-1:] == ["одного"]:
         words[-1] = "одно"
@@ -328,25 +373,219 @@ def normalize_compound_numeric_adjectives(text: str) -> str:
     return COMPOUND_ADJECTIVE_PATTERN.sub(repl, text)
 
 
+#: Case endings of a numeral that authors duplicate at the start of the glued
+#: word: «60-тиверстная» spells the «-ти» of «шестидесяти» twice.
+_CARDINAL_INFIXES = ("тью", "ти", "ми", "мя", "ух", "ех", "ёх", "х")
+#: Endings of «тысячный» written after a round number: «40000-ным войском».
+_THOUSANDS_ADJECTIVE_SUFFIX_PATTERN = compile_scan(
+    r"н(?:ый|ая|ое|ые|ого|ой|ому|ым|им|ом|ем|ую|ых|ыми)ъ?", re.IGNORECASE
+)
+RANGE_COMPOUND_ADJECTIVE_PATTERN = compile_scan(
+    r"(?<![\w\d])(?P<left>\d+)\s*[–—]\s*(?P<right>\d+)-(?P<word>[а-яёА-ЯЁ]{3,})"
+)
+PREFIXED_ORDINAL_ADVERB_PATTERN = compile_scan(
+    r"(?<![\w-])(?P<prefix>в|во)-(?P<num>\d{1,2})(?:-х)?(?=[,;:.)])",
+    re.IGNORECASE,
+)
+EDITION_ORDINAL_PATTERN = compile_scan(
+    r"\bизд\.\s*(?P<num>\d+)-е(?!\w)", re.IGNORECASE
+)
+
+
+#: Буквы, изъятые реформой 1918 года: у каждой ровно один современный
+#: эквивалент, поэтому замена однозначна и обратима на уровне классификации.
+_PRE_REFORM_LETTERS = str.maketrans({"і": "и", "ѣ": "е", "ѳ": "ф", "ѵ": "и"})
+
+
+def _modern_spelling(word_lower: str) -> str:
+    """Pre-reform spelling mapped to its modern form, for classification only.
+
+    Морфология знает только современную орфографию, поэтому дореформенное
+    прилагательное («фунтовыя», «лѣтній») ей неизвестно и составное числительное
+    к нему не приклеивается. Написание приводится к современному лишь для
+    разбора — в текст возвращается исходное слово.
+    """
+    spelling = word_lower.translate(_PRE_REFORM_LETTERS)
+    if spelling.endswith("ъ"):
+        spelling = spelling[:-1]
+    if spelling.endswith("аго"):
+        spelling = spelling[:-3] + "ого"
+    elif spelling.endswith("яго"):
+        spelling = spelling[:-3] + "его"
+    elif spelling.endswith("ыя"):
+        # Женский и средний род множественного числа: «полевыя» → «полевые».
+        spelling = spelling[:-2] + "ые"
+    elif spelling.endswith("ия") and len(spelling) > 4:
+        # То же для мягкой основы: «синія» → «синие». Короткие слова исключены,
+        # иначе под правило попадают существительные вроде «имя» или «выя».
+        spelling = spelling[:-2] + "ие"
+    return spelling
+
+
+def _is_adjective_spelling(spelling: str) -> bool:
+    return any("ADJF" in candidate.tag for candidate in parse_word(spelling))
+
+
+def _strip_duplicated_infix(prefix: str, word: str) -> str | None:
+    """Drop the numeral's case ending duplicated at the start of the word.
+
+    The remainder must be a dictionary adjective: «минутный» after «восьми»
+    starts with «ми» too, but «нутный» is not a word, so it stays intact.
+    """
+    word_lower = word.lower()
+    for infix in _CARDINAL_INFIXES:
+        if word_lower.startswith(infix) and prefix.endswith(infix):
+            remainder = word[len(infix) :]
+            spelling = _modern_spelling(remainder.lower())
+            if (
+                len(spelling) >= 4
+                and word_is_known(spelling)
+                and _is_adjective_spelling(spelling)
+            ):
+                return remainder
+    return None
+
+
+def normalize_range_compound_adjectives(text: str) -> str:
+    """«6—7-тысячного отряда» → «шести-семитысячного отряда»."""
+
+    def repl(match: re.Match[str]) -> str:
+        word = match.group("word")
+        if not _is_adjective_spelling(_modern_spelling(word.lower())):
+            return match.group(0)
+        left = _compound_numeral_prefix(match.group("left"))
+        right = _compound_numeral_prefix(match.group("right"))
+        return f"{left}-{_join_compound_numeral(right, word)}"
+
+    return RANGE_COMPOUND_ADJECTIVE_PATTERN.sub(repl, text)
+
+
+def normalize_prefixed_ordinal_adverbs(text: str) -> str:
+    """«во-1, … а во-2,» → «во-первых, … а во-вторых,»."""
+
+    def repl(match: re.Match[str]) -> str:
+        try:
+            adverb = render_ordinal(
+                int(match.group("num")), case="gent", plural=True, inanimate=True
+            )
+        except (TypeError, ValueError):
+            return match.group(0)
+        return f"{match.group('prefix')}-{adverb}"
+
+    return PREFIXED_ORDINAL_ADVERB_PATTERN.sub(repl, text)
+
+
+def normalize_edition_ordinals(text: str) -> str:
+    """«Изд. 2-е» → «издание второе»."""
+
+    def repl(match: re.Match[str]) -> str:
+        return f"издание {_ordinal_words(int(match.group('num')), 'nomn', 'neut')}"
+
+    return EDITION_ORDINAL_PATTERN.sub(repl, text)
+
+
+THOUSANDS_ABBREVIATED_ATTRIBUTE_PATTERN = compile_scan(
+    r"(?<![\w\d])(?P<num>\d+)-тыс\.\s+(?P<noun>[а-яёА-ЯЁ]+)"
+)
+
+
+def normalize_thousands_abbreviated_attributes(text: str) -> str:
+    """«15-тыс. отряд» → «пятнадцатитысячный отряд», agreeing with the noun."""
+
+    def repl(match: re.Match[str]) -> str:
+        noun = match.group("noun")
+        noun_parse = next(
+            (candidate for candidate in parse_word(noun) if "NOUN" in candidate.tag),
+            None,
+        )
+        if noun_parse is None:
+            return match.group(0)
+        adjective_parse = next(
+            (
+                candidate
+                for candidate in parse_word("тысячный")
+                if "ADJF" in candidate.tag
+            ),
+            None,
+        )
+        if adjective_parse is None:
+            return match.group(0)
+        tags = {canonicalize_case(noun_parse.tag.case) or "nomn"}
+        if "plur" in noun_parse.tag:
+            tags.add("plur")
+        else:
+            tags.add("sing")
+            if noun_parse.tag.gender:
+                tags.add(noun_parse.tag.gender)
+        inflected = adjective_parse.inflect(frozenset(tags))
+        if inflected is None:
+            return match.group(0)
+        prefix = _compound_numeral_prefix(match.group("num"))
+        return f"{_join_compound_numeral(prefix, inflected.word)} {noun}"
+
+    return THOUSANDS_ABBREVIATED_ATTRIBUTE_PATTERN.sub(repl, text)
+
+
 def normalize_hyphenated_words(
     text: str, *, include_numeric_suffixes: bool = True
 ) -> str:
     if include_numeric_suffixes:
         text = normalize_numeric_suffixes(text)
+    text = normalize_range_compound_adjectives(text)
 
     def repl(match: re.Match[str]) -> str:
-        num_str = match.group(1)
-        word = match.group(2)
+        num_str = match.group("num")
+        infix = match.group("infix")
+        word = match.group("word")
         word_lower = word.lower()
-        if is_numeric_suffix(word_lower):
+        if infix is None and is_numeric_suffix(word_lower):
             return match.group(0)
-        word_kind = classify_numeric_hyphen_rhs(word)
-        if word_kind == "unit":
+        if infix is None and classify_numeric_hyphen_rhs(word) == "unit":
             return match.group(0)
         try:
-            int(num_str)
+            value = int(num_str)
         except ValueError as exc:
             logger.debug("int() failed for %r: %s", num_str, exc)
+            return match.group(0)
+        if (
+            value >= 1000
+            and value % 1000 == 0
+            and _THOUSANDS_ADJECTIVE_SUFFIX_PATTERN.fullmatch(word_lower)
+        ):
+            # «40000-ным» carries only the tail of «тысячным»: the thousands
+            # live in the digits and the stem is implied.
+            num_str = str(value // 1000)
+            word = f"тысяч{word}"
+            word_lower = word.lower()
+        prefix = _compound_numeral_prefix(num_str)
+        stripped = _strip_duplicated_infix(prefix, word)
+        if stripped is not None:
+            word = stripped
+            word_lower = word.lower()
+        classification_spelling = _modern_spelling(word_lower)
+        word_parses = parse_word(classification_spelling)
+        is_adj_like = any(
+            "ADJF" in candidate.tag for candidate in word_parses
+        ) or classification_spelling.endswith(
+            (
+                "дневный",
+                "часовой",
+                "минутный",
+                "летний",
+                "этажный",
+                "тонный",
+                "процентный",
+                "кратный",
+                "кратного",
+                "кратном",
+                "кратных",
+            )
+        )
+        if is_adj_like:
+            return _join_compound_numeral(prefix, word)
+        if infix is not None or not any(
+            "NOUN" in candidate.tag for candidate in word_parses
+        ):
             return match.group(0)
         ctx_left = text[max(0, match.start() - 60) : match.start()]
         ctx_right = text[match.end() : match.end() + 60]
@@ -355,31 +594,7 @@ def normalize_hyphenated_words(
         case = get_numeral_case(
             [*tokens_left, num_str, *tokens_right], len(tokens_left)
         )
-        word_parses = parse_word(word_lower)
-        is_adj_like = any("ADJF" in candidate.tag for candidate in word_parses) or (
-            word_lower.endswith(
-                (
-                    "дневный",
-                    "часовой",
-                    "минутный",
-                    "летний",
-                    "этажный",
-                    "тонный",
-                    "процентный",
-                    "кратный",
-                    "кратного",
-                    "кратном",
-                    "кратных",
-                )
-            )
-        )
-        is_noun_like = any("NOUN" in candidate.tag for candidate in word_parses)
-        if not is_adj_like and not is_noun_like:
-            return match.group(0)
-        target_case = "gent" if is_adj_like and case == "nomn" else case
-        num_words = inflect_numeral_string(num_str, target_case)
-        if is_adj_like:
-            return _join_compound_numeral(_compound_numeral_prefix(num_str), word)
+        num_words = inflect_numeral_string(num_str, case)
         return f"{num_words} {word}"
 
     return HYPHENATED_WORD_PATTERN.sub(repl, text)

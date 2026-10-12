@@ -9,13 +9,41 @@ from pathlib import Path
 
 from .constants import LetterVowelMode, resolve_letter_name
 from .dictionary import DictionaryNormalizer
+from .text_scan import compile_scan
 
 DEFAULT_DICTIONARIES_PATH = Path(__file__).resolve().parent / "dictionaries"
 DEFAULT_LATINIZATION_DICTIONARIES_PATH = DEFAULT_DICTIONARIES_PATH / "latinization"
-LATIN_TOKEN_PATTERN = re.compile(r"[A-Za-z][A-Za-z'\-]*")
-ALPHANUMERIC_SUFFIX_LETTER_PATTERN = re.compile(
+# Типографский апостроф «’» входит в слово только между буквами — иначе это
+# закрывающая кавычка, и съедать её нельзя.
+LATIN_TOKEN_PATTERN = compile_scan(r"[A-Za-z][A-Za-z'\-]*(?:’[A-Za-z][A-Za-z'\-]*)*")
+ALPHANUMERIC_SUFFIX_LETTER_PATTERN = compile_scan(
     r"(?:(?<=\d)|(?<=[А-Яа-яЁё]-))(?P<letter>[A-Za-z])\b"
+    r"|(?<![\w'’-])(?P<label>[A-Za-z])(?![\w'’-])"
 )
+#: Слово рядом с одиночной латинской буквой: оно решает, метка перед нами или
+#: английское слово в английской фразе.
+_NEIGHBOUR_WORD_PATTERN = compile_scan(r"[A-Za-zА-Яа-яЁё]+")
+#: Сколько знаков просматривать в поисках соседнего слова: между буквой-меткой
+#: и словом стоят пробел, скобка или кавычка, а не целое предложение.
+_NEIGHBOUR_WORD_WINDOW = 48
+
+
+def _reads_as_letter_label(text: str, start: int, end: int) -> bool:
+    """Одиночная латинская буква в русской фразе — метка.
+
+    Английский артикль стоит внутри английской фразы, и рядом с ним латинские
+    слова; у метки соседи русские — «вариант A лучше». Латинский сосед с любой
+    стороны отменяет чтение именем буквы: там буква входит в английскую фразу
+    или в имя с инициалом («J. Smith»).
+    """
+    left = _NEIGHBOUR_WORD_PATTERN.findall(
+        text[max(0, start - _NEIGHBOUR_WORD_WINDOW) : start]
+    )
+    right = _NEIGHBOUR_WORD_PATTERN.findall(text[end : end + _NEIGHBOUR_WORD_WINDOW])
+    neighbours = left[-1:] + right[:1]
+    if not neighbours:
+        return False
+    return not any(word[0].isascii() for word in neighbours)
 IPA_BATCH_SIZE = 800
 IPA_BATCH_THRESHOLD = 24
 DICTIONARY_FALLBACK_BATCH_THRESHOLD = 8
@@ -299,7 +327,28 @@ def _ipa_to_russian(ipa_text: str, include_stress_markers: bool = False) -> str:
         ipa_text = ipa_text.replace(ipa_char, ru_char)
     ipa_text = ipa_text.replace("ː", "")
     ipa_text = move_stress_marker_ru(ipa_text)
-    return ipa_text.replace("ˈ", "+" if include_stress_markers else "")
+    if not include_stress_markers:
+        return ipa_text.replace("ˈ", "")
+    # Один знак на слово. IPA составных названий несёт по главному ударению на
+    # каждую часть («microsoft» → м+айкроус+офт), а синтез читает второй знак как
+    # отдельное ударение и ломает слово.
+    return _single_stress_per_word(ipa_text)
+
+
+_WORD_WITH_STRESS_RE = re.compile(r"[^\W\d_]+(?:[ˈ][^\W\d_]+)*", re.UNICODE)
+
+
+def _single_stress_per_word(text: str) -> str:
+    """Заменить ``ˈ`` на ``+``, оставив в каждом слове только первый знак."""
+
+    def one_word(match: re.Match[str]) -> str:
+        word = match.group(0)
+        head, marker, tail = word.partition("ˈ")
+        if not marker:
+            return word
+        return head + "+" + tail.replace("ˈ", "")
+
+    return _WORD_WITH_STRESS_RE.sub(one_word, text).replace("ˈ", "+")
 
 
 def _apply_dictionary_latinization(
@@ -358,7 +407,9 @@ def _apply_ipa_latinization(
     if not matches:
         return text
 
-    unique_words = tuple(dict.fromkeys(match.group(0).lower() for match in matches))
+    unique_words = tuple(
+        dict.fromkeys(match.group(0).lower().replace("’", "'") for match in matches)
+    )
     ipa_results = _ipa_convert_words(unique_words)
 
     replacements: dict[str, str] = {}
@@ -372,16 +423,32 @@ def _apply_ipa_latinization(
         )
 
     if unknown_words:
-        replacements.update(
-            _resolve_unknown_latin_fallbacks(
-                tuple(unknown_words),
+        # Апостроф в неизвестном слове — элизия («d'orge»): читаем слитно.
+        fused = {word: word.replace("'", "") for word in unknown_words}
+        retry_targets = tuple(
+            dict.fromkeys(fused[word] for word in unknown_words if "'" in word)
+        )
+        retried = _ipa_convert_words(retry_targets) if retry_targets else {}
+        dictionary_words: list[str] = []
+        for word in unknown_words:
+            ipa_text = retried.get(fused[word], "*")
+            if "*" in ipa_text:
+                dictionary_words.append(word)
+                continue
+            replacements[word] = _ipa_to_russian(
+                ipa_text, include_stress_markers=include_stress_markers
+            )
+        if dictionary_words:
+            resolved = _resolve_unknown_latin_fallbacks(
+                tuple(dict.fromkeys(fused[word] for word in dictionary_words)),
                 str(dictionaries_path),
                 filename,
             )
-        )
+            for word in dictionary_words:
+                replacements[word] = resolved[fused[word]]
 
     def replace(match: re.Match[str]) -> str:
-        word = match.group(0).lower()
+        word = match.group(0).lower().replace("’", "'")
         return replacements.get(word, match.group(0))
 
     return LATIN_TOKEN_PATTERN.sub(replace, text)
@@ -390,21 +457,24 @@ def _apply_ipa_latinization(
 def apply_latinization(
     text: str,
     *,
-    enabled: bool,
     backend: str,
     dictionaries_path: Path | None = None,
     dictionary_filename: str = "latinization_rules.dic",
     include_stress_markers: bool = False,
     letter_vowel_mode: LetterVowelMode = "single",
 ) -> str:
-    if not enabled or not re.search(r"[A-Za-z]", text):
+    if not re.search(r"[A-Za-z]", text):
         return text
 
-    text = ALPHANUMERIC_SUFFIX_LETTER_PATTERN.sub(
-        lambda match: resolve_letter_name(match.group("letter"), letter_vowel_mode)
-        or match.group("letter"),
-        text,
-    )
+    def letter_name_repl(match: re.Match[str]) -> str:
+        letter = match.group("letter")
+        if letter is None:
+            letter = match.group("label")
+            if not _reads_as_letter_label(text, match.start(), match.end()):
+                return letter
+        return resolve_letter_name(letter, letter_vowel_mode) or letter
+
+    text = ALPHANUMERIC_SUFFIX_LETTER_PATTERN.sub(letter_name_repl, text)
 
     dict_path, resolved_filename = _resolve_latinization_dictionary_source(
         dictionaries_path, dictionary_filename

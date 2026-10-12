@@ -176,15 +176,26 @@ class HeadingRangeTests(unittest.TestCase):
             "см. главы с третьей по пятую",
         )
 
-    def test_unresolvable_head_is_left_as_written_and_defaults_to_masculine(self):
+    def test_unresolvable_head_is_left_as_written_but_keeps_its_gender(self):
+        # Падеж вершины по контексту не разбирается, и она остаётся как в
+        # исходнике, но род у «главы» стабилен и берётся из её разбора: номера
+        # согласуются женским родом, а не мужским по умолчанию.
         self.assertEqual(
             normalize_heading_ranges("главы 3-5"),
-            "главы с третьего по пятый",
+            "главы с третьей по пятую",
         )
         self.assertEqual(
             normalize_heading_ranges("к главы 3-5"),
-            "к главы с третьего по пятый",
+            "к главы с третьей по пятую",
         )
+
+    def test_heading_gender_comes_from_the_inanimate_parse(self):
+        # У «главы» есть и одушевлённый разбор (начальник) общего рода, но
+        # рубрика одушевлённой не бывает, поэтому род берётся из
+        # неодушевлённого разбора. Слово без разбора вовсе — мужской род.
+        self.assertEqual(ordinals._heading_gender("главы"), "femn")
+        self.assertEqual(ordinals._heading_gender("тома"), "masc")
+        self.assertEqual(ordinals._heading_gender("щщщы"), "masc")
 
     def test_head_that_cannot_be_pluralized_is_left_as_written(self):
         stub = SimpleNamespace(
@@ -196,23 +207,21 @@ class HeadingRangeTests(unittest.TestCase):
 
         self.assertEqual(result, "главы с третьей по пятую")
 
-    def test_preposition_becomes_so_before_a_sibilant_ordinal(self):
-        self.assertEqual(
-            normalize_heading_ranges("тома 2-3"),
-            "тома со второго по третий",
+    def test_preposition_becomes_so_only_before_a_consonant_cluster(self):
+        # «Со» наращивается перед стечением согласных, а не перед любой
+        # шипящей или свистящей: «со второго», «со ста», но «с седьмого».
+        cases = (
+            ("тома 2-3", "тома со второго по третий"),
+            ("тома 100-101", "тома с сотого по сто первый"),
+            ("тома 7-9", "тома с седьмого по девятый"),
+            ("тома 6-8", "тома с шестого по восьмой"),
+            ("тома 8-9", "тома с восьмого по девятый"),
+            ("тома 40-41", "тома с сорокового по сорок первый"),
+            ("Книги 1-2", "Книги с первой по вторую"),
         )
-        self.assertEqual(
-            normalize_heading_ranges("тома 7-9"),
-            "тома со седьмого по девятый",
-        )
-        self.assertEqual(
-            normalize_heading_ranges("тома 6-8"),
-            "тома со шестого по восьмой",
-        )
-        self.assertEqual(
-            normalize_heading_ranges("Книги 1-2"),
-            "Книги с первого по второй",
-        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize_heading_ranges(source), expected)
 
     def test_abbreviated_range_expands_the_head_and_follows_context(self):
         self.assertEqual(
@@ -301,7 +310,7 @@ class CompoundAdjectiveTests(unittest.TestCase):
             ("100 кратный", "стократный"),
             ("2 дневный", "двухдневный"),
             ("7 часовой", "семичасовой"),
-            ("90 летний", "девяносталетний"),
+            ("90 летний", "девяностолетний"),
         )
         for source, expected in cases:
             with self.subTest(source=source):
@@ -377,7 +386,7 @@ class CompoundAdjectiveTests(unittest.TestCase):
 
     def test_ninety_keeps_its_nominative_stem_inside_a_compound(self):
         # The genitive "девяноста" is wrong as a prefix; "девяносто" is the stem.
-        self.assertEqual(normalize_compound_numeric_adjectives("90 летний"), "девяносталетний")
+        self.assertEqual(normalize_compound_numeric_adjectives("90 летний"), "девяностолетний")
         self.assertEqual(
             normalize_compound_numeric_adjectives("95 летний"),
             "девяностопятилетний",
@@ -468,7 +477,9 @@ class HyphenatedWordTests(unittest.TestCase):
 
     def test_standalone_suffixes_above_one_hundred_are_normalized(self):
         self.assertEqual(normalize_hyphenated_words("120-й"), "сто двадцатый")
-        self.assertEqual(normalize_hyphenated_words("101-ого"), "ста одного")
+        # Голое «-ого» без управляющего существительного — порядковая запись:
+        # родительный количественного пишется только вместе со счётным словом.
+        self.assertEqual(normalize_hyphenated_words("101-ого"), "сто первого")
 
     def test_case_suffixes_above_one_hundred_are_normalized(self):
         self.assertEqual(normalize_hyphenated_words("120-х"), "сто двадцатых")

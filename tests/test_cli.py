@@ -245,17 +245,23 @@ class RuNormalizrCliTests(unittest.TestCase):
                 self.assertEqual(getattr(captured_options[0], attribute), expected)
 
     def test_utf8_stdio_reconfigure_is_best_effort(self):
+        # stderr несёт кириллицу диагностик — путь к файлу, цитату фрагмента, —
+        # поэтому переключается наравне со stdin и stdout. Сбой на одном потоке
+        # не должен оставить следующий в кодировке локали.
         stdin = _ReconfigurableStream()
         stdout = _ReconfigurableStream(error=OSError("stream is closed"))
+        stderr = _ReconfigurableStream()
 
         with (
             patch("ru_normalizr.__main__.sys.stdin", stdin),
             patch("ru_normalizr.__main__.sys.stdout", stdout),
+            patch("ru_normalizr.__main__.sys.stderr", stderr),
         ):
             _use_utf8_stdio()
 
         self.assertEqual(stdin.encodings, ["utf-8"])
         self.assertEqual(stdout.encodings, ["utf-8"])
+        self.assertEqual(stderr.encodings, ["utf-8"])
 
 
 if __name__ == "__main__":

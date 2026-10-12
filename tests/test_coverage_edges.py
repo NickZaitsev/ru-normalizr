@@ -3,8 +3,9 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from ru_normalizr import NormalizeOptions
+from ru_normalizr import NormalizeOptions, Normalizer
 from ru_normalizr.abbreviation_context import (
+    _has_dictionary_continuation,
     allows_short_abbreviated_year,
     has_mass_measurement_context,
     should_keep_terminal_abbreviation_dot,
@@ -35,7 +36,8 @@ from ru_normalizr.ordinal_utils import (
     normalize_ordinal_suffix_defaults,
     render_ordinal,
 )
-from ru_normalizr.urls import URL_PLACEHOLDER_RANGES, normalize_urls, protect_urls
+from ru_normalizr.placeholders import URLS
+from ru_normalizr.urls import normalize_urls, protect_urls
 from ru_normalizr.years import (
     _normalize_era_marker,
     normalize_numeric_ranges,
@@ -141,24 +143,27 @@ class UrlBranchTests(unittest.TestCase):
         protected = protect_urls(source)
 
         self.assertEqual(protected.text, source)
-        self.assertIsNone(protected.placeholder)
-        self.assertEqual(protected.urls, ())
+        self.assertIsNone(protected.allocator)
 
     def test_url_protection_avoids_private_use_collision(self):
-        occupied = chr(URL_PLACEHOLDER_RANGES[0][0])
+        """Символ из служебного диапазона во входе не должен стать заменителем.
+
+        Иначе восстановление подставит URL и на месте исходного символа.
+        """
+        occupied = chr(URLS.start)
         source = f"Маркер {occupied}, ссылки www.example.org/a и https://b.test/x."
 
         protected = protect_urls(source)
 
-        self.assertIsNotNone(protected.placeholder)
-        self.assertNotEqual(protected.placeholder, occupied)
+        self.assertIsNotNone(protected.allocator)
+        # Маркер остался ровно один — ни один URL не спрятан за него.
+        self.assertEqual(protected.text.count(occupied), 1)
         self.assertEqual(protected.restore(protected.text), source)
 
     def test_url_stage_expands_all_supported_separators_and_digits(self):
         self.assertEqual(
             normalize_urls(
                 "Смотри https://example.org/a0?b=1&c-2_d#3%4+5@6~789.",
-                enabled=True,
             ),
             "Смотри https двоеточие слэш слэш example точка org слэш "
             "a ноль вопрос b равно один амперсанд c дефис два "
@@ -183,7 +188,50 @@ class UrlBranchTests(unittest.TestCase):
         )
         for source, expected in cases:
             with self.subTest(source=source):
-                self.assertEqual(normalize_urls(source, enabled=True), expected)
+                self.assertEqual(normalize_urls(source), expected)
+
+    def test_url_stage_normalizes_social_handles_and_hashtags_before_preprocess(self):
+        self.assertEqual(
+            normalize_urls("@support_team #Наука2025"),
+            "собака support подчёркивание team решётка наука 2025",
+        )
+
+    def test_url_stage_does_not_claim_email_fragments_or_numeric_hashes_as_handles(self):
+        source = "Почта help@example.ru, формула C# и ссылка #123."
+        self.assertEqual(
+            normalize_urls(source),
+            "Почта help собака example точка ру, формула C# и ссылка #123.",
+        )
+
+    def test_url_stage_leaves_social_tokens_untouched_when_disabled(self):
+        # Флаг стадии живёт в пайплайне, поэтому выключенность проверяется через
+        # него, а не параметром самой `normalize_urls`.
+        source = "@support_team #Наука2025"
+        normalizer = Normalizer(NormalizeOptions(enable_url_normalization=False))
+        self.assertEqual(normalizer.run_stage("urls", source), source)
+
+    def test_bare_domain_reading_requires_a_known_top_level_domain(self):
+        # Латинский код с точкой — не адрес: домен без схемы узнаётся только по
+        # реестру доменов верхнего уровня.
+        cases = (
+            ("Танк Pz.IV поехал", "Танк Pz.IV поехал"),
+            ("Машина Sd.Kfz.251 ехала", "Машина Sd.Kfz.251 ехала"),
+            ("Файл report.txt лежит рядом", "Файл report.txt лежит рядом"),
+            ("сайт sostav.ru", "сайт sostav точка ру"),
+            ("mail.ru и msn.com", "mail точка ру и msn точка com"),
+            ("direct.yandex.ru", "direct точка yandex точка ру"),
+            ("ссылка sostav.ru/tech2", "ссылка sostav точка ру слэш tech два"),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(normalize_urls(source), expected)
+
+    def test_explicit_url_prefix_reads_any_top_level_domain(self):
+        # `www.` — явный признак адреса, реестр к нему не применяется.
+        self.assertEqual(
+            normalize_urls("www.example.foobar"),
+            "www точка example точка foobar",
+        )
 
     def test_url_stage_keeps_balanced_closers_inside_the_url(self):
         cases = (
@@ -202,7 +250,7 @@ class UrlBranchTests(unittest.TestCase):
         )
         for source, expected in cases:
             with self.subTest(source=source):
-                self.assertEqual(normalize_urls(source, enabled=True), expected)
+                self.assertEqual(normalize_urls(source), expected)
 
 
 class FractionBranchTests(unittest.TestCase):
@@ -674,7 +722,7 @@ class YearBranchTests(unittest.TestCase):
             ("в 1980-м году", "в тысяча девятьсот восьмидесятом году"),
             (
                 "1990-1995 годы",
-                "тысяча девятьсот девяностые — тысяча девятьсот девяносто пятые годы",
+                "тысяча девятьсот девяностый — тысяча девятьсот девяносто пятый годы",
             ),
             (
                 "1990-1995 гг.",
@@ -682,7 +730,7 @@ class YearBranchTests(unittest.TestCase):
             ),
             (
                 "из 1990-1995 годов",
-                "из тысяча девятьсот девяностых — тысяча девятьсот девяносто пятых годов",
+                "из тысяча девятьсот девяностого — тысяча девятьсот девяносто пятого годов",
             ),
         )
         for source, expected in cases:
@@ -709,6 +757,25 @@ class YearBranchTests(unittest.TestCase):
             normalize_numeric_ranges("10—20; 30–40 кг"),
             "10, 20; 30–40 кг",
         )
+
+
+class DictionaryContinuationTests(unittest.TestCase):
+    """The prefix lookup must work on both pymorphy DAWG backends."""
+
+    def test_prefix_of_a_longer_word_is_a_continuation(self):
+        self.assertTrue(_has_dictionary_continuation("професс"))
+
+    def test_letter_sequence_absent_from_the_dictionary_is_not(self):
+        self.assertFalse(_has_dictionary_continuation("ъыь"))
+
+    def test_lookup_needs_only_the_pure_python_dawg_api(self):
+        # `dawg_python` (the fallback used when no compiled wheel is available)
+        # exposes `iterkeys` but not `has_keys_with_prefix`; a stub with just
+        # that method must be enough.
+        words = SimpleNamespace(iterkeys=lambda prefix: iter(["профессор"]))
+        morph = SimpleNamespace(dictionary=SimpleNamespace(words=words))
+        with patch("ru_normalizr._morph.get_morph", return_value=morph):
+            self.assertTrue(_has_dictionary_continuation("професс"))
 
 
 if __name__ == "__main__":

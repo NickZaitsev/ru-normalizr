@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import re
 from typing import Literal
+
+from .text_scan import compile_scan
 
 LetterVowelMode = Literal["single", "double"]
 
@@ -77,7 +78,7 @@ EN_LETTER_NAMES = {
     "U": "ю",
     "V": "ви",
     "W": "дабел ю",
-    "X": "экс",
+    "X": "икс",
     "Y": "уай",
     "Z": "зи",
 }
@@ -100,7 +101,7 @@ _SINGLE_TO_DOUBLE_VOWEL_NAMES = {
 _DOUBLE_TO_SINGLE_VOWEL_NAMES = {
     doubled: single for single, doubled in _SINGLE_TO_DOUBLE_VOWEL_NAMES.items()
 }
-_STANDALONE_VOWEL_NAME_PATTERN = re.compile(
+_STANDALONE_VOWEL_NAME_PATTERN = compile_scan(
     rf"(?<!\S)({'|'.join(sorted((*_SINGLE_TO_DOUBLE_VOWEL_NAMES, *_DOUBLE_TO_SINGLE_VOWEL_NAMES), key=len, reverse=True))})(?!\S)"
 )
 
@@ -132,6 +133,8 @@ def apply_letter_vowel_mode(reading: str, vowel_mode: LetterVowelMode) -> str:
     )
 
 KNOWN_ABBREVIATIONS = {
+    "UTC": "ю ти си",
+    "ISO": "ай эс о",
     "ЛСД": "лсд",
     "СПИД": "спид",
     "ВИЧ": "вич",
@@ -172,6 +175,13 @@ KNOWN_ABBREVIATIONS = {
     "IT": "ай ти",
     "TV": "ти ви",
     "СССР": "эс эс эс эр",
+    # Читаются по буквам, хотя гласных в них хватает, чтобы общее правило
+    # приняло их за слово. Замерено на боевых книгах: «ОГПУ» встретилось 193 раза
+    # и уезжало в синтез как «огпу».
+    "ОГПУ": "о гэ пэ у",
+    "ГПУ": "гэ пэ у",
+    "ЦРУ": "цэ эр у",
+    "МГУ": "эм гэ у",
     "COVID": "ковид",
     "НЕТ": "нет",
     "ДА": "да",
@@ -224,6 +234,9 @@ KNOWN_ABBREVIATIONS = {
     "ТСЖ": "тэ сэ жэ",
     "СНТ": "эс эн тэ",
     "ОАО": "оо аа оо",
+    # «зз», а не «зэ»: удвоенный согласный намеренный, как и удвоение гласных в
+    # режиме `letter_vowel_mode="double"`. В TTS-профиле короткое «зэ» перед
+    # «аа оо» проглатывается, поэтому чтение задано так и опечаткой не является.
     "ЗАО": "зз аа оо",
     "ООО": "оо оо оо",
     "ИП": "и пэ",
@@ -279,27 +292,27 @@ REAL_WORD_POS = frozenset(
 )
 
 RUSSIAN_NAME_TOKEN = r"[А-ЯЁ][а-яё+]+(?:-[А-ЯЁ]?[а-яё+]+)*"
-PERSON_SURNAME_INITIALS_PATTERN = re.compile(
+PERSON_SURNAME_INITIALS_PATTERN = compile_scan(
     rf"(?<![A-Za-zА-Яа-яЁё])(?P<surname>{RUSSIAN_NAME_TOKEN})\s+"
     r"(?P<i1>[А-ЯЁ])\.\s*(?P<i2>[А-ЯЁ])\.(?![A-Za-zА-Яа-яЁё])"
 )
-PERSON_INITIALS_SURNAME_PATTERN = re.compile(
+PERSON_INITIALS_SURNAME_PATTERN = compile_scan(
     rf"(?<![A-Za-zА-Яа-яЁё])(?P<i1>[А-ЯЁ])\.\s*(?P<i2>[А-ЯЁ])\.\s+"
     rf"(?P<surname>{RUSSIAN_NAME_TOKEN})(?![A-Za-zА-Яа-яЁё])"
 )
-PERSON_SURNAME_SINGLE_INITIAL_PATTERN = re.compile(
+PERSON_SURNAME_SINGLE_INITIAL_PATTERN = compile_scan(
     rf"(?<![A-Za-zА-Яа-яЁё])(?P<surname>{RUSSIAN_NAME_TOKEN})\s+"
     r"(?P<i1>[А-ЯЁ])\.(?![A-Za-zА-Яа-яЁё])"
 )
-PERSON_SINGLE_INITIAL_SURNAME_PATTERN = re.compile(
+PERSON_SINGLE_INITIAL_SURNAME_PATTERN = compile_scan(
     rf"(?<![A-Za-zА-Яа-яЁё])(?P<i1>[А-ЯЁ])\.\s+"
     rf"(?P<surname>{RUSSIAN_NAME_TOKEN})(?![A-Za-zА-Яа-яЁё])"
 )
 
-ABBREV_DOTTED_PATTERN = re.compile(
+ABBREV_DOTTED_PATTERN = compile_scan(
     r"(?<![A-Za-zА-ЯЁ])(?:[A-ZА-ЯЁ]\.){2,}[A-ZА-ЯЁ]?\.?(?![A-Za-zА-ЯЁ])"
 )
-ABBREV_SOLID_PATTERN = re.compile(r"(?<![A-Za-zА-ЯЁ])[A-ZА-ЯЁ]{2,}(?![A-Za-zА-ЯЁ])")
+ABBREV_SOLID_PATTERN = compile_scan(r"(?<![A-Za-zА-ЯЁ])[A-ZА-ЯЁ]{2,}(?![A-Za-zА-ЯЁ])")
 
 UNICODE_FRACTIONS = {
     "¼": "1/4",
