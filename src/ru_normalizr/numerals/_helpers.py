@@ -853,6 +853,11 @@ def _is_counting_group(tokens: Sequence[str], idx: int, visible_length: int) -> 
     counted = counted_raw.lower()
     if not counted:
         return False
+    # Сохраняемое неоднозначное сокращение после числа остаётся меткой
+    # количества. Оно не сообщает падеж и не позволяет переносить падеж
+    # существительного слева: «посадских 1169 с родом».
+    if counted in {"с", "с."}:
+        return True
     # The unit lookup keeps the source case: «В» is a volt while «в» is a
     # preposition, so lowercasing first would lose the unit and let the
     # preposition govern the measurement.

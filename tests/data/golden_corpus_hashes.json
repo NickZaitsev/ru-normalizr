@@ -4,8 +4,8 @@
       "01_solovyov_history_of_russia": {
         "input_chars": 22911215,
         "input_sha256": "afe5c91490181b4ef0333644a1b1d436a45f74ce6066b366e7721861aa2a264e",
-        "output_chars": 23324514,
-        "output_sha256": "adf9574d4cb5a7e49851adfcbde2200bd5056fe8bd5cbaa3f6d5a5b9bde59f6e"
+        "output_chars": 23324509,
+        "output_sha256": "d9f81e10739031d0011000ee57353cea496319b2abddb5eaea6670174e5a159a"
       },
       "02_russian_army_and_navy_modern": {
         "input_chars": 614265,
@@ -22,8 +22,8 @@
       "03_karamzin_history_of_russian_state": {
         "input_chars": 4495192,
         "input_sha256": "0a797ad3b7f2678f9d805f2e575024d01e1f84f41c2da0e9bbaf9ed97b5efc6d",
-        "output_chars": 4579640,
-        "output_sha256": "5860370a0d00847e32357c699850be366839b54b922da1d5370803638355d61f"
+        "output_chars": 4579631,
+        "output_sha256": "bf8ad8424da09b7a8d5660f79e7c952beb9a3465f743dcadddb44dfdb401a02b"
       },
       "04_kostomarov_russian_history_biographies": {
         "input_chars": 4262689,
