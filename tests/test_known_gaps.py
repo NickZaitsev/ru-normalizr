@@ -621,16 +621,6 @@ E2E_KNOWN_GAP_CASES = (
                 reason="confirmation code labels do not protect digits from cardinal rendering",
             ),
         ),
-        pytest.param(
-            "Позвоните по телефону +375 29 123-45-67 завтра.",
-            "Позвоните по телефону плюс триста семьдесят пять, двадцать девять, "
-            "сто двадцать три, сорок пять, шестьдесят семь завтра.",
-            id="belarus_phone_groups_are_not_numeric_ranges",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="international phone groups are processed as quantities and ranges",
-            ),
-        ),
     ),
 )
 def test_ruvoice_review_known_gaps(

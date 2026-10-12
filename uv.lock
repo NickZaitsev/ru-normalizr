@@ -630,6 +630,15 @@ wheels = [
 ]
 
 [[package]]
+name = "phonenumberslite"
+version = "9.0.41"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/bd/17/24f8ee3e5041760dcb642a07a9b08eb21e0f2d4ab1bf780b5f8d80aeab52/phonenumberslite-9.0.41.tar.gz", hash = "sha256:9e4249c9bf1fbdd294f152cf79450d45112b36f1e7c77cd4ee6763699d231393", size = 292929, upload-time = "2026-10-08T10:50:53.748Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/eb/be/409bbf25e7d922d7480e71389b9e1707409afd69383825a6e5d03823426b/phonenumberslite-9.0.41-py2.py3-none-any.whl", hash = "sha256:33347389a9105f4f5bd002d60ad9e721e5233950aa6219fb35c20ea2acf8e68f", size = 473205, upload-time = "2026-10-08T10:50:52.137Z" },
+]
+
+[[package]]
 name = "pluggy"
 version = "1.6.0"
 source = { registry = "https://pypi.org/simple" }
@@ -826,6 +835,7 @@ source = { editable = "." }
 dependencies = [
     { name = "eng-to-ipa" },
     { name = "num2words" },
+    { name = "phonenumberslite" },
     { name = "pymorphy3", extra = ["fast"] },
     { name = "pymorphy3-dicts-ru" },
     { name = "roman" },
@@ -846,6 +856,7 @@ dev = [
 requires-dist = [
     { name = "eng-to-ipa", specifier = ">=0.0.2,<0.1" },
     { name = "num2words", specifier = ">=0.5.13,<0.6" },
+    { name = "phonenumberslite", specifier = ">=9.0,<10" },
     { name = "pymorphy3", extras = ["fast"], specifier = ">=2.0,<3" },
     { name = "pymorphy3-dicts-ru", specifier = ">=2.0,<3" },
     { name = "roman", specifier = ">=4.0" },

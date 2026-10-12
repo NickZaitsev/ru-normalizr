@@ -33,6 +33,8 @@ dependencies = [
   "pymorphy3[fast]>=2.0,<3",
   "pymorphy3-dicts-ru>=2.0,<3",
   "roman>=4.0",
+  # План нумерации и международная группировка без геокодера и операторов.
+  "phonenumberslite>=9.0,<10",
 ]
 
 [dependency-groups]

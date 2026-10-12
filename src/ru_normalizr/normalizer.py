@@ -54,6 +54,7 @@ from .numerals.ordinals import (
 )
 from .options import NormalizeOptions
 from .overlong_numbers import protect_overlong_numbers
+from .phones import normalize_international_phone_numbers
 from .placeholders import (
     NUMERAL_TOKENS,
     WINDOWS_PATHS,
@@ -331,6 +332,10 @@ class PipelineNormalizer:
         # paragraph with a dot, and a still-present «* * *» line would receive
         # that dot itself and survive the line-anchored removal below.
         text = text.replace("\r\n", "\n").replace("\r", "\n")
+        if self.options.enable_numeral_normalization:
+            # До склейки строк, изменения скобок и обработки плюса/диапазонов:
+            # распознавание зависит от исходных границ и записи номера.
+            text = normalize_international_phone_numbers(text)
         text = remove_decorative_separators(text)
         text = DECORATIVE_MARKER_PATTERN.sub(" ", text)
         text = ASTERISK_SEPARATOR_PATTERN.sub(" ", text)
