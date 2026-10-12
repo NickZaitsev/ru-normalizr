@@ -608,6 +608,38 @@ E2E_KNOWN_GAP_CASES = (
 )
 
 
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    (
+        pytest.param(
+            "Ваш код подтверждения: 482913. Никому его не сообщайте.",
+            "Ваш код подтверждения: четыре восемь два девять один три. "
+            "Никому его не сообщайте.",
+            id="confirmation_code_read_digit_by_digit",
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="confirmation code labels do not protect digits from cardinal rendering",
+            ),
+        ),
+        pytest.param(
+            "Позвоните по телефону +375 29 123-45-67 завтра.",
+            "Позвоните по телефону плюс триста семьдесят пять, двадцать девять, "
+            "сто двадцать три, сорок пять, шестьдесят семь завтра.",
+            id="belarus_phone_groups_are_not_numeric_ranges",
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="international phone groups are processed as quantities and ranges",
+            ),
+        ),
+    ),
+)
+def test_ruvoice_review_known_gaps(
+    check_tts: CheckTts, source: str, expected: str
+) -> None:
+    """Пробелы сравнительного обзора; правила ruvoice в проект не переносились."""
+    check_tts(source, expected)
+
+
 @pytest.mark.parametrize(("source", "expected"), E2E_KNOWN_GAP_CASES)
 def test_tts_e2e_normalization_known_gaps(
     check_tts: CheckTts, source: str, expected: str
