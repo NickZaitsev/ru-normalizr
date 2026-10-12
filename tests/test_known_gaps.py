@@ -13,6 +13,15 @@ from .conftest import CheckTts
 
 #: Пробелы, найденные точечными проверками, а не сплошным чтением книги.
 HANDWRITTEN_GAP_CASES = (
+    pytest.param(
+        "В книге 300 с., поэтому её удобно брать в дорогу.",
+        "В книге триста с., поэтому её удобно брать в дорогу.",
+        id="page_count_after_book_is_misread_as_book_ordinal",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="book context treats a page count as the ordinal number of a book",
+        ),
+    ),
     # НЕ РЕШАЕТСЯ: запись неоднозначна в самом исходнике. Латинское «K» после
     # числа — кельвины, но та же запись означает тысячи («300K подписчиков»),
     # а кириллическое «К» после числа — ещё и литеру корпуса или комнатность.
