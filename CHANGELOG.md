@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## Unreleased
 
+## [1.3.0] - 2026-10-12
+
 ### Added
 - Международные телефоны с явным «+» читаются группами с сохранением начальных
   нулей: «Телефон +375 29 123-45-67» — «Телефон плюс триста семьдесят пять,
