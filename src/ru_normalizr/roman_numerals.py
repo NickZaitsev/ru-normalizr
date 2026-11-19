@@ -4,7 +4,7 @@ import re
 
 import roman
 
-from ._morph import canonicalize_case, parse_word
+from ._morph import canonicalize_case, parse_word, word_is_known
 from .constants import KNOWN_ABBREVIATIONS
 from .numerals._constants import is_exact_unit_token
 from .numerals._helpers import get_numeral_case
@@ -659,9 +659,103 @@ def convert_roman_words(text: str) -> str:
             number,
             match.group("word"),
         )
+        if rendered is None:
+            rendered = _render_roman_before_common_noun(text, match, number)
         return rendered if rendered is not None else match.group(0)
 
     return pattern.sub(repl, text)
+
+
+#: Однобуквенные римские цифры, которые перед русским словом читаются числом.
+#: C, L, D, M в одиночку — обычно латинские буквы («Отсек C закрыт»).
+_SINGLE_LETTER_ROMAN_BEFORE_NOUN = frozenset({"I", "V", "X"})
+_PLAIN_SPACING_PATTERN = re.compile(r"[ \t ]+")
+_LOWERCASE_CYRILLIC_WORD_PATTERN = re.compile(r"[а-яё]+")
+#: Слово с точкой не длиннее этого считается сокращением: «ст.», «гл.», «кн.».
+_MAX_ABBREVIATION_LETTERS = 4
+
+
+def _render_roman_before_common_noun(
+    text: str,
+    match: re.Match[str],
+    number: int,
+) -> str | None:
+    """«XX съезда» — «двадцатого съезда»: номер перед обычным существительным.
+
+    Римскими цифрами в русском тексте пишут номер, а не количество, поэтому
+    число становится порядковым и согласуется с существительным справа. Слова
+    из `_ROMAN_CONTEXT_LEMMAS` сюда не доходят: их разбирает
+    `_render_single_roman_with_context`.
+
+    Правило срабатывает только когда связь номера со словом однозначна:
+    римское число записано заглавными (одна буква — только I, V, X), стоит в
+    той же строке, а справа строчное словарное слово, лучший разбор которого —
+    существительное. Номер не трогается, если слева рубрика («Часть XX
+    съезд делегатов») или имя монарха («Людовик XIV король»): число
+    принадлежит им. Падеж берётся из формы существительного в единственном
+    числе, а если она неоднозначна («IV конференции») — из контекста. Счётная форма
+    («XX лет») уходит количественному чтению стадии числительных.
+    """
+    roman_token = match.group("roman")
+    if not roman_token.isupper() or roman_token in _ROMAN_ABBREVIATION_EXCEPTIONS:
+        return None
+    if len(roman_token) == 1 and roman_token not in _SINGLE_LETTER_ROMAN_BEFORE_NOUN:
+        return None
+    if not _PLAIN_SPACING_PATTERN.fullmatch(match.group("spacing")):
+        return None
+    word, trailing_punctuation = _split_context_word_punctuation(match.group("word"))
+    # Короткое слово с точкой — сокращение («к концу XVI ст.»): его род и падеж
+    # неизвестны, согласовывать номер не с чем.
+    if trailing_punctuation and len(word) <= _MAX_ABBREVIATION_LETTERS:
+        return None
+    # Слово должно быть словарным: угаданный разбор делает существительными
+    # дореформенные глаголы («Карлъ XII обнаружилъ»).
+    if not _LOWERCASE_CYRILLIC_WORD_PATTERN.fullmatch(word) or not word_is_known(word):
+        return None
+    parses = parse_word(word)
+    if not parses or "NOUN" not in parses[0].tag:
+        return None
+    if _heading_noun_precedes(text, match.start()) or _animate_name_precedes(
+        text, match.start()
+    ):
+        return None
+    if _is_counted_plural_form(parses[0]):
+        return f"{number} {word}{trailing_punctuation}"
+    lemma = parses[0].normal_form
+    singular_parses = [
+        candidate
+        for candidate in parses
+        if "NOUN" in candidate.tag
+        and candidate.normal_form == lemma
+        and "sing" in candidate.tag
+    ]
+    if not singular_parses:
+        return None
+    cases = {canonicalize_case(candidate.tag.case) for candidate in singular_parses}
+    case = (
+        next(iter(cases))
+        if len(cases) == 1
+        else _infer_roman_context_case(text, match, word)
+    )
+    rendered_ordinal = _render_ordinal_for_context_noun(
+        number, singular_parses[0], case=case
+    )
+    return f"{rendered_ordinal} {word}{trailing_punctuation}"
+
+
+def _heading_noun_precedes(text: str, start: int) -> bool:
+    """Слева вплотную слово-рубрика («Глава XX», «Часть XX»): номер — его."""
+    left = text[max(0, start - 40) : start]
+    trimmed = left.rstrip()
+    if trimmed == left or not trimmed:
+        return False
+    word_match = re.search(r"[А-ЯЁа-яё]+$", trimmed)
+    if word_match is None:
+        return False
+    return any(
+        "NOUN" in candidate.tag and candidate.normal_form in _ROMAN_CONTEXT_LEMMAS
+        for candidate in parse_word(word_match.group(0).lower())
+    )
 
 
 def convert_roman_century_ranges(text: str) -> str:
