@@ -3708,6 +3708,41 @@ CYRILLIC_ROMAN_LOOKALIKE_CASES = (
         "Буквы ха ха выглядят одинаково в двух алфавитах.",
         id="cyrillic_lookalike_without_century_stays_letters",
     ),
+    # Номеруемое существительное справа тоже снимает неоднозначность: в
+    # книгах «ХХ съезд» часто набран кириллицей и звучал как «ха ха съезда».
+    pytest.param(
+        "Доклад на закрытом заседании ХХ съезда партии.",
+        "Доклад на закрытом заседании двадцатого съезда партии.",
+        id="cyrillic_lookalike_before_common_noun_is_roman",
+    ),
+    pytest.param(
+        "На ХХ съезде всё изменилось.",
+        "На двадцатом съезде всё изменилось.",
+        id="cyrillic_lookalike_before_prepositional_noun_is_roman",
+    ),
+    pytest.param(
+        "Открылась ХІХ конференция.",
+        "Открылась девятнадцатая конференция.",
+        id="cyrillic_lookalike_with_ukrainian_i_before_noun_is_roman",
+    ),
+    # Счётная форма справа — скорее обозначение, чем номер.
+    pytest.param(
+        "Набор ХХ хромосом у женщин.",
+        "Набор ха ха хромосом у женщин.",
+        id="cyrillic_lookalike_before_counted_form_stays_letters",
+    ),
+    # Предлог справа — тоже не номер.
+    pytest.param(
+        "Хромосомы ХХ у женщин.",
+        "Хромосомы ха ха у женщин.",
+        id="cyrillic_lookalike_before_preposition_stays_letters",
+    ),
+    # «С» и «М» в двойниках — аббревиатуры, даже перед существительным.
+    pytest.param(
+        "Офицер СС штандартенфюрер вошёл.",
+        "Офицер эс эс штандартенфюрер вошёл.",
+        id="cyrillic_c_lookalike_before_noun_stays_abbreviation",
+    ),
 )
 
 

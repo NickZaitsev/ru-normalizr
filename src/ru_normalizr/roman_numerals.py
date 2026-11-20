@@ -1099,6 +1099,42 @@ def _join_dotted_roman(word: str, cyrillic_to_latin: dict[str, str]) -> str:
     return joined
 
 
+#: Кириллические двойники, которые без «века» справа ещё могут быть номером:
+#: «ХХ съезд», «ХІХ конференция». «С» и «М» сюда не входят — «СС», «СМ»,
+#: «МС» в русском тексте почти всегда аббревиатуры, а не 200, 900 и 1100.
+_CYRILLIC_ROMAN_NOUN_CHARS = frozenset("ХІ")
+#: Хвост после кириллического двойника: необязательный ряд других римских
+#: чисел через запятую, «и», «или» («ХХ и XXII съезды») и слово справа в той же
+#: строке.
+_CYRILLIC_ROMAN_NOUN_TAIL_PATTERN = re.compile(
+    r"(?:(?:[ \t ]*,[ \t ]*|[ \t ]+(?:и|или)[ \t ]+)[IVXLCDMХІ]+)*"
+    r"[ \t ]+(?P<word>[а-яё]+)(?![\w-])"
+)
+
+
+def _cyrillic_roman_numbers_noun(text: str, word: str, end: int) -> bool:
+    """Номерует ли кириллическая запись («ХХ») существительное справа.
+
+    Римскими цифрами пишут номер, поэтому «ХХ съезда» — это «XX съезда», а не
+    две буквы. Существительное должно быть строчным словарным словом с лучшим
+    разбором `NOUN` и не стоять в счётной форме: «набор ХХ хромосом» — скорее
+    обозначение, чем «двадцать хромосом», и остаётся буквами. Глагол или
+    предлог справа («Буквы ХХ выглядят», «ХХ у женщин») тоже оставляет буквы.
+    """
+    if not all(char in _CYRILLIC_ROMAN_NOUN_CHARS for char in word):
+        return False
+    tail = _CYRILLIC_ROMAN_NOUN_TAIL_PATTERN.match(text, end)
+    if tail is None:
+        return False
+    noun = tail.group("word")
+    if not word_is_known(noun):
+        return False
+    parses = parse_word(noun)
+    if not parses or "NOUN" not in parses[0].tag:
+        return False
+    return not _is_counted_plural_form(parses[0])
+
+
 def normalize_cyrillic_roman(text: str) -> str:
     cyrillic_to_latin = {
         "Х": "X",
@@ -1133,9 +1169,11 @@ def normalize_cyrillic_roman(text: str) -> str:
             not any(char in _ROMAN_LATIN_CHARS for char in word)
             and all(char in _ROMAN_CYRILLIC_LOOKALIKE_CHARS for char in word)
             and not _CENTURY_WORD_AFTER_PATTERN.match(text, match.end())
+            and not _cyrillic_roman_numbers_noun(text, word, match.end())
         ):
             # Целиком кириллическая запись сама за себя не говорит («ХХ» — это
-            # и две буквы), но слово «век» справа снимает неоднозначность.
+            # и две буквы), но слово «век» или номеруемое существительное
+            # справа снимает неоднозначность.
             return word
         latin_word = "".join(cyrillic_to_latin.get(char, char) for char in word).upper()
         try:
