@@ -1112,7 +1112,36 @@ _CYRILLIC_ROMAN_NOUN_TAIL_PATTERN = re.compile(
 )
 
 
-def _cyrillic_roman_numbers_noun(text: str, word: str, end: int) -> bool:
+#: Генетический контекст: «хромосомы ХХ», «ХХ или XY». Здесь «ХХ» — набор
+#: половых хромосом, а не номер, сколько бы существительных ни стояло справа.
+#: Генотип узнаётся по латинской «Y» (XY, ХY, XXY, XYY): кириллическое «ХУ»
+#: слишком часто значит другое.
+_GENOTYPE_CONTEXT_PATTERN = re.compile(
+    r"(?i:хромосом)|(?<![\w-])[XХ]{1,2}Y{1,2}(?![\w-])"
+)
+#: Граница предложения или строки для окна генетического контекста.
+_SENTENCE_BOUNDARY_PATTERN = re.compile(r"[.!?\n]")
+#: Сколько символов в каждую сторону смотреть в поисках генетического контекста.
+_GENOTYPE_CONTEXT_WINDOW = 160
+
+
+def _in_genotype_context(text: str, start: int, end: int) -> bool:
+    """Стоит ли запись в одном предложении с генетическим контекстом."""
+    left = text[max(0, start - _GENOTYPE_CONTEXT_WINDOW) : start]
+    boundaries = list(_SENTENCE_BOUNDARY_PATTERN.finditer(left))
+    if boundaries:
+        left = left[boundaries[-1].end() :]
+    right = text[end : end + _GENOTYPE_CONTEXT_WINDOW]
+    boundary = _SENTENCE_BOUNDARY_PATTERN.search(right)
+    if boundary:
+        right = right[: boundary.start()]
+    return bool(
+        _GENOTYPE_CONTEXT_PATTERN.search(left)
+        or _GENOTYPE_CONTEXT_PATTERN.search(right)
+    )
+
+
+def _cyrillic_roman_numbers_noun(text: str, word: str, start: int, end: int) -> bool:
     """Номерует ли кириллическая запись («ХХ») существительное справа.
 
     Римскими цифрами пишут номер, поэтому «ХХ съезда» — это «XX съезда», а не
@@ -1120,11 +1149,15 @@ def _cyrillic_roman_numbers_noun(text: str, word: str, end: int) -> bool:
     разбором `NOUN` и не стоять в счётной форме: «набор ХХ хромосом» — скорее
     обозначение, чем «двадцать хромосом», и остаётся буквами. Глагол или
     предлог справа («Буквы ХХ выглядят», «ХХ у женщин») тоже оставляет буквы.
+    В одном предложении с хромосомами или генотипом («хромосом ХХ гена»,
+    «ХХ женщины или XY мужчины») запись — набор хромосом, а не номер.
     """
     if not all(char in _CYRILLIC_ROMAN_NOUN_CHARS for char in word):
         return False
     tail = _CYRILLIC_ROMAN_NOUN_TAIL_PATTERN.match(text, end)
     if tail is None:
+        return False
+    if _in_genotype_context(text, start, end):
         return False
     noun = tail.group("word")
     if not word_is_known(noun):
@@ -1169,7 +1202,9 @@ def normalize_cyrillic_roman(text: str) -> str:
             not any(char in _ROMAN_LATIN_CHARS for char in word)
             and all(char in _ROMAN_CYRILLIC_LOOKALIKE_CHARS for char in word)
             and not _CENTURY_WORD_AFTER_PATTERN.match(text, match.end())
-            and not _cyrillic_roman_numbers_noun(text, word, match.end())
+            and not _cyrillic_roman_numbers_noun(
+                text, word, match.start(), match.end()
+            )
         ):
             # Целиком кириллическая запись сама за себя не говорит («ХХ» — это
             # и две буквы), но слово «век» или номеруемое существительное
