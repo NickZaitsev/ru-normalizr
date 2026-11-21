@@ -32,7 +32,7 @@ Whenever you identify a workaround, defect, or reliability risk, please highligh
 - Maintain .gitignore yourself: add generated, local, temporary, cache, build, and environment files as they appear.
 - In the Bash tool, pass multi-line commit messages via `-m` with a regular double-quoted string (or heredoc), NOT PowerShell `@'...'@` syntax — the `@` leaks into the message text.
 - Do not create new branches without explicit user confirmation. Work in the current branch; сreate a branch only on explicit request.
-- On a push request: (1) run lint/type-check/tests; (2) push the current branch; (3) create annotated tag `tested-N` (next N from `git ls-remote --tags origin`) on the pushed commit and push it. Skip step 3 if 1 or 2 failed. Never move or delete existing tags.
+- On a push request: run lint/type-check/tests, then push the current branch. Never move or delete existing tags.
 
 ## Tests and completion
 
